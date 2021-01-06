@@ -1,635 +1,635 @@
-4. Создаем свой эльф 
-Теперь создание эльфов стало совсем простым делом :) 
-Проще всего подправить готовый пример: см. предыдущий раздел. 
-Добавляем к проекту "Project->Add Files" файлы Siemens.c и main.c 
-(А вот последняя версия мультиплатформенного Siemens.cpp с автоопределением типа мобилы). 
-К проекту должны быть подключены файлы Func.asm (точка старта) и div.r79 (деление, см.Swilib выше) 
-Корректируем в main.c функции: 
-onkey - обработка клавиш (return 1 для выхода из эльфа) 
-onredraw - перерисовка экрана (массива screen[132*176]) 
-onstart, oncreate - функции вызываются при старте 
-onclose, onexit - функции вызываются при выходе 
-REDRAW() вызываем для перерисовки экрана (запуска onredraw) 
-И ВСЕ! У Вас готовое приложение. Специфику Сименса знать не нужно вообще! 
-Также см. примеры ниже. 
-
-5. Пример 1. Работа с памятью и файлами 
-меняем в любом примере main.c на: 
-#include "E:\ARM\swilib.h" 
-
-void ElfKiller(void){ // Используется для выхода из эльфа 
-extern void *ELF_BEGIN; 
-// здесь обычно еще освобождают память по mfree(), freeWS() 
-((void (*)(void *))(mfree_adr()))(&ELF_BEGIN); // Ничего не понятно :( 
-} 
-
-int main(char *exename, char *fname){ // Основная функция 
-// в exename передается путь запущенного эльфа вида 4:\Zbin\xyz.elf 
-// в fname передается имя файла, который выбран в CardExplorere, вида 0:\Misc\data.txt 
-// или 0, если elf запущен сам 
-char *mem; 
-int i, err; 
-int handle; 
-if(fname){ 
-// Работа с файлами стандартна: 
-handle=fopen(fname,A_ReadWrite+A_BIN+A_Append+A_Create,P_READ+P_WRITE,&err); 
-// Открыть для чтения и записи в двоичн. режиме с дозаписью (append), создать если нет 
-// или handle=fopen(fname,A_ReadOnly+A_BIN,P_READ,&err); // только для чтения - константы см. swilib.h 
-if(handle!=-1){ //-1 = error 
-mem=malloc(10000); // Выделить память: AllocWS() для строк (по 2б) 
-if(mem!=0){ //0 = error 
-i=fread(handle,mem,10000,&err); // Возвращает число прочитанных байт и ошибку в err 
-// Делаем что-либо makesomebody(mem,i); 
-fwrite(handle,mem,i,&err); 
-mfree(mem); // Освободить память: FreeWS() для строк 
-} 
-fclose(handle); // Закрыть файл 
-} 
-} 
-SUBPROC((void *)ElfKiller); // се загадка великая есть :) Но без нее низя! 
-return(0); 
-} 
-// PS. Т.к. в x65 файловые чтение и запись проводятся блоками до 32767 байт, 
-// вместо fread() и fwrite() используем их аналоги fread32() и fwrite32( аналогично) 
-
-int fread32(int fh, char *buf, int len, unsigned int *err) // (с) Rst7 
-{ 
-int clen; 
-int rlen; 
-int total=0; 
-while(len) 
-{ 
-if (len>16384) clen=16384; else clen=len; 
-total+=(rlen=fread(fh, buf, clen, err)); 
-if (rlen!=clen) break; 
-buf+=rlen; 
-len-=clen; 
-} 
-return(total); 
-} 
-
-Не забываем включить в каждый проект файл  Func.asm: 
-PUBLIC ELF_BEGIN 
-RSEG ELFBEGIN:DATA 
-ELF_BEGIN 
-defadr MACRO a,b 
-PUBLIC a 
-a EQU b 
-ENDM 
-END 
-
-6. Пример 2. Вывод на экран и обработка клавиш 
-Выводит маленький рисунок на экран, перемещаемый с помощью джойстика, 
-и выходит по долгому нажатию красной кнопки. Сделан на примере TED-а (c) Rst7 
-Смотреть снизу-вверх :) 
-меняем в примере main.c на: 
-#include "E:\ARM\swilib.h" 
-
-typedef struct 
-{ 
-GUI gui; 
-// WSHDR *ws1; 
-// WSHDR *ws2; 
-// int i1; 
-}MAIN_GUI; 
-
-typedef struct 
-{ 
-CSM_RAM csm; 
-int gui_id; 
-}MAIN_CSM; 
-
-const int minus11=-11; 
-const unsigned int INK=0; 
-const unsigned int PAPER=1; 
-volatile int xx=0, yy=0; // Координаты отображения рисунка 
-
-const char bmp[12]={0xFC,0x86,0xB3,0xA9,0xB1,0xA9,0x81,0xFF,0,0,0,0}; 
-const IMGHDR img = {8,12,0x1,0,(char *)bmp}; 
-
-//================================ 
-//Вывод на экран 
-//================================ 
-
-void DrwImg(IMGHDR *img, int x, int y, int *pen, int *brush) 
-{ 
-RECT rc; 
-DRWOBJ drwobj; 
-StoreXYWHtoRECT(&rc,x,y,img->w,img->h); 
-SetPropTo_Obj5(&drwobj,&rc,0,img); 
-SetColor(&drwobj,pen,brush); 
-DrawObject(&drwobj); 
-} 
-
-void DrawScreen(void) 
-{ 
-int *ink=GetPaletteAdrByColorIndex(INK); 
-int *paper=GetPaletteAdrByColorIndex(PAPER); 
-int x=xx; 
-DrwImg((IMGHDR *)&img,x,yy,ink,paper); 
-} 
-
-//Перерисовка основного диалога 
-void method0(MAIN_GUI *data){ 
-DrawScreen(); 
-} 
-
-void method1(MAIN_GUI *data, void *(*malloc_adr)(int)){} 
-void method2(MAIN_GUI *data, void (*mfree_adr)(void *)){} 
-void method3(MAIN_GUI *data, void *(*malloc_adr)(int), void (*mfree_adr)(void *)){} 
-void method4(MAIN_GUI *data, void (*mfree_adr)(void *)){} 
-void method7(MAIN_GUI *data, void (*mfree_adr)(void *)){} 
-int method8(void){return(0);} // Пустая ф-я 
-int method9(void){return(0);} // Пустая ф-я 
-
-//------------------------------------------------------------------------------ 
-// Осн. диалог - обработка кнопок 
-//------------------------------------------------------------------------------ 
-int method5(MAIN_GUI *data, GUI_MSG *msg) 
-{ 
-// if (msg->gbsmsg->msg==KEY_UP) // Клавиша отпущена 
-if ((msg->gbsmsg->msg==KEY_DOWN)||(msg->gbsmsg->msg==LONG_PRESS)) // Кл. нажата или удерживается 
-switch(msg->gbsmsg->submess) 
-{ 
-case RED_BUTTON: 
-return(1); //Происходит вызов GeneralFunc для тек. GUI -> закрытие GUI 
-case UP_BUTTON: 
-if(yy>0) --yy; break; 
-case LEFT_BUTTON: 
-if(xx>0) --xx; break; 
-case DOWN_BUTTON: 
-if(yy<130) ++yy; break; 
-case RIGHT_BUTTON: 
-if(xx<120) ++xx; break; 
-
-// case GREEN_BUTTON: 
-// case RIGHT_SOFT: 
-// case ENTER_BUTTON: 
-// case LEFT_SOFT: 
-// case VOL_UP_BUTTON: 
-// case VOL_DOWN_BUTTON: 
-// case '0': 
-// case '9': 
-// case '#': 
-// SUBPROC((void *)DoDiskAccess,1); 
-// Др. процесс с низким приоритетом чтобы не тормозить перерисовку окна 
-} 
-DrawScreen(); 
-return(0); 
-} 
-
-const void * const gui_methods[11]={ 
-(void *)method0, //Redraw 
-(void *)method1, //Create 
-(void *)method2, //Close 
-(void *)method3, //Focus 
-(void *)method4, //Unfocus 
-(void *)method5, //OnKey 
-0, 
-(void *)method7, //Destroy 
-(void *)method8, 
-(void *)method9, 
-0 
-}; 
-
-const RECT Canvas={0,0,131,175}; 
-
-void maincsm_oncreate(CSM_RAM *data) 
-{ 
-MAIN_GUI *main_gui=malloc(sizeof(MAIN_GUI)); 
-MAIN_CSM*csm=(MAIN_CSM*)data; 
-zeromem(main_gui,sizeof(MAIN_GUI)); 
-
-// ustk=malloc(STKSZ); // Выделяем память под что нам надо 
-// info_ws=AllocWS(512); 
-
-main_gui->gui.canvas=(void *)(&Canvas); 
-main_gui->gui.flag30=2; 
-main_gui->gui.methods=(void *)gui_methods; // Основные методы (см. выше) 
-main_gui->gui.item_ll.data_mfree=(void (*)(void *))mfree_adr(); // Ниже ниче не знаю :( 
-csm->csm.state=0; 
-csm->csm.unk1=0; 
-csm->gui_id=CreateGUI(main_gui); // Собственно создание GUI 
-} 
-
-void Killer(void) // Выход 
-{ 
-extern void *ELF_BEGIN; 
-// mfree(ustk); // Освобождаем память 
-// FreeWS(info_ws); 
-((void (*)(void *))(mfree_adr()))(&ELF_BEGIN); 
-} 
-
-void maincsm_onclose(CSM_RAM *csm) 
-{ 
-// GBS_StopTimer(&light_tmr); 
-SUBPROC((void *)Killer); 
-} 
-
-int maincsm_onmessage(CSM_RAM *data, GBS_MSG *msg){ 
-return(1); 
-} 
-
-unsigned short maincsm_name_body[140]; 
-
-const struct 
-{ 
-CSM_DESC maincsm; 
-WSHDR maincsm_name; 
-}MAINCSM = 
-{ 
-{ 
-maincsm_onmessage, // Обработчик сообщений 
-maincsm_oncreate, // Вызывается при создании 
-// 0, // Для S75 убрать комментарии в 4х строчках 
-// 0, // и раскомментировать в swilib.h строку #define NEWSGOLD 
-// 0, 
-// 0, 
-maincsm_onclose, // Вызывается при закрытии 
-sizeof(MAIN_CSM), 
-1, 
-&minus11 
-}, 
-{ 
-maincsm_name_body, 
-NAMECSM_MAGIC1, 
-NAMECSM_MAGIC2, 
-0x0, 
-139 
-} 
-}; 
-
-int main(char *exename, char *fname) 
-{ 
-char dummy[sizeof(MAIN_CSM)]; 
-// strcpy(filename,fname); // Сохраняем где-либо fname 
-CreateCSM(&MAINCSM.maincsm,dummy,0); 
-return 0; 
-} 
-
-7. Пример попроще. Запускаем фоновый процесс, рисуем по таймеру 
-Добавляем к проекту "Project->Add Files" файл Siemens.c: 
-// Siemens.c 0.1 
-// Интерфейс мобилы для IAR 
-// Здесь ничего не трогаем! (если не уверены) 
-// Внешние функции вызываются при: 
-extern int onstart(char *exename, char *fname); // Старте приложения. Возвращает 0 или 1 для выхода. 
-extern void oncreate(); // Создании окна 
-extern void onclose(); // Закрытии окна 
-extern void onexit(); // Выходе 
-extern void onredraw(void); // Перерисовке экрана 
-extern int onkey(unsigned char keycode, int pressed); // Нажатии клавиши. Возвращает 0 или 1 для выхода. 
-
-// В swilib.h комментируем // строку #define NEWSGOLD если не S75 
-#include "E:\ARM\swilib.h" 
-// Следующая строка задает 16 битный режим (RGB 565 по 2 байта на точку экрана screen) 
-// закомментировав получим 8 битный режим (RGB 232 по 1 байту на точку) 
-#define HIGHCOLOR 
-#ifdef HIGHCOLOR 
-short screen[132*176]; 
-const int screensize=132*176*sizeof(short); 
-const IMGHDR img = {(unsigned)132,(unsigned)176,8,0,(char*)screen}; 
-#else 
-char screen[132*176]; 
-const int screensize=132*176*sizeof(char); 
-const IMGHDR img = {(unsigned)132,(unsigned)176,5,0,(char*)screen}; 
-#endif 
-
-// Ниже читать уже не надо! :) 
-typedef struct 
-{ 
-GUI gui; 
-WSHDR *ws1; 
-WSHDR *ws2; 
-int i1; 
-}MAIN_GUI; 
-
-typedef struct 
-{ 
-CSM_RAM csm; 
-int gui_id; 
-}MAIN_CSM; 
-
-void DrawScreen(){ 
-RECT rc; DRWOBJ drwobj; 
-StoreXYWHtoRECT(&rc,0,0,img.w,img.h); 
-SetPropTo_Obj5(&drwobj,&rc,0,(IMGHDR*)&img); 
-SetColor(&drwobj,GetPaletteAdrByColorIndex(0),GetPaletteAdrByColorIndex(1)); 
-DrawObject(&drwobj); 
-} 
-void method0(MAIN_GUI *data){ onredraw(); DrawScreen();} 
-void method1(MAIN_GUI *data, void *(*malloc_adr)(int)){ oncreate(); data->gui.state=1;} 
-void method2(MAIN_GUI *data, void (*mfree_adr)(void *)){ data->gui.state=0;} 
-void method3(MAIN_GUI *data, void *(*malloc_adr)(int), void (*mfree_adr)(void *)){ data->gui.state=2;} 
-void method4(MAIN_GUI *data, void (*mfree_adr)(void *)){ if (data->gui.state!=2) return; data->gui.state=1;} 
-int method5(MAIN_GUI *data, GUI_MSG *msg){ 
-return onkey(msg->gbsmsg->submess, msg->gbsmsg->msg);} 
-void method7(MAIN_GUI *data, void (*mfree_adr)(void *)){}// mfree_adr(data); 
-int method8(void){return(0);} // Пустая ф-я 
-int method9(void){return(0);} // Пустая ф-я 
-
-const void * const gui_methods[11]={ 
-(void *)method0, //Redraw 
-(void *)method1, //Create 
-(void *)method2, //Close 
-(void *)method3, //Focus 
-(void *)method4, //Unfocus 
-(void *)method5, //OnKey 
-0, 
-(void *)method7, //Destroy 
-(void *)method8, 
-(void *)method9, 
-0 
-}; 
-
-const RECT Canvas={0,0,131,175}; 
-
-void maincsm_oncreate(CSM_RAM *data) 
-{ 
-MAIN_GUI *main_gui=malloc(sizeof(MAIN_GUI)); 
-MAIN_CSM*csm=(MAIN_CSM*)data; 
-zeromem(main_gui,sizeof(MAIN_GUI)); 
-// ustk=malloc(STKSZ); // Выделяем память 
-// info_ws=AllocWS(512); 
-main_gui->gui.canvas=(void *)(&Canvas); 
-main_gui->gui.flag30=2; 
-main_gui->gui.methods=(void *)gui_methods; 
-main_gui->gui.item_ll.data_mfree=(void (*)(void *))mfree_adr(); 
-csm->csm.state=0; 
-csm->csm.unk1=0; 
-csm->gui_id=CreateGUI(main_gui); 
-} 
-
-void Killer(void){ 
-extern void *ELF_BEGIN; 
-extern void kill_data(void *p, void (*func_p)(void *)); 
-onexit(); 
-kill_data(&ELF_BEGIN,(void (*)(void *))mfree_adr()); 
-// ((void (*)(void *))(mfree_adr()))(&ELF_BEGIN); 
-} 
-
-void maincsm_onclose(CSM_RAM *csm) 
-{ 
-onclose(); 
-SUBPROC((void *)Killer); 
-} 
-
-int maincsm_onmessage(CSM_RAM *data, GBS_MSG *msg){ 
-MAIN_CSM *csm=(MAIN_CSM*)data; 
-if ((msg->msg==MSG_GUI_DESTROYED)&&((int)msg->data0==csm->gui_id)) 
-csm->csm.state=-3; 
-return(1); 
-} 
-
-const int minus11=-11; 
-unsigned short maincsm_name_body[140]; 
-
-const struct 
-{ 
-CSM_DESC maincsm; 
-WSHDR maincsm_name; 
-}MAINCSM = 
-{ 
-{ 
-maincsm_onmessage, 
-maincsm_oncreate, 
-#ifdef NEWSGOLD 
-0, 
-0, 
-0, 
-0, 
-#endif 
-maincsm_onclose, 
-sizeof(MAIN_CSM), 
-1, 
-&minus11 
-}, 
-{ 
-maincsm_name_body, 
-NAMECSM_MAGIC1, 
-NAMECSM_MAGIC2, 
-0x0, 
-139 
-} 
-}; 
-
-int main(char *exename, char *fname){ 
-char dummy[sizeof(MAIN_CSM)]; 
-if(onstart(exename,fname)) SUBPROC((void *)Killer); 
-else CreateCSM(&MAINCSM.maincsm,dummy,0); 
-return 0; 
-} 
-
-Теперь корректируем (если нужно) файл main.c: 
-// Main.c 0.1 
-// Demo 3: Пример попроще: Запускаем фоновый процесс, рисуем по таймеру 
-
-#include "E:\ARM\swilib.h" 
-extern short screen[132*176]; // Экран 132*176*2 
-extern void DrawScreen(); // Функция перерисовки экрана 
-void onredraw(void); 
-
-//#define RGB8(R,G,B) (B+(G<<2)+(R<<5)) 
-#define RGB16(R,G,B) ((B>31?31:B)+((G>63?63:G)<<5)+((R>31?31:R)<<11)) 
-
-char *buf=0; // Какой-то буфер (для примера выделения памяти) 
-int bufsize=10000; // Его размер 
-volatile int started=0; // Процесс проверяет флаг и выходит если =0 
-int color=0; 
-
-GBSTMR timer; 
-void timer_proc(void){ // Функция выполняется по таймеру 10 раз в секунду 
-if(started){ 
-REDRAW(); // Перерисовать экран 
-} 
-GBS_StartTimerProc(&timer,262/10,timer_proc); // Стартуем таймер с частотой 10 раз в секунду 
-// Он выполняется однократно поэтому его нужно постоянно запускать 
-} 
-
-void execute(){ // Фоновый процесс 
-started=1; 
-while(started){ // Пока нет команды на останов 
-onredraw(); // ТОЛЬКО для примера, на деле делаем что-либо еще 
-} 
-} 
-
-int onstart(char *exename, char *fname){ // Старт приложения. Возвращает 0 или 1 для выхода. 
-// if(!fname) return 1; // Если не задано имя файла выходим 
-buf=(char *)malloc(bufsize); // Выделяем память и т.п. 
-if(!buf) return 1; // Не получилось - выходим 
-// Здесь делаем что-либо 
-return 0; 
-} 
-
-void oncreate(){ // Создание окна 
-SUBPROC((void *)execute); // Запускаем фоновый процесс 
-GBS_StartTimerProc(&timer,262/10,timer_proc); // Стартуем таймер с частотой 10 раз в секунду 
-} 
-
-void onclose(){ // Закрытие окна 
-started=0; // Сигнал на остановку фонового процесса 
-GBS_StopTimer(&timer); // Останавливаем таймер 
-// Сохраняем конфигурацию если надо 
-} 
-
-void onexit(){ // Выход 
-if(buf) mfree(buf); // Освобождаем память 
-} 
-
-void onredraw(void){ // Перерисовка экрана screen[132*176] 
-int i,j; 
-for(i=0,j=color++;i<132*176;i++){ 
-screen[i]=j++; 
-} 
-} 
-
-// keycode - код клавиши, pressed - нажата/отпущена/удерживается 
-int onkey(unsigned char keycode, int pressed){ // Обработчик клавиш. Вернуть 0 или 1 для выхода 
-switch(pressed){ 
-case KEY_UP: break; // Клавиша отпущена 
-case LONG_PRESS: // Клавиша удерживается долго (повтор) 
-case KEY_DOWN: // Клавиша нажата 
-switch(keycode){ // Код клавиши 
-case RED_BUTTON: return 1; // Выход 
-case LEFT_SOFT: case RIGHT_BUTTON: case UP_BUTTON: case ENTER_BUTTON: // Делаем что-либо 
-case '0': case '9': case '#': case '*': break; 
-default: return 0; 
-} 
-onredraw(); DrawScreen(); // Перерисовать экран 
-} 
-return 0; 
-} 
-//#define MSG_GUI_DESTROYED 152 //для не s75 если у Вас нет в swilib.h 
-
-
-8. Пример 4. Резидентная программа 
-[...] 
-
-9. FAQ 
-Собран на основе ответов Rst7 (спасибо ему:) 
-
-- почему в iar cu конструкция char c[100]; int a=*(int*)(c+5) выключает трубу? 
-Потому что ты пытаешься читать int по некруглому адресу - проц это посылает нах - генерирует исключение... Если тебе надо такое делать, то читай побайтно и собирай в отдельный инт. 
-
-- обязательно при выходе освобождать всю память по mfree()? 
-Всю, которую занял - обязательно 
-
-- как отлаживать эльфы кроме как копировать их на телефон и писать лог? 
-Дебаггером Хаосовским... Ищешь BLX R4 в загрузчике эльфов, ставишь туда точку останова и вперед... 
-
-- что делают SUBPROC ? REDRAW ? 
-SUBPROC - вызов функции в контексте другого потока с малым приоритетом для того, чтобы не тормозить GUI, если надо что-то долго делать (например в TED\'е грузить текст, в MegaDial\'е искать имена в записной книжке) 
-REDRAW - вызвать метод onRedraw отображаемого GUI (можно из контекста процесса-помощника) 
-
-Ответы от cbn: 
-- как получить дату/время? 
-TDate date; TTime time; 
-GetDateTime(&date,&time); 
-sprintf(s,"%d:%02d",time.hour,time.min); 
-sprintf(ss,"%02d-%02d-%04d",date.day, date.month,date.year); 
-
-- IAR пишет: неизвестная функция div_32a (или адрес ELF_BEGIN) 
-К проекту должны быть подключены соответственно файлы div.r79 и func.asm 
-
-- приложение работает слишком медленно - как переписать на асм? 
-С переписыванием на асм спешить не стоит - сначала нужно убедиться что си версия работает без ошибок. Наибольшее ускорение дает правильно написанный АЛГОРИТМ, нужно попытаться его улучшить. В компиляторе включить максимальную оптимизация по скорости. 
-И уже последний этап - замерить или прикинуть какие части кода выполняются наиболее долго (80% времени проца занимает 20% кода) и переписать их. 
-
-Пример: добавляем в func.asm функцию myfunc(a,b,c,d) 
-вставляем ПЕРЕД ELF_BEGIN ее код 
-    PUBLIC myfunc 
-myfunc: PUSH {R4-R6,LR} 
-    ;делаем что-то с R4-R6 (можно до R12) 
-    POP {R4-R6,PC} ; Возврат 
-    ;или делать BX LR не сохраняя его 
-Вызов из Си: 
-extern int myfunc(int a,int b,int c, int d); 
-myfunc(a,b,c,d); 
-Первые 4 параметра передаются соотв. в регистрах R0-R3, остальные через стек. 
-Результат возвращается в R0. 
-Систему команд АРМ смотрим тут и тут 
-
-- почему на х65-75 не открываются файлы с карточки (MMC)? 
-В fopen() должно быть P_READ вместо 0 
-
-- как вывести на экран рисунок bmp? 
-См. тут 
-
-- есть ли вирусы на эльфах и как с ними бороться? 
-См. тут 
-
--как портировать имеющиеся исходники в IAR ? 
-Сложно. см. тут 
-
--как отлаживать эльф? 
-Несложного отладчика нет :( придумываем сами 
-Можно попробовать выводить значение параметра на экран 
-char s[128]; sprintf(s,"Значение a= %d",a); ShowMSG(1,(int)s); //или через DrawString(...) 
-или писать в лог: #define logsize 10000 
-char log[logsize], *ptr=log; 
-void debug(char *s){ if(ptr<log+logsize-strlen(s)-3){ 
-strcpy(ptr,s); ptr+=strlen(s); *ptr++=0xd; *ptr++=0xa;}} 
-а при выходе: fwrite(f,log,ptr-log,&err); 
-Если получаем пикофф - исключаем часть функций до тех пор пока не находим кто виновник. 
-
-- как найти все файлы в папке? 
-void findlist(char *dir){ //dir - папка, например "0:","0:\\Misc" 
-static DIR_ENTRY de; unsigned int err; 
-char path[128]; strcpy(path,dir); 
-char *ptr=path+strlen(path)+1; 
-strcat(path,"\\*.*"); //или "\\*.wav" т.е. то что нужно искать 
-if (FindFirstFile(&de,path,&err)){ 
-do{ strcpy(ptr,de.file_name); 
-//if(isdir(path,&err)) somedir(path); else //если это папка то делаем то-то, иначе 
-somefile(path); //делаем с найденным файлом что нам нужно 
-}while(FindNextFile(&de,&err)); 
-}FindClose(&de,&err);} 
-
-- как из эльфа запустить др. эльф? 
-void execelf(char *exename, char *fname){ //fname-параметр (имя файла), передаваемый в эльф 
-WSHDR *ws=AllocWS(256); 
-str_2ws(ws,exename,strlen(exename)+1); 
-ExecuteFile(ws,0,fname); FreeWS(ws);} 
-
-- как воспроизвести стандартный звук? 
-Ответ от Geka: PlaySound(1,0,0,n,0) где n-номер станд.звука 
-
-- как воспроизвести звуковой файл? 
-Ответ от KreN (спасибо за разъяснения): 
-typedef struct{ unsigned int unk1,unk2,unk3,volume;} SFO; 
-#pragma swi_number=74 
-__swi __arm void PlayFile(int _C,WSHDR* folder,WSHDR* filename,int cepid, int _167,SFO* options); 
-void PlayMelody(int type_melody){ 
-SFO unk1; WSHDR *ws1=AllocWS(50), *ws2=AllocWS(30); 
-str_2ws(ws1,natisq_path,49); 
-unk1.unk1=1; unk1.unk2=0; unk1.unk3=0; unk1.volume=3; 
-wsprintf(ws2,"message.wav"); 
-PlayFile(0xC,ws1,ws2,GBS_GetCurCepid(),0x167,&unk1); 
-FreeWS(ws1); FreeWS(ws2);} 
-PS(cbn): структура SFO сложнее, со звуком много несовмест. (пикофф) на разных моделях, данных мало... 
-
-- как работать с float,double,long long,... (не хватает библ., пишет что не найдены div_32a, div_64a, doubleToLong, float...)? 
-Kren: В меню Project->Options->Library Configuration выбрать Normal. Нужные библ. подкл. автоматически. 
-cbn: век живи - век учись (не знал). Помните что ввиду отсутствия сопроцессора все операции с float,double эмулируются через функции и работают _медленно_. 
-
-
-Автор инструкции: Воробьев Александр (cbn)   Сайт   Почта
-	int f;
+4. РЎРѕР·РґР°РµРј СЃРІРѕР№ СЌР»СЊС„
+РўРµРїРµСЂСЊ СЃРѕР·РґР°РЅРёРµ СЌР»СЊС„РѕРІ СЃС‚Р°Р»Рѕ СЃРѕРІСЃРµРј РїСЂРѕСЃС‚С‹Рј РґРµР»РѕРј :)
+РџСЂРѕС‰Рµ РІСЃРµРіРѕ РїРѕРґРїСЂР°РІРёС‚СЊ РіРѕС‚РѕРІС‹Р№ РїСЂРёРјРµСЂ: СЃРј. РїСЂРµРґС‹РґСѓС‰РёР№ СЂР°Р·РґРµР».
+Р”РѕР±Р°РІР»СЏРµРј Рє РїСЂРѕРµРєС‚Сѓ "Project->Add Files" С„Р°Р№Р»С‹ Siemens.c Рё main.c
+(Рђ РІРѕС‚ РїРѕСЃР»РµРґРЅСЏСЏ РІРµСЂСЃРёСЏ РјСѓР»СЊС‚РёРїР»Р°С‚С„РѕСЂРјРµРЅРЅРѕРіРѕ Siemens.cpp СЃ Р°РІС‚РѕРѕРїСЂРµРґРµР»РµРЅРёРµРј С‚РёРїР° РјРѕР±РёР»С‹).
+Рљ РїСЂРѕРµРєС‚Сѓ РґРѕР»Р¶РЅС‹ Р±С‹С‚СЊ РїРѕРґРєР»СЋС‡РµРЅС‹ С„Р°Р№Р»С‹ Func.asm (С‚РѕС‡РєР° СЃС‚Р°СЂС‚Р°) Рё div.r79 (РґРµР»РµРЅРёРµ, СЃРј.Swilib РІС‹С€Рµ)
+РљРѕСЂСЂРµРєС‚РёСЂСѓРµРј РІ main.c С„СѓРЅРєС†РёРё:
+onkey - РѕР±СЂР°Р±РѕС‚РєР° РєР»Р°РІРёС€ (return 1 РґР»СЏ РІС‹С…РѕРґР° РёР· СЌР»СЊС„Р°)
+onredraw - РїРµСЂРµСЂРёСЃРѕРІРєР° СЌРєСЂР°РЅР° (РјР°СЃСЃРёРІР° screen[132*176])
+onstart, oncreate - С„СѓРЅРєС†РёРё РІС‹Р·С‹РІР°СЋС‚СЃСЏ РїСЂРё СЃС‚Р°СЂС‚Рµ
+onclose, onexit - С„СѓРЅРєС†РёРё РІС‹Р·С‹РІР°СЋС‚СЃСЏ РїСЂРё РІС‹С…РѕРґРµ
+REDRAW() РІС‹Р·С‹РІР°РµРј РґР»СЏ РїРµСЂРµСЂРёСЃРѕРІРєРё СЌРєСЂР°РЅР° (Р·Р°РїСѓСЃРєР° onredraw)
+Р Р’РЎР•! РЈ Р’Р°СЃ РіРѕС‚РѕРІРѕРµ РїСЂРёР»РѕР¶РµРЅРёРµ. РЎРїРµС†РёС„РёРєСѓ РЎРёРјРµРЅСЃР° Р·РЅР°С‚СЊ РЅРµ РЅСѓР¶РЅРѕ РІРѕРѕР±С‰Рµ!
+РўР°РєР¶Рµ СЃРј. РїСЂРёРјРµСЂС‹ РЅРёР¶Рµ.
+
+5. РџСЂРёРјРµСЂ 1. Р Р°Р±РѕС‚Р° СЃ РїР°РјСЏС‚СЊСЋ Рё С„Р°Р№Р»Р°РјРё
+РјРµРЅСЏРµРј РІ Р»СЋР±РѕРј РїСЂРёРјРµСЂРµ main.c РЅР°:
+#include "E:\ARM\swilib.h"
+
+void ElfKiller(void){ // РСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РґР»СЏ РІС‹С…РѕРґР° РёР· СЌР»СЊС„Р°
+extern void *ELF_BEGIN;
+// Р·РґРµСЃСЊ РѕР±С‹С‡РЅРѕ РµС‰Рµ РѕСЃРІРѕР±РѕР¶РґР°СЋС‚ РїР°РјСЏС‚СЊ РїРѕ mfree(), freeWS()
+((void (*)(void *))(mfree_adr()))(&ELF_BEGIN); // РќРёС‡РµРіРѕ РЅРµ РїРѕРЅСЏС‚РЅРѕ :(
+}
+
+int main(char *exename, char *fname){ // РћСЃРЅРѕРІРЅР°СЏ С„СѓРЅРєС†РёСЏ
+// РІ exename РїРµСЂРµРґР°РµС‚СЃСЏ РїСѓС‚СЊ Р·Р°РїСѓС‰РµРЅРЅРѕРіРѕ СЌР»СЊС„Р° РІРёРґР° 4:\Zbin\xyz.elf
+// РІ fname РїРµСЂРµРґР°РµС‚СЃСЏ РёРјСЏ С„Р°Р№Р»Р°, РєРѕС‚РѕСЂС‹Р№ РІС‹Р±СЂР°РЅ РІ CardExplorere, РІРёРґР° 0:\Misc\data.txt
+// РёР»Рё 0, РµСЃР»Рё elf Р·Р°РїСѓС‰РµРЅ СЃР°Рј
+char *mem;
+int i, err;
+int handle;
+if(fname){
+// Р Р°Р±РѕС‚Р° СЃ С„Р°Р№Р»Р°РјРё СЃС‚Р°РЅРґР°СЂС‚РЅР°:
+handle=fopen(fname,A_ReadWrite+A_BIN+A_Append+A_Create,P_READ+P_WRITE,&err);
+// РћС‚РєСЂС‹С‚СЊ РґР»СЏ С‡С‚РµРЅРёСЏ Рё Р·Р°РїРёСЃРё РІ РґРІРѕРёС‡РЅ. СЂРµР¶РёРјРµ СЃ РґРѕР·Р°РїРёСЃСЊСЋ (append), СЃРѕР·РґР°С‚СЊ РµСЃР»Рё РЅРµС‚
+// РёР»Рё handle=fopen(fname,A_ReadOnly+A_BIN,P_READ,&err); // С‚РѕР»СЊРєРѕ РґР»СЏ С‡С‚РµРЅРёСЏ - РєРѕРЅСЃС‚Р°РЅС‚С‹ СЃРј. swilib.h
+if(handle!=-1){ //-1 = error
+mem=malloc(10000); // Р’С‹РґРµР»РёС‚СЊ РїР°РјСЏС‚СЊ: AllocWS() РґР»СЏ СЃС‚СЂРѕРє (РїРѕ 2Р±)
+if(mem!=0){ //0 = error
+i=fread(handle,mem,10000,&err); // Р’РѕР·РІСЂР°С‰Р°РµС‚ С‡РёСЃР»Рѕ РїСЂРѕС‡РёС‚Р°РЅРЅС‹С… Р±Р°Р№С‚ Рё РѕС€РёР±РєСѓ РІ err
+// Р”РµР»Р°РµРј С‡С‚Рѕ-Р»РёР±Рѕ makesomebody(mem,i);
+fwrite(handle,mem,i,&err);
+mfree(mem); // РћСЃРІРѕР±РѕРґРёС‚СЊ РїР°РјСЏС‚СЊ: FreeWS() РґР»СЏ СЃС‚СЂРѕРє
+}
+fclose(handle); // Р—Р°РєСЂС‹С‚СЊ С„Р°Р№Р»
+}
+}
+SUBPROC((void *)ElfKiller); // СЃРµ Р·Р°РіР°РґРєР° РІРµР»РёРєР°СЏ РµСЃС‚СЊ :) РќРѕ Р±РµР· РЅРµРµ РЅРёР·СЏ!
+return(0);
+}
+// PS. Рў.Рє. РІ x65 С„Р°Р№Р»РѕРІС‹Рµ С‡С‚РµРЅРёРµ Рё Р·Р°РїРёСЃСЊ РїСЂРѕРІРѕРґСЏС‚СЃСЏ Р±Р»РѕРєР°РјРё РґРѕ 32767 Р±Р°Р№С‚,
+// РІРјРµСЃС‚Рѕ fread() Рё fwrite() РёСЃРїРѕР»СЊР·СѓРµРј РёС… Р°РЅР°Р»РѕРіРё fread32() Рё fwrite32( Р°РЅР°Р»РѕРіРёС‡РЅРѕ)
+
+int fread32(int fh, char *buf, int len, unsigned int *err) // (СЃ) Rst7
+{
+int clen;
+int rlen;
+int total=0;
+while(len)
+{
+if (len>16384) clen=16384; else clen=len;
+total+=(rlen=fread(fh, buf, clen, err));
+if (rlen!=clen) break;
+buf+=rlen;
+len-=clen;
+}
+return(total);
+}
+
+РќРµ Р·Р°Р±С‹РІР°РµРј РІРєР»СЋС‡РёС‚СЊ РІ РєР°Р¶РґС‹Р№ РїСЂРѕРµРєС‚ С„Р°Р№Р» Func.asm:
+PUBLIC ELF_BEGIN
+RSEG ELFBEGIN:DATA
+ELF_BEGIN
+defadr MACRO a,b
+PUBLIC a
+a EQU b
+ENDM
+END
+
+6. РџСЂРёРјРµСЂ 2. Р’С‹РІРѕРґ РЅР° СЌРєСЂР°РЅ Рё РѕР±СЂР°Р±РѕС‚РєР° РєР»Р°РІРёС€
+Р’С‹РІРѕРґРёС‚ РјР°Р»РµРЅСЊРєРёР№ СЂРёСЃСѓРЅРѕРє РЅР° СЌРєСЂР°РЅ, РїРµСЂРµРјРµС‰Р°РµРјС‹Р№ СЃ РїРѕРјРѕС‰СЊСЋ РґР¶РѕР№СЃС‚РёРєР°,
+Рё РІС‹С…РѕРґРёС‚ РїРѕ РґРѕР»РіРѕРјСѓ РЅР°Р¶Р°С‚РёСЋ РєСЂР°СЃРЅРѕР№ РєРЅРѕРїРєРё. РЎРґРµР»Р°РЅ РЅР° РїСЂРёРјРµСЂРµ TED-Р° (c) Rst7
+РЎРјРѕС‚СЂРµС‚СЊ СЃРЅРёР·Сѓ-РІРІРµСЂС… :)
+РјРµРЅСЏРµРј РІ РїСЂРёРјРµСЂРµ main.c РЅР°:
+#include "E:\ARM\swilib.h"
+
+typedef struct
+{
+GUI gui;
+// WSHDR *ws1;
+// WSHDR *ws2;
+// int i1;
+}MAIN_GUI;
+
+typedef struct
+{
+CSM_RAM csm;
+int gui_id;
+}MAIN_CSM;
+
+const int minus11=-11;
+const unsigned int INK=0;
+const unsigned int PAPER=1;
+volatile int xx=0, yy=0; // РљРѕРѕСЂРґРёРЅР°С‚С‹ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ СЂРёСЃСѓРЅРєР°
+
+const char bmp[12]={0xFC,0x86,0xB3,0xA9,0xB1,0xA9,0x81,0xFF,0,0,0,0};
+const IMGHDR img = {8,12,0x1,0,(char *)bmp};
+
+//================================
+//Р’С‹РІРѕРґ РЅР° СЌРєСЂР°РЅ
+//================================
+
+void DrwImg(IMGHDR *img, int x, int y, int *pen, int *brush)
+{
+RECT rc;
+DRWOBJ drwobj;
+StoreXYWHtoRECT(&rc,x,y,img->w,img->h);
+SetPropTo_Obj5(&drwobj,&rc,0,img);
+SetColor(&drwobj,pen,brush);
+DrawObject(&drwobj);
+}
+
+void DrawScreen(void)
+{
+int *ink=GetPaletteAdrByColorIndex(INK);
+int *paper=GetPaletteAdrByColorIndex(PAPER);
+int x=xx;
+DrwImg((IMGHDR *)&img,x,yy,ink,paper);
+}
+
+//РџРµСЂРµСЂРёСЃРѕРІРєР° РѕСЃРЅРѕРІРЅРѕРіРѕ РґРёР°Р»РѕРіР°
+void method0(MAIN_GUI *data){
+DrawScreen();
+}
+
+void method1(MAIN_GUI *data, void *(*malloc_adr)(int)){}
+void method2(MAIN_GUI *data, void (*mfree_adr)(void *)){}
+void method3(MAIN_GUI *data, void *(*malloc_adr)(int), void (*mfree_adr)(void *)){}
+void method4(MAIN_GUI *data, void (*mfree_adr)(void *)){}
+void method7(MAIN_GUI *data, void (*mfree_adr)(void *)){}
+int method8(void){return(0);} // РџСѓСЃС‚Р°СЏ С„-СЏ
+int method9(void){return(0);} // РџСѓСЃС‚Р°СЏ С„-СЏ
+
+//------------------------------------------------------------------------------
+// РћСЃРЅ. РґРёР°Р»РѕРі - РѕР±СЂР°Р±РѕС‚РєР° РєРЅРѕРїРѕРє
+//------------------------------------------------------------------------------
+int method5(MAIN_GUI *data, GUI_MSG *msg)
+{
+// if (msg->gbsmsg->msg==KEY_UP) // РљР»Р°РІРёС€Р° РѕС‚РїСѓС‰РµРЅР°
+if ((msg->gbsmsg->msg==KEY_DOWN)||(msg->gbsmsg->msg==LONG_PRESS)) // РљР». РЅР°Р¶Р°С‚Р° РёР»Рё СѓРґРµСЂР¶РёРІР°РµС‚СЃСЏ
+switch(msg->gbsmsg->submess)
+{
+case RED_BUTTON:
+return(1); //РџСЂРѕРёСЃС…РѕРґРёС‚ РІС‹Р·РѕРІ GeneralFunc РґР»СЏ С‚РµРє. GUI -> Р·Р°РєСЂС‹С‚РёРµ GUI
+case UP_BUTTON:
+if(yy>0) --yy; break;
+case LEFT_BUTTON:
+if(xx>0) --xx; break;
+case DOWN_BUTTON:
+if(yy<130) ++yy; break;
+case RIGHT_BUTTON:
+if(xx<120) ++xx; break;
+
+// case GREEN_BUTTON:
+// case RIGHT_SOFT:
+// case ENTER_BUTTON:
+// case LEFT_SOFT:
+// case VOL_UP_BUTTON:
+// case VOL_DOWN_BUTTON:
+// case '0':
+// case '9':
+// case '#':
+// SUBPROC((void *)DoDiskAccess,1);
+// Р”СЂ. РїСЂРѕС†РµСЃСЃ СЃ РЅРёР·РєРёРј РїСЂРёРѕСЂРёС‚РµС‚РѕРј С‡С‚РѕР±С‹ РЅРµ С‚РѕСЂРјРѕР·РёС‚СЊ РїРµСЂРµСЂРёСЃРѕРІРєСѓ РѕРєРЅР°
+}
+DrawScreen();
+return(0);
+}
+
+const void * const gui_methods[11]={
+(void *)method0, //Redraw
+(void *)method1, //Create
+(void *)method2, //Close
+(void *)method3, //Focus
+(void *)method4, //Unfocus
+(void *)method5, //OnKey
+0,
+(void *)method7, //Destroy
+(void *)method8,
+(void *)method9,
+0
+};
+
+const RECT Canvas={0,0,131,175};
+
+void maincsm_oncreate(CSM_RAM *data)
+{
+MAIN_GUI *main_gui=malloc(sizeof(MAIN_GUI));
+MAIN_CSM*csm=(MAIN_CSM*)data;
+zeromem(main_gui,sizeof(MAIN_GUI));
+
+// ustk=malloc(STKSZ); // Р’С‹РґРµР»СЏРµРј РїР°РјСЏС‚СЊ РїРѕРґ С‡С‚Рѕ РЅР°Рј РЅР°РґРѕ
+// info_ws=AllocWS(512);
+
+main_gui->gui.canvas=(void *)(&Canvas);
+main_gui->gui.flag30=2;
+main_gui->gui.methods=(void *)gui_methods; // РћСЃРЅРѕРІРЅС‹Рµ РјРµС‚РѕРґС‹ (СЃРј. РІС‹С€Рµ)
+main_gui->gui.item_ll.data_mfree=(void (*)(void *))mfree_adr(); // РќРёР¶Рµ РЅРёС‡Рµ РЅРµ Р·РЅР°СЋ :(
+csm->csm.state=0;
+csm->csm.unk1=0;
+csm->gui_id=CreateGUI(main_gui); // РЎРѕР±СЃС‚РІРµРЅРЅРѕ СЃРѕР·РґР°РЅРёРµ GUI
+}
+
+void Killer(void) // Р’С‹С…РѕРґ
+{
+extern void *ELF_BEGIN;
+// mfree(ustk); // РћСЃРІРѕР±РѕР¶РґР°РµРј РїР°РјСЏС‚СЊ
+// FreeWS(info_ws);
+((void (*)(void *))(mfree_adr()))(&ELF_BEGIN);
+}
+
+void maincsm_onclose(CSM_RAM *csm)
+{
+// GBS_StopTimer(&light_tmr);
+SUBPROC((void *)Killer);
+}
+
+int maincsm_onmessage(CSM_RAM *data, GBS_MSG *msg){
+return(1);
+}
+
+unsigned short maincsm_name_body[140];
+
+const struct
+{
+CSM_DESC maincsm;
+WSHDR maincsm_name;
+}MAINCSM =
+{
+{
+maincsm_onmessage, // РћР±СЂР°Р±РѕС‚С‡РёРє СЃРѕРѕР±С‰РµРЅРёР№
+maincsm_oncreate, // Р’С‹Р·С‹РІР°РµС‚СЃСЏ РїСЂРё СЃРѕР·РґР°РЅРёРё
+// 0, // Р”Р»СЏ S75 СѓР±СЂР°С‚СЊ РєРѕРјРјРµРЅС‚Р°СЂРёРё РІ 4С… СЃС‚СЂРѕС‡РєР°С…
+// 0, // Рё СЂР°СЃРєРѕРјРјРµРЅС‚РёСЂРѕРІР°С‚СЊ РІ swilib.h СЃС‚СЂРѕРєСѓ #define NEWSGOLD
+// 0,
+// 0,
+maincsm_onclose, // Р’С‹Р·С‹РІР°РµС‚СЃСЏ РїСЂРё Р·Р°РєСЂС‹С‚РёРё
+sizeof(MAIN_CSM),
+1,
+&minus11
+},
+{
+maincsm_name_body,
+NAMECSM_MAGIC1,
+NAMECSM_MAGIC2,
+0x0,
+139
+}
+};
+
+int main(char *exename, char *fname)
+{
+char dummy[sizeof(MAIN_CSM)];
+// strcpy(filename,fname); // РЎРѕС…СЂР°РЅСЏРµРј РіРґРµ-Р»РёР±Рѕ fname
+CreateCSM(&MAINCSM.maincsm,dummy,0);
+return 0;
+}
+
+7. РџСЂРёРјРµСЂ РїРѕРїСЂРѕС‰Рµ. Р—Р°РїСѓСЃРєР°РµРј С„РѕРЅРѕРІС‹Р№ РїСЂРѕС†РµСЃСЃ, СЂРёСЃСѓРµРј РїРѕ С‚Р°Р№РјРµСЂСѓ
+Р”РѕР±Р°РІР»СЏРµРј Рє РїСЂРѕРµРєС‚Сѓ "Project->Add Files" С„Р°Р№Р» Siemens.c:
+// Siemens.c 0.1
+// РРЅС‚РµСЂС„РµР№СЃ РјРѕР±РёР»С‹ РґР»СЏ IAR
+// Р—РґРµСЃСЊ РЅРёС‡РµРіРѕ РЅРµ С‚СЂРѕРіР°РµРј! (РµСЃР»Рё РЅРµ СѓРІРµСЂРµРЅС‹)
+// Р’РЅРµС€РЅРёРµ С„СѓРЅРєС†РёРё РІС‹Р·С‹РІР°СЋС‚СЃСЏ РїСЂРё:
+extern int onstart(char *exename, char *fname); // РЎС‚Р°СЂС‚Рµ РїСЂРёР»РѕР¶РµРЅРёСЏ. Р’РѕР·РІСЂР°С‰Р°РµС‚ 0 РёР»Рё 1 РґР»СЏ РІС‹С…РѕРґР°.
+extern void oncreate(); // РЎРѕР·РґР°РЅРёРё РѕРєРЅР°
+extern void onclose(); // Р—Р°РєСЂС‹С‚РёРё РѕРєРЅР°
+extern void onexit(); // Р’С‹С…РѕРґРµ
+extern void onredraw(void); // РџРµСЂРµСЂРёСЃРѕРІРєРµ СЌРєСЂР°РЅР°
+extern int onkey(unsigned char keycode, int pressed); // РќР°Р¶Р°С‚РёРё РєР»Р°РІРёС€Рё. Р’РѕР·РІСЂР°С‰Р°РµС‚ 0 РёР»Рё 1 РґР»СЏ РІС‹С…РѕРґР°.
+
+// Р’ swilib.h РєРѕРјРјРµРЅС‚РёСЂСѓРµРј // СЃС‚СЂРѕРєСѓ #define NEWSGOLD РµСЃР»Рё РЅРµ S75
+#include "E:\ARM\swilib.h"
+// РЎР»РµРґСѓСЋС‰Р°СЏ СЃС‚СЂРѕРєР° Р·Р°РґР°РµС‚ 16 Р±РёС‚РЅС‹Р№ СЂРµР¶РёРј (RGB 565 РїРѕ 2 Р±Р°Р№С‚Р° РЅР° С‚РѕС‡РєСѓ СЌРєСЂР°РЅР° screen)
+// Р·Р°РєРѕРјРјРµРЅС‚РёСЂРѕРІР°РІ РїРѕР»СѓС‡РёРј 8 Р±РёС‚РЅС‹Р№ СЂРµР¶РёРј (RGB 232 РїРѕ 1 Р±Р°Р№С‚Сѓ РЅР° С‚РѕС‡РєСѓ)
+#define HIGHCOLOR
+#ifdef HIGHCOLOR
+short screen[132*176];
+const int screensize=132*176*sizeof(short);
+const IMGHDR img = {(unsigned)132,(unsigned)176,8,0,(char*)screen};
+#else
+char screen[132*176];
+const int screensize=132*176*sizeof(char);
+const IMGHDR img = {(unsigned)132,(unsigned)176,5,0,(char*)screen};
+#endif
+
+// РќРёР¶Рµ С‡РёС‚Р°С‚СЊ СѓР¶Рµ РЅРµ РЅР°РґРѕ! :)
+typedef struct
+{
+GUI gui;
+WSHDR *ws1;
+WSHDR *ws2;
+int i1;
+}MAIN_GUI;
+
+typedef struct
+{
+CSM_RAM csm;
+int gui_id;
+}MAIN_CSM;
+
+void DrawScreen(){
+RECT rc; DRWOBJ drwobj;
+StoreXYWHtoRECT(&rc,0,0,img.w,img.h);
+SetPropTo_Obj5(&drwobj,&rc,0,(IMGHDR*)&img);
+SetColor(&drwobj,GetPaletteAdrByColorIndex(0),GetPaletteAdrByColorIndex(1));
+DrawObject(&drwobj);
+}
+void method0(MAIN_GUI *data){ onredraw(); DrawScreen();}
+void method1(MAIN_GUI *data, void *(*malloc_adr)(int)){ oncreate(); data->gui.state=1;}
+void method2(MAIN_GUI *data, void (*mfree_adr)(void *)){ data->gui.state=0;}
+void method3(MAIN_GUI *data, void *(*malloc_adr)(int), void (*mfree_adr)(void *)){ data->gui.state=2;}
+void method4(MAIN_GUI *data, void (*mfree_adr)(void *)){ if (data->gui.state!=2) return; data->gui.state=1;}
+int method5(MAIN_GUI *data, GUI_MSG *msg){
+return onkey(msg->gbsmsg->submess, msg->gbsmsg->msg);}
+void method7(MAIN_GUI *data, void (*mfree_adr)(void *)){}// mfree_adr(data);
+int method8(void){return(0);} // РџСѓСЃС‚Р°СЏ С„-СЏ
+int method9(void){return(0);} // РџСѓСЃС‚Р°СЏ С„-СЏ
+
+const void * const gui_methods[11]={
+(void *)method0, //Redraw
+(void *)method1, //Create
+(void *)method2, //Close
+(void *)method3, //Focus
+(void *)method4, //Unfocus
+(void *)method5, //OnKey
+0,
+(void *)method7, //Destroy
+(void *)method8,
+(void *)method9,
+0
+};
+
+const RECT Canvas={0,0,131,175};
+
+void maincsm_oncreate(CSM_RAM *data)
+{
+MAIN_GUI *main_gui=malloc(sizeof(MAIN_GUI));
+MAIN_CSM*csm=(MAIN_CSM*)data;
+zeromem(main_gui,sizeof(MAIN_GUI));
+// ustk=malloc(STKSZ); // Р’С‹РґРµР»СЏРµРј РїР°РјСЏС‚СЊ
+// info_ws=AllocWS(512);
+main_gui->gui.canvas=(void *)(&Canvas);
+main_gui->gui.flag30=2;
+main_gui->gui.methods=(void *)gui_methods;
+main_gui->gui.item_ll.data_mfree=(void (*)(void *))mfree_adr();
+csm->csm.state=0;
+csm->csm.unk1=0;
+csm->gui_id=CreateGUI(main_gui);
+}
+
+void Killer(void){
+extern void *ELF_BEGIN;
+extern void kill_data(void *p, void (*func_p)(void *));
+onexit();
+kill_data(&ELF_BEGIN,(void (*)(void *))mfree_adr());
+// ((void (*)(void *))(mfree_adr()))(&ELF_BEGIN);
+}
+
+void maincsm_onclose(CSM_RAM *csm)
+{
+onclose();
+SUBPROC((void *)Killer);
+}
+
+int maincsm_onmessage(CSM_RAM *data, GBS_MSG *msg){
+MAIN_CSM *csm=(MAIN_CSM*)data;
+if ((msg->msg==MSG_GUI_DESTROYED)&&((int)msg->data0==csm->gui_id))
+csm->csm.state=-3;
+return(1);
+}
+
+const int minus11=-11;
+unsigned short maincsm_name_body[140];
+
+const struct
+{
+CSM_DESC maincsm;
+WSHDR maincsm_name;
+}MAINCSM =
+{
+{
+maincsm_onmessage,
+maincsm_oncreate,
+#ifdef NEWSGOLD
+0,
+0,
+0,
+0,
+#endif
+maincsm_onclose,
+sizeof(MAIN_CSM),
+1,
+&minus11
+},
+{
+maincsm_name_body,
+NAMECSM_MAGIC1,
+NAMECSM_MAGIC2,
+0x0,
+139
+}
+};
+
+int main(char *exename, char *fname){
+char dummy[sizeof(MAIN_CSM)];
+if(onstart(exename,fname)) SUBPROC((void *)Killer);
+else CreateCSM(&MAINCSM.maincsm,dummy,0);
+return 0;
+}
+
+РўРµРїРµСЂСЊ РєРѕСЂСЂРµРєС‚РёСЂСѓРµРј (РµСЃР»Рё РЅСѓР¶РЅРѕ) С„Р°Р№Р» main.c:
+// Main.c 0.1
+// Demo 3: РџСЂРёРјРµСЂ РїРѕРїСЂРѕС‰Рµ: Р—Р°РїСѓСЃРєР°РµРј С„РѕРЅРѕРІС‹Р№ РїСЂРѕС†РµСЃСЃ, СЂРёСЃСѓРµРј РїРѕ С‚Р°Р№РјРµСЂСѓ
+
+#include "E:\ARM\swilib.h"
+extern short screen[132*176]; // Р­РєСЂР°РЅ 132*176*2
+extern void DrawScreen(); // Р¤СѓРЅРєС†РёСЏ РїРµСЂРµСЂРёСЃРѕРІРєРё СЌРєСЂР°РЅР°
+void onredraw(void);
+
+//#define RGB8(R,G,B) (B+(G<<2)+(R<<5))
+#define RGB16(R,G,B) ((B>31?31:B)+((G>63?63:G)<<5)+((R>31?31:R)<<11))
+
+char *buf=0; // РљР°РєРѕР№-С‚Рѕ Р±СѓС„РµСЂ (РґР»СЏ РїСЂРёРјРµСЂР° РІС‹РґРµР»РµРЅРёСЏ РїР°РјСЏС‚Рё)
+int bufsize=10000; // Р•РіРѕ СЂР°Р·РјРµСЂ
+volatile int started=0; // РџСЂРѕС†РµСЃСЃ РїСЂРѕРІРµСЂСЏРµС‚ С„Р»Р°Рі Рё РІС‹С…РѕРґРёС‚ РµСЃР»Рё =0
+int color=0;
+
+GBSTMR timer;
+void timer_proc(void){ // Р¤СѓРЅРєС†РёСЏ РІС‹РїРѕР»РЅСЏРµС‚СЃСЏ РїРѕ С‚Р°Р№РјРµСЂСѓ 10 СЂР°Р· РІ СЃРµРєСѓРЅРґСѓ
+if(started){
+REDRAW(); // РџРµСЂРµСЂРёСЃРѕРІР°С‚СЊ СЌРєСЂР°РЅ
+}
+GBS_StartTimerProc(&timer,262/10,timer_proc); // РЎС‚Р°СЂС‚СѓРµРј С‚Р°Р№РјРµСЂ СЃ С‡Р°СЃС‚РѕС‚РѕР№ 10 СЂР°Р· РІ СЃРµРєСѓРЅРґСѓ
+// РћРЅ РІС‹РїРѕР»РЅСЏРµС‚СЃСЏ РѕРґРЅРѕРєСЂР°С‚РЅРѕ РїРѕСЌС‚РѕРјСѓ РµРіРѕ РЅСѓР¶РЅРѕ РїРѕСЃС‚РѕСЏРЅРЅРѕ Р·Р°РїСѓСЃРєР°С‚СЊ
+}
+
+void execute(){ // Р¤РѕРЅРѕРІС‹Р№ РїСЂРѕС†РµСЃСЃ
+started=1;
+while(started){ // РџРѕРєР° РЅРµС‚ РєРѕРјР°РЅРґС‹ РЅР° РѕСЃС‚Р°РЅРѕРІ
+onredraw(); // РўРћР›Р¬РљРћ РґР»СЏ РїСЂРёРјРµСЂР°, РЅР° РґРµР»Рµ РґРµР»Р°РµРј С‡С‚Рѕ-Р»РёР±Рѕ РµС‰Рµ
+}
+}
+
+int onstart(char *exename, char *fname){ // РЎС‚Р°СЂС‚ РїСЂРёР»РѕР¶РµРЅРёСЏ. Р’РѕР·РІСЂР°С‰Р°РµС‚ 0 РёР»Рё 1 РґР»СЏ РІС‹С…РѕРґР°.
+// if(!fname) return 1; // Р•СЃР»Рё РЅРµ Р·Р°РґР°РЅРѕ РёРјСЏ С„Р°Р№Р»Р° РІС‹С…РѕРґРёРј
+buf=(char *)malloc(bufsize); // Р’С‹РґРµР»СЏРµРј РїР°РјСЏС‚СЊ Рё С‚.Рї.
+if(!buf) return 1; // РќРµ РїРѕР»СѓС‡РёР»РѕСЃСЊ - РІС‹С…РѕРґРёРј
+// Р—РґРµСЃСЊ РґРµР»Р°РµРј С‡С‚Рѕ-Р»РёР±Рѕ
+return 0;
+}
+
+void oncreate(){ // РЎРѕР·РґР°РЅРёРµ РѕРєРЅР°
+SUBPROC((void *)execute); // Р—Р°РїСѓСЃРєР°РµРј С„РѕРЅРѕРІС‹Р№ РїСЂРѕС†РµСЃСЃ
+GBS_StartTimerProc(&timer,262/10,timer_proc); // РЎС‚Р°СЂС‚СѓРµРј С‚Р°Р№РјРµСЂ СЃ С‡Р°СЃС‚РѕС‚РѕР№ 10 СЂР°Р· РІ СЃРµРєСѓРЅРґСѓ
+}
+
+void onclose(){ // Р—Р°РєСЂС‹С‚РёРµ РѕРєРЅР°
+started=0; // РЎРёРіРЅР°Р» РЅР° РѕСЃС‚Р°РЅРѕРІРєСѓ С„РѕРЅРѕРІРѕРіРѕ РїСЂРѕС†РµСЃСЃР°
+GBS_StopTimer(&timer); // РћСЃС‚Р°РЅР°РІР»РёРІР°РµРј С‚Р°Р№РјРµСЂ
+// РЎРѕС…СЂР°РЅСЏРµРј РєРѕРЅС„РёРіСѓСЂР°С†РёСЋ РµСЃР»Рё РЅР°РґРѕ
+}
+
+void onexit(){ // Р’С‹С…РѕРґ
+if(buf) mfree(buf); // РћСЃРІРѕР±РѕР¶РґР°РµРј РїР°РјСЏС‚СЊ
+}
+
+void onredraw(void){ // РџРµСЂРµСЂРёСЃРѕРІРєР° СЌРєСЂР°РЅР° screen[132*176]
+int i,j;
+for(i=0,j=color++;i<132*176;i++){
+screen[i]=j++;
+}
+}
+
+// keycode - РєРѕРґ РєР»Р°РІРёС€Рё, pressed - РЅР°Р¶Р°С‚Р°/РѕС‚РїСѓС‰РµРЅР°/СѓРґРµСЂР¶РёРІР°РµС‚СЃСЏ
+int onkey(unsigned char keycode, int pressed){ // РћР±СЂР°Р±РѕС‚С‡РёРє РєР»Р°РІРёС€. Р’РµСЂРЅСѓС‚СЊ 0 РёР»Рё 1 РґР»СЏ РІС‹С…РѕРґР°
+switch(pressed){
+case KEY_UP: break; // РљР»Р°РІРёС€Р° РѕС‚РїСѓС‰РµРЅР°
+case LONG_PRESS: // РљР»Р°РІРёС€Р° СѓРґРµСЂР¶РёРІР°РµС‚СЃСЏ РґРѕР»РіРѕ (РїРѕРІС‚РѕСЂ)
+case KEY_DOWN: // РљР»Р°РІРёС€Р° РЅР°Р¶Р°С‚Р°
+switch(keycode){ // РљРѕРґ РєР»Р°РІРёС€Рё
+case RED_BUTTON: return 1; // Р’С‹С…РѕРґ
+case LEFT_SOFT: case RIGHT_BUTTON: case UP_BUTTON: case ENTER_BUTTON: // Р”РµР»Р°РµРј С‡С‚Рѕ-Р»РёР±Рѕ
+case '0': case '9': case '#': case '*': break;
+default: return 0;
+}
+onredraw(); DrawScreen(); // РџРµСЂРµСЂРёСЃРѕРІР°С‚СЊ СЌРєСЂР°РЅ
+}
+return 0;
+}
+//#define MSG_GUI_DESTROYED 152 //РґР»СЏ РЅРµ s75 РµСЃР»Рё Сѓ Р’Р°СЃ РЅРµС‚ РІ swilib.h
+
+
+8. РџСЂРёРјРµСЂ 4. Р РµР·РёРґРµРЅС‚РЅР°СЏ РїСЂРѕРіСЂР°РјРјР°
+[...]
+
+9. FAQ
+РЎРѕР±СЂР°РЅ РЅР° РѕСЃРЅРѕРІРµ РѕС‚РІРµС‚РѕРІ Rst7 (СЃРїР°СЃРёР±Рѕ РµРјСѓ:)
+
+- РїРѕС‡РµРјСѓ РІ iar cu РєРѕРЅСЃС‚СЂСѓРєС†РёСЏ char c[100]; int a=*(int*)(c+5) РІС‹РєР»СЋС‡Р°РµС‚ С‚СЂСѓР±Сѓ?
+РџРѕС‚РѕРјСѓ С‡С‚Рѕ С‚С‹ РїС‹С‚Р°РµС€СЊСЃСЏ С‡РёС‚Р°С‚СЊ int РїРѕ РЅРµРєСЂСѓРіР»РѕРјСѓ Р°РґСЂРµСЃСѓ - РїСЂРѕС† СЌС‚Рѕ РїРѕСЃС‹Р»Р°РµС‚ РЅР°С… - РіРµРЅРµСЂРёСЂСѓРµС‚ РёСЃРєР»СЋС‡РµРЅРёРµ... Р•СЃР»Рё С‚РµР±Рµ РЅР°РґРѕ С‚Р°РєРѕРµ РґРµР»Р°С‚СЊ, С‚Рѕ С‡РёС‚Р°Р№ РїРѕР±Р°Р№С‚РЅРѕ Рё СЃРѕР±РёСЂР°Р№ РІ РѕС‚РґРµР»СЊРЅС‹Р№ РёРЅС‚.
+
+- РѕР±СЏР·Р°С‚РµР»СЊРЅРѕ РїСЂРё РІС‹С…РѕРґРµ РѕСЃРІРѕР±РѕР¶РґР°С‚СЊ РІСЃСЋ РїР°РјСЏС‚СЊ РїРѕ mfree()?
+Р’СЃСЋ, РєРѕС‚РѕСЂСѓСЋ Р·Р°РЅСЏР» - РѕР±СЏР·Р°С‚РµР»СЊРЅРѕ
+
+- РєР°Рє РѕС‚Р»Р°Р¶РёРІР°С‚СЊ СЌР»СЊС„С‹ РєСЂРѕРјРµ РєР°Рє РєРѕРїРёСЂРѕРІР°С‚СЊ РёС… РЅР° С‚РµР»РµС„РѕРЅ Рё РїРёСЃР°С‚СЊ Р»РѕРі?
+Р”РµР±Р°РіРіРµСЂРѕРј РҐР°РѕСЃРѕРІСЃРєРёРј... РС‰РµС€СЊ BLX R4 РІ Р·Р°РіСЂСѓР·С‡РёРєРµ СЌР»СЊС„РѕРІ, СЃС‚Р°РІРёС€СЊ С‚СѓРґР° С‚РѕС‡РєСѓ РѕСЃС‚Р°РЅРѕРІР° Рё РІРїРµСЂРµРґ...
+
+- С‡С‚Рѕ РґРµР»Р°СЋС‚ SUBPROC ? REDRAW ?
+SUBPROC - РІС‹Р·РѕРІ С„СѓРЅРєС†РёРё РІ РєРѕРЅС‚РµРєСЃС‚Рµ РґСЂСѓРіРѕРіРѕ РїРѕС‚РѕРєР° СЃ РјР°Р»С‹Рј РїСЂРёРѕСЂРёС‚РµС‚РѕРј РґР»СЏ С‚РѕРіРѕ, С‡С‚РѕР±С‹ РЅРµ С‚РѕСЂРјРѕР·РёС‚СЊ GUI, РµСЃР»Рё РЅР°РґРѕ С‡С‚Рѕ-С‚Рѕ РґРѕР»РіРѕ РґРµР»Р°С‚СЊ (РЅР°РїСЂРёРјРµСЂ РІ TED\'Рµ РіСЂСѓР·РёС‚СЊ С‚РµРєСЃС‚, РІ MegaDial\'Рµ РёСЃРєР°С‚СЊ РёРјРµРЅР° РІ Р·Р°РїРёСЃРЅРѕР№ РєРЅРёР¶РєРµ)
+REDRAW - РІС‹Р·РІР°С‚СЊ РјРµС‚РѕРґ onRedraw РѕС‚РѕР±СЂР°Р¶Р°РµРјРѕРіРѕ GUI (РјРѕР¶РЅРѕ РёР· РєРѕРЅС‚РµРєСЃС‚Р° РїСЂРѕС†РµСЃСЃР°-РїРѕРјРѕС‰РЅРёРєР°)
+
+РћС‚РІРµС‚С‹ РѕС‚ cbn:
+- РєР°Рє РїРѕР»СѓС‡РёС‚СЊ РґР°С‚Сѓ/РІСЂРµРјСЏ?
+TDate date; TTime time;
+GetDateTime(&date,&time);
+sprintf(s,"%d:%02d",time.hour,time.min);
+sprintf(ss,"%02d-%02d-%04d",date.day, date.month,date.year);
+
+- IAR РїРёС€РµС‚: РЅРµРёР·РІРµСЃС‚РЅР°СЏ С„СѓРЅРєС†РёСЏ div_32a (РёР»Рё Р°РґСЂРµСЃ ELF_BEGIN)
+Рљ РїСЂРѕРµРєС‚Сѓ РґРѕР»Р¶РЅС‹ Р±С‹С‚СЊ РїРѕРґРєР»СЋС‡РµРЅС‹ СЃРѕРѕС‚РІРµС‚СЃС‚РІРµРЅРЅРѕ С„Р°Р№Р»С‹ div.r79 Рё func.asm
+
+- РїСЂРёР»РѕР¶РµРЅРёРµ СЂР°Р±РѕС‚Р°РµС‚ СЃР»РёС€РєРѕРј РјРµРґР»РµРЅРЅРѕ - РєР°Рє РїРµСЂРµРїРёСЃР°С‚СЊ РЅР° Р°СЃРј?
+РЎ РїРµСЂРµРїРёСЃС‹РІР°РЅРёРµРј РЅР° Р°СЃРј СЃРїРµС€РёС‚СЊ РЅРµ СЃС‚РѕРёС‚ - СЃРЅР°С‡Р°Р»Р° РЅСѓР¶РЅРѕ СѓР±РµРґРёС‚СЊСЃСЏ С‡С‚Рѕ СЃРё РІРµСЂСЃРёСЏ СЂР°Р±РѕС‚Р°РµС‚ Р±РµР· РѕС€РёР±РѕРє. РќР°РёР±РѕР»СЊС€РµРµ СѓСЃРєРѕСЂРµРЅРёРµ РґР°РµС‚ РїСЂР°РІРёР»СЊРЅРѕ РЅР°РїРёСЃР°РЅРЅС‹Р№ РђР›Р“РћР РРўРњ, РЅСѓР¶РЅРѕ РїРѕРїС‹С‚Р°С‚СЊСЃСЏ РµРіРѕ СѓР»СѓС‡С€РёС‚СЊ. Р’ РєРѕРјРїРёР»СЏС‚РѕСЂРµ РІРєР»СЋС‡РёС‚СЊ РјР°РєСЃРёРјР°Р»СЊРЅСѓСЋ РѕРїС‚РёРјРёР·Р°С†РёСЏ РїРѕ СЃРєРѕСЂРѕСЃС‚Рё.
+Р СѓР¶Рµ РїРѕСЃР»РµРґРЅРёР№ СЌС‚Р°Рї - Р·Р°РјРµСЂРёС‚СЊ РёР»Рё РїСЂРёРєРёРЅСѓС‚СЊ РєР°РєРёРµ С‡Р°СЃС‚Рё РєРѕРґР° РІС‹РїРѕР»РЅСЏСЋС‚СЃСЏ РЅР°РёР±РѕР»РµРµ РґРѕР»РіРѕ (80% РІСЂРµРјРµРЅРё РїСЂРѕС†Р° Р·Р°РЅРёРјР°РµС‚ 20% РєРѕРґР°) Рё РїРµСЂРµРїРёСЃР°С‚СЊ РёС….
+
+РџСЂРёРјРµСЂ: РґРѕР±Р°РІР»СЏРµРј РІ func.asm С„СѓРЅРєС†РёСЋ myfunc(a,b,c,d)
+РІСЃС‚Р°РІР»СЏРµРј РџР•Р Р•Р” ELF_BEGIN РµРµ РєРѕРґ
+PUBLIC myfunc
+myfunc: PUSH {R4-R6,LR}
+;РґРµР»Р°РµРј С‡С‚Рѕ-С‚Рѕ СЃ R4-R6 (РјРѕР¶РЅРѕ РґРѕ R12)
+POP {R4-R6,PC} ; Р’РѕР·РІСЂР°С‚
+;РёР»Рё РґРµР»Р°С‚СЊ BX LR РЅРµ СЃРѕС…СЂР°РЅСЏСЏ РµРіРѕ
+Р’С‹Р·РѕРІ РёР· РЎРё:
+extern int myfunc(int a,int b,int c, int d);
+myfunc(a,b,c,d);
+РџРµСЂРІС‹Рµ 4 РїР°СЂР°РјРµС‚СЂР° РїРµСЂРµРґР°СЋС‚СЃСЏ СЃРѕРѕС‚РІ. РІ СЂРµРіРёСЃС‚СЂР°С… R0-R3, РѕСЃС‚Р°Р»СЊРЅС‹Рµ С‡РµСЂРµР· СЃС‚РµРє.
+Р РµР·СѓР»СЊС‚Р°С‚ РІРѕР·РІСЂР°С‰Р°РµС‚СЃСЏ РІ R0.
+РЎРёСЃС‚РµРјСѓ РєРѕРјР°РЅРґ РђР Рњ СЃРјРѕС‚СЂРёРј С‚СѓС‚ Рё С‚СѓС‚
+
+- РїРѕС‡РµРјСѓ РЅР° С…65-75 РЅРµ РѕС‚РєСЂС‹РІР°СЋС‚СЃСЏ С„Р°Р№Р»С‹ СЃ РєР°СЂС‚РѕС‡РєРё (MMC)?
+Р’ fopen() РґРѕР»Р¶РЅРѕ Р±С‹С‚СЊ P_READ РІРјРµСЃС‚Рѕ 0
+
+- РєР°Рє РІС‹РІРµСЃС‚Рё РЅР° СЌРєСЂР°РЅ СЂРёСЃСѓРЅРѕРє bmp?
+РЎРј. С‚СѓС‚
+
+- РµСЃС‚СЊ Р»Рё РІРёСЂСѓСЃС‹ РЅР° СЌР»СЊС„Р°С… Рё РєР°Рє СЃ РЅРёРјРё Р±РѕСЂРѕС‚СЊСЃСЏ?
+РЎРј. С‚СѓС‚
+
+-РєР°Рє РїРѕСЂС‚РёСЂРѕРІР°С‚СЊ РёРјРµСЋС‰РёРµСЃСЏ РёСЃС…РѕРґРЅРёРєРё РІ IAR ?
+РЎР»РѕР¶РЅРѕ. СЃРј. С‚СѓС‚
+
+-РєР°Рє РѕС‚Р»Р°Р¶РёРІР°С‚СЊ СЌР»СЊС„?
+РќРµСЃР»РѕР¶РЅРѕРіРѕ РѕС‚Р»Р°РґС‡РёРєР° РЅРµС‚ :( РїСЂРёРґСѓРјС‹РІР°РµРј СЃР°РјРё
+РњРѕР¶РЅРѕ РїРѕРїСЂРѕР±РѕРІР°С‚СЊ РІС‹РІРѕРґРёС‚СЊ Р·РЅР°С‡РµРЅРёРµ РїР°СЂР°РјРµС‚СЂР° РЅР° СЌРєСЂР°РЅ
+char s[128]; sprintf(s,"Р—РЅР°С‡РµРЅРёРµ a= %d",a); ShowMSG(1,(int)s); //РёР»Рё С‡РµСЂРµР· DrawString(...)
+РёР»Рё РїРёСЃР°С‚СЊ РІ Р»РѕРі: #define logsize 10000
+char log[logsize], *ptr=log;
+void debug(char *s){ if(ptr<log+logsize-strlen(s)-3){
+strcpy(ptr,s); ptr+=strlen(s); *ptr++=0xd; *ptr++=0xa;}}
+Р° РїСЂРё РІС‹С…РѕРґРµ: fwrite(f,log,ptr-log,&err);
+Р•СЃР»Рё РїРѕР»СѓС‡Р°РµРј РїРёРєРѕС„С„ - РёСЃРєР»СЋС‡Р°РµРј С‡Р°СЃС‚СЊ С„СѓРЅРєС†РёР№ РґРѕ С‚РµС… РїРѕСЂ РїРѕРєР° РЅРµ РЅР°С…РѕРґРёРј РєС‚Рѕ РІРёРЅРѕРІРЅРёРє.
+
+- РєР°Рє РЅР°Р№С‚Рё РІСЃРµ С„Р°Р№Р»С‹ РІ РїР°РїРєРµ?
+void findlist(char *dir){ //dir - РїР°РїРєР°, РЅР°РїСЂРёРјРµСЂ "0:","0:\\Misc"
+static DIR_ENTRY de; unsigned int err;
+char path[128]; strcpy(path,dir);
+char *ptr=path+strlen(path)+1;
+strcat(path,"\\*.*"); //РёР»Рё "\\*.wav" С‚.Рµ. С‚Рѕ С‡С‚Рѕ РЅСѓР¶РЅРѕ РёСЃРєР°С‚СЊ
+if (FindFirstFile(&de,path,&err)){
+do{ strcpy(ptr,de.file_name);
+//if(isdir(path,&err)) somedir(path); else //РµСЃР»Рё СЌС‚Рѕ РїР°РїРєР° С‚Рѕ РґРµР»Р°РµРј С‚Рѕ-С‚Рѕ, РёРЅР°С‡Рµ
+somefile(path); //РґРµР»Р°РµРј СЃ РЅР°Р№РґРµРЅРЅС‹Рј С„Р°Р№Р»РѕРј С‡С‚Рѕ РЅР°Рј РЅСѓР¶РЅРѕ
+}while(FindNextFile(&de,&err));
+}FindClose(&de,&err);}
+
+- РєР°Рє РёР· СЌР»СЊС„Р° Р·Р°РїСѓСЃС‚РёС‚СЊ РґСЂ. СЌР»СЊС„?
+void execelf(char *exename, char *fname){ //fname-РїР°СЂР°РјРµС‚СЂ (РёРјСЏ С„Р°Р№Р»Р°), РїРµСЂРµРґР°РІР°РµРјС‹Р№ РІ СЌР»СЊС„
+WSHDR *ws=AllocWS(256);
+str_2ws(ws,exename,strlen(exename)+1);
+ExecuteFile(ws,0,fname); FreeWS(ws);}
+
+- РєР°Рє РІРѕСЃРїСЂРѕРёР·РІРµСЃС‚Рё СЃС‚Р°РЅРґР°СЂС‚РЅС‹Р№ Р·РІСѓРє?
+РћС‚РІРµС‚ РѕС‚ Geka: PlaySound(1,0,0,n,0) РіРґРµ n-РЅРѕРјРµСЂ СЃС‚Р°РЅРґ.Р·РІСѓРєР°
+
+- РєР°Рє РІРѕСЃРїСЂРѕРёР·РІРµСЃС‚Рё Р·РІСѓРєРѕРІРѕР№ С„Р°Р№Р»?
+РћС‚РІРµС‚ РѕС‚ KreN (СЃРїР°СЃРёР±Рѕ Р·Р° СЂР°Р·СЉСЏСЃРЅРµРЅРёСЏ):
+typedef struct{ unsigned int unk1,unk2,unk3,volume;} SFO;
+#pragma swi_number=74
+__swi __arm void PlayFile(int _C,WSHDR* folder,WSHDR* filename,int cepid, int _167,SFO* options);
+void PlayMelody(int type_melody){
+SFO unk1; WSHDR *ws1=AllocWS(50), *ws2=AllocWS(30);
+str_2ws(ws1,natisq_path,49);
+unk1.unk1=1; unk1.unk2=0; unk1.unk3=0; unk1.volume=3;
+wsprintf(ws2,"message.wav");
+PlayFile(0xC,ws1,ws2,GBS_GetCurCepid(),0x167,&unk1);
+FreeWS(ws1); FreeWS(ws2);}
+PS(cbn): СЃС‚СЂСѓРєС‚СѓСЂР° SFO СЃР»РѕР¶РЅРµРµ, СЃРѕ Р·РІСѓРєРѕРј РјРЅРѕРіРѕ РЅРµСЃРѕРІРјРµСЃС‚. (РїРёРєРѕС„С„) РЅР° СЂР°Р·РЅС‹С… РјРѕРґРµР»СЏС…, РґР°РЅРЅС‹С… РјР°Р»Рѕ...
+
+- РєР°Рє СЂР°Р±РѕС‚Р°С‚СЊ СЃ float,double,long long,... (РЅРµ С…РІР°С‚Р°РµС‚ Р±РёР±Р»., РїРёС€РµС‚ С‡С‚Рѕ РЅРµ РЅР°Р№РґРµРЅС‹ div_32a, div_64a, doubleToLong, float...)?
+Kren: Р’ РјРµРЅСЋ Project->Options->Library Configuration РІС‹Р±СЂР°С‚СЊ Normal. РќСѓР¶РЅС‹Рµ Р±РёР±Р». РїРѕРґРєР». Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё.
+cbn: РІРµРє Р¶РёРІРё - РІРµРє СѓС‡РёСЃСЊ (РЅРµ Р·РЅР°Р»). РџРѕРјРЅРёС‚Рµ С‡С‚Рѕ РІРІРёРґСѓ РѕС‚СЃСѓС‚СЃС‚РІРёСЏ СЃРѕРїСЂРѕС†РµСЃСЃРѕСЂР° РІСЃРµ РѕРїРµСЂР°С†РёРё СЃ float,double СЌРјСѓР»РёСЂСѓСЋС‚СЃСЏ С‡РµСЂРµР· С„СѓРЅРєС†РёРё Рё СЂР°Р±РѕС‚Р°СЋС‚ _РјРµРґР»РµРЅРЅРѕ_.
+
+
+РђРІС‚РѕСЂ РёРЅСЃС‚СЂСѓРєС†РёРё: Р’РѕСЂРѕР±СЊРµРІ РђР»РµРєСЃР°РЅРґСЂ (cbn) РЎР°Р№С‚ РџРѕС‡С‚Р°
+int f;
 int f2;
 char *buffer;
-  if((f=fopen(ptr,A_ReadOnly+A_BIN,P_READ,&err))!=-1)
-     {ShowMSG(1,(int)"Прочитали");
-      buffer = malloc(0x6);
-      lseek(f, 0xD, S_SET, &err, &err);
-      fread32(f, buffer, 0x60, &err);
-      
-     }
-  else ShowMSG(1,(int)"Can't open");
-  
-  if( (f2=fopen("0:\\z1.txt",A_ReadWrite+A_BIN+A_Create+A_Append,P_READ+P_WRITE,&err))!=-1) //Создаем выходной файл
-     { ShowMSG(1,(int)"Create");
-       fwrite32(f2,buffer,0x60,&err);
-       fclose(f2,&err);
-     }
-  else ShowMSG(1,(int)"Can't creat");
-  fclose(f, &err);
+if((f=fopen(ptr,A_ReadOnly+A_BIN,P_READ,&err))!=-1)
+{ShowMSG(1,(int)"РџСЂРѕС‡РёС‚Р°Р»Рё");
+buffer = malloc(0x6);
+lseek(f, 0xD, S_SET, &err, &err);
+fread32(f, buffer, 0x60, &err);
+
+}
+else ShowMSG(1,(int)"Can't open");
+
+if( (f2=fopen("0:\\z1.txt",A_ReadWrite+A_BIN+A_Create+A_Append,P_READ+P_WRITE,&err))!=-1) //РЎРѕР·РґР°РµРј РІС‹С…РѕРґРЅРѕР№ С„Р°Р№Р»
+{ ShowMSG(1,(int)"Create");
+fwrite32(f2,buffer,0x60,&err);
+fclose(f2,&err);
+}
+else ShowMSG(1,(int)"Can't creat");
+fclose(f, &err);
