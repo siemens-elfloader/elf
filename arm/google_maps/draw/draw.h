@@ -1,0 +1,2 @@
+void Redraw();
+void DrawInstall();

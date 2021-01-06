@@ -1,0 +1,3 @@
+int CreateBaseOfMediafiles();
+void Create();
+

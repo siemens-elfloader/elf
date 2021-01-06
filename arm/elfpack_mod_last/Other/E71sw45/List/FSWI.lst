@@ -1,0 +1,167 @@
+###############################################################################
+#                                                                             #
+#     IAR Systems ARM Assembler V4.42A/W32 13/Jan/2011  14:21:44              #
+#     Copyright 1999-2007 IAR Systems. All rights reserved.                   #
+#                                                                             #
+#           Source file   =  C:\arm\elfpack_mod_last\main\FSWI.asm            #
+#           List file     =  C:\arm\elfpack_mod_last\Other\E71sw45\List\FSWI.lst#
+#           Object file   =  C:\arm\elfpack_mod_last\Other\E71sw45\Obj\FSWI.r79#
+#           Command line  =  C:\arm\elfpack_mod_last\main\FSWI.asm            #
+#                            -OC:\arm\elfpack_mod_last\Other\E71sw45\Obj\     #
+#                            -s+ -M<> -w+ -DNEWSGOLD -DELKA                   #
+#                            -LC:\arm\elfpack_mod_last\Other\E71sw45\List\    #
+#                            -cE -t8 --cpu ARM926EJ-S --fpu None              #
+#                            -IC:\arm2\Embedded Workbench 4.0 Evaluation\ARM\INC\ #
+#                                                                             #
+###############################################################################
+
+    1    00000000              //SWI dispatcher v1.1 (C)2006 by Rst7/CBSIE
+    2    00000000              
+    3    00000000              
+    4    00000000                                 EXTERN  SWILIB
+    5    00000000                                 EXTERN  pLIB_TOP
+    6    00000000                                 EXTERN  FUNC_ABORT
+    7    00000000                                 
+    8    00000000                                 RSEG    FSWI_PATCH1:CODE:ROOT
+    9    00000000                                 
+   10    00000000                                 CODE32
+   11    00000000              
+   12    00000000 ........                        LDR     PC, main_jumper
+   13    00000004                      
+   14    00000004              #ifndef NEWSGOLD
+   17    00000004              #endif
+   18    00000004              
+   19    00000000                                 RSEG    FSWI_PATCH2:DATA(2)
+   20    00000000              
+   21    00000000                     main_jumper:
+   22    00000000 ........                        DC32    main
+   23    00000004              
+   24    00000000                                 RSEG    CODE:CODE
+   25    00000000                                 
+   26    00000000                                 CODE32
+   27    00000000                                 
+   28    00000000                         nullsub:
+   29    00000000 1EFF2FE1                        BX      LR
+   30    00000004                                 
+   31    00000004                            main:
+   32    00000004 00109DE5                        LDR     R1, [SP, #0x00]     
+                                                               // Берем
+                                                               CPSR
+   33    00000008 200011E3                        TST     R1, #0x20           
+                                                               // Проверяем на
+                                                               THUMB (установку
+                                                               T - бита)
+   34    0000000C 1A2F8F02                        ADREQ   R2, arm_jumper      
+                                                               // Берем адрес
+                                                               джампера
+   35    00000010 0400000A                        BEQ     arm_mode
+   36    00000014                                 
+   37    00000014 C70050E3                        CMP     R0, #199            
+                                                               // Служебный SWI
+                                                               для длинной
+                                                               библиотеки
+   38    00000018 B200DE00                        LDREQH  R0, [LR], #2        
+                                                               // Зацепляем
+                                                               второе слово
+                                                               (длинный номер)
+                                                               c пропуском
+                                                               DW
+   39    0000001C 14E08D05                        STREQ   LR, [SP, #0x14]     
+                                                               // Сохраняем
+                                                               временно адрес
+                                                               возврата (если
+                                                               захочем
+                                                               данные)
+   40    00000020 01E08EE2                        ADD     LR, LR, #0x01       
+                                                               // Устанавливаем
+                                                               бит 0, если
+                                                               THUMB
+   41    00000024 55208FE2                        ADR     R2, thumb_jumper    
+                                                               // Берем адрес
+                                                               джампера
+   42    00000028                                 
+   43    00000028                        arm_mode:
+   44    00000028 54109FE5                        LDR     R1, =pLIB_TOP       
+                                                               // Указатель на
+                                                               таблицу
+                                                               адресов
+   45    0000002C 001091E5                        LDR     R1, [R1]
+   46    00000030 000051E3                        CMP     R1, #0x00
+   47    00000034 4C109F05                        LDREQ   R1, =Library
+   48    00000038 803CC0E3                        BIC     R3, R0, #0x8000
+   49    0000003C 400D53E3                        CMP     R3, #4096
+   50    00000040 0A00008A                        BHI     exit
+   51    00000044                                 
+   52    00000044 800C10E3                        TST     R0,  #0x8000        
+                                                                // А не адрес
+                                                                нам надо
+                                                                получить?
+   53    00000048 00402D09                        STMEQFD SP!, {LR}           
+                                                              // Копируем адрес
+                                                              возврата из
+                                                              LR_svc только
+                                                              если вызов
+                                                              функции
+   54    0000004C 0040FD08                        LDMEQFD SP!, {LR}^          
+                                                              // в LR_usr, он
+                                                              будет использован
+                                                              вызываемой
+                                                              функцией
+   55    00000050 03C191E7                        LDR     R12, [R1, R3, LSL#2]
+                                                                // Берем адрес
+                                                                функции
+   56    00000054 04C08D15                        STRNE   R12, [SP, #4]       
+                                                                // пишем адрес
+                                                                в R0(стек)
+   57    00000058 0E10A0E1         /* ADD */      MOV     R1,   LR
+   58    0000005C                                 
+   59    0000005C 0300001A                        BNE    exit
+   60    00000060 01007CE3                        CMP    R12, #0xFFFFFFFF
+   61    00000064 20209F05                        LDREQ  R2, =FUNC_ABORT
+   62    00000068 04008D05                        STREQ  R0, [SP, #4]
+   63    0000006C 14208DE5                        STR    R2, [SP, #0x14]      
+                                                              // Пишем адрес
+                                                              джампера для
+                                                              возврата в стеке
+                                                              (PC)
+   64    00000070                                 
+   65    00000070                                 
+   66    00000070                           
+   67    00000070                           exit:
+   68    00000070 0100BDE8                        LDMFD  SP!, {R0}
+   69    00000074 00F069E1                        MSR    SPSR_cf, R0
+   70    00000078 0F80FDE8                        LDMFD  SP!, {R0-R3,PC}^
+   71    0000007C                    
+   72    0000007C                      arm_jumper:
+   73    0000007C 1CFF2FE1                        BX     R12
+   74    00000080                                 
+   75    00000080                                 CODE16
+   76    00000080                                 
+   77    00000080                    thumb_jumper:
+   78    00000080 6047                            BX   R12
+   79    00000082                                 
+   80    00000082 0000                            CODE32
+   81    00000084              //  Собственно библиотека
+   82    00000084              
+   83    00000084                                 RSEG    LIBR: DATA(2)
+   83.1  00000084                       TABLE
+   83.2  00000084 ........             Reference on line 44 
+   83.3  00000088 ........             Reference on line 47 
+   83.4  0000008C ........             Reference on line 61 
+   83.5  00000000                      RSEG (including table)
+   83    00000000                                 RSEG    LIBR: DATA(2)
+   84    00000000                                 PUBLIC  Library
+   85    00000000                                 
+   86    00000000                         Library:
+   87    00000000              
+   88    00000000                                 END
+##############################
+#          CRC:65F1          #
+#        Errors:   0         #
+#        Warnings: 0         #
+#         Bytes: 152         #
+##############################
+
+
+
+

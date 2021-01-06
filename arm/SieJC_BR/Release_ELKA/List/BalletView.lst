@@ -1,0 +1,3262 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    15/Feb/2011  01:38:44 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\SieJC_BR\BalletView.c                         #
+#    Command line    =  C:\arm\SieJC_BR\BalletView.c -D NEWSGOLD -D ELKA     #
+#                       --preprocess C:\arm\SieJC_BR\Release_ELKA\List\ -lC  #
+#                       C:\arm\SieJC_BR\Release_ELKA\List\ -o                #
+#                       C:\arm\SieJC_BR\Release_ELKA\Obj\ -s9 --no_unroll    #
+#                       --cpu_mode arm --endian little --cpu ARM926EJ-S      #
+#                       --stack_align 4 --interwork -e --fpu None            #
+#                       --dlib_config "C:\arm2\Embedded Workbench 4.0        #
+#                       Evaluation\ARM\LIB\dl5tpainl8n.h" -I                 #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\SieJC_BR\Release_ELKA\List\BalletView.lst     #
+#    Object file     =  C:\arm\SieJC_BR\Release_ELKA\Obj\BalletView.r79      #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\SieJC_BR\BalletView.c
+      1          #include "../inc/swilib.h"
+      2          #include "BalletView.h"
+      3          #include "clist_util.h"
+      4          #include "cont_menu.h"
+      5          #include "rect_patcher.h"
+      6          #include "message_list.h"
+      7          
+      8          extern const char PATH_TO_AVATARS[128];
+      9          
+     10          //-------------Цвета. Много цветов :)
+     11          extern const unsigned int DEF_SKR;
+     12          extern RGBA MESSAGEWIN_BGCOLOR ; // Общий фон
+     13          extern RGBA MESSAGEWIN_TITLE_BGCOLOR ; // Фон заголовка
+     14          extern RGBA MESSAGEWIN_TITLE_FONT ; // Цвет шрифта заголовка
+     15          extern RGBA MESSAGEWIN_MY_BGCOLOR ; // Цвет фона исходящих сообщений
+     16          extern RGBA MESSAGEWIN_CH_BGCOLOR ; // Цвет фона приватных сообщений
+     17          extern RGBA MESSAGEWIN_CURSOR_BGCOLOR; // Цвет фона курсора
+     18          extern RGBA MESSAGEWIN_GCHAT_BGCOLOR_1 ; // Чередование: Цвет фона сообщений конференции 1
+     19          extern RGBA MESSAGEWIN_GCHAT_BGCOLOR_2 ; // Чередование: Цвет фона сообщений конференции 2
+     20          extern RGBA MESSAGEWIN_SYS_BGCOLOR ; // Цвет фона сообщений уведомлений
+     21          extern RGBA MESSAGEWIN_STATUS_BGCOLOR; // Цвет фона сообщений смены статуса
+     22          extern RGBA MESSAGEWIN_CHAT_FONT; // Цвет шрифта сообщений
+     23          extern RGBA CURSOR_BORDER;
+     24          
+     25          #define color(x) (char *)(&(x))
+     26          
+     27          // fdecl
+     28          void scrollDown(VIEWDATA *vd, int amount);
+     29          void scrollUp(VIEWDATA *vd, int amount);
+     30          int RenderPage(VIEWDATA *vd, int do_draw);
+     31          void FreeViewData(VIEWDATA *vd);
+     32          void AddStringItem(VIEWDATA *vd, char *text);
+     33          void AddTextItem(VIEWDATA *vd, WSHDR *ws);
+     34          void VIEWDATA_ParseMessages(VIEWDATA *vd);
+     35          void AddBeginRef(VIEWDATA *vd);
+     36          void AddEndRef(VIEWDATA *vd);
+     37          void Init_Message(TRESOURCE* ContEx, char *init_text);
+     38          void RawInsertChar(VIEWDATA *vd, int wchar);
+     39          //void AddPictureItem(VIEWDATA *vd, void *picture);
+     40          
+     41          // smiles
+     42          extern const char SMILE_FILE[];
+     43          extern const char SMILE_PATH[];
+     44          
+     45          // string_works.c
+
+   \                                 In segment DATA_I, align 4, align-sorted
+     46          int debugA=A_Truncate;
+   \                     debugA:
+   \   00000000                      DS8 4
+   \   00000004                      REQUIRE `?<Initializer for debugA>`
+     47          unsigned int debug_ul;
+     48          int debug_file;
+   \                     debug_file:
+   \   00000004                      DS8 4
+   \   00000008                      REQUIRE `?<Initializer for debug_file>`
+   \                     debug_ul:
+   \   00000008                      DS8 4
+   \   0000000C                      REQUIRE `?<Initializer for debug_ul>`
+     49          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     50          void debugv(char *file,int line,void *p, int sz)
+     51          {
+   \                     debugv:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+     52            if ((debug_file=fopen("0:\\zbin\\siejc\\debug.txt",A_ReadWrite+A_Create+debugA,P_READ+P_WRITE,&debug_ul))!=-1)
+   \   00000004   ........           LDR      R6,??DataTable3  ;; debugA
+   \   00000008   0240A0E1           MOV      R4,R2
+   \   0000000C   000096E5           LDR      R0,[R6, #+0]
+   \   00000010   602FA0E3           MOV      R2,#+384
+   \   00000014   7E1042E2           SUB      R1,R2,#+126
+   \   00000018   001081E0           ADD      R1,R1,R0
+   \   0000001C   ........           LDR      R0,??DataTable2  ;; `?<Constant "0:\\\\zbin\\\\siejc\\\\debug.txt">`
+   \   00000020   0350A0E1           MOV      R5,R3
+   \   00000024   083086E2           ADD      R3,R6,#+8
+   \   00000028   0A0000EF           SWI      +10
+   \   0000002C   040086E5           STR      R0,[R6, #+4]
+   \   00000030   010070E3           CMN      R0,#+1
+   \   00000034   0600000A           BEQ      ??debugv_0
+     53            {
+     54              fwrite(debug_file,p,sz,&debug_ul);
+   \   00000038   083086E2           ADD      R3,R6,#+8
+   \   0000003C   0520A0E1           MOV      R2,R5
+   \   00000040   0410A0E1           MOV      R1,R4
+   \   00000044   0C0000EF           SWI      +12
+     55              fclose(debug_file,&debug_ul);
+   \   00000048   040096E5           LDR      R0,[R6, #+4]
+   \   0000004C   081086E2           ADD      R1,R6,#+8
+   \   00000050   0D0000EF           SWI      +13
+     56            }
+     57            debugA=A_Append;
+   \                     ??debugv_0:
+   \   00000054   0800A0E3           MOV      R0,#+8
+   \   00000058   000086E5           STR      R0,[R6, #+0]
+     58          }
+   \   0000005C   7080BDE8           POP      {R4-R6,PC}       ;; return
+     59          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     60          void debugf(char *file,int line)
+     61          {
+   \                     debugf:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+     62            if ((debug_file=fopen("0:\\zbin\\siejc\\debug.txt",A_ReadWrite+A_Create+debugA,P_READ+P_WRITE,&debug_ul))!=-1)
+   \   00000004   ........           LDR      R6,??DataTable2  ;; `?<Constant "0:\\\\zbin\\\\siejc\\\\debug.txt">`
+   \   00000008   ........           LDR      R7,??DataTable3  ;; debugA
+   \   0000000C   40DF4DE2           SUB      SP,SP,#+256
+   \   00000010   0040A0E1           MOV      R4,R0
+   \   00000014   000097E5           LDR      R0,[R7, #+0]
+   \   00000018   0150A0E1           MOV      R5,R1
+   \   0000001C   083087E2           ADD      R3,R7,#+8
+   \   00000020   602FA0E3           MOV      R2,#+384
+   \   00000024   7E1042E2           SUB      R1,R2,#+126
+   \   00000028   001081E0           ADD      R1,R1,R0
+   \   0000002C   0600A0E1           MOV      R0,R6
+   \   00000030   0A0000EF           SWI      +10
+   \   00000034   040087E5           STR      R0,[R7, #+4]
+   \   00000038   010070E3           CMN      R0,#+1
+   \   0000003C   0E00000A           BEQ      ??debugf_0
+     63            {
+     64              char c[256];
+     65              sprintf(c,"%s : %i\n",file,line);
+   \   00000040   0530A0E1           MOV      R3,R5
+   \   00000044   0420A0E1           MOV      R2,R4
+   \   00000048   181086E2           ADD      R1,R6,#+24
+   \   0000004C   0D00A0E1           MOV      R0,SP
+   \   00000050   160000EF           SWI      +22
+     66              fwrite(debug_file,c,strlen(c),&debug_ul);
+   \   00000054   0D00A0E1           MOV      R0,SP
+   \   00000058   1B0000EF           SWI      +27
+   \   0000005C   0020A0E1           MOV      R2,R0
+   \   00000060   040097E5           LDR      R0,[R7, #+4]
+   \   00000064   083087E2           ADD      R3,R7,#+8
+   \   00000068   0D10A0E1           MOV      R1,SP
+   \   0000006C   0C0000EF           SWI      +12
+     67              fclose(debug_file,&debug_ul);
+   \   00000070   040097E5           LDR      R0,[R7, #+4]
+   \   00000074   081087E2           ADD      R1,R7,#+8
+   \   00000078   0D0000EF           SWI      +13
+     68            }
+     69            debugA=A_Append;
+   \                     ??debugf_0:
+   \   0000007C   0800A0E3           MOV      R0,#+8
+   \   00000080   000087E5           STR      R0,[R7, #+0]
+     70          }
+   \   00000084   40DF8DE2           ADD      SP,SP,#+256
+   \   00000088   F080BDE8           POP      {R4-R7,PC}       ;; return
+     71          
+     72          extern int Message_gui_ID;
+     73          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     74          int GetFontHeight(int font, int atribute)
+     75          {
+   \                     GetFontHeight:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0140A0E1           MOV      R4,R1
+     76            int height=GetFontYSIZE(font);
+   \   00000008   C50100EF           SWI      +453
+     77            if (atribute&TEXT_INVERT)   height+=1;
+   \   0000000C   100014E3           TST      R4,#0x10
+   \   00000010   01008012           ADDNE    R0,R0,#+1
+     78            if (atribute&TEXT_UNDERLINE)   height+=1;
+   \   00000014   080014E3           TST      R4,#0x8
+   \   00000018   01008012           ADDNE    R0,R0,#+1
+     79            if (atribute&TEXT_OUTLINE)  height+=2;
+   \   0000001C   200014E3           TST      R4,#0x20
+   \   00000020   02008012           ADDNE    R0,R0,#+2
+     80            return height;
+   \   00000024   1080BDE8           POP      {R4,PC}          ;; return
+     81          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+     82          unsigned int SearchNextDisplayLine(VIEWDATA *vd, LINECACHE *p, unsigned int *max_h)
+     83          {
+   \                     SearchNextDisplayLine:
+   \   00000000   F44F2DE9           PUSH     {R2,R4-R11,LR}
+   \   00000004   04D04DE2           SUB      SP,SP,#+4
+   \   00000008   0050A0E1           MOV      R5,R0
+   \   0000000C   0160A0E1           MOV      R6,R1
+     84            int left=ScreenW();
+   \   00000010   888100EF           SWI      +33160
+   \   00000014   0070A0E1           MOV      R7,R0
+     85            int c,h,cw,f=0;
+   \   00000018   0010A0E3           MOV      R1,#+0
+   \   0000001C   00108DE5           STR      R1,[SP, #+0]
+     86            unsigned int pos=p->pos;
+     87            p->centerAtAll=0;
+   \   00000020   BE00D6E1           LDRH     R0,[R6, #+14]
+   \   00000024   004096E5           LDR      R4,[R6, #+0]
+   \   00000028   DF10A0E3           MOV      R1,#+223
+   \                     ??SearchNextDisplayLine_0:
+   \   0000002C   FF1C81E3           ORR      R1,R1,#0xFF00
+   \   00000030   000001E0           AND      R0,R1,R0
+   \   00000034   000000EA           B        ??SearchNextDisplayLine_1
+     88            while(pos<vd->rawtext_size)
+     89            {
+     90              c=vd->rawtext[pos++];
+     91              if ((c&0xFF00)==0xE100)
+     92              {
+     93                h=GetImgHeight(GetPicNByUnicodeSymbol(c));
+     94              }
+     95              else
+     96              {
+     97                h=GetFontHeight(p->bold?FONT_SMALL_BOLD:FONT_SMALL,p->underline?TEXT_UNDERLINE:0+p->ref?TEXT_INVERT:0);
+     98              }
+     99              switch(c)
+    100              {
+    101              case 0x0A:
+    102                f=1;
+    103                h=0;
+    104                break;
+    105              case UTF16_ENA_CENTER:
+    106                p->center=1;
+   \                     ??SearchNextDisplayLine_2:
+   \   00000038   080081E3           ORR      R0,R1,#0x8
+   \                     ??SearchNextDisplayLine_1:
+   \   0000003C   BE00C6E1           STRH     R0,[R6, #+14]
+    107                continue;
+   \                     ??SearchNextDisplayLine_3:
+   \   00000040   040095E5           LDR      R0,[R5, #+4]
+   \   00000044   000054E1           CMP      R4,R0
+   \   00000048   7D00002A           BCS      ??SearchNextDisplayLine_4
+   \   0000004C   000095E5           LDR      R0,[R5, #+0]
+   \   00000050   840080E0           ADD      R0,R0,R4, LSL #+1
+   \   00000054   B0A0D0E1           LDRH     R10,[R0, #+0]
+   \   00000058   014084E2           ADD      R4,R4,#+1
+   \   0000005C   FF0C0AE2           AND      R0,R10,#0xFF00
+   \   00000060   E10C50E3           CMP      R0,#+57600
+   \   00000064   0300001A           BNE      ??SearchNextDisplayLine_5
+   \   00000068   0A00A0E1           MOV      R0,R10
+   \   0000006C   E40100EF           SWI      +484
+   \   00000070   210000EF           SWI      +33
+   \   00000074   0A0000EA           B        ??SearchNextDisplayLine_6
+   \                     ??SearchNextDisplayLine_5:
+   \   00000078   BE00D6E1           LDRH     R0,[R6, #+14]
+   \   0000007C   020010E3           TST      R0,#0x2
+   \   00000080   0810A013           MOVNE    R1,#+8
+   \   00000084   0200001A           BNE      ??SearchNextDisplayLine_7
+   \   00000088   040010E3           TST      R0,#0x4
+   \   0000008C   1010A013           MOVNE    R1,#+16
+   \   00000090   0010A003           MOVEQ    R1,#+0
+   \                     ??SearchNextDisplayLine_7:
+   \   00000094   010010E3           TST      R0,#0x1
+   \   00000098   0900A013           MOVNE    R0,#+9
+   \   0000009C   0800A003           MOVEQ    R0,#+8
+   \   000000A0   ........           BL       GetFontHeight
+   \                     ??SearchNextDisplayLine_6:
+   \   000000A4   043095E5           LDR      R3,[R5, #+4]
+   \   000000A8   BE10D6E1           LDRH     R1,[R6, #+14]
+   \   000000AC   0080A0E1           MOV      R8,R0
+   \   000000B0   000095E5           LDR      R0,[R5, #+0]
+   \   000000B4   02B043E2           SUB      R11,R3,#+2
+   \   000000B8   842080E0           ADD      R2,R0,R4, LSL #+1
+   \   000000BC   019084E2           ADD      R9,R4,#+1
+   \   000000C0   0A005AE3           CMP      R10,#+10
+   \   000000C4   2A00000A           BEQ      ??SearchNextDisplayLine_8
+   \   000000C8   01E0A0E3           MOV      LR,#+1
+   \   000000CC   E0EC8EE3           ORR      LR,LR,#0xE000
+   \   000000D0   0E005AE1           CMP      R10,LR
+   \   000000D4   3F00000A           BEQ      ??SearchNextDisplayLine_9
+   \   000000D8   01E08EE2           ADD      LR,LR,#+1
+   \   000000DC   0E005AE1           CMP      R10,LR
+   \   000000E0   3900000A           BEQ      ??SearchNextDisplayLine_10
+   \   000000E4   02E08EE2           ADD      LR,LR,#+2
+   \   000000E8   0E005AE1           CMP      R10,LR
+   \   000000EC   2F00000A           BEQ      ??SearchNextDisplayLine_11
+   \   000000F0   01E08EE3           ORR      LR,LR,#0x1
+   \   000000F4   0E005AE1           CMP      R10,LR
+   \   000000F8   3100000A           BEQ      ??SearchNextDisplayLine_12
+   \   000000FC   01E08EE2           ADD      LR,LR,#+1
+   \   00000100   0E005AE1           CMP      R10,LR
+   \   00000104   3A00000A           BEQ      ??SearchNextDisplayLine_13
+   \   00000108   01E08EE3           ORR      LR,LR,#0x1
+   \   0000010C   0E005AE1           CMP      R10,LR
+   \   00000110   4000000A           BEQ      ??SearchNextDisplayLine_14
+   \   00000114   01E08EE2           ADD      LR,LR,#+1
+   \   00000118   0E005AE1           CMP      R10,LR
+   \   0000011C   01E08E13           ORRNE    LR,LR,#0x1
+   \   00000120   0E005A11           CMPNE    R10,LR
+   \   00000124   4300000A           BEQ      ??SearchNextDisplayLine_15
+   \   00000128   09E08EE2           ADD      LR,LR,#+9
+   \   0000012C   0E005AE1           CMP      R10,LR
+   \   00000130   2A00000A           BEQ      ??SearchNextDisplayLine_16
+   \   00000134   01E08EE3           ORR      LR,LR,#0x1
+   \   00000138   0E005AE1           CMP      R10,LR
+   \   0000013C   2A00000A           BEQ      ??SearchNextDisplayLine_17
+   \   00000140   09E08EE2           ADD      LR,LR,#+9
+   \   00000144   0E005AE1           CMP      R10,LR
+   \   00000148   1500000A           BEQ      ??SearchNextDisplayLine_18
+   \   0000014C   01E08EE3           ORR      LR,LR,#0x1
+   \   00000150   0E005AE1           CMP      R10,LR
+   \   00000154   1000000A           BEQ      ??SearchNextDisplayLine_19
+   \   00000158   01E08EE2           ADD      LR,LR,#+1
+   \   0000015C   0E005AE1           CMP      R10,LR
+   \   00000160   B4FFFF0A           BEQ      ??SearchNextDisplayLine_2
+   \   00000164   01E08EE3           ORR      LR,LR,#0x1
+   \   00000168   0E005AE1           CMP      R10,LR
+   \   0000016C   0700000A           BEQ      ??SearchNextDisplayLine_20
+   \   00000170   020000EA           B        ??SearchNextDisplayLine_21
+   \                     ??SearchNextDisplayLine_8:
+   \   00000174   0120A0E3           MOV      R2,#+1
+   \   00000178   00208DE5           STR      R2,[SP, #+0]
+   \   0000017C   0080A0E3           MOV      R8,#+0
+    108              case UTF16_DIS_CENTER:
+    109                p->center=0;
+    110                continue;
+    111              case UTF16_ALIGN_RIGHT:
+    112                p->right=1;
+    113                continue;
+    114              case UTF16_ALIGN_LEFT:
+    115                p->right=0;
+    116                continue;
+    117              case UTF16_DIS_INVERT:
+    118                p->ref=0;
+    119                continue;
+    120              case UTF16_ENA_INVERT:
+    121                p->ref=1;
+    122                continue;
+    123              case UTF16_DIS_UNDERLINE:
+    124                p->underline=0;
+    125                continue;
+    126              case UTF16_ENA_UNDERLINE:
+    127                p->underline=1;
+    128                continue;
+    129              case UTF16_FONT_SMALL:
+    130                p->bold=0;
+    131                continue;
+    132              case UTF16_FONT_SMALL_BOLD:
+    133                p->bold=1;
+    134                continue;
+    135              case UTF16_INK_RGBA:
+    136                if (pos>(vd->rawtext_size-2)) goto LERR;
+    137                p->ink1=vd->rawtext[pos++];
+    138                p->ink2=vd->rawtext[pos++];
+    139                continue;
+    140              case UTF16_PAPER_RGBA:
+    141                if (pos>(vd->rawtext_size-2)) goto LERR;
+    142                p->paper1=vd->rawtext[pos++];
+    143                p->paper2=vd->rawtext[pos++];
+    144                continue;
+    145              case UTF16_INK_INDEX:
+    146              case UTF16_PAPER_INDEX:
+    147                pos++;
+    148                if (pos>=vd->rawtext_size) goto LERR;
+    149                continue;
+    150              }
+    151              cw=GetSymbolWidth(c,p->bold?FONT_SMALL_BOLD:FONT_SMALL);
+   \                     ??SearchNextDisplayLine_21:
+   \   00000180   010011E3           TST      R1,#0x1
+   \   00000184   0810A003           MOVEQ    R1,#+8
+   \   00000188   0910A013           MOVNE    R1,#+9
+   \   0000018C   2E0000EA           B        ??SearchNextDisplayLine_22
+   \                     ??SearchNextDisplayLine_20:
+   \   00000190   0100A0E1           MOV      R0,R1
+   \   00000194   F710A0E3           MOV      R1,#+247
+   \   00000198   A3FFFFEA           B        ??SearchNextDisplayLine_0
+   \                     ??SearchNextDisplayLine_19:
+   \   0000019C   100081E3           ORR      R0,R1,#0x10
+   \   000001A0   A5FFFFEA           B        ??SearchNextDisplayLine_1
+   \                     ??SearchNextDisplayLine_18:
+   \   000001A4   0100A0E1           MOV      R0,R1
+   \   000001A8   EF10A0E3           MOV      R1,#+239
+   \   000001AC   9EFFFFEA           B        ??SearchNextDisplayLine_0
+   \                     ??SearchNextDisplayLine_11:
+   \   000001B0   0100A0E1           MOV      R0,R1
+   \   000001B4   FB10A0E3           MOV      R1,#+251
+   \   000001B8   FF1C81E3           ORR      R1,R1,#0xFF00
+   \   000001BC   000001E0           AND      R0,R1,R0
+   \   000001C0   9DFFFFEA           B        ??SearchNextDisplayLine_1
+   \                     ??SearchNextDisplayLine_12:
+   \   000001C4   040081E3           ORR      R0,R1,#0x4
+   \   000001C8   9BFFFFEA           B        ??SearchNextDisplayLine_1
+   \                     ??SearchNextDisplayLine_10:
+   \   000001CC   0100A0E1           MOV      R0,R1
+   \   000001D0   FD10A0E3           MOV      R1,#+253
+   \   000001D4   94FFFFEA           B        ??SearchNextDisplayLine_0
+   \                     ??SearchNextDisplayLine_9:
+   \   000001D8   020081E3           ORR      R0,R1,#0x2
+   \   000001DC   96FFFFEA           B        ??SearchNextDisplayLine_1
+   \                     ??SearchNextDisplayLine_16:
+   \   000001E0   0100A0E1           MOV      R0,R1
+   \   000001E4   FE10A0E3           MOV      R1,#+254
+   \   000001E8   8FFFFFEA           B        ??SearchNextDisplayLine_0
+   \                     ??SearchNextDisplayLine_17:
+   \   000001EC   010081E3           ORR      R0,R1,#0x1
+   \   000001F0   91FFFFEA           B        ??SearchNextDisplayLine_1
+   \                     ??SearchNextDisplayLine_13:
+   \   000001F4   04005BE1           CMP      R11,R4
+   \   000001F8   1100003A           BCC      ??SearchNextDisplayLine_4
+   \   000001FC   B010D2E1           LDRH     R1,[R2, #+0]
+   \   00000200   890080E0           ADD      R0,R0,R9, LSL #+1
+   \   00000204   B410C6E1           STRH     R1,[R6, #+4]
+   \   00000208   B000D0E1           LDRH     R0,[R0, #+0]
+   \   0000020C   B600C6E1           STRH     R0,[R6, #+6]
+   \                     ??SearchNextDisplayLine_23:
+   \   00000210   014089E2           ADD      R4,R9,#+1
+   \   00000214   89FFFFEA           B        ??SearchNextDisplayLine_3
+   \                     ??SearchNextDisplayLine_14:
+   \   00000218   04005BE1           CMP      R11,R4
+   \   0000021C   0800003A           BCC      ??SearchNextDisplayLine_4
+   \   00000220   B010D2E1           LDRH     R1,[R2, #+0]
+   \   00000224   890080E0           ADD      R0,R0,R9, LSL #+1
+   \   00000228   B810C6E1           STRH     R1,[R6, #+8]
+   \   0000022C   B000D0E1           LDRH     R0,[R0, #+0]
+   \   00000230   BA00C6E1           STRH     R0,[R6, #+10]
+   \   00000234   F5FFFFEA           B        ??SearchNextDisplayLine_23
+   \                     ??SearchNextDisplayLine_15:
+   \   00000238   0940A0E1           MOV      R4,R9
+   \   0000023C   030054E1           CMP      R4,R3
+   \   00000240   7EFFFF3A           BCC      ??SearchNextDisplayLine_3
+    152              left-=cw;
+    153              if (left<0)
+    154              {
+    155                int b=1;
+    156                int cw=0;
+    157                if (p->ref)
+    158                {
+    159                  while (1)
+    160                  {
+    161                    if (vd->rawtext[pos-b]==UTF16_ENA_INVERT) break;
+    162                    if (vd->rawtext[pos-b]==UTF16_NEWLINE)
+    163                    {
+    164                      b++;
+    165                      break;
+    166                    }
+    167                    if (cw>=ScreenW()/2)
+    168                    {
+    169                      b=1;
+    170                      break;
+    171                    }
+    172                    cw+=GetSymbolWidth(vd->rawtext[pos-b],p->bold?FONT_SMALL_BOLD:FONT_SMALL);
+    173                    b++;
+    174                  }
+    175                }
+    176                else
+    177                {
+    178                  ;
+    179                }
+    180                return pos-b;
+    181              }
+    182              if (cw>=ScreenW()/2||h>GetFontHeight(FONT_SMALL,0)*2)
+    183              {
+    184                if (left+cw<ScreenW())
+    185                {
+    186                  p->centerAtAll=1;
+    187                  if (vd->rawtext[pos-1]==UTF16_ENA_INVERT)
+    188                  {
+    189                    return pos-2;
+    190                  }
+    191                  else
+    192                  {
+    193                    return pos-1;
+    194                  }
+    195                }
+    196              }
+    197              if (max_h)
+    198              {
+    199                if (h>*max_h)
+    200                {
+    201                  *max_h=vd->lastLineHeight=h;
+    202                }
+    203              }
+    204              if (cw>=ScreenW()/2||h>GetFontHeight(FONT_SMALL,0)*2)
+    205              {
+    206                if (left+cw==ScreenW())
+    207                {
+    208                  if (pos>(vd->rawtext_size-1)) goto LERR;
+    209                  p->centerAtAll=1;
+    210                  if (vd->rawtext[pos+1]==UTF16_DIS_INVERT)
+    211                  {
+    212                    p->ref=0;
+    213                    return pos+1;
+    214                  }
+    215                  else
+    216                  {
+    217                    return pos;
+    218                  }
+    219                }
+    220              }
+    221              if (f)
+    222              {
+    223                return pos;
+    224              }
+    225            }
+    226          LERR:
+    227            return(vd->rawtext_size);
+   \                     ??SearchNextDisplayLine_4:
+   \   00000244   040095E5           LDR      R0,[R5, #+4]
+   \   00000248   F68FBDE8           POP      {R1,R2,R4-R11,PC}  ;; return
+   \                     ??SearchNextDisplayLine_22:
+   \   0000024C   0A00A0E1           MOV      R0,R10
+   \   00000250   E10100EF           SWI      +481
+   \   00000254   00A0A0E1           MOV      R10,R0
+   \   00000258   0A7057E0           SUBS     R7,R7,R10
+   \   0000025C   1F00005A           BPL      ??SearchNextDisplayLine_24
+   \   00000260   BE00D6E1           LDRH     R0,[R6, #+14]
+   \   00000264   0180A0E3           MOV      R8,#+1
+   \   00000268   0070A0E3           MOV      R7,#+0
+   \   0000026C   040010E3           TST      R0,#0x4
+   \   00000270   0600001A           BNE      ??SearchNextDisplayLine_25
+   \                     ??SearchNextDisplayLine_26:
+   \   00000274   080044E0           SUB      R0,R4,R8
+   \   00000278   F68FBDE8           POP      {R1,R2,R4-R11,PC}
+   \                     ??SearchNextDisplayLine_27:
+   \   0000027C   000095E5           LDR      R0,[R5, #+0]
+   \   00000280   890080E0           ADD      R0,R0,R9, LSL #+1
+   \   00000284   B000D0E1           LDRH     R0,[R0, #+0]
+   \   00000288   E10100EF           SWI      +481
+   \   0000028C   077080E0           ADD      R7,R0,R7
+   \                     ??SearchNextDisplayLine_25:
+   \   00000290   000095E5           LDR      R0,[R5, #+0]
+   \   00000294   089044E0           SUB      R9,R4,R8
+   \   00000298   890080E0           ADD      R0,R0,R9, LSL #+1
+   \   0000029C   B010D0E1           LDRH     R1,[R0, #+0]
+   \   000002A0   0520A0E3           MOV      R2,#+5
+   \   000002A4   E02C82E3           ORR      R2,R2,#0xE000
+   \   000002A8   020051E1           CMP      R1,R2
+   \   000002AC   01808812           ADDNE    R8,R8,#+1
+   \   000002B0   0A005113           CMPNE    R1,#+10
+   \   000002B4   EEFFFF0A           BEQ      ??SearchNextDisplayLine_26
+   \   000002B8   888100EF           SWI      +33160
+   \   000002BC   A00F80E0           ADD      R0,R0,R0, LSR #+31
+   \   000002C0   C00057E1           CMP      R7,R0, ASR #+1
+   \   000002C4   0180A0A3           MOVGE    R8,#+1
+   \   000002C8   E9FFFFAA           BGE      ??SearchNextDisplayLine_26
+   \   000002CC   BE00D6E1           LDRH     R0,[R6, #+14]
+   \   000002D0   010010E3           TST      R0,#0x1
+   \   000002D4   0810A003           MOVEQ    R1,#+8
+   \   000002D8   0910A013           MOVNE    R1,#+9
+   \   000002DC   E6FFFFEA           B        ??SearchNextDisplayLine_27
+   \                     ??SearchNextDisplayLine_24:
+   \   000002E0   888100EF           SWI      +33160
+   \   000002E4   07B08AE0           ADD      R11,R10,R7
+   \   000002E8   A00F80E0           ADD      R0,R0,R0, LSR #+31
+   \   000002EC   C0005AE1           CMP      R10,R0, ASR #+1
+   \   000002F0   040000AA           BGE      ??SearchNextDisplayLine_28
+   \   000002F4   0010A0E3           MOV      R1,#+0
+   \   000002F8   0800A0E3           MOV      R0,#+8
+   \   000002FC   ........           BL       GetFontHeight
+   \   00000300   800058E1           CMP      R8,R0, LSL #+1
+   \   00000304   0F0000DA           BLE      ??SearchNextDisplayLine_29
+   \                     ??SearchNextDisplayLine_28:
+   \   00000308   888100EF           SWI      +33160
+   \   0000030C   00005BE1           CMP      R11,R0
+   \   00000310   0C0000AA           BGE      ??SearchNextDisplayLine_29
+   \   00000314   BE00D6E1           LDRH     R0,[R6, #+14]
+   \   00000318   0510A0E3           MOV      R1,#+5
+   \   0000031C   E01C81E3           ORR      R1,R1,#0xE000
+   \   00000320   200080E3           ORR      R0,R0,#0x20
+   \   00000324   BE00C6E1           STRH     R0,[R6, #+14]
+   \   00000328   000095E5           LDR      R0,[R5, #+0]
+   \   0000032C   840080E0           ADD      R0,R0,R4, LSL #+1
+   \   00000330   B20050E1           LDRH     R0,[R0, #-2]
+   \   00000334   010050E1           CMP      R0,R1
+   \   00000338   02004402           SUBEQ    R0,R4,#+2
+   \   0000033C   F68FBD08           POPEQ    {R1,R2,R4-R11,PC}
+   \   00000340   010044E2           SUB      R0,R4,#+1
+   \   00000344   F68FBDE8           POP      {R1,R2,R4-R11,PC}
+   \                     ??SearchNextDisplayLine_29:
+   \   00000348   04009DE5           LDR      R0,[SP, #+4]
+   \   0000034C   000050E3           CMP      R0,#+0
+   \   00000350   0600000A           BEQ      ??SearchNextDisplayLine_30
+   \   00000354   000090E5           LDR      R0,[R0, #+0]
+   \   00000358   080050E1           CMP      R0,R8
+   \   0000035C   0300002A           BCS      ??SearchNextDisplayLine_30
+   \   00000360   B485C5E1           STRH     R8,[R5, #+84]
+   \   00000364   B415D5E1           LDRH     R1,[R5, #+84]
+   \   00000368   04009DE5           LDR      R0,[SP, #+4]
+   \   0000036C   001080E5           STR      R1,[R0, #+0]
+   \                     ??SearchNextDisplayLine_30:
+   \   00000370   888100EF           SWI      +33160
+   \   00000374   A00F80E0           ADD      R0,R0,R0, LSR #+31
+   \   00000378   C0005AE1           CMP      R10,R0, ASR #+1
+   \   0000037C   040000AA           BGE      ??SearchNextDisplayLine_31
+   \   00000380   0010A0E3           MOV      R1,#+0
+   \   00000384   0800A0E3           MOV      R0,#+8
+   \   00000388   ........           BL       GetFontHeight
+   \   0000038C   800058E1           CMP      R8,R0, LSL #+1
+   \   00000390   170000DA           BLE      ??SearchNextDisplayLine_32
+   \                     ??SearchNextDisplayLine_31:
+   \   00000394   888100EF           SWI      +33160
+   \   00000398   00005BE1           CMP      R11,R0
+   \   0000039C   1400001A           BNE      ??SearchNextDisplayLine_32
+   \   000003A0   040095E5           LDR      R0,[R5, #+4]
+   \   000003A4   010040E2           SUB      R0,R0,#+1
+   \   000003A8   040050E1           CMP      R0,R4
+   \   000003AC   A4FFFF3A           BCC      ??SearchNextDisplayLine_4
+   \   000003B0   BE00D6E1           LDRH     R0,[R6, #+14]
+   \   000003B4   0410A0E3           MOV      R1,#+4
+   \   000003B8   E01C81E3           ORR      R1,R1,#0xE000
+   \   000003BC   200080E3           ORR      R0,R0,#0x20
+   \   000003C0   BE00C6E1           STRH     R0,[R6, #+14]
+   \   000003C4   000095E5           LDR      R0,[R5, #+0]
+   \   000003C8   840080E0           ADD      R0,R0,R4, LSL #+1
+   \   000003CC   B200D0E1           LDRH     R0,[R0, #+2]
+   \   000003D0   010050E1           CMP      R0,R1
+   \   000003D4   0900001A           BNE      ??SearchNextDisplayLine_33
+   \   000003D8   BE00D6E1           LDRH     R0,[R6, #+14]
+   \   000003DC   FB10A0E3           MOV      R1,#+251
+   \   000003E0   FF1C81E3           ORR      R1,R1,#0xFF00
+   \   000003E4   000001E0           AND      R0,R1,R0
+   \   000003E8   BE00C6E1           STRH     R0,[R6, #+14]
+   \   000003EC   0900A0E1           MOV      R0,R9
+   \   000003F0   F68FBDE8           POP      {R1,R2,R4-R11,PC}
+   \                     ??SearchNextDisplayLine_32:
+   \   000003F4   00009DE5           LDR      R0,[SP, #+0]
+   \   000003F8   000050E3           CMP      R0,#+0
+   \   000003FC   0FFFFF0A           BEQ      ??SearchNextDisplayLine_3
+   \                     ??SearchNextDisplayLine_33:
+   \   00000400   0400A0E1           MOV      R0,R4
+   \   00000404   F68FBDE8           POP      {R1,R2,R4-R11,PC}
+    228          }
+    229          
+    230          #define LINESCACHECHUNK 256
+    231          
+    232          static void AddLineToCache(VIEWDATA *vd, LINECACHE *p)
+    233          {
+    234            if ((vd->lines_cache_size%LINESCACHECHUNK)==0)
+    235            {
+    236              //Дошли до конца куска, реаллоцируем еще кусок
+    237              vd->lines_cache=realloc(vd->lines_cache,(vd->lines_cache_size+LINESCACHECHUNK)*sizeof(LINECACHE));
+    238            }
+    239            memcpy(vd->lines_cache+(vd->lines_cache_size++),p,sizeof(LINECACHE));
+    240          }
+    241          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    242          int LineDown(VIEWDATA *vd)
+    243          {
+   \                     LineDown:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   14D04DE2           SUB      SP,SP,#+20
+   \   00000008   0040A0E1           MOV      R4,R0
+    244            if (vd->view_line+1<vd->lines_cache_size)
+   \   0000000C   100094E5           LDR      R0,[R4, #+16]
+   \   00000010   0C2094E5           LDR      R2,[R4, #+12]
+   \   00000014   011080E2           ADD      R1,R0,#+1
+   \   00000018   020051E1           CMP      R1,R2
+    245            {
+    246              vd->view_line++;
+   \   0000001C   10108435           STRCC    R1,[R4, #+16]
+   \   00000020   4D00003A           BCC      ??LineDown_0
+    247            }
+    248            else
+    249            {
+    250              LINECACHE lc;
+    251              unsigned int h;
+    252              unsigned int pos;
+    253              if (vd->view_line>=vd->lines_cache_size)
+   \   00000024   0050A0E3           MOV      R5,#+0
+   \   00000028   020050E1           CMP      R0,R2
+   \   0000002C   2100003A           BCC      ??LineDown_1
+    254              {
+    255                lc.ink1=0x0000;
+    256                lc.ink2=0x0064;
+   \   00000030   6410A0E3           MOV      R1,#+100
+   \   00000034   B610CDE1           STRH     R1,[SP, #+6]
+    257                lc.paper1=0xFFFF;
+   \   00000038   FF10A0E3           MOV      R1,#+255
+   \   0000003C   FF1C81E3           ORR      R1,R1,#0xFF00
+   \   00000040   B810CDE1           STRH     R1,[SP, #+8]
+    258                lc.paper2=0xFF64;
+   \   00000044   9B10C1E3           BIC      R1,R1,#0x9B
+   \   00000048   BA10CDE1           STRH     R1,[SP, #+10]
+    259                lc.pixheight=0;
+    260                lc.bold=0;
+    261                lc.underline=0;
+    262                lc.ref=0;
+   \   0000004C   BE10DDE1           LDRH     R1,[SP, #+14]
+   \   00000050   B450CDE1           STRH     R5,[SP, #+4]
+   \   00000054   BC50CDE1           STRH     R5,[SP, #+12]
+   \   00000058   F820A0E3           MOV      R2,#+248
+   \   0000005C   FF2C82E3           ORR      R2,R2,#0xFF00
+   \   00000060   011002E0           AND      R1,R2,R1
+   \   00000064   BE10CDE1           STRH     R1,[SP, #+14]
+    263                lc.pos=0;
+   \   00000068   00508DE5           STR      R5,[SP, #+0]
+    264                lc.center=0;
+    265                lc.right=0;
+   \   0000006C   112042E2           SUB      R2,R2,#+17
+   \   00000070   011002E0           AND      R1,R2,R1
+   \   00000074   BE10CDE1           STRH     R1,[SP, #+14]
+    266                AddLineToCache(vd,&lc);
+   \   00000078   0C0094E5           LDR      R0,[R4, #+12]
+   \   0000007C   001CB0E1           LSLS     R1,R0,#+24
+   \   00000080   0400001A           BNE      ??LineDown_2
+   \   00000084   400F80E2           ADD      R0,R0,#+256
+   \   00000088   0012A0E1           LSL      R1,R0,#+4
+   \   0000008C   080094E5           LDR      R0,[R4, #+8]
+   \   00000090   BA0000EF           SWI      +186
+   \   00000094   080084E5           STR      R0,[R4, #+8]
+   \                     ??LineDown_2:
+   \   00000098   0C0094E5           LDR      R0,[R4, #+12]
+   \   0000009C   1020A0E3           MOV      R2,#+16
+   \   000000A0   011080E2           ADD      R1,R0,#+1
+   \   000000A4   0C1084E5           STR      R1,[R4, #+12]
+   \   000000A8   083094E5           LDR      R3,[R4, #+8]
+   \   000000AC   0D10A0E1           MOV      R1,SP
+   \   000000B0   000283E0           ADD      R0,R3,R0, LSL #+4
+   \   000000B4   030000EA           B        ??LineDown_3
+    267              }
+    268              else
+    269              {
+    270                memcpy(&lc,vd->lines_cache+vd->view_line,sizeof(lc));
+   \                     ??LineDown_1:
+   \   000000B8   081094E5           LDR      R1,[R4, #+8]
+   \   000000BC   1020A0E3           MOV      R2,#+16
+   \   000000C0   001281E0           ADD      R1,R1,R0, LSL #+4
+   \   000000C4   0D00A0E1           MOV      R0,SP
+   \                     ??LineDown_3:
+   \   000000C8   1E0100EF           SWI      +286
+    271              }
+    272              h=0;
+   \   000000CC   10508DE5           STR      R5,[SP, #+16]
+    273              pos=SearchNextDisplayLine(vd,&lc,&h);
+   \   000000D0   10208DE2           ADD      R2,SP,#+16
+   \   000000D4   0D10A0E1           MOV      R1,SP
+   \   000000D8   0400A0E1           MOV      R0,R4
+   \   000000DC   ........           BL       SearchNextDisplayLine
+    274              (vd->lines_cache+vd->view_line)->pixheight=h;
+   \   000000E0   102094E5           LDR      R2,[R4, #+16]
+   \   000000E4   10309DE5           LDR      R3,[SP, #+16]
+   \   000000E8   0010A0E1           MOV      R1,R0
+   \   000000EC   080094E5           LDR      R0,[R4, #+8]
+   \   000000F0   022280E0           ADD      R2,R0,R2, LSL #+4
+   \   000000F4   BC30C2E1           STRH     R3,[R2, #+12]
+    275              if (pos>=vd->rawtext_size) return 0;
+   \   000000F8   042094E5           LDR      R2,[R4, #+4]
+   \   000000FC   020051E1           CMP      R1,R2
+   \   00000100   0000A023           MOVCS    R0,#+0
+   \   00000104   1500002A           BCS      ??LineDown_4
+    276              lc.pos=pos;
+   \   00000108   00108DE5           STR      R1,[SP, #+0]
+    277              vd->view_line++;
+   \   0000010C   101094E5           LDR      R1,[R4, #+16]
+   \   00000110   011081E2           ADD      R1,R1,#+1
+   \   00000114   101084E5           STR      R1,[R4, #+16]
+    278              if (vd->view_line>=vd->lines_cache_size)
+   \   00000118   0C2094E5           LDR      R2,[R4, #+12]
+   \   0000011C   020051E1           CMP      R1,R2
+   \   00000120   0D00003A           BCC      ??LineDown_0
+    279              {
+    280                AddLineToCache(vd,&lc);
+   \   00000124   021CB0E1           LSLS     R1,R2,#+24
+   \   00000128   0300001A           BNE      ??LineDown_5
+   \   0000012C   401F82E2           ADD      R1,R2,#+256
+   \   00000130   0112A0E1           LSL      R1,R1,#+4
+   \   00000134   BA0000EF           SWI      +186
+   \   00000138   080084E5           STR      R0,[R4, #+8]
+   \                     ??LineDown_5:
+   \   0000013C   0C0094E5           LDR      R0,[R4, #+12]
+   \   00000140   1020A0E3           MOV      R2,#+16
+   \   00000144   011080E2           ADD      R1,R0,#+1
+   \   00000148   0C1084E5           STR      R1,[R4, #+12]
+   \   0000014C   083094E5           LDR      R3,[R4, #+8]
+   \   00000150   0D10A0E1           MOV      R1,SP
+   \   00000154   000283E0           ADD      R0,R3,R0, LSL #+4
+   \   00000158   1E0100EF           SWI      +286
+    281              }
+    282            }
+    283            return 1;
+   \                     ??LineDown_0:
+   \   0000015C   0100A0E3           MOV      R0,#+1
+   \                     ??LineDown_4:
+   \   00000160   14D08DE2           ADD      SP,SP,#+20       ;; stack cleaning
+   \   00000164   3080BDE8           POP      {R4,R5,PC}       ;; return
+    284          }
+    285          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    286          int LineUp(VIEWDATA *vd)
+    287          {
+    288            int vl=vd->view_line;
+   \                     LineUp:
+   \   00000000   101090E5           LDR      R1,[R0, #+16]
+    289            if (vl)
+   \   00000004   000051E3           CMP      R1,#+0
+   \   00000008   0300000A           BEQ      ??LineUp_0
+    290            {
+    291              vl--;
+    292              vd->view_line=vl;
+   \   0000000C   011041E2           SUB      R1,R1,#+1
+   \   00000010   101080E5           STR      R1,[R0, #+16]
+    293              return 1;
+   \   00000014   0100A0E3           MOV      R0,#+1
+   \   00000018   1EFF2FE1           BX       LR
+    294            }
+    295            else
+    296              return 0;
+   \                     ??LineUp_0:
+   \   0000001C   0000A0E3           MOV      R0,#+0
+   \   00000020   1EFF2FE1           BX       LR               ;; return
+    297          }
+    298          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    299          void scrollDown(VIEWDATA *vd, int amount)
+    300          {
+   \                     scrollDown:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+    301            if (!RenderPage(vd,0)) return;
+   \   0000000C   0010A0E3           MOV      R1,#+0
+   \   00000010   ........           BL       RenderPage
+   \   00000014   000050E3           CMP      R0,#+0
+   \   00000018   7080BD08           POPEQ    {R4-R6,PC}
+    302            
+    303            vd->pixdisp+=amount;
+   \   0000001C   140094E5           LDR      R0,[R4, #+20]
+   \   00000020   0060A0E3           MOV      R6,#+0
+   \   00000024   000085E0           ADD      R0,R5,R0
+   \   00000028   140084E5           STR      R0,[R4, #+20]
+   \   0000002C   000000EA           B        ??scrollDown_0
+    304            unsigned int cl_h;
+    305          L1:
+    306            cl_h=vd->lines_cache[vd->view_line].pixheight;
+    307            if (vd->pixdisp>cl_h)
+    308            {
+    309              vd->pixdisp-=cl_h;
+    310              unsigned int pd=vd->pixdisp;
+    311              LineDown(vd);
+    312              vd->pixdisp=0;
+    313              if (!RenderPage(vd,0))
+    314              {
+    315                while(LineDown(vd)) ;
+    316                vd->pixdisp=0;
+    317                scrollUp(vd,ScreenH()-1-vd->lastLineHeight);
+    318                return;
+    319              }
+    320              vd->pixdisp=pd;
+   \                     ??scrollDown_1:
+   \   00000030   145084E5           STR      R5,[R4, #+20]
+    321              goto L1;
+   \                     ??scrollDown_0:
+   \   00000034   100094E5           LDR      R0,[R4, #+16]
+   \   00000038   081094E5           LDR      R1,[R4, #+8]
+   \   0000003C   000281E0           ADD      R0,R1,R0, LSL #+4
+   \   00000040   BC00D0E1           LDRH     R0,[R0, #+12]
+   \   00000044   141094E5           LDR      R1,[R4, #+20]
+   \   00000048   010050E1           CMP      R0,R1
+   \   0000004C   0E00002A           BCS      ??scrollDown_2
+   \   00000050   005041E0           SUB      R5,R1,R0
+   \   00000054   145084E5           STR      R5,[R4, #+20]
+   \   00000058   0400A0E1           MOV      R0,R4
+   \   0000005C   ........           BL       LineDown
+   \   00000060   146084E5           STR      R6,[R4, #+20]
+   \   00000064   0010A0E3           MOV      R1,#+0
+   \   00000068   0400A0E1           MOV      R0,R4
+   \   0000006C   ........           BL       RenderPage
+   \   00000070   000050E3           CMP      R0,#+0
+   \   00000074   EDFFFF1A           BNE      ??scrollDown_1
+   \                     ??scrollDown_3:
+   \   00000078   0400A0E1           MOV      R0,R4
+   \   0000007C   ........           BL       LineDown
+   \   00000080   000050E3           CMP      R0,#+0
+   \   00000084   FBFFFF1A           BNE      ??scrollDown_3
+   \   00000088   080000EA           B        ??scrollDown_4
+    322            }
+    323            else
+    324            {
+    325              if (!RenderPage(vd,0))
+   \                     ??scrollDown_2:
+   \   0000008C   0010A0E3           MOV      R1,#+0
+   \   00000090   0400A0E1           MOV      R0,R4
+   \   00000094   ........           BL       RenderPage
+   \   00000098   000050E3           CMP      R0,#+0
+   \   0000009C   7080BD18           POPNE    {R4-R6,PC}
+    326              {
+    327                while(LineDown(vd)) ;
+   \                     ??scrollDown_5:
+   \   000000A0   0400A0E1           MOV      R0,R4
+   \   000000A4   ........           BL       LineDown
+   \   000000A8   000050E3           CMP      R0,#+0
+   \   000000AC   FBFFFF1A           BNE      ??scrollDown_5
+    328                vd->pixdisp=0;
+   \                     ??scrollDown_4:
+   \   000000B0   146084E5           STR      R6,[R4, #+20]
+    329                scrollUp(vd,ScreenH()-1-vd->lastLineHeight);
+   \   000000B4   898100EF           SWI      +33161
+   \   000000B8   B415D4E1           LDRH     R1,[R4, #+84]
+   \   000000BC   010040E2           SUB      R0,R0,#+1
+   \   000000C0   011040E0           SUB      R1,R0,R1
+   \   000000C4   0400A0E1           MOV      R0,R4
+   \   000000C8   ........           BL       scrollUp
+   \   000000CC   7080BDE8           POP      {R4-R6,PC}       ;; return
+    330              }
+    331            }
+    332          }
+    333          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    334          void scrollUp(VIEWDATA *vd, int amount)
+    335          {
+   \                     scrollUp:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+   \   0000000C   040000EA           B        ??scrollUp_0
+    336            while (vd->pixdisp-amount<0)
+    337            {
+    338              if (!LineUp(vd))
+    339              {
+    340                vd->pixdisp=0;
+    341                return;
+    342              }
+    343              amount-=vd->lines_cache[vd->view_line].pixheight;
+   \                     ??scrollUp_1:
+   \   00000010   100094E5           LDR      R0,[R4, #+16]
+   \   00000014   081094E5           LDR      R1,[R4, #+8]
+   \   00000018   000281E0           ADD      R0,R1,R0, LSL #+4
+   \   0000001C   BC00D0E1           LDRH     R0,[R0, #+12]
+   \   00000020   005045E0           SUB      R5,R5,R0
+   \                     ??scrollUp_0:
+   \   00000024   140094E5           LDR      R0,[R4, #+20]
+   \   00000028   050050E0           SUBS     R0,R0,R5
+   \   0000002C   0300005A           BPL      ??scrollUp_2
+   \   00000030   0400A0E1           MOV      R0,R4
+   \   00000034   ........           BL       LineUp
+   \   00000038   000050E3           CMP      R0,#+0
+   \   0000003C   F3FFFF1A           BNE      ??scrollUp_1
+    344            }
+    345            vd->pixdisp-=amount;
+   \                     ??scrollUp_2:
+   \   00000040   140084E5           STR      R0,[R4, #+20]
+    346          }
+   \   00000044   3080BDE8           POP      {R4,R5,PC}       ;; return
+    347          
+    348          #define MAX_COLORS_IN_LINE 32
+    349          typedef struct {
+    350            char color[4];
+    351            int start_x;
+    352            int end_x;
+    353          } COLOR_RC;
+    354          
+    355          // возвращает 0, если виден конец страницы
+
+   \                                 In segment CODE, align 4, keep-with-next
+    356          int RenderPage(VIEWDATA *vd, int do_draw)
+    357          {
+   \                     RenderPage:
+   \   00000000   F24F2DE9           PUSH     {R1,R4-R11,LR}
+   \   00000004   AFDF4DE2           SUB      SP,SP,#+700
+   \   00000008   0040A0E1           MOV      R4,R0
+    358            int scr_w=ScreenW()-1;
+    359            int scr_h=ScreenH()-1;
+    360            int sc;
+    361            int dc;
+    362            WSHDR *ws=vd->ws;
+    363            LINECACHE *lc;
+    364            unsigned int vl;
+    365            int ypos=-vd->pixdisp;
+    366            unsigned int store_line=vl=vd->view_line;
+    367            unsigned int len;
+    368            unsigned int y2;
+    369            
+    370            char def_ink[4];
+    371            COLOR_RC rc[MAX_COLORS_IN_LINE];
+    372            int cur_rc;
+    373            int ws_width;
+    374            
+    375            int c;
+    376            int ena_ref=0;
+   \   0000000C   0060A0E3           MOV      R6,#+0
+   \   00000010   888100EF           SWI      +33160
+   \   00000014   010040E2           SUB      R0,R0,#+1
+   \   00000018   08008DE5           STR      R0,[SP, #+8]
+   \   0000001C   898100EF           SWI      +33161
+   \   00000020   010040E2           SUB      R0,R0,#+1
+   \   00000024   0C008DE5           STR      R0,[SP, #+12]
+   \   00000028   181094E5           LDR      R1,[R4, #+24]
+   \   0000002C   34108DE5           STR      R1,[SP, #+52]
+   \   00000030   140094E5           LDR      R0,[R4, #+20]
+   \   00000034   101094E5           LDR      R1,[R4, #+16]
+   \   00000038   005060E2           RSB      R5,R0,#+0
+   \   0000003C   20108DE5           STR      R1,[SP, #+32]
+   \   00000040   38108DE5           STR      R1,[SP, #+56]
+   \   00000044   0010A0E3           MOV      R1,#+0
+   \   00000048   28108DE5           STR      R1,[SP, #+40]
+   \   0000004C   0100E0E1           MVN      R0,R1
+   \   00000050   200084E5           STR      R0,[R4, #+32]
+    377            
+    378            unsigned int flag=0;
+    379            
+    380            vd->pos_first_ref=0xFFFFFFFF;
+    381            vd->pos_last_ref=0xFFFFFFFF;
+   \   00000054   240084E5           STR      R0,[R4, #+36]
+    382            vd->pos_prev_ref=0xFFFFFFFF;
+   \   00000058   280084E5           STR      R0,[R4, #+40]
+    383            vd->pos_next_ref=0xFFFFFFFF;
+   \   0000005C   2C0084E5           STR      R0,[R4, #+44]
+    384            
+    385            int dfh=GetFontHeight(FONT_SMALL,0)*2; //double font height
+   \   00000060   0800A0E3           MOV      R0,#+8
+   \   00000064   ........           BL       GetFontHeight
+   \   00000068   8000A0E1           LSL      R0,R0,#+1
+   \   0000006C   2C008DE5           STR      R0,[SP, #+44]
+    386            
+    387            RECT rcs[32]; // cursor
+    388            RECT rcs_work;
+    389            int  rcs_num=0;
+   \   00000070   0610A0E1           MOV      R1,R6
+   \   00000074   10108DE5           STR      R1,[SP, #+16]
+    390            
+    391            int lcheck=0;  // last line checker
+   \   00000078   04108DE5           STR      R1,[SP, #+4]
+   \   0000007C   710100EA           B        ??RenderPage_0
+    392            
+    393            while(ypos<=scr_h)
+    394            {
+    395              if (!lcheck) lcheck=!LineDown(vd);
+    396              else lcheck++;
+   \                     ??RenderPage_1:
+   \   00000080   011080E2           ADD      R1,R0,#+1
+   \   00000084   04108DE5           STR      R1,[SP, #+4]
+    397              if (lcheck<=1&&vd->lines_cache_size>1)
+   \   00000088   020051E3           CMP      R1,#+2
+   \   0000008C   290200AA           BGE      ??RenderPage_2
+   \                     ??RenderPage_3:
+   \   00000090   0C0094E5           LDR      R0,[R4, #+12]
+   \   00000094   020050E3           CMP      R0,#+2
+   \   00000098   2602003A           BCC      ??RenderPage_2
+    398              {
+    399                if (lcheck) vl--;
+   \   0000009C   04009DE5           LDR      R0,[SP, #+4]
+    400                lc=vd->lines_cache+vl;
+    401                dc=0;
+    402                ws_width=0;
+   \   000000A0   0080A0E3           MOV      R8,#+0
+   \   000000A4   000050E3           CMP      R0,#+0
+   \   000000A8   20109D15           LDRNE    R1,[SP, #+32]
+   \   000000AC   01104112           SUBNE    R1,R1,#+1
+   \   000000B0   20108D15           STRNE    R1,[SP, #+32]
+   \   000000B4   20009DE5           LDR      R0,[SP, #+32]
+   \   000000B8   081094E5           LDR      R1,[R4, #+8]
+   \   000000BC   007281E0           ADD      R7,R1,R0, LSL #+4
+   \   000000C0   0010A0E3           MOV      R1,#+0
+   \   000000C4   00108DE5           STR      R1,[SP, #+0]
+    403                cur_rc=1;
+   \   000000C8   0110A0E3           MOV      R1,#+1
+   \   000000CC   1C108DE5           STR      R1,[SP, #+28]
+    404                zeromem(&rcs_work,sizeof(RECT));
+   \   000000D0   0810A0E3           MOV      R1,#+8
+   \   000000D4   14008DE2           ADD      R0,SP,#+20
+   \   000000D8   1D0100EF           SWI      +285
+    405                
+    406                rc[0].start_x=0;
+   \   000000DC   0810A0E1           MOV      R1,R8
+   \   000000E0   40108DE5           STR      R1,[SP, #+64]
+    407                rc[0].end_x=scr_w;
+   \   000000E4   08109DE5           LDR      R1,[SP, #+8]
+   \   000000E8   44108DE5           STR      R1,[SP, #+68]
+    408                rc[0].color[0]=lc->paper1>>8;
+   \   000000EC   B810D7E1           LDRH     R1,[R7, #+8]
+   \   000000F0   2114A0E1           LSR      R1,R1,#+8
+   \   000000F4   3C10CDE5           STRB     R1,[SP, #+60]
+    409                rc[0].color[1]=lc->paper1;
+   \   000000F8   B810D7E1           LDRH     R1,[R7, #+8]
+   \   000000FC   3D10CDE5           STRB     R1,[SP, #+61]
+    410                rc[0].color[2]=lc->paper2>>8;
+   \   00000100   BA10D7E1           LDRH     R1,[R7, #+10]
+   \   00000104   2114A0E1           LSR      R1,R1,#+8
+   \   00000108   3E10CDE5           STRB     R1,[SP, #+62]
+    411                rc[0].color[3]=lc->paper2;
+   \   0000010C   BA10D7E1           LDRH     R1,[R7, #+10]
+   \   00000110   3F10CDE5           STRB     R1,[SP, #+63]
+    412                
+    413                if (lcheck)
+   \   00000114   04009DE5           LDR      R0,[SP, #+4]
+   \   00000118   000050E3           CMP      R0,#+0
+   \   0000011C   00909705           LDREQ    R9,[R7, #+0]
+   \   00000120   10009705           LDREQ    R0,[R7, #+16]
+    414                {
+    415                  sc=(lc[1]).pos;
+   \   00000124   10909715           LDRNE    R9,[R7, #+16]
+    416                  len=vd->rawtext_size-sc;
+   \   00000128   04009415           LDRNE    R0,[R4, #+4]
+   \   0000012C   09A040E0           SUB      R10,R0,R9
+   \   00000130   030000EA           B        ??RenderPage_4
+    417                }
+    418                else
+    419                {
+    420                  sc=lc->pos;
+    421                  len=(lc[1]).pos-sc;
+    422                }
+    423                
+    424                while(len>0&&(dc<32000))
+    425                {
+    426                  c=vd->rawtext[sc];
+    427                  
+    428                  if (c==UTF16_ENA_INVERT)
+    429                  {
+    430                    if ((lc->pixheight<dfh)?(ypos<0):(ypos+lc->pixheight-dfh<0))
+    431                      goto L1;
+    432                    if ((lc->pixheight<dfh)?(ypos+lc->pixheight>scr_h):(ypos+dfh>scr_h))
+    433                      goto L1;
+    434                    if (vd->pos_cur_ref==sc)
+    435                    {
+    436                      flag=1;
+    437                      ena_ref=1;
+    438                      rcs_work.x=ws_width;
+    439                    }
+    440                    else
+    441                    {
+    442                      if (vd->pos_first_ref==0xFFFFFFFF) vd->pos_first_ref=sc;
+    443                      if (flag==0) vd->pos_prev_ref=sc;
+    444                      if (flag==1)
+    445                      {
+    446                        vd->pos_next_ref=sc;
+    447                        flag=2;
+    448                      }
+    449                      vd->pos_last_ref=sc;
+    450                      if (ena_ref) ena_ref++;
+    451                      goto L1;
+    452                    }
+    453                    goto L1;
+    454                  }
+    455                  if (c==UTF16_DIS_INVERT)
+    456                  {
+    457                    if (ena_ref!=1)
+    458                    {
+    459                      if (ena_ref) ena_ref--;
+    460                      goto L1;
+    461                    }
+    462                    rcs_work.x2=ws_width;
+    463                    ena_ref=0;
+    464                    goto L1;
+    465                  }
+    466                  if (c==UTF16_PAPER_RGBA)
+    467                  {
+    468                    if (cur_rc<MAX_COLORS_IN_LINE)
+    469                    {
+    470                      COLOR_RC *prev=rc+cur_rc-1;
+    471                      rc[cur_rc].color[0]=vd->rawtext[sc+1]>>8;
+    472                      rc[cur_rc].color[1]=vd->rawtext[sc+1];
+    473                      rc[cur_rc].color[2]=vd->rawtext[sc+2]>>8;
+    474                      rc[cur_rc].color[3]=vd->rawtext[sc+2];
+    475                      if (memcmp((void *)rc[cur_rc].color,(void *)prev->color,4))  // Только если цвет не равен предыдущему (очередь объектов не резиновая ;))
+    476                      {
+    477                        prev->end_x=ws_width-1;
+    478                        rc[cur_rc].start_x=ws_width;
+    479                        rc[cur_rc].end_x=scr_w;
+    480                        cur_rc++;
+    481                      }
+    482                    }
+    483                  }
+    484                  if (c==UTF16_ALIGN_LEFT||c==UTF16_ALIGN_RIGHT||c==UTF16_ENA_CENTER|| \
+    485                      c==UTF16_DIS_CENTER||c==UTF16_NEWLINE)
+    486                  {
+    487                    goto L1;
+    488                  }
+    489                  
+    490                  if ((c==UTF16_PAPER_RGBA)||(c==UTF16_INK_RGBA))
+    491                  {
+    492                    len--;
+    493                    sc++; sc++; //игнорируем код смены цвета. Влияет на выравнивание.
+    494                    //ws->wsbody[++dc]=vd->rawtext[++sc];
+    495                    len--;
+    496                    //ws->wsbody[++dc]=vd->rawtext[++sc];
+    497                    goto L1;
+    498                  }
+    499                  ws->wsbody[++dc]=c;
+    500                  ws_width+=GetSymbolWidth(c,lc->bold?FONT_SMALL_BOLD:FONT_SMALL);
+   \                     ??RenderPage_5:
+   \   00000134   E10100EF           SWI      +481
+   \   00000138   088080E0           ADD      R8,R0,R8
+    501                  
+    502                  L1:
+    503                  sc++;
+   \                     ??RenderPage_6:
+   \   0000013C   019089E2           ADD      R9,R9,#+1
+    504                  len--;
+   \   00000140   01A04AE2           SUB      R10,R10,#+1
+   \                     ??RenderPage_4:
+   \   00000144   34009DE5           LDR      R0,[SP, #+52]
+   \   00000148   00005AE3           CMP      R10,#+0
+   \   0000014C   001090E5           LDR      R1,[R0, #+0]
+   \   00000150   8800000A           BEQ      ??RenderPage_7
+   \   00000154   00009DE5           LDR      R0,[SP, #+0]
+   \   00000158   7D0C50E3           CMP      R0,#+32000
+   \   0000015C   850000AA           BGE      ??RenderPage_7
+   \   00000160   000094E5           LDR      R0,[R4, #+0]
+   \   00000164   0530A0E3           MOV      R3,#+5
+   \   00000168   892080E0           ADD      R2,R0,R9, LSL #+1
+   \   0000016C   B000D2E1           LDRH     R0,[R2, #+0]
+   \   00000170   E03C83E3           ORR      R3,R3,#0xE000
+   \   00000174   030050E1           CMP      R0,R3
+   \   00000178   2D00001A           BNE      ??RenderPage_8
+   \   0000017C   BC00D7E1           LDRH     R0,[R7, #+12]
+   \   00000180   2C109DE5           LDR      R1,[SP, #+44]
+   \   00000184   010050E1           CMP      R0,R1
+   \   00000188   020000AA           BGE      ??RenderPage_9
+   \   0000018C   000055E3           CMP      R5,#+0
+   \   00000190   0300005A           BPL      ??RenderPage_10
+   \   00000194   E8FFFFEA           B        ??RenderPage_6
+   \                     ??RenderPage_9:
+   \   00000198   050080E0           ADD      R0,R0,R5
+   \   0000019C   010050E0           SUBS     R0,R0,R1
+   \   000001A0   E5FFFF4A           BMI      ??RenderPage_6
+   \                     ??RenderPage_10:
+   \   000001A4   BC00D7E1           LDRH     R0,[R7, #+12]
+   \   000001A8   010050E1           CMP      R0,R1
+   \   000001AC   0C009DE5           LDR      R0,[SP, #+12]
+   \   000001B0   040000AA           BGE      ??RenderPage_11
+   \   000001B4   BC10D7E1           LDRH     R1,[R7, #+12]
+   \   000001B8   051081E0           ADD      R1,R1,R5
+   \   000001BC   010050E1           CMP      R0,R1
+   \   000001C0   030000AA           BGE      ??RenderPage_12
+   \   000001C4   DCFFFFEA           B        ??RenderPage_6
+   \                     ??RenderPage_11:
+   \   000001C8   051081E0           ADD      R1,R1,R5
+   \   000001CC   010050E1           CMP      R0,R1
+   \   000001D0   D9FFFFBA           BLT      ??RenderPage_6
+   \                     ??RenderPage_12:
+   \   000001D4   1C0094E5           LDR      R0,[R4, #+28]
+   \   000001D8   090050E1           CMP      R0,R9
+   \   000001DC   0400001A           BNE      ??RenderPage_13
+   \   000001E0   0110A0E3           MOV      R1,#+1
+   \   000001E4   28108DE5           STR      R1,[SP, #+40]
+   \   000001E8   0160A0E3           MOV      R6,#+1
+   \   000001EC   B481CDE1           STRH     R8,[SP, #+20]
+   \   000001F0   D1FFFFEA           B        ??RenderPage_6
+   \                     ??RenderPage_13:
+   \   000001F4   200094E5           LDR      R0,[R4, #+32]
+   \   000001F8   010070E3           CMN      R0,#+1
+   \   000001FC   20908405           STREQ    R9,[R4, #+32]
+   \   00000200   28009DE5           LDR      R0,[SP, #+40]
+   \   00000204   000050E3           CMP      R0,#+0
+   \   00000208   28908405           STREQ    R9,[R4, #+40]
+   \   0000020C   0300000A           BEQ      ??RenderPage_14
+   \   00000210   010050E3           CMP      R0,#+1
+   \   00000214   2C908405           STREQ    R9,[R4, #+44]
+   \   00000218   0210A003           MOVEQ    R1,#+2
+   \   0000021C   28108D05           STREQ    R1,[SP, #+40]
+   \                     ??RenderPage_14:
+   \   00000220   249084E5           STR      R9,[R4, #+36]
+   \   00000224   000056E3           CMP      R6,#+0
+   \   00000228   C3FFFF0A           BEQ      ??RenderPage_6
+   \   0000022C   016086E2           ADD      R6,R6,#+1
+   \   00000230   C1FFFFEA           B        ??RenderPage_6
+   \                     ??RenderPage_8:
+   \   00000234   0130C3E3           BIC      R3,R3,#0x1
+   \   00000238   030050E1           CMP      R0,R3
+   \   0000023C   0800001A           BNE      ??RenderPage_15
+   \   00000240   010056E3           CMP      R6,#+1
+   \   00000244   0300000A           BEQ      ??RenderPage_16
+   \   00000248   000056E3           CMP      R6,#+0
+   \   0000024C   BAFFFF0A           BEQ      ??RenderPage_6
+   \   00000250   016046E2           SUB      R6,R6,#+1
+   \   00000254   B8FFFFEA           B        ??RenderPage_6
+   \                     ??RenderPage_16:
+   \   00000258   B881CDE1           STRH     R8,[SP, #+24]
+   \   0000025C   0060A0E3           MOV      R6,#+0
+   \   00000260   B5FFFFEA           B        ??RenderPage_6
+   \                     ??RenderPage_15:
+   \   00000264   033083E3           ORR      R3,R3,#0x3
+   \   00000268   030050E1           CMP      R0,R3
+   \   0000026C   2700001A           BNE      ??RenderPage_17
+   \   00000270   1C009DE5           LDR      R0,[SP, #+28]
+   \   00000274   200050E3           CMP      R0,#+32
+   \   00000278   310000AA           BGE      ??RenderPage_18
+   \   0000027C   0C10A0E3           MOV      R1,#+12
+   \   00000280   3C308DE2           ADD      R3,SP,#+60
+   \   00000284   91302BE0           MLA      R11,R1,R0,R3
+   \   00000288   0C104BE2           SUB      R1,R11,#+12
+   \   0000028C   30108DE5           STR      R1,[SP, #+48]
+   \   00000290   B200D2E1           LDRH     R0,[R2, #+2]
+   \   00000294   0420A0E3           MOV      R2,#+4
+   \   00000298   2004A0E1           LSR      R0,R0,#+8
+   \   0000029C   0000CBE5           STRB     R0,[R11, #+0]
+   \   000002A0   000094E5           LDR      R0,[R4, #+0]
+   \   000002A4   890080E0           ADD      R0,R0,R9, LSL #+1
+   \   000002A8   B200D0E1           LDRH     R0,[R0, #+2]
+   \   000002AC   0100CBE5           STRB     R0,[R11, #+1]
+   \   000002B0   000094E5           LDR      R0,[R4, #+0]
+   \   000002B4   890080E0           ADD      R0,R0,R9, LSL #+1
+   \   000002B8   B400D0E1           LDRH     R0,[R0, #+4]
+   \   000002BC   2004A0E1           LSR      R0,R0,#+8
+   \   000002C0   0200CBE5           STRB     R0,[R11, #+2]
+   \   000002C4   000094E5           LDR      R0,[R4, #+0]
+   \   000002C8   890080E0           ADD      R0,R0,R9, LSL #+1
+   \   000002CC   B400D0E1           LDRH     R0,[R0, #+4]
+   \   000002D0   0300CBE5           STRB     R0,[R11, #+3]
+   \   000002D4   30109DE5           LDR      R1,[SP, #+48]
+   \   000002D8   0B00A0E1           MOV      R0,R11
+   \   000002DC   1C0100EF           SWI      +284
+   \   000002E0   000050E3           CMP      R0,#+0
+   \   000002E4   1600000A           BEQ      ??RenderPage_18
+   \   000002E8   30009DE5           LDR      R0,[SP, #+48]
+   \   000002EC   011048E2           SUB      R1,R8,#+1
+   \   000002F0   081080E5           STR      R1,[R0, #+8]
+   \   000002F4   04808BE5           STR      R8,[R11, #+4]
+   \   000002F8   08009DE5           LDR      R0,[SP, #+8]
+   \   000002FC   08008BE5           STR      R0,[R11, #+8]
+   \   00000300   1C109DE5           LDR      R1,[SP, #+28]
+   \   00000304   011081E2           ADD      R1,R1,#+1
+   \   00000308   1C108DE5           STR      R1,[SP, #+28]
+   \   0000030C   0C0000EA           B        ??RenderPage_18
+   \                     ??RenderPage_17:
+   \   00000310   152083E2           ADD      R2,R3,#+21
+   \   00000314   020050E1           CMP      R0,R2
+   \   00000318   01208213           ORRNE    R2,R2,#0x1
+   \   0000031C   02005011           CMPNE    R0,R2
+   \   00000320   01208212           ADDNE    R2,R2,#+1
+   \   00000324   02005011           CMPNE    R0,R2
+   \   00000328   01208213           ORRNE    R2,R2,#0x1
+   \   0000032C   02005011           CMPNE    R0,R2
+   \   00000330   0A005013           CMPNE    R0,#+10
+   \   00000334   80FFFF0A           BEQ      ??RenderPage_6
+   \   00000338   1920C2E3           BIC      R2,R2,#0x19
+   \   0000033C   020050E1           CMP      R0,R2
+   \   00000340   0200001A           BNE      ??RenderPage_19
+   \                     ??RenderPage_18:
+   \   00000344   029089E2           ADD      R9,R9,#+2
+   \   00000348   02A04AE2           SUB      R10,R10,#+2
+   \   0000034C   7AFFFFEA           B        ??RenderPage_6
+   \                     ??RenderPage_19:
+   \   00000350   00309DE5           LDR      R3,[SP, #+0]
+   \   00000354   013083E2           ADD      R3,R3,#+1
+   \   00000358   00308DE5           STR      R3,[SP, #+0]
+   \   0000035C   831081E0           ADD      R1,R1,R3, LSL #+1
+   \   00000360   B000C1E1           STRH     R0,[R1, #+0]
+   \   00000364   BE10D7E1           LDRH     R1,[R7, #+14]
+   \   00000368   010011E3           TST      R1,#0x1
+   \   0000036C   0810A003           MOVEQ    R1,#+8
+   \   00000370   0910A013           MOVNE    R1,#+9
+   \   00000374   6EFFFFEA           B        ??RenderPage_5
+    505                }
+    506                ws->wsbody[0]=dc;
+   \                     ??RenderPage_7:
+   \   00000378   00009DE5           LDR      R0,[SP, #+0]
+   \   0000037C   B000C1E1           STRH     R0,[R1, #+0]
+    507                if (lcheck)
+   \   00000380   04009DE5           LDR      R0,[SP, #+4]
+   \   00000384   000050E3           CMP      R0,#+0
+    508                  y2=ypos+vd->lastLineHeight;
+   \   00000388   B415D411           LDRHNE   R1,[R4, #+84]
+   \   0000038C   05108110           ADDNE    R1,R1,R5
+    509                else
+    510                  y2=lc->pixheight+ypos;
+   \   00000390   BC10D701           LDRHEQ   R1,[R7, #+12]
+   \   00000394   01108500           ADDEQ    R1,R5,R1
+   \   00000398   00108DE5           STR      R1,[SP, #+0]
+    511                
+    512                if (do_draw&&y2!=ypos)
+   \   0000039C   BC029DE5           LDR      R0,[SP, #+700]
+   \   000003A0   000050E3           CMP      R0,#+0
+   \   000003A4   00009D15           LDRNE    R0,[SP, #+0]
+   \   000003A8   05005011           CMPNE    R0,R5
+   \   000003AC   6400000A           BEQ      ??RenderPage_20
+    513                {
+    514                  int x=0;
+    515                  if (lc[1].right) x=scr_w-ws_width;
+   \   000003B0   BE11D7E1           LDRH     R1,[R7, #+30]
+   \   000003B4   08009DE5           LDR      R0,[SP, #+8]
+   \   000003B8   0090A0E3           MOV      R9,#+0
+   \   000003BC   080040E0           SUB      R0,R0,R8
+   \   000003C0   100011E3           TST      R1,#0x10
+   \   000003C4   0090A011           MOVNE    R9,R0
+    516                  if (lc[1].center||lc[1].centerAtAll) x=(scr_w-ws_width)/2;
+   \   000003C8   080011E3           TST      R1,#0x8
+   \   000003CC   20001103           TSTEQ    R1,#0x20
+    517                  
+    518                  def_ink[0]=lc->ink1>>8;
+   \   000003D0   B410D7E1           LDRH     R1,[R7, #+4]
+   \   000003D4   A00F8010           ADDNE    R0,R0,R0, LSR #+31
+   \   000003D8   C090A011           ASRNE    R9,R0,#+1
+   \   000003DC   2114A0E1           LSR      R1,R1,#+8
+   \   000003E0   2410CDE5           STRB     R1,[SP, #+36]
+    519                  def_ink[1]=lc->ink1;
+   \   000003E4   B410D7E1           LDRH     R1,[R7, #+4]
+    520                  def_ink[2]=lc->ink2>>8;
+    521                  def_ink[3]=lc->ink2;
+    522                  
+    523                  for (int i=0; i!=cur_rc; i++)
+   \   000003E8   00A0A0E3           MOV      R10,#+0
+   \   000003EC   2510CDE5           STRB     R1,[SP, #+37]
+   \   000003F0   B610D7E1           LDRH     R1,[R7, #+6]
+   \   000003F4   2114A0E1           LSR      R1,R1,#+8
+   \   000003F8   2610CDE5           STRB     R1,[SP, #+38]
+   \   000003FC   B610D7E1           LDRH     R1,[R7, #+6]
+   \   00000400   2710CDE5           STRB     R1,[SP, #+39]
+   \   00000404   1C009DE5           LDR      R0,[SP, #+28]
+   \   00000408   000050E3           CMP      R0,#+0
+   \   0000040C   1100000A           BEQ      ??RenderPage_21
+    524                  {
+    525                    DrawRectangle(rc[i].start_x,ypos,rc[i].end_x,y2,
+    526          		                    RECT_FILL_WITH_PEN,rc[i].color,rc[i].color);
+   \                     ??RenderPage_22:
+   \   00000410   0C10A0E3           MOV      R1,#+12
+   \   00000414   3C008DE2           ADD      R0,SP,#+60
+   \   00000418   910A20E0           MLA      R0,R1,R10,R0
+    527                  }
+   \   0000041C   01A08AE2           ADD      R10,R10,#+1
+   \   00000420   0010A0E1           MOV      R1,R0
+   \   00000424   02002DE9           PUSH     {R1}
+   \   00000428   02002DE9           PUSH     {R1}
+   \   0000042C   0210A0E3           MOV      R1,#+2
+   \   00000430   02002DE9           PUSH     {R1}
+   \   00000434   0C309DE5           LDR      R3,[SP, #+12]
+   \   00000438   082090E5           LDR      R2,[R0, #+8]
+   \   0000043C   040090E5           LDR      R0,[R0, #+4]
+   \   00000440   0510A0E1           MOV      R1,R5
+   \   00000444   B40100EF           SWI      +436
+   \   00000448   28009DE5           LDR      R0,[SP, #+40]
+   \   0000044C   0CD08DE2           ADD      SP,SP,#+12
+   \   00000450   00005AE1           CMP      R10,R0
+   \   00000454   EDFFFF1A           BNE      ??RenderPage_22
+    528                  
+    529                  if (ena_ref) rcs_work.x2=ws_width;
+   \                     ??RenderPage_21:
+   \   00000458   000056E3           CMP      R6,#+0
+   \   0000045C   B881CD11           STRHNE   R8,[SP, #+24]
+    530                  if ((rcs_work.x!=0||rcs_work.x2!=0)&&rcs_work.x!=rcs_work.x2)
+   \   00000460   F801DDE1           LDRSH    R0,[SP, #+24]
+   \   00000464   F411DDE1           LDRSH    R1,[SP, #+20]
+   \   00000468   000051E3           CMP      R1,#+0
+   \   0000046C   00005003           CMPEQ    R0,#+0
+   \   00000470   00005111           CMPNE    R1,R0
+   \   00000474   1500000A           BEQ      ??RenderPage_23
+    531                  {
+    532                    rcs_work.y=ypos;
+    533                    rcs_work.y2=y2;
+   \   00000478   00109DE5           LDR      R1,[SP, #+0]
+    534                    rcs_work.x=0;//+=x;
+    535                    rcs_work.x2=scr_w;//+=x;
+    536                    
+    537                    rcs_work.x-=2;
+    538                    rcs_work.x2++;
+    539                    rcs_work.y--;
+   \   0000047C   012045E2           SUB      R2,R5,#+1
+   \   00000480   BA11CDE1           STRH     R1,[SP, #+26]
+   \   00000484   08009DE5           LDR      R0,[SP, #+8]
+    540                    
+    541                    if (rcs_work.x<0) rcs_work.x=0;
+    542                    if (rcs_work.x2>scr_w) rcs_work.x2=scr_w;
+    543                    
+    544                    memcpy(&rcs[rcs_num],&rcs_work,sizeof(RECT));
+   \   00000488   6F3F8DE2           ADD      R3,SP,#+444
+   \   0000048C   010080E2           ADD      R0,R0,#+1
+   \   00000490   B801CDE1           STRH     R0,[SP, #+24]
+   \   00000494   B621CDE1           STRH     R2,[SP, #+22]
+   \   00000498   0020A0E3           MOV      R2,#+0
+   \   0000049C   B421CDE1           STRH     R2,[SP, #+20]
+   \   000004A0   08109DE5           LDR      R1,[SP, #+8]
+   \   000004A4   0008A0E1           MOV      R0,R0, LSL #+16
+   \   000004A8   400851E1           CMP      R1,R0, ASR #+16
+   \   000004AC   B811CDB1           STRHLT   R1,[SP, #+24]
+   \   000004B0   10009DE5           LDR      R0,[SP, #+16]
+   \   000004B4   0820A0E3           MOV      R2,#+8
+   \   000004B8   14108DE2           ADD      R1,SP,#+20
+   \   000004BC   800183E0           ADD      R0,R3,R0, LSL #+3
+   \   000004C0   1E0100EF           SWI      +286
+    545                    rcs_num++;
+   \   000004C4   10109DE5           LDR      R1,[SP, #+16]
+   \   000004C8   011081E2           ADD      R1,R1,#+1
+   \   000004CC   10108DE5           STR      R1,[SP, #+16]
+    546                  }
+    547          	      DrawString(ws,x,ypos,scr_w,y2,
+    548          		               lc->bold?FONT_SMALL_BOLD:FONT_SMALL,
+    549                             TEXT_NOFORMAT+(lc->underline?TEXT_UNDERLINE:0),
+    550          		               def_ink,GetPaletteAdrByColorIndex(23));
+   \                     ??RenderPage_23:
+   \   000004D0   1700A0E3           MOV      R0,#+23
+   \   000004D4   2E0100EF           SWI      +302
+   \   000004D8   BE10D7E1           LDRH     R1,[R7, #+14]
+   \   000004DC   BE20D7E1           LDRH     R2,[R7, #+14]
+   \   000004E0   01002DE9           PUSH     {R0}
+   \   000004E4   020011E3           TST      R1,#0x2
+   \   000004E8   0810A013           MOVNE    R1,#+8
+   \   000004EC   0010A003           MOVEQ    R1,#+0
+   \   000004F0   28008DE2           ADD      R0,SP,#+40
+   \   000004F4   01002DE9           PUSH     {R0}
+   \   000004F8   010012E3           TST      R2,#0x1
+   \   000004FC   0920A013           MOVNE    R2,#+9
+   \   00000500   0820A003           MOVEQ    R2,#+8
+   \   00000504   800081E2           ADD      R0,R1,#+128
+   \   00000508   01002DE9           PUSH     {R0}
+   \   0000050C   04002DE9           PUSH     {R2}
+   \   00000510   10009DE5           LDR      R0,[SP, #+16]
+   \   00000514   0520A0E1           MOV      R2,R5
+   \   00000518   01002DE9           PUSH     {R0}
+   \   0000051C   1C309DE5           LDR      R3,[SP, #+28]
+   \   00000520   48009DE5           LDR      R0,[SP, #+72]
+   \   00000524   0910A0E1           MOV      R1,R9
+   \   00000528   4C0100EF           SWI      +332
+    551                  
+    552                  if (lcheck) vd->Resource_Ex->has_unread_msg =0; // Непрочитанных сообщений больше нет
+   \   0000052C   18009DE5           LDR      R0,[SP, #+24]
+   \   00000530   14D08DE2           ADD      SP,SP,#+20
+   \   00000534   000050E3           CMP      R0,#+0
+   \   00000538   50009415           LDRNE    R0,[R4, #+80]
+   \   0000053C   0010A013           MOVNE    R1,#+0
+   \   00000540   14108015           STRNE    R1,[R0, #+20]
+    553                }
+    554                if (y2>=scr_h||lcheck)
+   \                     ??RenderPage_20:
+   \   00000544   00009DE5           LDR      R0,[SP, #+0]
+   \   00000548   0C109DE5           LDR      R1,[SP, #+12]
+   \   0000054C   010050E1           CMP      R0,R1
+   \   00000550   0200002A           BCS      ??RenderPage_24
+   \   00000554   04009DE5           LDR      R0,[SP, #+4]
+   \   00000558   000050E3           CMP      R0,#+0
+   \   0000055C   3500000A           BEQ      ??RenderPage_25
+    555                {
+    556                  if (rcs_num)
+   \                     ??RenderPage_24:
+   \   00000560   10009DE5           LDR      R0,[SP, #+16]
+   \   00000564   000050E3           CMP      R0,#+0
+   \   00000568   0400000A           BEQ      ??RenderPage_26
+    557                  {
+    558                    char *c1=color(MESSAGEWIN_CURSOR_BGCOLOR);
+    559                    for (int i=0;i<rcs_num;i++)
+   \   0000056C   F4839FE5           LDR      R8,??RenderPage_27  ;; MESSAGEWIN_CURSOR_BGCOLOR
+   \   00000570   0050A0E3           MOV      R5,#+0
+   \   00000574   010050E3           CMP      R0,#+1
+   \   00000578   07B0E0E3           MVN      R11,#+7
+   \   0000057C   550000AA           BGE      ??RenderPage_28
+    560                    {
+    561                       DrawLine(rcs[i].x2  ,rcs[i].y  ,rcs[i].x2  ,rcs[i].y2  ,0,c1);
+    562                       DrawLine(rcs[i].x2-1,rcs[i].y  ,rcs[i].x2-1,rcs[i].y2  ,0,c1);
+    563                       if (i+1<rcs_num&&rcs[i].x<rcs[i+1].x2)
+    564                       {
+    565                         DrawLine(rcs[i].x2,rcs[i].y2,rcs[i+1].x2,rcs[i].y2,0,c1);
+    566                         if (rcs[i].x2>rcs[i+1].x2)
+    567                           DrawLine(rcs[i].x2-1,rcs[i].y2+1,rcs[i+1].x2+1,rcs[i].y2+1,0,c1);
+    568                         else
+    569                           DrawLine(rcs[i].x2+1,rcs[i].y2+1,rcs[i+1].x2-1,rcs[i].y2+1,0,c1);
+    570                       }
+    571                       else
+    572                       {
+    573                         DrawLine(rcs[i].x2  ,rcs[i].y2  ,rcs[i].x  ,rcs[i].y2  ,0,c1);
+    574                         DrawLine(rcs[i].x2-1,rcs[i].y2+1,rcs[i].x+1,rcs[i].y2+1,0,c1);
+    575                       }
+    576                       
+    577                       DrawLine(rcs[i].x  ,rcs[i].y2  ,rcs[i].x  ,rcs[i].y  ,0,c1);
+    578                       DrawLine(rcs[i].x+1,rcs[i].y2  ,rcs[i].x+1,rcs[i].y  ,0,c1);
+    579                       if (i>0&&rcs[i].x2>rcs[i-1].x)
+    580                       {
+    581                         DrawLine(rcs[i].x,rcs[i].y,rcs[i-1].x,rcs[i].y,0,c1);
+    582                         if (rcs[i].x<rcs[i-1].x)
+    583                           DrawLine(rcs[i].x+1,rcs[i].y-1,rcs[i-1].x-1,rcs[i].y-1,0,c1);
+    584                         else
+    585                           DrawLine(rcs[i].x-1,rcs[i].y-1,rcs[i-1].x+1,rcs[i].y-1,0,c1);
+    586                       }
+    587                       else
+    588                       {
+    589                         DrawLine(rcs[i].x  ,rcs[i].y  ,rcs[i].x2 , rcs[i].y  ,0,c1);
+    590                         DrawLine(rcs[i].x+1,rcs[i].y-1,rcs[i].x2-1,rcs[i].y-1,0,c1);
+    591                       }
+    592                    }
+    593                  }
+    594                  int b=(vd->lines_cache[store_line].pos*1000)/vd->rawtext_size*scr_h/1000-2;
+   \                     ??RenderPage_26:
+   \   00000580   38009DE5           LDR      R0,[SP, #+56]
+   \   00000584   081094E5           LDR      R1,[R4, #+8]
+   \   00000588   042094E5           LDR      R2,[R4, #+4]
+   \   0000058C   000291E7           LDR      R0,[R1, +R0, LSL #+4]
+   \   00000590   FA1FA0E3           MOV      R1,#+1000
+   \   00000594   910000E0           MUL      R0,R1,R0
+   \   00000598   0210A0E1           MOV      R1,R2
+   \   0000059C   ........           _BLF     ??divu32_a,??rA??divu32_a
+   \   000005A0   0C009DE5           LDR      R0,[SP, #+12]
+   \   000005A4   900101E0           MUL      R1,R0,R1
+   \   000005A8   BC039FE5           LDR      R0,??RenderPage_27+0x4  ;; 0x10624dd3
+   \   000005AC   903185E0           UMULL    R3,R5,R0,R1
+    595                  int e=(lc->pos*1000)/vd->rawtext_size*scr_h/1000+2;
+   \   000005B0   000097E5           LDR      R0,[R7, #+0]
+   \   000005B4   FA1FA0E3           MOV      R1,#+1000
+   \   000005B8   910000E0           MUL      R0,R1,R0
+   \   000005BC   0210A0E1           MOV      R1,R2
+   \   000005C0   ........           _BLF     ??divu32_a,??rA??divu32_a
+   \   000005C4   0C009DE5           LDR      R0,[SP, #+12]
+   \   000005C8   2553A0E1           LSR      R5,R5,#+6
+   \   000005CC   900101E0           MUL      R1,R0,R1
+   \   000005D0   94039FE5           LDR      R0,??RenderPage_27+0x4  ;; 0x10624dd3
+   \   000005D4   025045E2           SUB      R5,R5,#+2
+   \   000005D8   902183E0           UMULL    R2,R3,R0,R1
+    596                  if (!lcheck||b>0)
+   \   000005DC   04009DE5           LDR      R0,[SP, #+4]
+   \   000005E0   2333A0E1           LSR      R3,R3,#+6
+   \   000005E4   027083E2           ADD      R7,R3,#+2
+   \   000005E8   000050E3           CMP      R0,#+0
+   \   000005EC   0200000A           BEQ      ??RenderPage_29
+   \   000005F0   010055E3           CMP      R5,#+1
+   \   000005F4   0F0000BA           BLT      ??RenderPage_25
+    597                  {
+    598                    if (lcheck) e=scr_h;
+   \   000005F8   0C709DE5           LDR      R7,[SP, #+12]
+    599          #ifdef ELKA
+    600                    DrawRectangle(scr_w-2,b,scr_w,e,0,GetPaletteAdrByColorIndex(2),GetPaletteAdrByColorIndex(2));
+   \                     ??RenderPage_29:
+   \   000005FC   0200A0E3           MOV      R0,#+2
+   \   00000600   2E0100EF           SWI      +302
+   \   00000604   0080A0E1           MOV      R8,R0
+   \   00000608   0200A0E3           MOV      R0,#+2
+   \   0000060C   2E0100EF           SWI      +302
+   \   00000610   00012DE9           PUSH     {R8}
+   \   00000614   01002DE9           PUSH     {R0}
+   \   00000618   0730A0E1           MOV      R3,R7
+   \   0000061C   0510A0E1           MOV      R1,R5
+   \   00000620   0000A0E3           MOV      R0,#+0
+   \   00000624   01002DE9           PUSH     {R0}
+   \   00000628   14209DE5           LDR      R2,[SP, #+20]
+   \   0000062C   020042E2           SUB      R0,R2,#+2
+   \   00000630   B40100EF           SWI      +436
+   \   00000634   0CD08DE2           ADD      SP,SP,#+12
+    601          #else
+    602                    DrawRectangle(scr_w-1,b,scr_w,e,0,GetPaletteAdrByColorIndex(2),GetPaletteAdrByColorIndex(2));
+    603          #endif
+    604                  }
+    605                }
+    606                ypos=y2;
+    607                vl++;
+   \                     ??RenderPage_25:
+   \   00000638   20109DE5           LDR      R1,[SP, #+32]
+   \   0000063C   00509DE5           LDR      R5,[SP, #+0]
+   \   00000640   011081E2           ADD      R1,R1,#+1
+   \   00000644   20108DE5           STR      R1,[SP, #+32]
+   \                     ??RenderPage_0:
+   \   00000648   0C009DE5           LDR      R0,[SP, #+12]
+   \   0000064C   050050E1           CMP      R0,R5
+   \   00000650   B80000BA           BLT      ??RenderPage_2
+   \   00000654   04009DE5           LDR      R0,[SP, #+4]
+   \   00000658   000050E3           CMP      R0,#+0
+   \   0000065C   87FEFF1A           BNE      ??RenderPage_1
+   \   00000660   0400A0E1           MOV      R0,R4
+   \   00000664   ........           BL       LineDown
+   \   00000668   000050E3           CMP      R0,#+0
+   \   0000066C   87FEFF1A           BNE      ??RenderPage_3
+   \   00000670   0110A0E3           MOV      R1,#+1
+   \   00000674   04108DE5           STR      R1,[SP, #+4]
+   \   00000678   84FEFFEA           B        ??RenderPage_3
+   \                     ??RenderPage_30:
+   \   0000067C   0800A0E1           MOV      R0,R8
+   \   00000680   01002DE9           PUSH     {R0}
+   \   00000684   0000A0E3           MOV      R0,#+0
+   \   00000688   01002DE9           PUSH     {R0}
+   \   0000068C   F030D9E1           LDRSH    R3,[R9, #+0]
+   \   00000690   F220D9E1           LDRSH    R2,[R9, #+2]
+   \   00000694   F000DAE1           LDRSH    R0,[R10, #+0]
+   \   00000698   0310A0E1           MOV      R1,R3
+   \   0000069C   B30100EF           SWI      +435
+   \   000006A0   00012DE9           PUSH     {R8}
+   \   000006A4   0000A0E3           MOV      R0,#+0
+   \   000006A8   01002DE9           PUSH     {R0}
+   \   000006AC   F000D9E1           LDRSH    R0,[R9, #+0]
+   \   000006B0   013040E2           SUB      R3,R0,#+1
+   \   000006B4   F200D9E1           LDRSH    R0,[R9, #+2]
+   \   000006B8   012040E2           SUB      R2,R0,#+1
+   \   000006BC   F000D9E1           LDRSH    R0,[R9, #+0]
+   \   000006C0   011040E2           SUB      R1,R0,#+1
+   \   000006C4   F000DAE1           LDRSH    R0,[R10, #+0]
+   \   000006C8   010080E2           ADD      R0,R0,#+1
+   \   000006CC   B30100EF           SWI      +435
+   \   000006D0   10D08DE2           ADD      SP,SP,#+16
+   \                     ??RenderPage_31:
+   \   000006D4   015085E2           ADD      R5,R5,#+1
+   \                     ??RenderPage_28:
+   \   000006D8   10009DE5           LDR      R0,[SP, #+16]
+   \   000006DC   000055E1           CMP      R5,R0
+   \   000006E0   A6FFFFAA           BGE      ??RenderPage_26
+   \   000006E4   6F0F8DE2           ADD      R0,SP,#+444
+   \   000006E8   85A180E0           ADD      R10,R0,R5, LSL #+3
+   \   000006EC   0800A0E1           MOV      R0,R8
+   \   000006F0   01002DE9           PUSH     {R0}
+   \   000006F4   02908AE2           ADD      R9,R10,#+2
+   \   000006F8   0000A0E3           MOV      R0,#+0
+   \   000006FC   01002DE9           PUSH     {R0}
+   \   00000700   F220D9E1           LDRSH    R2,[R9, #+2]
+   \   00000704   F430D9E1           LDRSH    R3,[R9, #+4]
+   \   00000708   F010D9E1           LDRSH    R1,[R9, #+0]
+   \   0000070C   0200A0E1           MOV      R0,R2
+   \   00000710   B30100EF           SWI      +435
+   \   00000714   0800A0E1           MOV      R0,R8
+   \   00000718   01002DE9           PUSH     {R0}
+   \   0000071C   0000A0E3           MOV      R0,#+0
+   \   00000720   01002DE9           PUSH     {R0}
+   \   00000724   F010D9E1           LDRSH    R1,[R9, #+0]
+   \   00000728   F430D9E1           LDRSH    R3,[R9, #+4]
+   \   0000072C   F200D9E1           LDRSH    R0,[R9, #+2]
+   \   00000730   012040E2           SUB      R2,R0,#+1
+   \   00000734   010040E2           SUB      R0,R0,#+1
+   \   00000738   B30100EF           SWI      +435
+   \   0000073C   20109DE5           LDR      R1,[SP, #+32]
+   \   00000740   010085E2           ADD      R0,R5,#+1
+   \   00000744   010050E1           CMP      R0,R1
+   \   00000748   10D08DE2           ADD      SP,SP,#+16
+   \   0000074C   260000AA           BGE      ??RenderPage_32
+   \   00000750   F000DAE1           LDRSH    R0,[R10, #+0]
+   \   00000754   FA10D9E1           LDRSH    R1,[R9, #+10]
+   \   00000758   010050E1           CMP      R0,R1
+   \   0000075C   220000AA           BGE      ??RenderPage_32
+   \   00000760   0800A0E1           MOV      R0,R8
+   \   00000764   01002DE9           PUSH     {R0}
+   \   00000768   0000A0E3           MOV      R0,#+0
+   \   0000076C   01002DE9           PUSH     {R0}
+   \   00000770   F430D9E1           LDRSH    R3,[R9, #+4]
+   \   00000774   FA20D9E1           LDRSH    R2,[R9, #+10]
+   \   00000778   F200D9E1           LDRSH    R0,[R9, #+2]
+   \   0000077C   0310A0E1           MOV      R1,R3
+   \   00000780   B30100EF           SWI      +435
+   \   00000784   FA00D9E1           LDRSH    R0,[R9, #+10]
+   \   00000788   F210D9E1           LDRSH    R1,[R9, #+2]
+   \   0000078C   08D08DE2           ADD      SP,SP,#+8
+   \   00000790   010050E1           CMP      R0,R1
+   \   00000794   0800A0E1           MOV      R0,R8
+   \   00000798   01002DE9           PUSH     {R0}
+   \   0000079C   0000A0E3           MOV      R0,#+0
+   \   000007A0   01002DE9           PUSH     {R0}
+   \   000007A4   F400D9E1           LDRSH    R0,[R9, #+4]
+   \   000007A8   013080E2           ADD      R3,R0,#+1
+   \   000007AC   FA00D9E1           LDRSH    R0,[R9, #+10]
+   \   000007B0   070000AA           BGE      ??RenderPage_33
+   \   000007B4   012080E2           ADD      R2,R0,#+1
+   \   000007B8   F400D9E1           LDRSH    R0,[R9, #+4]
+   \   000007BC   011080E2           ADD      R1,R0,#+1
+   \   000007C0   F200D9E1           LDRSH    R0,[R9, #+2]
+   \   000007C4   010040E2           SUB      R0,R0,#+1
+   \                     ??RenderPage_34:
+   \   000007C8   B30100EF           SWI      +435
+   \   000007CC   08D08DE2           ADD      SP,SP,#+8
+   \   000007D0   1C0000EA           B        ??RenderPage_35
+   \                     ??RenderPage_33:
+   \   000007D4   012040E2           SUB      R2,R0,#+1
+   \   000007D8   F400D9E1           LDRSH    R0,[R9, #+4]
+   \   000007DC   011080E2           ADD      R1,R0,#+1
+   \   000007E0   F200D9E1           LDRSH    R0,[R9, #+2]
+   \   000007E4   010080E2           ADD      R0,R0,#+1
+   \   000007E8   F6FFFFEA           B        ??RenderPage_34
+   \                     ??RenderPage_32:
+   \   000007EC   0800A0E1           MOV      R0,R8
+   \   000007F0   01002DE9           PUSH     {R0}
+   \   000007F4   0000A0E3           MOV      R0,#+0
+   \   000007F8   01002DE9           PUSH     {R0}
+   \   000007FC   F430D9E1           LDRSH    R3,[R9, #+4]
+   \   00000800   F020DAE1           LDRSH    R2,[R10, #+0]
+   \   00000804   F200D9E1           LDRSH    R0,[R9, #+2]
+   \   00000808   0310A0E1           MOV      R1,R3
+   \   0000080C   B30100EF           SWI      +435
+   \   00000810   0800A0E1           MOV      R0,R8
+   \   00000814   01002DE9           PUSH     {R0}
+   \   00000818   0000A0E3           MOV      R0,#+0
+   \   0000081C   01002DE9           PUSH     {R0}
+   \   00000820   F400D9E1           LDRSH    R0,[R9, #+4]
+   \   00000824   013080E2           ADD      R3,R0,#+1
+   \   00000828   F000DAE1           LDRSH    R0,[R10, #+0]
+   \   0000082C   012080E2           ADD      R2,R0,#+1
+   \   00000830   F400D9E1           LDRSH    R0,[R9, #+4]
+   \   00000834   011080E2           ADD      R1,R0,#+1
+   \   00000838   F200D9E1           LDRSH    R0,[R9, #+2]
+   \   0000083C   010040E2           SUB      R0,R0,#+1
+   \   00000840   B30100EF           SWI      +435
+   \   00000844   10D08DE2           ADD      SP,SP,#+16
+   \                     ??RenderPage_35:
+   \   00000848   0800A0E1           MOV      R0,R8
+   \   0000084C   01002DE9           PUSH     {R0}
+   \   00000850   0000A0E3           MOV      R0,#+0
+   \   00000854   01002DE9           PUSH     {R0}
+   \   00000858   F020DAE1           LDRSH    R2,[R10, #+0]
+   \   0000085C   F030D9E1           LDRSH    R3,[R9, #+0]
+   \   00000860   F410D9E1           LDRSH    R1,[R9, #+4]
+   \   00000864   0200A0E1           MOV      R0,R2
+   \   00000868   B30100EF           SWI      +435
+   \   0000086C   0800A0E1           MOV      R0,R8
+   \   00000870   01002DE9           PUSH     {R0}
+   \   00000874   0000A0E3           MOV      R0,#+0
+   \   00000878   01002DE9           PUSH     {R0}
+   \   0000087C   F030D9E1           LDRSH    R3,[R9, #+0]
+   \   00000880   F410D9E1           LDRSH    R1,[R9, #+4]
+   \   00000884   F000DAE1           LDRSH    R0,[R10, #+0]
+   \   00000888   012080E2           ADD      R2,R0,#+1
+   \   0000088C   010080E2           ADD      R0,R0,#+1
+   \   00000890   B30100EF           SWI      +435
+   \   00000894   010055E3           CMP      R5,#+1
+   \   00000898   10D08DE2           ADD      SP,SP,#+16
+   \   0000089C   76FFFFBA           BLT      ??RenderPage_30
+   \   000008A0   FA009BE1           LDRSH    R0,[R11, +R10]
+   \   000008A4   F210D9E1           LDRSH    R1,[R9, #+2]
+   \   000008A8   010050E1           CMP      R0,R1
+   \   000008AC   72FFFFAA           BGE      ??RenderPage_30
+   \   000008B0   0800A0E1           MOV      R0,R8
+   \   000008B4   01002DE9           PUSH     {R0}
+   \   000008B8   0000A0E3           MOV      R0,#+0
+   \   000008BC   01002DE9           PUSH     {R0}
+   \   000008C0   F030D9E1           LDRSH    R3,[R9, #+0]
+   \   000008C4   FA209BE1           LDRSH    R2,[R11, +R10]
+   \   000008C8   F000DAE1           LDRSH    R0,[R10, #+0]
+   \   000008CC   0310A0E1           MOV      R1,R3
+   \   000008D0   B30100EF           SWI      +435
+   \   000008D4   F000DAE1           LDRSH    R0,[R10, #+0]
+   \   000008D8   FA109BE1           LDRSH    R1,[R11, +R10]
+   \   000008DC   08D08DE2           ADD      SP,SP,#+8
+   \   000008E0   00012DE9           PUSH     {R8}
+   \   000008E4   010050E1           CMP      R0,R1
+   \   000008E8   0000A0E3           MOV      R0,#+0
+   \   000008EC   01002DE9           PUSH     {R0}
+   \   000008F0   F000D9E1           LDRSH    R0,[R9, #+0]
+   \   000008F4   013040E2           SUB      R3,R0,#+1
+   \   000008F8   FA009BE1           LDRSH    R0,[R11, +R10]
+   \   000008FC   070000AA           BGE      ??RenderPage_36
+   \   00000900   012040E2           SUB      R2,R0,#+1
+   \   00000904   F000D9E1           LDRSH    R0,[R9, #+0]
+   \   00000908   011040E2           SUB      R1,R0,#+1
+   \   0000090C   F000DAE1           LDRSH    R0,[R10, #+0]
+   \   00000910   010080E2           ADD      R0,R0,#+1
+   \                     ??RenderPage_37:
+   \   00000914   B30100EF           SWI      +435
+   \   00000918   08D08DE2           ADD      SP,SP,#+8
+   \   0000091C   6CFFFFEA           B        ??RenderPage_31
+   \                     ??RenderPage_36:
+   \   00000920   012080E2           ADD      R2,R0,#+1
+   \   00000924   F000D9E1           LDRSH    R0,[R9, #+0]
+   \   00000928   011040E2           SUB      R1,R0,#+1
+   \   0000092C   F000DAE1           LDRSH    R0,[R10, #+0]
+   \   00000930   010040E2           SUB      R0,R0,#+1
+   \   00000934   F6FFFFEA           B        ??RenderPage_37
+    608              }
+    609              else
+    610                break;
+    611            }
+    612            if (flag==0) vd->pos_cur_ref=0xFFFFFFFF;
+   \                     ??RenderPage_2:
+   \   00000938   28009DE5           LDR      R0,[SP, #+40]
+   \   0000093C   000050E3           CMP      R0,#+0
+   \   00000940   0000E003           MVNEQ    R0,#+0
+   \   00000944   1C008405           STREQ    R0,[R4, #+28]
+    613            vd->view_line=store_line;
+   \   00000948   38009DE5           LDR      R0,[SP, #+56]
+   \   0000094C   100084E5           STR      R0,[R4, #+16]
+    614            
+    615            if (lcheck==0)
+   \   00000950   04009DE5           LDR      R0,[SP, #+4]
+    616              return 1;
+    617            else
+    618              return 0;
+   \   00000954   B0DF8DE2           ADD      SP,SP,#+704
+   \   00000958   000050E3           CMP      R0,#+0
+   \   0000095C   0100A003           MOVEQ    R0,#+1
+   \   00000960   0000A013           MOVNE    R0,#+0
+   \   00000964   F08FBDE8           POP      {R4-R11,PC}      ;; return
+   \                     ??RenderPage_27:
+   \   00000968   ........           DC32     MESSAGEWIN_CURSOR_BGCOLOR
+   \   0000096C   D34D6210           DC32     0x10624dd3
+    619          }
+    620          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    621          REFCACHE *findReferencePos(VIEWDATA *vd, unsigned int pos)
+    622          {
+    623            int i=vd->ref_cache_size;
+   \                     findReferencePos:
+   \   00000000   342090E5           LDR      R2,[R0, #+52]
+    624            REFCACHE *rf;
+    625            if (!i) return NULL;
+   \   00000004   000052E3           CMP      R2,#+0
+   \   00000008   0100001A           BNE      ??findReferencePos_0
+   \                     ??findReferencePos_1:
+   \   0000000C   0000A0E3           MOV      R0,#+0
+   \   00000010   1EFF2FE1           BX       LR
+    626            rf=vd->ref_cache;
+   \                     ??findReferencePos_0:
+   \   00000014   300090E5           LDR      R0,[R0, #+48]
+   \   00000018   020000EA           B        ??findReferencePos_2
+    627            do
+    628            {
+    629              if (rf->begin==pos) return rf;
+    630              rf++;
+   \                     ??findReferencePos_3:
+   \   0000001C   100080E2           ADD      R0,R0,#+16
+    631            }
+    632            while(--i);
+   \   00000020   012052E2           SUBS     R2,R2,#+1
+   \   00000024   F8FFFF0A           BEQ      ??findReferencePos_1
+   \                     ??findReferencePos_2:
+   \   00000028   043090E5           LDR      R3,[R0, #+4]
+   \   0000002C   010053E1           CMP      R3,R1
+   \   00000030   F9FFFF1A           BNE      ??findReferencePos_3
+   \   00000034   1EFF2FE1           BX       LR               ;; return
+    633            return NULL;
+    634          }
+    635          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    636          void VIEWDATA_onRedraw(VIEW_GUI *data)
+    637          {
+   \                     VIEWDATA_onRedraw:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   0070A0E1           MOV      R7,R0
+    638            int scr_w=ScreenW()-1;
+    639            int scr_h=ScreenH()-1;
+    640            
+    641            VIEWDATA *vd=&data->vd;
+   \   00000008   346087E2           ADD      R6,R7,#+52
+   \   0000000C   888100EF           SWI      +33160
+   \   00000010   014040E2           SUB      R4,R0,#+1
+   \   00000014   898100EF           SWI      +33161
+   \   00000018   015040E2           SUB      R5,R0,#+1
+    642            
+    643            if (data->gui.state==2)
+   \   0000001C   0C00D7E5           LDRB     R0,[R7, #+12]
+   \   00000020   020050E3           CMP      R0,#+2
+   \   00000024   F080BD18           POPNE    {R4-R7,PC}
+    644            {
+    645              if(vd->Resource_Ex->total_msg_count!=vd->OLD_MessList_Count)
+   \   00000028   500096E5           LDR      R0,[R6, #+80]
+   \   0000002C   4C1096E5           LDR      R1,[R6, #+76]
+   \   00000030   180090E5           LDR      R0,[R0, #+24]
+   \   00000034   010050E1           CMP      R0,R1
+   \   00000038   0100000A           BEQ      ??VIEWDATA_onRedraw_0
+    646                VIEWDATA_ParseMessages(vd);
+   \   0000003C   0600A0E1           MOV      R0,R6
+   \   00000040   ........           BL       VIEWDATA_ParseMessages
+    647                
+    648              DrawRectangle(0,0,scr_w,scr_h,0,
+    649                color(MESSAGEWIN_BGCOLOR),
+    650                color(MESSAGEWIN_BGCOLOR));
+   \                     ??VIEWDATA_onRedraw_0:
+   \   00000044   34009FE5           LDR      R0,??VIEWDATA_onRedraw_1  ;; MESSAGEWIN_BGCOLOR
+   \   00000048   0530A0E1           MOV      R3,R5
+   \   0000004C   0010A0E1           MOV      R1,R0
+   \   00000050   02002DE9           PUSH     {R1}
+   \   00000054   01002DE9           PUSH     {R0}
+   \   00000058   0420A0E1           MOV      R2,R4
+   \   0000005C   0010A0E3           MOV      R1,#+0
+   \   00000060   0000A0E3           MOV      R0,#+0
+   \   00000064   01002DE9           PUSH     {R0}
+   \   00000068   B40100EF           SWI      +436
+    651              RenderPage(vd,1);
+   \   0000006C   0110A0E3           MOV      R1,#+1
+   \   00000070   0600A0E1           MOV      R0,R6
+   \   00000074   ........           BL       RenderPage
+   \   00000078   0CD08DE2           ADD      SP,SP,#+12
+    652            }
+    653          }
+   \   0000007C   F080BDE8           POP      {R4-R7,PC}       ;; return
+   \                     ??VIEWDATA_onRedraw_1:
+   \   00000080   ........           DC32     MESSAGEWIN_BGCOLOR
+    654          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    655          void VIEWDATA_onCreate(VIEW_GUI *data, void *(*malloc_adr)(int))
+    656          {
+   \                     VIEWDATA_onCreate:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    657            data->gui.state=1;
+   \   00000008   0100A0E3           MOV      R0,#+1
+   \   0000000C   0C00C4E5           STRB     R0,[R4, #+12]
+    658            data->vd.ws=AllocWS(32767);
+   \   00000010   FF00A0E3           MOV      R0,#+255
+   \   00000014   7F0C80E3           ORR      R0,R0,#0x7F00
+   \   00000018   250100EF           SWI      +293
+   \   0000001C   4C0084E5           STR      R0,[R4, #+76]
+    659            data->vd.pos_cur_ref=0xFFFFFFFF; //Еще вообще не найдена ссылка
+   \   00000020   0000E0E3           MVN      R0,#+0
+   \   00000024   500084E5           STR      R0,[R4, #+80]
+    660          }
+   \   00000028   1080BDE8           POP      {R4,PC}          ;; return
+    661          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    662          void VIEWDATA_onClose(VIEW_GUI *data, void (*mfree_adr)(void *))
+    663          {
+   \                     VIEWDATA_onClose:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    664            FreeViewData(&data->vd);
+   \   00000008   340084E2           ADD      R0,R4,#+52
+   \   0000000C   ........           BL       FreeViewData
+    665            data->gui.state=0;
+   \   00000010   0000A0E3           MOV      R0,#+0
+   \   00000014   0C00C4E5           STRB     R0,[R4, #+12]
+    666          }
+   \   00000018   1080BDE8           POP      {R4,PC}          ;; return
+    667          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    668          void VIEWDATA_onFocus(VIEW_GUI *data, void *(*malloc_adr)(int), void (*mfree_adr)(void *))
+    669          {
+   \                     VIEWDATA_onFocus:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    670            PNGTOP_DESC *pltop=PNG_TOP();
+   \   00000008   B98100EF           SWI      +33209
+    671            pltop->dyn_pltop=&data->vd.dynpng_list->dp;
+   \   0000000C   7C1094E5           LDR      R1,[R4, #+124]
+   \   00000010   081080E5           STR      R1,[R0, #+8]
+    672            DisableIDLETMR();   // Отключаем таймер выхода по таймауту
+   \   00000014   7F0100EF           SWI      +383
+    673            data->gui.state=2;
+   \   00000018   0200A0E3           MOV      R0,#+2
+   \   0000001C   0C00C4E5           STRB     R0,[R4, #+12]
+    674          }
+   \   00000020   1080BDE8           POP      {R4,PC}          ;; return
+    675          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    676          void VIEWDATA_onUnfocus(VIEW_GUI *data, void (*mfree_adr)(void *))
+    677          {
+   \                     VIEWDATA_onUnfocus:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    678            PNGTOP_DESC *pltop=PNG_TOP();
+   \   00000008   B98100EF           SWI      +33209
+    679            pltop->dyn_pltop=NULL;
+   \   0000000C   0010A0E3           MOV      R1,#+0
+   \   00000010   081080E5           STR      R1,[R0, #+8]
+    680            if (data->gui.state!=2) return;
+   \   00000014   0C00D4E5           LDRB     R0,[R4, #+12]
+   \   00000018   020050E3           CMP      R0,#+2
+    681            data->gui.state=1;
+   \   0000001C   0100A003           MOVEQ    R0,#+1
+   \   00000020   0C00C405           STRBEQ   R0,[R4, #+12]
+    682          }
+   \   00000024   1080BDE8           POP      {R4,PC}          ;; return
+    683          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    684          int VIEWDATA_onKey(VIEW_GUI *data, GUI_MSG *msg)
+    685          {
+   \                     VIEWDATA_onKey:
+   \   00000000   F0432DE9           PUSH     {R4-R9,LR}
+    686            VIEWDATA *vd=&data->vd;
+    687            int m=msg->gbsmsg->msg;
+   \   00000004   042091E5           LDR      R2,[R1, #+4]
+   \   00000008   344080E2           ADD      R4,R0,#+52
+   \   0000000C   040092E5           LDR      R0,[R2, #+4]
+    688            if ((m==KEY_DOWN)||(m==LONG_PRESS))
+   \   00000010   9310A0E3           MOV      R1,#+147
+   \   00000014   401F81E3           ORR      R1,R1,#0x100
+   \   00000018   010050E1           CMP      R0,R1
+   \   0000001C   02108112           ADDNE    R1,R1,#+2
+   \   00000020   01005011           CMPNE    R0,R1
+   \   00000024   3A00001A           BNE      ??VIEWDATA_onKey_1
+    689            {
+    690              switch(msg->gbsmsg->submess)
+   \   00000028   082092E5           LDR      R2,[R2, #+8]
+   \   0000002C   1C1094E5           LDR      R1,[R4, #+28]
+   \   00000030   500094E5           LDR      R0,[R4, #+80]
+   \   00000034   0060E0E3           MVN      R6,#+0
+   \   00000038   0050A0E3           MOV      R5,#+0
+   \   0000003C   012042E2           SUB      R2,R2,#+1
+   \   00000040   3D0052E3           CMP      R2,#+61
+   \   00000044   3200008A           BHI      ??VIEWDATA_onKey_1
+   \   00000048   013F8FE2           ADR      R3,??VIEWDATA_onKey_0
+   \   0000004C   0230D3E7           LDRB     R3,[R3, R2]
+   \   00000050   03F18FE0           ADD      PC,PC,R3, LSL #+2
+   \                     ??VIEWDATA_onKey_0:
+   \   00000054   A22F2FA4           DC8      +162,+47,+47,+164
+   \   00000058   2F2F2F2F           DC8      +47,+47,+47,+47
+   \   0000005C   2F2F792F           DC8      +47,+47,+121,+47
+   \   00000060   746E2F2F           DC8      +116,+110,+47,+47
+   \   00000064   2F2F2F2F           DC8      +47,+47,+47,+47
+   \   00000068   2F2F2F2F           DC8      +47,+47,+47,+47
+   \   0000006C   2F0F2F2F           DC8      +47,+15,+47,+47
+   \   00000070   2F2F2F2F           DC8      +47,+47,+47,+47
+   \   00000074   2F2F7C2F           DC8      +47,+47,+124,+47
+   \   00000078   2F2F2F2F           DC8      +47,+47,+47,+47
+   \   0000007C   2F2F2F2F           DC8      +47,+47,+47,+47
+   \   00000080   2F2F2F9A           DC8      +47,+47,+47,+154
+   \   00000084   41472F2F           DC8      +65,+71,+47,+47
+   \   00000088   0F2F2F5D           DC8      +15,+47,+47,+93
+   \   0000008C   322F475D           DC8      +50,+47,+71,+93
+   \   00000090   746E0000           DC8      +116,+110,+0,+0
+    691              {
+    692                case '5':
+    693                case ENTER_BUTTON:
+    694                  {
+    695                    if (vd->pos_cur_ref!=0xFFFFFFFF)
+   \                     ??VIEWDATA_onKey_2:
+   \   00000094   060051E1           CMP      R1,R6
+   \   00000098   1D00000A           BEQ      ??VIEWDATA_onKey_1
+    696                    {
+    697                      REFCACHE *rf=findReferencePos(vd,vd->pos_cur_ref);
+   \   0000009C   0400A0E1           MOV      R0,R4
+   \   000000A0   ........           BL       findReferencePos
+    698                      if (rf)
+   \   000000A4   000050E3           CMP      R0,#+0
+   \   000000A8   1900000A           BEQ      ??VIEWDATA_onKey_1
+    699                      {
+    700                        char *s=rf->id->mess;
+   \   000000AC   0C0090E5           LDR      R0,[R0, #+12]
+   \   000000B0   087090E5           LDR      R7,[R0, #+8]
+    701                        unsigned int l = strlen(s);
+   \   000000B4   0700A0E1           MOV      R0,R7
+   \   000000B8   1B0000EF           SWI      +27
+   \   000000BC   0080A0E1           MOV      R8,R0
+    702                        char *init_text = malloc(l+3+1);
+   \   000000C0   049088E2           ADD      R9,R8,#+4
+   \   000000C4   0900A0E1           MOV      R0,R9
+   \   000000C8   140000EF           SWI      +20
+   \   000000CC   0060A0E1           MOV      R6,R0
+    703                        zeromem(init_text,l+3+1);
+   \   000000D0   0910A0E1           MOV      R1,R9
+   \   000000D4   1D0100EF           SWI      +285
+    704                        init_text[0] = '>';
+   \   000000D8   3E00A0E3           MOV      R0,#+62
+   \   000000DC   0000C6E5           STRB     R0,[R6, #+0]
+    705                        init_text[1] = '>';
+   \   000000E0   0100C6E5           STRB     R0,[R6, #+1]
+    706                        strcat(init_text, s);
+   \   000000E4   0710A0E1           MOV      R1,R7
+   \   000000E8   0600A0E1           MOV      R0,R6
+   \   000000EC   170000EF           SWI      +23
+    707                        init_text[2+l] = '\n';
+   \   000000F0   060088E0           ADD      R0,R8,R6
+   \   000000F4   0A10A0E3           MOV      R1,#+10
+   \   000000F8   0210C0E5           STRB     R1,[R0, #+2]
+    708                        init_text[3+l] = '\0';
+   \   000000FC   0350C0E5           STRB     R5,[R0, #+3]
+    709                        Init_Message(vd->Resource_Ex, init_text);
+   \                     ??VIEWDATA_onKey_3:
+   \   00000100   500094E5           LDR      R0,[R4, #+80]
+   \   00000104   0610A0E1           MOV      R1,R6
+   \   00000108   ........           _BLF     Init_Message,??Init_Message??rA
+    710                        mfree(init_text);
+   \   0000010C   0600A0E1           MOV      R0,R6
+   \   00000110   150000EF           SWI      +21
+    711                      }
+    712                    }
+    713                  }
+    714                  break;
+    715              case '9':
+    716                while(LineDown(vd)) ;
+    717                vd->pixdisp=0;
+    718                scrollUp(vd,ScreenH()-1-vd->lastLineHeight);
+    719                RenderPage(vd,0);
+    720                  break;
+    721              case '1':
+    722                while(LineUp(vd)) ;
+    723                vd->pixdisp=0;
+    724                RenderPage(vd,0);
+    725                  break;
+    726              case '2':
+    727              case UP_BUTTON:
+    728                if (vd->pos_cur_ref==0xFFFFFFFF&&vd->pos_last_ref!=0xFFFFFFFF)
+    729                  vd->pos_cur_ref=vd->pos_last_ref;
+    730                else
+    731                  if (vd->pos_prev_ref!=0xFFFFFFFF)
+    732                    vd->pos_cur_ref=vd->pos_prev_ref;
+    733                  else
+    734                  {
+    735                    scrollUp(vd,20);
+    736                    RenderPage(vd,0);
+    737                    if (vd->pos_prev_ref!=0xFFFFFFFF)
+    738                      vd->pos_cur_ref=vd->pos_prev_ref;
+    739                  }
+    740                break;
+    741              case '8':
+    742              case DOWN_BUTTON:
+    743                if (vd->pos_cur_ref==0xFFFFFFFF&&vd->pos_first_ref!=0xFFFFFFFF)
+    744                  vd->pos_cur_ref=vd->pos_first_ref;
+    745                else
+    746                  if (vd->pos_next_ref!=0xFFFFFFFF)
+    747                    vd->pos_cur_ref=vd->pos_next_ref;
+    748                  else
+    749                  {
+    750                    scrollDown(vd,20);
+    751                    RenderPage(vd,0);
+    752                    if (vd->pos_next_ref!=0xFFFFFFFF)
+    753                      vd->pos_cur_ref=vd->pos_next_ref;
+    754                  }
+    755                break;
+    756              case RIGHT_BUTTON:
+    757              case VOL_DOWN_BUTTON:
+    758                scrollDown(vd,ScreenH()-20);
+    759                vd->pos_cur_ref=0xFFFFFFFF;
+    760                break;
+    761              case LEFT_BUTTON:
+    762              case VOL_UP_BUTTON:
+    763                scrollUp(vd,ScreenH()-20);
+    764                vd->pos_cur_ref=0xFFFFFFFF;
+    765                break;
+    766              case GREEN_BUTTON:
+    767                {
+    768                  Init_Message(vd->Resource_Ex, NULL);
+    769                }
+    770                break;
+    771                case '#':
+    772                  {
+    773                    if (vd->pos_cur_ref!=0xFFFFFFFF)
+    774                    {
+    775                      REFCACHE *rf=findReferencePos(vd,vd->pos_cur_ref);
+    776                      if (rf)
+    777                      {
+    778                        if(rf->id->mtype==MSG_GCHAT)
+    779                        {
+    780                        unsigned int au_nick_len = strlen(rf->id->muc_author);
+    781                        char *init_text = malloc(au_nick_len+3);
+    782                        zeromem(init_text, au_nick_len+3);
+    783                        strcpy(init_text, rf->id->muc_author);
+    784                        init_text[au_nick_len]=':';
+    785                        init_text[au_nick_len+1]=' ';
+    786                        init_text[au_nick_len+2]='\0';
+    787                        Init_Message(vd->Resource_Ex, init_text);
+    788                        mfree(init_text);
+    789                        }
+    790                      }
+    791                    }
+    792                  }
+    793                  break;
+    794              case '0':
+    795                  // Убить список сообщений
+    796                  KillMsgList(vd->Resource_Ex->log);
+    797                  vd->Resource_Ex->log = NULL;
+    798                  vd->Resource_Ex->has_unread_msg=0;
+    799                  vd->Resource_Ex->total_msg_count=0;
+    800                  return 1;
+    801                  
+    802              case LEFT_SOFT:
+    803                 Disp_Contact_Menu();
+    804                  break;
+    805          #ifndef NEWSGOLD
+    806              case RED_BUTTON:
+    807          #endif
+    808              case RIGHT_SOFT:
+    809                return 1;
+    810              }
+    811            }
+    812            DirectRedrawGUI();
+   \                     ??VIEWDATA_onKey_1:
+   \   00000114   3F0100EF           SWI      +319
+    813            return(0);
+   \   00000118   0000A0E3           MOV      R0,#+0
+   \   0000011C   F083BDE8           POP      {R4-R9,PC}       ;; return
+   \                     ??VIEWDATA_onKey_4:
+   \   00000120   0400A0E1           MOV      R0,R4
+   \   00000124   ........           BL       LineDown
+   \   00000128   000050E3           CMP      R0,#+0
+   \   0000012C   FBFFFF1A           BNE      ??VIEWDATA_onKey_4
+   \   00000130   145084E5           STR      R5,[R4, #+20]
+   \   00000134   898100EF           SWI      +33161
+   \   00000138   B415D4E1           LDRH     R1,[R4, #+84]
+   \   0000013C   010040E2           SUB      R0,R0,#+1
+   \   00000140   011040E0           SUB      R1,R0,R1
+   \   00000144   0400A0E1           MOV      R0,R4
+   \   00000148   ........           BL       scrollUp
+   \                     ??VIEWDATA_onKey_5:
+   \   0000014C   0010A0E3           MOV      R1,#+0
+   \   00000150   0400A0E1           MOV      R0,R4
+   \   00000154   ........           BL       RenderPage
+   \   00000158   0B0000EA           B        ??VIEWDATA_onKey_6
+   \                     ??VIEWDATA_onKey_7:
+   \   0000015C   0400A0E1           MOV      R0,R4
+   \   00000160   ........           BL       LineUp
+   \   00000164   000050E3           CMP      R0,#+0
+   \   00000168   FBFFFF1A           BNE      ??VIEWDATA_onKey_7
+   \   0000016C   145084E5           STR      R5,[R4, #+20]
+   \   00000170   F5FFFFEA           B        ??VIEWDATA_onKey_5
+   \                     ??VIEWDATA_onKey_8:
+   \   00000174   060051E1           CMP      R1,R6
+   \   00000178   0600001A           BNE      ??VIEWDATA_onKey_9
+   \   0000017C   240094E5           LDR      R0,[R4, #+36]
+   \   00000180   060050E1           CMP      R0,R6
+   \   00000184   0300000A           BEQ      ??VIEWDATA_onKey_9
+   \                     ??VIEWDATA_onKey_10:
+   \   00000188   1C0084E5           STR      R0,[R4, #+28]
+   \                     ??VIEWDATA_onKey_6:
+   \   0000018C   3F0100EF           SWI      +319
+   \   00000190   0000A0E3           MOV      R0,#+0
+   \   00000194   F083BDE8           POP      {R4-R9,PC}
+   \                     ??VIEWDATA_onKey_9:
+   \   00000198   280094E5           LDR      R0,[R4, #+40]
+   \   0000019C   060050E1           CMP      R0,R6
+   \   000001A0   F8FFFF1A           BNE      ??VIEWDATA_onKey_10
+   \   000001A4   1410A0E3           MOV      R1,#+20
+   \   000001A8   0400A0E1           MOV      R0,R4
+   \   000001AC   ........           BL       scrollUp
+   \   000001B0   0010A0E3           MOV      R1,#+0
+   \   000001B4   0400A0E1           MOV      R0,R4
+   \   000001B8   ........           BL       RenderPage
+   \   000001BC   280094E5           LDR      R0,[R4, #+40]
+   \                     ??VIEWDATA_onKey_11:
+   \   000001C0   060050E1           CMP      R0,R6
+   \   000001C4   D2FFFF0A           BEQ      ??VIEWDATA_onKey_1
+   \   000001C8   EEFFFFEA           B        ??VIEWDATA_onKey_10
+   \                     ??VIEWDATA_onKey_12:
+   \   000001CC   060051E1           CMP      R1,R6
+   \   000001D0   0300001A           BNE      ??VIEWDATA_onKey_13
+   \   000001D4   200094E5           LDR      R0,[R4, #+32]
+   \   000001D8   060050E1           CMP      R0,R6
+   \   000001DC   1C008415           STRNE    R0,[R4, #+28]
+   \   000001E0   CBFFFF1A           BNE      ??VIEWDATA_onKey_1
+   \                     ??VIEWDATA_onKey_13:
+   \   000001E4   2C0094E5           LDR      R0,[R4, #+44]
+   \   000001E8   060050E1           CMP      R0,R6
+   \   000001EC   E5FFFF1A           BNE      ??VIEWDATA_onKey_10
+   \   000001F0   1410A0E3           MOV      R1,#+20
+   \   000001F4   0400A0E1           MOV      R0,R4
+   \   000001F8   ........           BL       scrollDown
+   \   000001FC   0010A0E3           MOV      R1,#+0
+   \   00000200   0400A0E1           MOV      R0,R4
+   \   00000204   ........           BL       RenderPage
+   \   00000208   2C0094E5           LDR      R0,[R4, #+44]
+   \   0000020C   EBFFFFEA           B        ??VIEWDATA_onKey_11
+   \                     ??VIEWDATA_onKey_14:
+   \   00000210   898100EF           SWI      +33161
+   \   00000214   141040E2           SUB      R1,R0,#+20
+   \   00000218   0400A0E1           MOV      R0,R4
+   \   0000021C   ........           BL       scrollDown
+   \                     ??VIEWDATA_onKey_15:
+   \   00000220   1C6084E5           STR      R6,[R4, #+28]
+   \   00000224   D8FFFFEA           B        ??VIEWDATA_onKey_6
+   \                     ??VIEWDATA_onKey_16:
+   \   00000228   898100EF           SWI      +33161
+   \   0000022C   141040E2           SUB      R1,R0,#+20
+   \   00000230   0400A0E1           MOV      R0,R4
+   \   00000234   ........           BL       scrollUp
+   \   00000238   F8FFFFEA           B        ??VIEWDATA_onKey_15
+   \                     ??VIEWDATA_onKey_17:
+   \   0000023C   0010A0E3           MOV      R1,#+0
+   \   00000240   ........           _BLF     Init_Message,??Init_Message??rA
+   \   00000244   D0FFFFEA           B        ??VIEWDATA_onKey_6
+   \                     ??VIEWDATA_onKey_18:
+   \   00000248   060051E1           CMP      R1,R6
+   \   0000024C   B0FFFF0A           BEQ      ??VIEWDATA_onKey_1
+   \   00000250   0400A0E1           MOV      R0,R4
+   \   00000254   ........           BL       findReferencePos
+   \   00000258   0070B0E1           MOVS     R7,R0
+   \   0000025C   ACFFFF0A           BEQ      ??VIEWDATA_onKey_1
+   \   00000260   0C0097E5           LDR      R0,[R7, #+12]
+   \   00000264   0010D0E5           LDRB     R1,[R0, #+0]
+   \   00000268   030051E3           CMP      R1,#+3
+   \   0000026C   A8FFFF1A           BNE      ??VIEWDATA_onKey_1
+   \   00000270   040090E5           LDR      R0,[R0, #+4]
+   \   00000274   1B0000EF           SWI      +27
+   \   00000278   0080A0E1           MOV      R8,R0
+   \   0000027C   039088E2           ADD      R9,R8,#+3
+   \   00000280   0900A0E1           MOV      R0,R9
+   \   00000284   140000EF           SWI      +20
+   \   00000288   0060A0E1           MOV      R6,R0
+   \   0000028C   0910A0E1           MOV      R1,R9
+   \   00000290   1D0100EF           SWI      +285
+   \   00000294   0C0097E5           LDR      R0,[R7, #+12]
+   \   00000298   041090E5           LDR      R1,[R0, #+4]
+   \   0000029C   0600A0E1           MOV      R0,R6
+   \   000002A0   1A0000EF           SWI      +26
+   \   000002A4   060088E0           ADD      R0,R8,R6
+   \   000002A8   3A10A0E3           MOV      R1,#+58
+   \   000002AC   0010C0E5           STRB     R1,[R0, #+0]
+   \   000002B0   2010A0E3           MOV      R1,#+32
+   \   000002B4   0110C0E5           STRB     R1,[R0, #+1]
+   \   000002B8   0250C0E5           STRB     R5,[R0, #+2]
+   \   000002BC   8FFFFFEA           B        ??VIEWDATA_onKey_3
+   \                     ??VIEWDATA_onKey_19:
+   \   000002C0   1C0090E5           LDR      R0,[R0, #+28]
+   \   000002C4   ........           _BLF     KillMsgList,??KillMsgList??rA
+   \   000002C8   500094E5           LDR      R0,[R4, #+80]
+   \   000002CC   1C5080E5           STR      R5,[R0, #+28]
+   \   000002D0   145080E5           STR      R5,[R0, #+20]
+   \   000002D4   185080E5           STR      R5,[R0, #+24]
+   \   000002D8   0100A0E3           MOV      R0,#+1
+   \   000002DC   F083BDE8           POP      {R4-R9,PC}
+   \                     ??VIEWDATA_onKey_20:
+   \   000002E0   ........           _BLF     Disp_Contact_Menu,??Disp_Contact_Menu??rA
+   \   000002E4   A8FFFFEA           B        ??VIEWDATA_onKey_6
+   \                     ??VIEWDATA_onKey_21:
+   \   000002E8   0100A0E3           MOV      R0,#+1
+   \   000002EC   F083BDE8           POP      {R4-R9,PC}
+    814          }
+    815          
+    816          extern void kill_data(void *p, void (*func_p)(void *));
+    817          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    818          int VIEWDATA_method8(void){return(0);}
+   \                     VIEWDATA_method8:
+   \   00000000   0000A0E3           MOV      R0,#+0
+   \   00000004   1EFF2FE1           BX       LR               ;; return
+    819          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    820          int VIEWDATA_method9(void){return(0);}
+   \                     VIEWDATA_method9:
+   \   00000000   0000A0E3           MOV      R0,#+0
+   \   00000004   1EFF2FE1           BX       LR               ;; return
+    821          
+    822          const void * const VIEWDATA_methods[11]={
+    823            (void *)VIEWDATA_onRedraw,	//Redraw
+    824            (void *)VIEWDATA_onCreate,	//Create
+    825            (void *)VIEWDATA_onClose,	  //Close
+    826            (void *)VIEWDATA_onFocus,	  //Focus
+    827            (void *)VIEWDATA_onUnfocus,	//Unfocus
+    828            (void *)VIEWDATA_onKey,	    //OnKey
+    829            0,
+    830            (void *)kill_data,          //onDestroy,	//Destroy
+    831            (void *)VIEWDATA_method8,
+    832            (void *)VIEWDATA_method9,
+    833            0
+    834          };
+    835          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    836          void VIEWDATA_ParseMessages(VIEWDATA *vd)
+    837          {
+   \                     VIEWDATA_ParseMessages:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    838            if(!vd->Resource_Ex)return;
+   \   00000008   500094E5           LDR      R0,[R4, #+80]
+   \   0000000C   000050E3           CMP      R0,#+0
+   \   00000010   F08FBD08           POPEQ    {R4-R11,PC}
+    839            int parsed_counter=0;
+    840            LOG_MESSAGE* MessEx=vd->Resource_Ex->log;
+   \   00000014   1C6090E5           LDR      R6,[R0, #+28]
+   \   00000018   0050A0E3           MOV      R5,#+0
+    841            if(!MessEx)return;
+   \   0000001C   000056E3           CMP      R6,#+0
+   \   00000020   F08FBD08           POPEQ    {R4-R11,PC}
+    842            LockSched();
+   \   00000024   460100EF           SWI      +326
+    843            // Цикл по всем сообщениям
+    844            while(MessEx)
+    845            {
+    846              if(parsed_counter>=vd->OLD_MessList_Count)
+   \                     ??VIEWDATA_ParseMessages_1:
+   \   00000028   4C0094E5           LDR      R0,[R4, #+76]
+   \   0000002C   000055E1           CMP      R5,R0
+   \   00000030   5E0000BA           BLT      ??VIEWDATA_ParseMessages_2
+    847              {
+    848                WSHDR *temp_ws=AllocWS(strlen(MessEx->mess)*2);
+   \   00000034   080096E5           LDR      R0,[R6, #+8]
+    849                utf8_2ws(temp_ws,MessEx->mess,strlen(MessEx->mess)*2);
+    850                AddStringItem(vd,"\n");
+    851                RawInsertChar(vd,UTF16_INK_RGBA);
+    852                RawInsertChar(vd,(MESSAGEWIN_CHAT_FONT.r<<8)+MESSAGEWIN_CHAT_FONT.g);
+   \   00000038   98819FE5           LDR      R8,??VIEWDATA_ParseMessages_3+0x4  ;; MESSAGEWIN_CHAT_FONT
+   \   0000003C   1B0000EF           SWI      +27
+   \   00000040   8000A0E1           LSL      R0,R0,#+1
+   \   00000044   250100EF           SWI      +293
+   \   00000048   0070A0E1           MOV      R7,R0
+   \   0000004C   080096E5           LDR      R0,[R6, #+8]
+   \   00000050   1B0000EF           SWI      +27
+   \   00000054   081096E5           LDR      R1,[R6, #+8]
+   \   00000058   8020A0E1           LSL      R2,R0,#+1
+   \   0000005C   0700A0E1           MOV      R0,R7
+   \   00000060   E30100EF           SWI      +483
+   \   00000064   5A1F8FE2           ADR      R1,??VIEWDATA_ParseMessages_3  ;; "\n"
+   \   00000068   0400A0E1           MOV      R0,R4
+   \   0000006C   ........           BL       AddStringItem
+   \   00000070   0610A0E3           MOV      R1,#+6
+   \   00000074   E01C81E3           ORR      R1,R1,#0xE000
+   \   00000078   0400A0E1           MOV      R0,R4
+   \   0000007C   ........           BL       RawInsertChar
+   \   00000080   0000D8E5           LDRB     R0,[R8, #+0]
+   \   00000084   0110D8E5           LDRB     R1,[R8, #+1]
+   \   00000088   001481E0           ADD      R1,R1,R0, LSL #+8
+   \   0000008C   0400A0E1           MOV      R0,R4
+   \   00000090   ........           BL       RawInsertChar
+    853                RawInsertChar(vd,(MESSAGEWIN_CHAT_FONT.b<<8)+MESSAGEWIN_CHAT_FONT.a);
+   \   00000094   0200D8E5           LDRB     R0,[R8, #+2]
+   \   00000098   0310D8E5           LDRB     R1,[R8, #+3]
+   \   0000009C   001481E0           ADD      R1,R1,R0, LSL #+8
+   \   000000A0   0400A0E1           MOV      R0,R4
+   \   000000A4   ........           BL       RawInsertChar
+    854                switch(MessEx->mtype)
+   \   000000A8   0000D6E5           LDRB     R0,[R6, #+0]
+   \   000000AC   0710A0E3           MOV      R1,#+7
+   \   000000B0   E01C81E3           ORR      R1,R1,#0xE000
+   \   000000B4   010040E2           SUB      R0,R0,#+1
+   \   000000B8   040050E3           CMP      R0,#+4
+   \   000000BC   3100008A           BHI      ??VIEWDATA_ParseMessages_4
+   \   000000C0   012F8FE2           ADR      R2,??VIEWDATA_ParseMessages_0
+   \   000000C4   0020D2E7           LDRB     R2,[R2, R0]
+   \   000000C8   02F18FE0           ADD      PC,PC,R2, LSL #+2
+   \                     ??VIEWDATA_ParseMessages_0:
+   \   000000CC   010D1D0F           DC8      +1,+13,+29,+15
+   \   000000D0   1B000000           DC8      +27,+0,+0,+0
+    855                {
+    856                case MSG_ME:
+    857                  RawInsertChar(vd,UTF16_PAPER_RGBA);
+    858                  RawInsertChar(vd,(MESSAGEWIN_MY_BGCOLOR.r<<8)+MESSAGEWIN_MY_BGCOLOR.g);
+   \                     ??VIEWDATA_ParseMessages_5:
+   \   000000D4   00819FE5           LDR      R8,??VIEWDATA_ParseMessages_3+0x8  ;; MESSAGEWIN_MY_BGCOLOR
+   \                     ??VIEWDATA_ParseMessages_6:
+   \   000000D8   0400A0E1           MOV      R0,R4
+   \   000000DC   ........           BL       RawInsertChar
+   \   000000E0   0000D8E5           LDRB     R0,[R8, #+0]
+   \   000000E4   0110D8E5           LDRB     R1,[R8, #+1]
+   \   000000E8   001481E0           ADD      R1,R1,R0, LSL #+8
+   \   000000EC   0400A0E1           MOV      R0,R4
+   \   000000F0   ........           BL       RawInsertChar
+    859                  RawInsertChar(vd,(MESSAGEWIN_MY_BGCOLOR.b<<8)+MESSAGEWIN_MY_BGCOLOR.a);
+   \   000000F4   0200D8E5           LDRB     R0,[R8, #+2]
+   \   000000F8   0310D8E5           LDRB     R1,[R8, #+3]
+   \   000000FC   001481E0           ADD      R1,R1,R0, LSL #+8
+   \   00000100   1E0000EA           B        ??VIEWDATA_ParseMessages_7
+    860                  break;
+    861                case MSG_CHAT:
+    862                  RawInsertChar(vd,UTF16_PAPER_RGBA);
+    863                  RawInsertChar(vd,(MESSAGEWIN_CH_BGCOLOR.r<<8)+MESSAGEWIN_CH_BGCOLOR.g);
+   \                     ??VIEWDATA_ParseMessages_8:
+   \   00000104   D4809FE5           LDR      R8,??VIEWDATA_ParseMessages_3+0xC  ;; MESSAGEWIN_CH_BGCOLOR
+   \   00000108   F2FFFFEA           B        ??VIEWDATA_ParseMessages_6
+    864                  RawInsertChar(vd,(MESSAGEWIN_CH_BGCOLOR.b<<8)+MESSAGEWIN_CH_BGCOLOR.a);
+    865                  break;
+    866                case MSG_SYSTEM:
+    867                  RawInsertChar(vd,UTF16_PAPER_RGBA);
+    868                  RawInsertChar(vd,(MESSAGEWIN_SYS_BGCOLOR.r<<8)+MESSAGEWIN_SYS_BGCOLOR.g);
+   \                     ??VIEWDATA_ParseMessages_9:
+   \   0000010C   D0809FE5           LDR      R8,??VIEWDATA_ParseMessages_3+0x10  ;; MESSAGEWIN_SYS_BGCOLOR
+   \   00000110   0400A0E1           MOV      R0,R4
+   \   00000114   ........           BL       RawInsertChar
+   \   00000118   0000D8E5           LDRB     R0,[R8, #+0]
+   \   0000011C   0110D8E5           LDRB     R1,[R8, #+1]
+   \   00000120   001481E0           ADD      R1,R1,R0, LSL #+8
+   \   00000124   0400A0E1           MOV      R0,R4
+   \   00000128   ........           BL       RawInsertChar
+    869                  RawInsertChar(vd,(MESSAGEWIN_SYS_BGCOLOR.b<<8)+MESSAGEWIN_SYS_BGCOLOR.a);
+   \   0000012C   0200D8E5           LDRB     R0,[R8, #+2]
+   \   00000130   0310D8E5           LDRB     R1,[R8, #+3]
+   \   00000134   001481E0           ADD      R1,R1,R0, LSL #+8
+   \   00000138   100000EA           B        ??VIEWDATA_ParseMessages_7
+    870                  break;
+    871                case MSG_STATUS:
+    872                  RawInsertChar(vd,UTF16_PAPER_RGBA);
+    873                  RawInsertChar(vd,(MESSAGEWIN_STATUS_BGCOLOR.r<<8)+MESSAGEWIN_STATUS_BGCOLOR.g);
+   \                     ??VIEWDATA_ParseMessages_10:
+   \   0000013C   A4809FE5           LDR      R8,??VIEWDATA_ParseMessages_3+0x14  ;; MESSAGEWIN_STATUS_BGCOLOR
+   \   00000140   E4FFFFEA           B        ??VIEWDATA_ParseMessages_6
+    874                  RawInsertChar(vd,(MESSAGEWIN_STATUS_BGCOLOR.b<<8)+MESSAGEWIN_STATUS_BGCOLOR.a);
+    875                  break;
+    876                case MSG_GCHAT:
+    877                  {
+    878                    RGBA cl=parsed_counter%2==0?MESSAGEWIN_GCHAT_BGCOLOR_1:MESSAGEWIN_GCHAT_BGCOLOR_2;
+   \                     ??VIEWDATA_ParseMessages_11:
+   \   00000144   A50F85E0           ADD      R0,R5,R5, LSR #+31
+   \   00000148   C000A0E1           ASR      R0,R0,#+1
+   \   0000014C   800055E0           SUBS     R0,R5,R0, LSL #+1
+   \   00000150   94009F05           LDREQ    R0,??VIEWDATA_ParseMessages_3+0x18  ;; MESSAGEWIN_GCHAT_BGCOLOR_1
+   \   00000154   94009F15           LDRNE    R0,??VIEWDATA_ParseMessages_3+0x1C  ;; MESSAGEWIN_GCHAT_BGCOLOR_2
+   \   00000158   0080D0E5           LDRB     R8,[R0, #+0]
+   \   0000015C   0190D0E5           LDRB     R9,[R0, #+1]
+   \   00000160   02A0D0E5           LDRB     R10,[R0, #+2]
+   \   00000164   03B0D0E5           LDRB     R11,[R0, #+3]
+    879                    RawInsertChar(vd,UTF16_PAPER_RGBA);
+   \   00000168   0400A0E1           MOV      R0,R4
+   \   0000016C   ........           BL       RawInsertChar
+    880                    RawInsertChar(vd,(cl.r<<8)+cl.g);
+   \   00000170   081489E0           ADD      R1,R9,R8, LSL #+8
+   \   00000174   0400A0E1           MOV      R0,R4
+   \   00000178   ........           BL       RawInsertChar
+    881                    RawInsertChar(vd,(cl.b<<8)+cl.a);
+   \   0000017C   0A148BE0           ADD      R1,R11,R10, LSL #+8
+   \                     ??VIEWDATA_ParseMessages_7:
+   \   00000180   0400A0E1           MOV      R0,R4
+   \   00000184   ........           BL       RawInsertChar
+    882                  }
+    883                  break;
+    884                }
+    885            /*    
+    886                if (MessEx==vd->Resource_Ex->log) // avatar
+    887                {
+    888                  DEBUGC(vd->Resource_Ex->full_name);
+    889                  DEBUGC("\n");
+    890                  char fname[128];
+    891                  strcpy(fname,PATH_TO_AVATARS);
+    892                  int i=0;
+    893                  for(;i<strlen(vd->Resource_Ex->full_name);i++)
+    894                  {
+    895                    if (vd->Resource_Ex->full_name[i]==0x2F)
+    896                      break;
+    897                  }
+    898                  DEBUGS("i : %i\n",i);
+    899                  i+=strlen(fname);
+    900                  DEBUGS("i : %i\n",i);
+    901                  strcpy(fname+strlen(fname),vd->Resource_Ex->full_name);
+    902          //        *(fname+(strlen(fname)+i-1))=0;
+    903                  DEBUGC(fname);
+    904                  DEBUGC("\n");
+    905                  strcpy(fname+i,".jpg");
+    906                  DEBUGC(fname);
+    907                  DEBUGC("\n");
+    908          
+    909                  int f;
+    910                  unsigned int err;
+    911                  int fsize;
+    912                  char *buf;
+    913                  FSTATS stat;
+    914                  if (GetFileStats(fname,&stat,&err)!=-1)
+    915                  {
+    916                    if ((fsize=stat.size)>0)
+    917                    {
+    918                      if ((f=fopen(fname,A_ReadOnly+A_BIN,P_READ,&err))!=-1)
+    919                      {
+    920                        buf=malloc(fsize+1);
+    921                        buf[fread(f,buf,fsize,&err)]=0;
+    922                        fclose(f,&err);
+    923                        AddPictureItem(vd,buf);
+    924                        mfree(buf);
+    925                      }
+    926                    }
+    927                  }
+    928                }
+    929                */
+    930                //if (MessEx->mtype!=MSG_STATUS)
+    931                {
+    932                  AddBeginRef(vd);
+   \                     ??VIEWDATA_ParseMessages_4:
+   \   00000188   0400A0E1           MOV      R0,R4
+   \   0000018C   ........           BL       AddBeginRef
+    933                  vd->work_ref.id=MessEx;
+   \   00000190   446084E5           STR      R6,[R4, #+68]
+    934                }
+    935                AddTextItem(vd,temp_ws);
+   \   00000194   0710A0E1           MOV      R1,R7
+   \   00000198   0400A0E1           MOV      R0,R4
+   \   0000019C   ........           BL       AddTextItem
+    936                //if (MessEx->mtype!=MSG_STATUS)
+    937                AddEndRef(vd);
+   \   000001A0   0400A0E1           MOV      R0,R4
+   \   000001A4   ........           BL       AddEndRef
+    938                FreeWS(temp_ws);
+   \   000001A8   0700A0E1           MOV      R0,R7
+   \   000001AC   290100EF           SWI      +297
+    939              }
+    940              MessEx = MessEx->next;
+   \                     ??VIEWDATA_ParseMessages_2:
+   \   000001B0   0C6096E5           LDR      R6,[R6, #+12]
+    941              parsed_counter++;
+   \   000001B4   015085E2           ADD      R5,R5,#+1
+    942            }
+   \   000001B8   000056E3           CMP      R6,#+0
+   \   000001BC   99FFFF1A           BNE      ??VIEWDATA_ParseMessages_1
+    943            UnlockSched();
+   \   000001C0   470100EF           SWI      +327
+    944            vd->OLD_MessList_Count=vd->Resource_Ex->total_msg_count;
+   \   000001C4   500094E5           LDR      R0,[R4, #+80]
+   \   000001C8   180090E5           LDR      R0,[R0, #+24]
+   \   000001CC   4C0084E5           STR      R0,[R4, #+76]
+    945          }
+   \   000001D0   F08FBDE8           POP      {R4-R11,PC}      ;; return
+   \                     ??VIEWDATA_ParseMessages_3:
+   \   000001D4   0A000000           DC8      "\n",+0,+0
+   \   000001D8   ........           DC32     MESSAGEWIN_CHAT_FONT
+   \   000001DC   ........           DC32     MESSAGEWIN_MY_BGCOLOR
+   \   000001E0   ........           DC32     MESSAGEWIN_CH_BGCOLOR
+   \   000001E4   ........           DC32     MESSAGEWIN_SYS_BGCOLOR
+   \   000001E8   ........           DC32     MESSAGEWIN_STATUS_BGCOLOR
+   \   000001EC   ........           DC32     MESSAGEWIN_GCHAT_BGCOLOR_1
+   \   000001F0   ........           DC32     MESSAGEWIN_GCHAT_BGCOLOR_2
+    946          
+    947          // Отобразить список сообщений
+
+   \                                 In segment CODE, align 4, keep-with-next
+    948          void VIEWDATA_Display(TRESOURCE* ContEx)
+    949          {
+   \                     VIEWDATA_Display:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0040B0E1           MOVS     R4,R0
+    950            if(!ContEx)return;
+   \   00000008   7080BD08           POPEQ    {R4-R6,PC}
+    951            // Замутим гуй
+    952            VIEW_GUI *mess_gui=malloc(sizeof(VIEW_GUI));
+   \   0000000C   8C00A0E3           MOV      R0,#+140
+   \   00000010   140000EF           SWI      +20
+   \   00000014   0050A0E1           MOV      R5,R0
+    953            zeromem(mess_gui, sizeof(VIEW_GUI));
+   \   00000018   8C10A0E3           MOV      R1,#+140
+   \   0000001C   1D0100EF           SWI      +285
+    954            static const RECT Canvas={0,0,0,0};
+    955            patch_rect((RECT*)&Canvas,0,0,ScreenW()-1,ScreenH()-1);
+   \   00000020   898100EF           SWI      +33161
+   \   00000024   0060A0E1           MOV      R6,R0
+   \   00000028   888100EF           SWI      +33160
+   \   0000002C   4C209FE5           LDR      R2,??VIEWDATA_Display_0  ;; ??Canvas
+   \   00000030   011046E2           SUB      R1,R6,#+1
+   \   00000034   010040E2           SUB      R0,R0,#+1
+   \   00000038   0060A0E3           MOV      R6,#+0
+   \   0000003C   006082E5           STR      R6,[R2, #+0]
+   \   00000040   B400C2E1           STRH     R0,[R2, #+4]
+   \   00000044   B610C2E1           STRH     R1,[R2, #+6]
+    956            mess_gui->gui.canvas=(void *)(&Canvas);
+   \   00000048   002085E5           STR      R2,[R5, #+0]
+    957            mess_gui->gui.methods=(void *)VIEWDATA_methods;
+   \   0000004C   080082E2           ADD      R0,R2,#+8
+   \   00000050   040085E5           STR      R0,[R5, #+4]
+    958            mess_gui->gui.item_ll.data_mfree=(void (*)(void *))mfree_adr();
+   \   00000054   158000EF           SWI      +32789
+   \   00000058   200085E5           STR      R0,[R5, #+32]
+    959            Message_gui_ID = CreateGUI(mess_gui);
+   \   0000005C   0500A0E1           MOV      R0,R5
+   \   00000060   370100EF           SWI      +311
+   \   00000064   18109FE5           LDR      R1,??VIEWDATA_Display_0+0x4  ;; Message_gui_ID
+   \   00000068   000081E5           STR      R0,[R1, #+0]
+    960            mess_gui->vd.Resource_Ex=ContEx;
+   \   0000006C   844085E5           STR      R4,[R5, #+132]
+    961            mess_gui->vd.OLD_MessList_Count=0;
+   \   00000070   806085E5           STR      R6,[R5, #+128]
+    962            VIEWDATA_ParseMessages(&mess_gui->vd);
+   \   00000074   340085E2           ADD      R0,R5,#+52
+   \   00000078   ........           BL       VIEWDATA_ParseMessages
+    963          }
+   \   0000007C   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??VIEWDATA_Display_0:
+   \   00000080   ........           DC32     ??Canvas
+   \   00000084   ........           DC32     Message_gui_ID
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     ??Canvas:
+   \   00000000   000000000000       DC16 0, 0, 0, 0
+   \              0000        
+   \                     VIEWDATA_methods:
+   \   00000008   ............       DC32 VIEWDATA_onRedraw, VIEWDATA_onCreate, VIEWDATA_onClose
+   \              ............
+   \   00000014   ............       DC32 VIEWDATA_onFocus, VIEWDATA_onUnfocus, VIEWDATA_onKey, 0H
+   \              ............
+   \              00000000    
+   \   00000024   ............       DC32 kill_data, VIEWDATA_method8, VIEWDATA_method9, 0H
+   \              ............
+   \              00000000    
+    964          
+    965          // destructors.c
+
+   \                                 In segment CODE, align 4, keep-with-next
+    966          void FreeDynImgList(VIEWDATA *vd)
+    967          {
+   \                     FreeDynImgList:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+    968            OMS_DYNPNGLIST *dpl=vd->dynpng_list;
+   \   00000004   484090E5           LDR      R4,[R0, #+72]
+    969            vd->dynpng_list=NULL;
+   \   00000008   0010A0E3           MOV      R1,#+0
+   \   0000000C   481080E5           STR      R1,[R0, #+72]
+   \   00000010   000054E3           CMP      R4,#+0
+   \   00000014   3080BD08           POPEQ    {R4,R5,PC}
+    970            while(dpl)
+    971            {
+    972              OMS_DYNPNGLIST *p=dpl;
+   \                     ??FreeDynImgList_0:
+   \   00000018   0450A0E1           MOV      R5,R4
+    973              dpl=dpl->dp.next;
+    974              if (p->dp.img)
+   \   0000001C   080095E5           LDR      R0,[R5, #+8]
+   \   00000020   004094E5           LDR      R4,[R4, #+0]
+   \   00000024   000050E3           CMP      R0,#+0
+   \   00000028   0300000A           BEQ      ??FreeDynImgList_1
+    975              {
+    976                mfree(p->dp.img->bitmap);
+   \   0000002C   080090E5           LDR      R0,[R0, #+8]
+   \   00000030   150000EF           SWI      +21
+    977                mfree(p->dp.img);
+   \   00000034   080095E5           LDR      R0,[R5, #+8]
+   \   00000038   150000EF           SWI      +21
+    978              }
+    979              mfree(p);
+   \                     ??FreeDynImgList_1:
+   \   0000003C   0500A0E1           MOV      R0,R5
+   \   00000040   150000EF           SWI      +21
+    980            }
+   \   00000044   000054E3           CMP      R4,#+0
+   \   00000048   F2FFFF1A           BNE      ??FreeDynImgList_0
+    981          }
+   \   0000004C   3080BDE8           POP      {R4,R5,PC}       ;; return
+    982          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    983          void FreeViewData(VIEWDATA *vd)
+    984          {
+   \                     FreeViewData:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    985            if (vd->ws) FreeWS(vd->ws);
+   \   00000008   180094E5           LDR      R0,[R4, #+24]
+   \   0000000C   000050E3           CMP      R0,#+0
+   \   00000010   0000000A           BEQ      ??FreeViewData_0
+   \   00000014   290100EF           SWI      +297
+    986            mfree(vd->ref_cache);
+   \                     ??FreeViewData_0:
+   \   00000018   300094E5           LDR      R0,[R4, #+48]
+    987            vd->ref_cache=NULL;
+   \   0000001C   0050A0E3           MOV      R5,#+0
+   \   00000020   150000EF           SWI      +21
+   \   00000024   305084E5           STR      R5,[R4, #+48]
+    988            vd->ref_cache_size=0;
+   \   00000028   345084E5           STR      R5,[R4, #+52]
+    989            mfree(vd->lines_cache);
+   \   0000002C   080094E5           LDR      R0,[R4, #+8]
+   \   00000030   150000EF           SWI      +21
+    990            vd->lines_cache=NULL;
+   \   00000034   085084E5           STR      R5,[R4, #+8]
+    991            mfree(vd->rawtext);
+   \   00000038   000094E5           LDR      R0,[R4, #+0]
+   \   0000003C   150000EF           SWI      +21
+    992            vd->rawtext=NULL;
+   \   00000040   005084E5           STR      R5,[R4, #+0]
+    993            vd->rawtext_size=0;
+   \   00000044   045084E5           STR      R5,[R4, #+4]
+    994            FreeDynImgList(vd);
+   \   00000048   0400A0E1           MOV      R0,R4
+   \   0000004C   3040BDE8           POP      {R4,R5,LR}       ;; Pop
+   \   00000050   ........           B        FreeDynImgList   ;; tailcall
+    995          }
+    996          
+    997          
+    998          // additems.c
+    999          #define DP_IS_FRAME (-2)
+   1000          #define DP_IS_NOINDEX (-1)
+   1001          #define RAWTEXTCHUNK (16384)
+   1002          #define REFCACHECHUNK (256)
+   1003          
+
+   \                                 In segment CODE, align 4, keep-with-next
+   1004          void RawInsertChar(VIEWDATA *vd, int wchar)
+   1005          {
+   \                     RawInsertChar:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   1006            if ((vd->rawtext_size%RAWTEXTCHUNK)==0)
+   \   00000008   040094E5           LDR      R0,[R4, #+4]
+   \   0000000C   0150A0E1           MOV      R5,R1
+   \   00000010   0010A0E1           MOV      R1,R0
+   \   00000014   0119A0E1           LSL      R1,R1,#+18
+   \   00000018   2119B0E1           LSRS     R1,R1,#+18
+   \   0000001C   0400001A           BNE      ??RawInsertChar_0
+   1007            {
+   1008              //Дошли до конца куска, реаллоцируем еще кусок
+   1009              vd->rawtext=realloc(vd->rawtext,(vd->rawtext_size+RAWTEXTCHUNK)*2);
+   \   00000020   400C80E2           ADD      R0,R0,#+16384
+   \   00000024   8010A0E1           LSL      R1,R0,#+1
+   \   00000028   000094E5           LDR      R0,[R4, #+0]
+   \   0000002C   BA0000EF           SWI      +186
+   \   00000030   000084E5           STR      R0,[R4, #+0]
+   1010            }
+   1011            //
+   1012            vd->rawtext[vd->rawtext_size++]=wchar;
+   \                     ??RawInsertChar_0:
+   \   00000034   040094E5           LDR      R0,[R4, #+4]
+   \   00000038   011080E2           ADD      R1,R0,#+1
+   \   0000003C   041084E5           STR      R1,[R4, #+4]
+   \   00000040   001094E5           LDR      R1,[R4, #+0]
+   \   00000044   800081E0           ADD      R0,R1,R0, LSL #+1
+   \   00000048   B050C0E1           STRH     R5,[R0, #+0]
+   1013          }
+   \   0000004C   3080BDE8           POP      {R4,R5,PC}       ;; return
+   1014          
+
+   \                                 In segment CODE, align 4, keep-with-next
+   1015          void AddBeginRef(VIEWDATA *vd)
+   1016          {
+   1017            vd->work_ref.begin=vd->rawtext_size;
+   \                     AddBeginRef:
+   \   00000000   041090E5           LDR      R1,[R0, #+4]
+   \   00000004   3C1080E5           STR      R1,[R0, #+60]
+   1018            RawInsertChar(vd,UTF16_ENA_INVERT);
+   \   00000008   0510A0E3           MOV      R1,#+5
+   \   0000000C   E01C81E3           ORR      R1,R1,#0xE000
+   \   00000010   ........           B        RawInsertChar    ;; tailcall
+   1019          }
+   1020          
+
+   \                                 In segment CODE, align 4, keep-with-next
+   1021          void AddEndRef(VIEWDATA *vd)
+   1022          {
+   \                     AddEndRef:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   1023            RawInsertChar(vd,UTF16_DIS_INVERT);
+   \   00000004   0410A0E3           MOV      R1,#+4
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   E01C81E3           ORR      R1,R1,#0xE000
+   \   00000010   ........           BL       RawInsertChar
+   1024            REFCACHE *p;
+   1025            if ((vd->ref_cache_size%REFCACHECHUNK)==0)
+   \   00000014   340094E5           LDR      R0,[R4, #+52]
+   \   00000018   C013A0E1           ASR      R1,R0,#+7
+   \   0000001C   211C80E0           ADD      R1,R0,R1, LSR #+24
+   \   00000020   4114A0E1           ASR      R1,R1,#+8
+   \   00000024   011450E0           SUBS     R1,R0,R1, LSL #+8
+   \   00000028   0400001A           BNE      ??AddEndRef_0
+   1026            {
+   1027              vd->ref_cache=realloc(vd->ref_cache,(vd->ref_cache_size+REFCACHECHUNK)*sizeof(REFCACHE));
+   \   0000002C   400F80E2           ADD      R0,R0,#+256
+   \   00000030   0012A0E1           LSL      R1,R0,#+4
+   \   00000034   300094E5           LDR      R0,[R4, #+48]
+   \   00000038   BA0000EF           SWI      +186
+   \   0000003C   300084E5           STR      R0,[R4, #+48]
+   1028            }
+   1029            p=vd->ref_cache+vd->ref_cache_size;
+   \                     ??AddEndRef_0:
+   \   00000040   340094E5           LDR      R0,[R4, #+52]
+   \   00000044   301094E5           LDR      R1,[R4, #+48]
+   1030            memcpy(p,&(vd->work_ref),sizeof(REFCACHE));
+   \   00000048   1020A0E3           MOV      R2,#+16
+   \   0000004C   005281E0           ADD      R5,R1,R0, LSL #+4
+   \   00000050   381084E2           ADD      R1,R4,#+56
+   \   00000054   0500A0E1           MOV      R0,R5
+   \   00000058   1E0100EF           SWI      +286
+   1031            p->end=vd->rawtext_size;
+   \   0000005C   040094E5           LDR      R0,[R4, #+4]
+   1032            vd->ref_cache_size++;
+   1033            if (vd->pos_cur_ref==0xFFFFFFFF)
+   1034            {
+   1035              vd->pos_cur_ref=vd->work_ref.begin;
+   1036            }
+   1037            memset(&(vd->work_ref),0xFF,sizeof(REFCACHE));
+   \   00000060   1020A0E3           MOV      R2,#+16
+   \   00000064   080085E5           STR      R0,[R5, #+8]
+   \   00000068   340094E5           LDR      R0,[R4, #+52]
+   \   0000006C   FF10A0E3           MOV      R1,#+255
+   \   00000070   010080E2           ADD      R0,R0,#+1
+   \   00000074   340084E5           STR      R0,[R4, #+52]
+   \   00000078   1C0094E5           LDR      R0,[R4, #+28]
+   \   0000007C   010070E3           CMN      R0,#+1
+   \   00000080   3C009405           LDREQ    R0,[R4, #+60]
+   \   00000084   1C008405           STREQ    R0,[R4, #+28]
+   \   00000088   380084E2           ADD      R0,R4,#+56
+   \   0000008C   BB0000EF           SWI      +187
+   1038          }
+   \   00000090   3080BDE8           POP      {R4,R5,PC}       ;; return
+   1039          
+
+   \                                 In segment CODE, align 4, keep-with-next
+   1040          void AddStringItem(VIEWDATA *vd, char *text)
+   1041          {
+   \                     AddStringItem:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+   1042            for (int i=0;i<strlen(text);i++)
+   \   0000000C   0060A0E3           MOV      R6,#+0
+   \   00000010   050000EA           B        ??AddStringItem_0
+   1043            {
+   1044              unsigned int char8to16(int c);
+   1045              RawInsertChar(vd,char8to16(text[i]));
+   \                     ??AddStringItem_1:
+   \   00000014   0500D6E7           LDRB     R0,[R6, +R5]
+   1046            }
+   \   00000018   016086E2           ADD      R6,R6,#+1
+   \   0000001C   ........           _BLF     char8to16,??char8to16??rA
+   \   00000020   0010A0E1           MOV      R1,R0
+   \   00000024   0400A0E1           MOV      R0,R4
+   \   00000028   ........           BL       RawInsertChar
+   \                     ??AddStringItem_0:
+   \   0000002C   0500A0E1           MOV      R0,R5
+   \   00000030   1B0000EF           SWI      +27
+   \   00000034   000056E1           CMP      R6,R0
+   \   00000038   F5FFFF3A           BCC      ??AddStringItem_1
+   1047          }
+   \   0000003C   7080BDE8           POP      {R4-R6,PC}       ;; return
+   1048          
+
+   \                                 In segment CODE, align 4, keep-with-next
+   1049          void AddTextItem(VIEWDATA *vd, WSHDR *ws)
+   1050          {
+   \                     AddTextItem:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+   1051            for (int i=1;i<=ws->wsbody[0];i++)
+   \   0000000C   000095E5           LDR      R0,[R5, #+0]
+   \   00000010   0160A0E3           MOV      R6,#+1
+   \   00000014   B000D0E1           LDRH     R0,[R0, #+0]
+   \   00000018   000050E3           CMP      R0,#+0
+   \   0000001C   0500001A           BNE      ??AddTextItem_0
+   \   00000020   7080BDE8           POP      {R4-R6,PC}
+   1052            {
+   1053              RawInsertChar(vd,ws->wsbody[i]);
+   \                     ??AddTextItem_1:
+   \   00000024   860080E0           ADD      R0,R0,R6, LSL #+1
+   \   00000028   B010D0E1           LDRH     R1,[R0, #+0]
+   \   0000002C   0400A0E1           MOV      R0,R4
+   1054            }
+   \   00000030   016086E2           ADD      R6,R6,#+1
+   \   00000034   ........           BL       RawInsertChar
+   \                     ??AddTextItem_0:
+   \   00000038   000095E5           LDR      R0,[R5, #+0]
+   \   0000003C   B010D0E1           LDRH     R1,[R0, #+0]
+   \   00000040   060051E1           CMP      R1,R6
+   \   00000044   F6FFFFAA           BGE      ??AddTextItem_1
+   1055          }
+   \   00000048   7080BDE8           POP      {R4-R6,PC}       ;; return
+   1056          
+   1057          //is_index >= 0 использовать последний
+   1058          //is_index <0 - задать  принудительно
+
+   \                                 In segment CODE, align 4, keep-with-next
+   1059          OMS_DYNPNGLIST *AddToDPngQueue(VIEWDATA *vd, IMGHDR *img, int is_index)
+   1060          {
+   \                     AddToDPngQueue:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   0160A0E1           MOV      R6,R1
+   \   00000008   0070A0E1           MOV      R7,R0
+   \   0000000C   0250A0E1           MOV      R5,R2
+   1061            int wchar, i, index;
+   1062            OMS_DYNPNGLIST *dpl;
+   1063            OMS_DYNPNGLIST *odp=malloc(sizeof(OMS_DYNPNGLIST));
+   \   00000010   1400A0E3           MOV      R0,#+20
+   \   00000014   140000EF           SWI      +20
+   \   00000018   0040A0E1           MOV      R4,R0
+   1064            odp->dp.next=0;
+   \   0000001C   0000A0E3           MOV      R0,#+0
+   \   00000020   000084E5           STR      R0,[R4, #+0]
+   1065            odp->dp.img=img;
+   \   00000024   086084E5           STR      R6,[R4, #+8]
+   1066            dpl=vd->dynpng_list;
+   \   00000028   480097E5           LDR      R0,[R7, #+72]
+   1067            if (!dpl)
+   \   0000002C   2A60A0E3           MOV      R6,#+42
+   \   00000030   E16C86E3           ORR      R6,R6,#0xE100
+   \   00000034   000050E3           CMP      R0,#+0
+   \   00000038   0C00001A           BNE      ??AddToDPngQueue_0
+   1068            {
+   1069              odp->dp.icon=GetPicNByUnicodeSymbol((wchar=FIRST_UCS2_BITMAP));
+   \   0000003C   0600A0E1           MOV      R0,R6
+   \   00000040   E40100EF           SWI      +484
+   \   00000044   040084E5           STR      R0,[R4, #+4]
+   1070              odp->w_char=wchar;
+   \   00000048   0C6084E5           STR      R6,[R4, #+12]
+   1071              if (is_index>=0) odp->index=0;
+   \   0000004C   000055E3           CMP      R5,#+0
+   \   00000050   0050A053           MOVPL    R5,#+0
+   1072              else odp->index=is_index;
+   \   00000054   105084E5           STR      R5,[R4, #+16]
+   1073              LockSched();
+   \   00000058   460100EF           SWI      +326
+   1074              vd->dynpng_list=odp;
+   \   0000005C   484087E5           STR      R4,[R7, #+72]
+   1075              UnlockSched();
+   \   00000060   470100EF           SWI      +327
+   1076              RefreshGUI();
+   \   00000064   960100EF           SWI      +406
+   \   00000068   0400A0E1           MOV      R0,R4
+   \   0000006C   F081BDE8           POP      {R4-R8,PC}
+   1077            }
+   1078            else
+   1079            {
+   1080              i=0;
+   \                     ??AddToDPngQueue_0:
+   \   00000070   0010A0E3           MOV      R1,#+0
+   1081              index=0;
+   \   00000074   0070A0E3           MOV      R7,#+0
+   1082              OMS_DYNPNGLIST *d;
+   1083              do
+   1084              {
+   1085                d=dpl;
+   \                     ??AddToDPngQueue_1:
+   \   00000078   0080A0E1           MOV      R8,R0
+   1086                if (is_index>=0 && d->index>=0) index++;
+   1087                i++;
+   1088              }
+   1089              while((dpl=dpl->dp.next));
+   \   0000007C   000090E5           LDR      R0,[R0, #+0]
+   \   00000080   000055E3           CMP      R5,#+0
+   \   00000084   10209855           LDRPL    R2,[R8, #+16]
+   \   00000088   011081E2           ADD      R1,R1,#+1
+   \   0000008C   00005253           CMPPL    R2,#+0
+   \   00000090   01708752           ADDPL    R7,R7,#+1
+   \   00000094   000050E3           CMP      R0,#+0
+   \   00000098   F6FFFF1A           BNE      ??AddToDPngQueue_1
+   1090              wchar=FIRST_UCS2_BITMAP+i;
+   \   0000009C   016086E0           ADD      R6,R6,R1
+   1091              odp->dp.icon=GetPicNByUnicodeSymbol(wchar);
+   \   000000A0   0600A0E1           MOV      R0,R6
+   \   000000A4   E40100EF           SWI      +484
+   \   000000A8   040084E5           STR      R0,[R4, #+4]
+   1092              odp->w_char=wchar;
+   \   000000AC   0C6084E5           STR      R6,[R4, #+12]
+   1093              if (is_index>=0)  odp->index=index;
+   \   000000B0   000055E3           CMP      R5,#+0
+   \   000000B4   0750A051           MOVPL    R5,R7
+   1094              else odp->index=is_index;
+   \   000000B8   105084E5           STR      R5,[R4, #+16]
+   1095              LockSched();
+   \   000000BC   460100EF           SWI      +326
+   1096              d->dp.next=odp;
+   \   000000C0   004088E5           STR      R4,[R8, #+0]
+   1097              UnlockSched();
+   \   000000C4   470100EF           SWI      +327
+   1098            }
+   1099            return odp;
+   \   000000C8   0400A0E1           MOV      R0,R4
+   \   000000CC   F081BDE8           POP      {R4-R8,PC}       ;; return
+   1100          }
+   1101          /*
+   1102          void AddPictureItem(VIEWDATA *vd, void *picture)
+   1103          {
+   1104            int wchar=0xE115;
+   1105            IMGHDR *img;
+   1106            OMS_DYNPNGLIST *dpl;
+   1107            if (picture)
+   1108            {
+   1109              if ((img=read_pngimg(picture)))
+   1110              {
+   1111                dpl=AddToDPngQueue(vd, img, 0);
+   1112                wchar=dpl->w_char;
+   1113              }
+   1114              else  if ((img=read_jpgimg(picture)))
+   1115              {
+   1116                dpl=AddToDPngQueue(vd, img, 0);
+   1117                wchar=dpl->w_char;
+   1118              }
+   1119            }
+   1120            RawInsertChar(vd,wchar);
+   1121          }
+   1122          */
+
+   \                                 In segment CODE, align 4, keep-with-next
+   1123          void AddPageEndItem(VIEWDATA *vd)
+   1124          {
+   1125            AddStringItem(vd,"\n<Q>");
+   \                     AddPageEndItem:
+   \   00000000   00109FE5           LDR      R1,??AddPageEndItem_0  ;; `?<Constant "\\n<Q>">`
+   \   00000004   ........           B        AddStringItem    ;; tailcall
+   \                     ??AddPageEndItem_0:
+   \   00000008   ........           DC32     `?<Constant "\\n<Q>">`
+   1126          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable2:
+   \   00000000   ........           DC32     `?<Constant "0:\\\\zbin\\\\siejc\\\\debug.txt">`
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable3:
+   \   00000000   ........           DC32     debugA
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for debugA>`:
+   \   00000000   00020000           DC32 512
+   \                     `?<Initializer for debug_file>`:
+   \   00000004   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for debug_ul>`:
+   \   00000008   00000000           DC8 0, 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "0:\\\\zbin\\\\siejc\\\\debug.txt">`:
+   \   00000000   303A5C7A6269       DC8 "0:\\zbin\\siejc\\debug.txt"
+   \              6E5C7369656A
+   \              635C64656275
+   \              672E74787400
+   \   00000018   2573203A2025       DC8 "%s : %i\012"
+   \              690A00      
+   \   00000021   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \   00000000   0A00               DC8 "\012"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\n<Q>">`:
+   \   00000000   0A3C513E00         DC8 "\012<Q>"
+   \   00000005   000000             DC8 0, 0, 0
+
+   Maximum stack usage in bytes:
+
+     Function               CSTACK
+     --------               ------
+     AddBeginRef                4
+     AddEndRef                 12
+     AddPageEndItem             4
+     AddStringItem             16
+     AddTextItem               16
+     AddToDPngQueue            24
+     FreeDynImgList            12
+     FreeViewData              12
+     GetFontHeight              8
+     LineDown                  32
+     LineUp                     0
+     RawInsertChar             12
+     RenderPage               760
+     SearchNextDisplayLine     44
+     VIEWDATA_Display          16
+     VIEWDATA_ParseMessages    36
+     VIEWDATA_method8           0
+     VIEWDATA_method9           0
+     VIEWDATA_onClose           8
+     VIEWDATA_onCreate          8
+     VIEWDATA_onFocus           8
+     VIEWDATA_onKey            28
+     VIEWDATA_onRedraw         32
+     VIEWDATA_onUnfocus         8
+     debugf                   276
+     debugv                    16
+     findReferencePos           0
+     scrollDown                16
+     scrollUp                  12
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     debugA                           12
+     debugv                           96
+     debugf                          140
+     GetFontHeight                    40
+     SearchNextDisplayLine          1032
+     LineDown                        360
+     LineUp                           36
+     scrollDown                      208
+     scrollUp                         72
+     RenderPage                     2416
+     findReferencePos                 56
+     VIEWDATA_onRedraw               132
+     VIEWDATA_onCreate                44
+     VIEWDATA_onClose                 28
+     VIEWDATA_onFocus                 36
+     VIEWDATA_onUnfocus               40
+     VIEWDATA_onKey                  752
+     VIEWDATA_method8                  8
+     VIEWDATA_method9                  8
+     VIEWDATA_ParseMessages          500
+     VIEWDATA_Display                136
+     Canvas                           52
+     FreeDynImgList                   80
+     FreeViewData                     84
+     RawInsertChar                    80
+     AddBeginRef                      20
+     AddEndRef                       148
+     AddStringItem                    64
+     AddTextItem                      76
+     AddToDPngQueue                  208
+     AddPageEndItem                   12
+     ??DataTable2                      4
+     ??DataTable3                      4
+     ?<Initializer for debugA>        12
+     ?<Constant "0:\\zbin\\siejc\\debug.txt">
+                                      36
+     ?<Constant "\n">                  2
+     ?<Constant "\n<Q>">               8
+      Others                         188
+
+ 
+ 7 096 bytes in segment CODE
+    98 bytes in segment DATA_C
+    12 bytes in segment DATA_I
+    12 bytes in segment DATA_ID
+    12 bytes in segment INITTAB
+ 
+ 6 920 bytes of CODE  memory (+ 188 bytes shared)
+   110 bytes of CONST memory
+    12 bytes of DATA  memory
+
+Errors: none
+Warnings: none

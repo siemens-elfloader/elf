@@ -1,0 +1,1 @@
+svn.exe info svn://cbsie.dyndns.info/ARM/NATICQ | ..\_SVN_Utility\getsvn.exe

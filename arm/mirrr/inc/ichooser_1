@@ -1,0 +1,151 @@
+/* -*-c++-*- */
+#ifndef _ICHOOSER
+#define _ICHOOSER
+
+#ifndef _SYSTEM_BUILD
+#pragma system_include
+#endif
+
+#include <iutility>
+
+// Lists of types - as in Loki
+class _Nil
+{
+};
+
+template<typename _H, typename _T>
+struct _Cons
+{
+  typedef _H _Head;
+  typedef _T _Tail;
+};
+
+#pragma language = save
+#pragma language = extended
+typedef _Cons<unsigned char, 
+        _Cons<unsigned short int,
+        _Cons<unsigned int,
+        _Cons<unsigned long int,
+#ifdef __LONG_LONG_SIZE__
+        _Cons<unsigned long long int,
+#endif // __LONG_LONG_SIZE__
+#define __DATA_PTR_MEM_HELPER1__(mem, i) \
+        _Cons<void mem *,
+        __DATA_PTR_MEMORY_LIST1__()
+#undef __DATA_PTR_MEM_HELPER1__
+#define __CODE_PTR_MEM_HELPER1__(mem, i) \
+        _Cons<void (mem *)(),
+        __CODE_PTR_MEMORY_LIST1__()
+#undef __CODE_PTR_MEM_HELPER1__
+        _Cons<float,
+        _Cons<double,
+        _Cons<long double,
+        _Nil
+                        >
+                        >
+                        >
+#define __CODE_PTR_MEM_HELPER1__(mem, i) \
+                        >
+        __CODE_PTR_MEMORY_LIST1__()
+#undef __CODE_PTR_MEM_HELPER1__
+#define __DATA_PTR_MEM_HELPER1__(mem, i) \
+                        >
+        __DATA_PTR_MEMORY_LIST1__()
+#undef __DATA_PTR_MEM_HELPER1__
+#ifdef __LONG_LONG_SIZE__
+                        >
+#endif // __LONG_LONG_SIZE__
+                        >
+                        >
+                        >
+                        > 
+                          _V_Fund;
+#pragma language = restore
+
+/* IsNil */
+template<typename _T> struct _IsNil { enum { _Result = false }; };
+template<> struct _IsNil< _Nil > { enum { _Result = true }; };
+
+/* _Component_type<TYPELIST, SIZE, ALIGNMENT>
+   picks the earliest type in TYPELIST with the biggest size that has
+   alignment ALIGNMENT and a size that divides SIZE. If none is found,
+   it picks _Nil. */
+template<typename _TList, size_t _Sz, size_t _Ag>
+struct _Component_type;
+
+template<size_t _Sz, size_t _Ag>
+struct _Component_type< _Nil, _Sz, _Ag >
+{
+  typedef _Nil _Type;
+};
+
+template<typename _Head, typename _Tail, size_t _Sz, size_t _Ag>
+struct _Component_type< _Cons<_Head, _Tail>, _Sz, _Ag >
+{
+  typedef typename _Component_type< _Tail, _Sz, _Ag >::_Type _Other;
+  typedef typename _TypeUtil::_Select<    __ALIGNOF__(_Head) >= _Ag
+                                      && _Sz % sizeof(_Head) == 0
+                                      && (   _IsNil<_Other>::_Result
+                                          || sizeof(_Head) >= sizeof(_Other)),
+                                      _Head,
+                                      _Other >::_Type _Type;
+};
+
+template<size_t _N, typename _Component>
+struct _Choose_element
+{
+  struct _Type
+  {
+    _Component _X[_N];
+  };
+};
+
+template<typename _Component>
+struct _Choose_element<1, _Component>
+{
+  typedef _Component _Type;
+};
+
+template<typename _Ty,
+         typename _Al,
+         template <typename, typename> class _Impl>
+struct _Impl_chooser
+{
+  typedef typename _Component_type< _V_Fund,
+                                    sizeof(_Ty),
+                                    __ALIGNOF__(_Ty) >::_Type
+          _Type1;
+  typedef typename _Choose_element<sizeof(_Ty) / sizeof(_Type1), _Type1>::_Type
+          _Type2;
+  typedef typename _TypeUtil::_CopyMemory<_Ty, _Type2>::_Type _ElType;
+  typedef typename _Al::template rebind<_ElType>::other _ElAl;
+  typedef typename _TypeUtil::_Select<
+                               __construction_by_bitwise_copy_allowed(_Ty)
+                            && __assignment_by_bitwise_copy_allowed(_Ty)
+                            && !__has_destructor(_Ty),
+                            _Impl<_ElType, _ElAl>,
+                            _Impl<_Ty,     _Al> >::_Type
+          _Type;
+};
+
+// _Storage<_Ty>::_Type is the internal storage representation of _Ty
+// for use in a collection. 
+template<typename _Ty>
+struct _Storage
+{
+  typedef typename _Component_type< _V_Fund,
+                                    sizeof(_Ty),
+                                    __ALIGNOF__(_Ty) >::_Type
+          _Type1;
+  typedef typename _Choose_element<sizeof(_Ty) / sizeof(_Type1), _Type1>::_Type
+          _Type2;
+  typedef typename _TypeUtil::_CopyMemory<_Ty, _Type2>::_Type _ElType;
+  typedef typename _TypeUtil::_Select<
+                               __construction_by_bitwise_copy_allowed(_Ty)
+                            && __assignment_by_bitwise_copy_allowed(_Ty)
+                            && !__has_destructor(_Ty),
+                            _ElType,
+			    _Ty>::_Type
+          _Type;
+};
+#endif // _ICHOOSER

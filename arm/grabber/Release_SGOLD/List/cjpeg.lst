@@ -1,0 +1,682 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    19/Jan/2011  13:20:40 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\grabber\jpeg-7\cjpeg.c                        #
+#    Command line    =  C:\arm\grabber\jpeg-7\cjpeg.c -lC                    #
+#                       C:\arm\grabber\Release_SGOLD\List\ -o                #
+#                       C:\arm\grabber\Release_SGOLD\Obj\ -s9 --no_unroll    #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\grabber\Release_SGOLD\List\cjpeg.lst          #
+#    Object file     =  C:\arm\grabber\Release_SGOLD\Obj\cjpeg.r79           #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\grabber\jpeg-7\cjpeg.c
+      1          /*
+      2           * cjpeg.c
+      3           *
+      4           * Copyright (C) 1991-1998, Thomas G. Lane.
+      5           * Modified 2003-2008 by Guido Vollbeding.
+      6           * This file is part of the Independent JPEG Group's software.
+      7           * For conditions of distribution and use, see the accompanying README file.
+      8           *
+      9           * This file contains a command-line user interface for the JPEG compressor.
+     10           * It should work on any system with Unix- or MS-DOS-style command lines.
+     11           *
+     12           * Two different command line styles are permitted, depending on the
+     13           * compile-time switch TWO_FILE_COMMANDLINE:
+     14           *	cjpeg [options]  inputfile outputfile
+     15           *	cjpeg [options]  [inputfile]
+     16           * In the second style, output is always to standard output, which you'd
+     17           * normally redirect to a file or pipe to some other program.  Input is
+     18           * either from a named file or from standard input (typically redirected).
+     19           * The second style is convenient on Unix but is unhelpful on systems that
+     20           * don't support pipes.  Also, you MUST use the first style if your system
+     21           * doesn't do binary I/O to stdin/stdout.
+     22           * To simplify script writing, the "-outfile" switch is provided.  The syntax
+     23           *	cjpeg [options]  -outfile outputfile  inputfile
+     24           * works regardless of which command line style is used.
+     25           */
+     26          
+     27          #include "cdjpeg.h"		/* Common decls for cjpeg/djpeg applications */
+     28          #include "jversion.h"		/* for version message */
+     29          
+     30          #ifdef USE_CCOMMAND		/* command-line reader for Macintosh */
+     31          #ifdef __MWERKS__
+     32          //#include <SIOUX.h>              /* Metrowerks needs this */
+     33          //#include <console.h>		/* ... and this */
+     34          #endif
+     35          #ifdef THINK_C
+     36          //#include <console.h>		/* Think declares it here */
+     37          #endif
+     38          #endif
+     39          
+     40          
+     41          /* Create the add-on message string table. */
+     42          
+     43          #define JMESSAGE(code,string)	string ,
+     44          
+     45          static const char * const cdjpeg_message_table[] = {
+                                           ^
+Warning[Pe177]: variable "cdjpeg_message_table" was declared but never
+          referenced
+     46          #include "cderror.h"
+     47            NULL
+     48          };
+     49          
+     50          
+     51          /*
+     52           * This routine determines what format the input file is,
+     53           * and selects the appropriate input-reading module.
+     54           *
+     55           * To determine which family of input formats the file belongs to,
+     56           * we may look only at the first byte of the file, since C does not
+     57           * guarantee that more than one character can be pushed back with ungetc.
+     58           * Looking at additional bytes would require one of these approaches:
+     59           *     1) assume we can fseek() the input file (fails for piped input);
+     60           *     2) assume we can push back more than one character (works in
+     61           *        some C implementations, but unportable);
+     62           *     3) provide our own buffering (breaks input readers that want to use
+     63           *        stdio directly, such as the RLE library);
+     64           * or  4) don't put back the data, and modify the input_init methods to assume
+     65           *        they start reading after the start of file (also breaks RLE library).
+     66           * #1 is attractive for MS-DOS but is untenable on Unix.
+     67           *
+     68           * The most portable solution for file types that can't be identified by their
+     69           * first byte is to make the user tell us what they are.  This is also the
+     70           * only approach for "raw" file types that contain only arbitrary values.
+     71           * We presently apply this method for Targa files.  Most of the time Targa
+     72           * files start with 0x00, so we recognize that case.  Potentially, however,
+     73           * a Targa file could start with any byte value (byte 0 is the length of the
+     74           * seldom-used ID field), so we provide a switch to force Targa input mode.
+     75           */
+     76          
+     77          static boolean is_targa;	/* records user -targa switch */
+     78          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     79          char getc(int fp)
+     80          {
+   \                     getc:
+   \   00000000   00402DE9           PUSH     {LR}
+   \   00000004   04D04DE2           SUB      SP,SP,#+4
+     81            char ret;
+     82            fread(fp,&ret,1,0);
+   \   00000008   0030A0E3           MOV      R3,#+0
+   \   0000000C   0120A0E3           MOV      R2,#+1
+   \   00000010   0D10A0E1           MOV      R1,SP
+   \   00000014   0B0000EF           SWI      +11
+     83            return ret;
+   \   00000018   0000DDE5           LDRB     R0,[SP, #+0]
+   \   0000001C   0280BDE8           POP      {R1,PC}          ;; return
+     84          }
+     85          
+     86          
+     87          
+     88          LOCAL(cjpeg_source_ptr)
+     89          select_file_type (j_compress_ptr cinfo,int infile)
+                 ^
+Warning[Pe177]: function "select_file_type" was declared but never referenced
+     90          {
+     91            int c;
+     92          
+     93            if (is_targa) {
+     94          #ifdef TARGA_SUPPORTED
+     95              return jinit_read_targa(cinfo);
+     96          #else
+     97              ERREXIT(cinfo, JERR_TGA_NOTCOMP);
+     98          #endif
+     99            }
+    100          
+    101            if ((c = getc(infile)) == -1)
+    102              ERREXIT(cinfo, JERR_INPUT_EMPTY);
+    103            //if (ungetc(c, infile) == EOF)
+    104             // ERREXIT(cinfo, JERR_UNGETC_FAILED);
+    105          
+    106            switch (c) {
+    107          #ifdef BMP_SUPPORTED
+    108            case 'B':
+    109              return jinit_read_bmp(cinfo);
+    110          #endif
+    111          #ifdef GIF_SUPPORTED
+    112            case 'G':
+    113              return jinit_read_gif(cinfo);
+    114          #endif
+    115          #ifdef PPM_SUPPORTED
+    116            case 'P':
+    117              return jinit_read_ppm(cinfo);
+    118          #endif
+    119          #ifdef RLE_SUPPORTED
+    120            case 'R':
+    121              return jinit_read_rle(cinfo);
+    122          #endif
+    123          #ifdef TARGA_SUPPORTED
+    124            case 0x00:
+    125              return jinit_read_targa(cinfo);
+    126          #endif
+    127            default:
+    128              ERREXIT(cinfo, JERR_UNKNOWN_FORMAT);
+    129              break;
+    130            }
+    131          
+    132            return NULL;			/* suppress compiler warnings */
+    133          }
+    134          
+    135          
+    136          /*
+    137           * Argument-parsing code.
+    138           * The switch parser is designed to be useful with DOS-style command line
+    139           * syntax, ie, intermixed switches and file names, where only the switches
+    140           * to the left of a given file name affect processing of that file.
+    141           * The main program in this file doesn't actually use this capability...
+    142           */
+    143          
+    144          
+    145          static const char * progname;	/* program name for error messages */
+    146          static char * outfilename;	/* for -outfile switch */
+                               ^
+Warning[Pe550]: variable "outfilename" was set but never used
+    147          
+    148          
+    149          LOCAL(void)usage(void)
+    150          /* complain about bad command line */
+    151          {
+    152            sprintf(lgn, "usage: %s [switches] ", progname);Tlog(lgn);
+    153          #ifdef TWO_FILE_COMMANDLINE
+    154            Tlog("inputfile outputfile\n");
+    155          #else
+    156            Tlog("[inputfile]\n");
+    157          #endif
+    158          
+    159            Tlog("Switches (names may be abbreviated):\n");
+    160            Tlog("  -quality N[,...]   Compression quality (0..100; 5-95 is useful range)\n");
+    161            Tlog("  -grayscale     Create monochrome JPEG file\n");
+    162          #ifdef ENTROPY_OPT_SUPPORTED
+    163            Tlog("  -optimize      Optimize Huffman table (smaller file, but slow compression)\n");
+    164          #endif
+    165          #ifdef C_PROGRESSIVE_SUPPORTED
+    166            Tlog("  -progressive   Create progressive JPEG file\n");
+    167          #endif
+    168          #ifdef DCT_SCALING_SUPPORTED
+    169            Tlog("  -scale M/N     Scale image by fraction M/N, eg, 1/2\n");
+    170          #endif
+    171          #ifdef TARGA_SUPPORTED
+    172            Tlog("  -targa         Input file is Targa format (usually not needed)\n");
+    173          #endif
+    174            Tlog("Switches for advanced users:\n");
+    175          #ifdef DCT_ISLOW_SUPPORTED
+    176            sprintf(lgn, "  -dct int       Use integer DCT method%s\n",
+    177          	  (JDCT_DEFAULT == JDCT_ISLOW ? " (default)" : ""));Tlog(lgn);
+    178          #endif
+    179          #ifdef DCT_IFAST_SUPPORTED
+    180            sprintf(lgn, "  -dct fast      Use fast integer DCT (less accurate)%s\n",
+    181          	  (JDCT_DEFAULT == JDCT_IFAST ? " (default)" : ""));Tlog(lgn);
+    182          #endif
+    183          #ifdef DCT_FLOAT_SUPPORTED
+    184            sprintf(lgn, "  -dct float     Use floating-point DCT method%s\n",
+    185          	  (JDCT_DEFAULT == JDCT_FLOAT ? " (default)" : ""));Tlog(lgn);
+    186          #endif
+    187            Tlog("  -nosmooth      Don't use high-quality downsampling\n");
+    188            Tlog( "  -restart N     Set restart interval in rows, or in blocks with B\n");
+    189          #ifdef INPUT_SMOOTHING_SUPPORTED
+    190            Tlog("  -smooth N      Smooth dithered input (N=1..100 is strength)\n");
+    191          #endif
+    192            Tlog("  -maxmemory N   Maximum memory to use (in kbytes)\n");
+    193            Tlog("  -outfile name  Specify name for output file\n");
+    194            Tlog("  -verbose  or  -debug   Emit debug output\n");
+    195            Tlog("Switches for wizards:\n");
+    196          #ifdef C_ARITH_CODING_SUPPORTED
+    197            Tlog( "  -arithmetic    Use arithmetic coding\n");
+    198          #endif
+    199            Tlog("  -baseline      Force baseline quantization tables\n");
+    200            Tlog("  -qtables file  Use quantization tables given in file\n");
+    201            Tlog("  -qslots N[,...]    Set component quantization tables\n");
+    202            Tlog("  -sample HxV[,...]  Set component sampling factors\n");
+    203          #ifdef C_MULTISCAN_FILES_SUPPORTED
+    204            Tlog("  -scans file    Create multi-scan JPEG per script file\n");
+    205          #endif
+    206            Tlog("EXIT FAILURE called");
+    207          }
+    208          
+    209          
+    210          LOCAL(int)
+    211          parse_switches (j_compress_ptr cinfo, int argc, char **argv,
+                 ^
+Warning[Pe177]: function "parse_switches" was declared but never referenced
+    212          		int last_file_arg_seen, boolean for_real)
+    213          /* Parse optional switches.
+    214           * Returns argv[] index of first file-name argument (== argc if none).
+    215           * Any file names with indexes <= last_file_arg_seen are ignored;
+    216           * they have presumably been processed in a previous iteration.
+    217           * (Pass 0 for last_file_arg_seen on the first or only iteration.)
+    218           * for_real is FALSE on the first (dummy) pass; we may skip any expensive
+    219           * processing.
+    220           */
+    221          {
+    222            int argn;
+    223            char * arg;
+    224            boolean force_baseline;
+    225            boolean simple_progressive;
+    226            char * qualityarg = NULL;	/* saves -quality parm if any */
+    227            char * qtablefile = NULL;	/* saves -qtables filename if any */
+    228            char * qslotsarg = NULL;	/* saves -qslots parm if any */
+    229            char * samplearg = NULL;	/* saves -sample parm if any */
+    230            char * scansarg = NULL;	/* saves -scans parm if any */
+    231          
+    232            /* Set up default JPEG parameters. */
+    233          
+    234            force_baseline = FALSE;	/* by default, allow 16-bit quantizers */
+    235            simple_progressive = FALSE;
+    236            is_targa = FALSE;
+    237            outfilename = NULL;
+    238            cinfo->err->trace_level = 0;
+    239          
+    240            /* Scan command line options, adjust parameters */
+    241          
+    242            for (argn = 1; argn < argc; argn++) {
+    243              arg = argv[argn];
+    244              if (*arg != '-') {
+    245                /* Not a switch, must be a file name argument */
+    246                if (argn <= last_file_arg_seen) {
+    247          	outfilename = NULL;	/* -outfile applies to just one input file */
+    248          	continue;		/* ignore this name if previously processed */
+    249                }
+    250                break;			/* else done parsing switches */
+    251              }
+    252              arg++;			/* advance past switch marker character */
+    253          
+    254              if (keymatch(arg, "arithmetic", 1)) {
+    255                /* Use arithmetic coding. */
+    256          #ifdef C_ARITH_CODING_SUPPORTED
+    257                cinfo->arith_code = TRUE;
+    258          #else
+    259                fprintf(stderr, "%s: sorry, arithmetic coding not supported\n",
+    260          	      progname);
+    261                exit(EXIT_FAILURE);
+    262          #endif
+    263          
+    264              } else if (keymatch(arg, "baseline", 1)) {
+    265                /* Force baseline-compatible output (8-bit quantizer values). */
+    266                force_baseline = TRUE;
+    267          
+    268              } else if (keymatch(arg, "dct", 2)) {
+    269                /* Select DCT algorithm. */
+    270                if (++argn >= argc)	/* advance to next argument */
+    271          	usage();
+    272                if (keymatch(argv[argn], "int", 1)) {
+    273          	cinfo->dct_method = JDCT_ISLOW;
+    274                } else if (keymatch(argv[argn], "fast", 2)) {
+    275          	cinfo->dct_method = JDCT_IFAST;
+    276                } else if (keymatch(argv[argn], "float", 2)) {
+    277          	cinfo->dct_method = JDCT_FLOAT;
+    278                } else
+    279          	usage();
+    280          
+    281              } else if (keymatch(arg, "debug", 1) || keymatch(arg, "verbose", 1)) {
+    282                /* Enable debug printouts. */
+    283                /* On first -d, print version identification */
+    284                static boolean printed_version = FALSE;
+    285          
+    286                if (! printed_version)
+    287                {
+    288          	sprintf(lgn, "Independent JPEG Group's CJPEG, version %s\n%s\n",JVERSION, JCOPYRIGHT);Tlog(lgn);
+    289          	printed_version = TRUE;
+    290                }
+    291                cinfo->err->trace_level++;
+    292          
+    293              } else if (keymatch(arg, "grayscale", 2) || keymatch(arg, "greyscale",2)) {
+    294                /* Force a monochrome JPEG file to be generated. */
+    295                jpeg_set_colorspace(cinfo, JCS_GRAYSCALE);
+    296          
+    297              } else if (keymatch(arg, "maxmemory", 3)) {
+    298                /* Maximum memory in Kb (or Mb with 'm'). */
+    299                long lval;
+    300                char ch = 'x';
+    301          
+    302                if (++argn >= argc)	/* advance to next argument */
+    303          	usage();
+    304                if (sscanf(argv[argn], "%ld%c", &lval, &ch) < 1)
+    305          	usage();
+    306                if (ch == 'm' || ch == 'M')
+    307          	lval *= 1000L;
+    308                cinfo->mem->max_memory_to_use = lval * 1000L;
+    309          
+    310              } else if (keymatch(arg, "nosmooth", 3)) {
+    311                /* Suppress fancy downsampling */
+    312                cinfo->do_fancy_downsampling = FALSE;
+    313          
+    314              } else if (keymatch(arg, "optimize", 1) || keymatch(arg, "optimise", 1)) {
+    315                /* Enable entropy parm optimization. */
+    316          #ifdef ENTROPY_OPT_SUPPORTED
+    317                cinfo->optimize_coding = TRUE;
+    318          #else
+    319                sprintf(lgn, "%s: sorry, entropy optimization was not compiled\n",
+    320          	      progname);Tlog(lgn);
+    321                Tlog("EXIT_FAILURE");
+    322          #endif
+    323          
+    324              } else if (keymatch(arg, "outfile", 4)) {
+    325                /* Set output file name. */
+    326                if (++argn >= argc)	/* advance to next argument */
+    327          	usage();
+    328                outfilename = argv[argn];	/* save it away for later use */
+    329          
+    330              } else if (keymatch(arg, "progressive", 1)) {
+    331                /* Select simple progressive mode. */
+    332          #ifdef C_PROGRESSIVE_SUPPORTED
+    333                simple_progressive = TRUE;
+    334                /* We must postpone execution until num_components is known. */
+    335          #else
+    336                fprintf(stderr, "%s: sorry, progressive output was not compiled\n",
+    337          	      progname);
+    338                exit(EXIT_FAILURE);
+    339          #endif
+    340          
+    341              } else if (keymatch(arg, "quality", 1)) {
+    342                /* Quality ratings (quantization table scaling factors). */
+    343                if (++argn >= argc)	/* advance to next argument */
+    344          	usage();
+    345                qualityarg = argv[argn];
+    346          
+    347              } else if (keymatch(arg, "qslots", 2)) {
+    348                /* Quantization table slot numbers. */
+    349                if (++argn >= argc)	/* advance to next argument */
+    350          	usage();
+    351                qslotsarg = argv[argn];
+    352                /* Must delay setting qslots until after we have processed any
+    353                 * colorspace-determining switches, since jpeg_set_colorspace sets
+    354                 * default quant table numbers.
+    355                 */
+    356          
+    357              } else if (keymatch(arg, "qtables", 2)) {
+    358                /* Quantization tables fetched from file. */
+    359                if (++argn >= argc)	/* advance to next argument */
+    360          	usage();
+    361                qtablefile = argv[argn];
+    362                /* We postpone actually reading the file in case -quality comes later. */
+    363          
+    364              } else if (keymatch(arg, "restart", 1)) {
+    365                /* Restart interval in MCU rows (or in MCUs with 'b'). */
+    366                long lval;
+    367                char ch = 'x';
+    368          
+    369                if (++argn >= argc)	/* advance to next argument */
+    370          	usage();
+    371                if (sscanf(argv[argn], "%ld%c", &lval, &ch) < 1)
+    372          	usage();
+    373                if (lval < 0 || lval > 65535L)
+    374          	usage();
+    375                if (ch == 'b' || ch == 'B') {
+    376          	cinfo->restart_interval = (unsigned int) lval;
+    377          	cinfo->restart_in_rows = 0; /* else prior '-restart n' overrides me */
+    378                } else {
+    379          	cinfo->restart_in_rows = (int) lval;
+    380          	/* restart_interval will be computed during startup */
+    381                }
+    382          
+    383              } else if (keymatch(arg, "sample", 2)) {
+    384                /* Set sampling factors. */
+    385                if (++argn >= argc)	/* advance to next argument */
+    386          	usage();
+    387                samplearg = argv[argn];
+    388                /* Must delay setting sample factors until after we have processed any
+    389                 * colorspace-determining switches, since jpeg_set_colorspace sets
+    390                 * default sampling factors.
+    391                 */
+    392          
+    393              } else if (keymatch(arg, "scale", 4)) {
+    394                /* Scale the image by a fraction M/N. */
+    395                if (++argn >= argc)	/* advance to next argument */
+    396          	usage();
+    397                if (sscanf(argv[argn], "%d/%d",
+    398          		 &cinfo->scale_num, &cinfo->scale_denom) != 2)
+    399          	usage();
+    400          
+    401              } else if (keymatch(arg, "scans", 4)) {
+    402                /* Set scan script. */
+    403          #ifdef C_MULTISCAN_FILES_SUPPORTED
+    404                if (++argn >= argc)	/* advance to next argument */
+    405          	usage();
+    406                scansarg = argv[argn];
+    407                /* We must postpone reading the file in case -progressive appears. */
+    408          #else
+    409                fprintf(stderr, "%s: sorry, multi-scan output was not compiled\n",
+    410          	      progname);
+    411                exit(EXIT_FAILURE);
+    412          #endif
+    413          
+    414              } else if (keymatch(arg, "smooth", 2)) {
+    415                /* Set input smoothing factor. */
+    416                int val;
+    417          
+    418                if (++argn >= argc)	/* advance to next argument */
+    419          	usage();
+    420                if (sscanf(argv[argn], "%d", &val) != 1)
+    421          	usage();
+    422                if (val < 0 || val > 100)
+    423          	usage();
+    424                cinfo->smoothing_factor = val;
+    425          
+    426              } else if (keymatch(arg, "targa", 1)) {
+    427                /* Input file is Targa format. */
+    428                is_targa = TRUE;
+    429          
+    430              } else {
+    431                usage();			/* bogus switch */
+    432              }
+    433            }
+    434          
+    435            /* Post-switch-scanning cleanup */
+    436          
+    437            if (for_real) {
+    438          
+    439              /* Set quantization tables for selected quality. */
+    440              /* Some or all may be overridden if -qtables is present. */
+    441              if (qualityarg != NULL)	/* process -quality if it was present */
+    442                if (! set_quality_ratings(cinfo, qualityarg, force_baseline))
+    443          	usage();
+    444          
+    445              if (qtablefile != NULL)	/* process -qtables if it was present */
+    446                if (! read_quant_tables(cinfo, qtablefile, force_baseline))
+    447          	usage();
+    448          
+    449              if (qslotsarg != NULL)	/* process -qslots if it was present */
+    450                if (! set_quant_slots(cinfo, qslotsarg))
+    451          	usage();
+    452          
+    453              if (samplearg != NULL)	/* process -sample if it was present */
+    454                if (! set_sample_factors(cinfo, samplearg))
+    455          	usage();
+    456          
+    457          #ifdef C_PROGRESSIVE_SUPPORTED
+    458              if (simple_progressive)	/* process -progressive; -scans can override */
+    459                jpeg_simple_progression(cinfo);
+    460          #endif
+    461          
+    462          #ifdef C_MULTISCAN_FILES_SUPPORTED
+    463              if (scansarg != NULL)	/* process -scans if it was present */
+    464                if (! read_scan_script(cinfo, scansarg))
+    465          	usage();
+    466          #endif
+    467            }
+    468          
+    469            return argn;			/* return index of next arg (file name) */
+    470          }
+    471          
+    472          
+    473          /*
+    474           * The main program.
+    475           */
+    476          
+    477          /*
+    478          int
+    479          cjpeg_main (int argc, char **argv)
+    480          {
+    481            struct jpeg_compress_struct cinfo;
+    482            struct jpeg_error_mgr jerr;
+    483          #ifdef PROGRESS_REPORT
+    484            struct cdjpeg_progress_mgr progress;
+    485          #endif
+    486            int file_index;
+    487            cjpeg_source_ptr src_mgr;
+    488            int input_file;
+    489            int output_file;
+    490            JDIMENSION num_scanlines;
+    491          
+    492            // On Mac, fetch a command line. 
+    493          #ifdef USE_CCOMMAND
+    494            argc = ccommand(&argv);
+    495          #endif
+    496          
+    497            progname = argv[0];
+    498            if (progname == NULL || progname[0] == 0)
+    499              progname = "cjpeg";		// in case C library doesn't provide it 
+    500          
+    501            // Initialize the JPEG compression object with default error handling. 
+    502            cinfo.err = jpeg_std_error(&jerr);
+    503            jpeg_create_compress(&cinfo);
+    504            // Add some application-specific error messages (from cderror.h) 
+    505            jerr.addon_message_table = cdjpeg_message_table;
+    506            jerr.first_addon_message = JMSG_FIRSTADDONCODE;
+    507            jerr.last_addon_message = JMSG_LASTADDONCODE;
+    508          
+    509            // Now safe to enable signal catcher. 
+    510          #ifdef NEED_SIGNAL_CATCHER
+    511            enable_signal_catcher((j_common_ptr) &cinfo);
+    512          #endif
+    513          
+    514            cinfo.in_color_space = JCS_RGB; // arbitrary guess 
+    515            jpeg_set_defaults(&cinfo);
+    516          
+    517            
+    518            file_index = parse_switches(&cinfo, argc, argv, 0, FALSE);
+    519          
+    520          #ifdef TWO_FILE_COMMANDLINE
+    521            //Must have either -outfile switch or explicit output file name 
+    522            if (outfilename == NULL) {
+    523              if (file_index != argc-2) {
+    524                fprintf(stderr, "%s: must name one input and one output file\n",
+    525          	      progname);
+    526                usage();
+    527              }
+    528              outfilename = argv[file_index+1];
+    529            } else {
+    530              if (file_index != argc-1) {
+    531                fprintf(stderr, "%s: must name one input and one output file\n",
+    532          	      progname);
+    533                usage();
+    534              }
+    535            }
+    536          #else
+    537            // Unix style: expect zero or one file name 
+    538            if (file_index < argc-1) {
+    539              sprintf(lgn, "%s: only one input file\n", progname);Tlog(lgn);
+    540              usage();
+    541            }
+    542          #endif // TWO_FILE_COMMANDLINE 
+    543          
+    544            // Open the input file. 
+    545            if (file_index < argc) {
+    546              if ((input_file = fopen(argv[file_index], READ_BINARY)) == -1) {
+    547                sprintf(lgn, "%s: can't open %s\n", progname, argv[file_index]);Tlog(lgn);
+    548                Tlog("EXIT_FAILURE");
+    549              }
+    550            } else {
+    551              // default input file is stdin 
+    552              input_file = read_stdin();
+    553            }
+    554          
+    555            // Open the output file. 
+    556            if (outfilename != NULL) {
+    557              if ((output_file = fopen(outfilename, WRITE_BINARY)) == NULL) {
+    558                fprintf(stderr, "%s: can't open %s\n", progname, outfilename);
+    559                exit(EXIT_FAILURE);
+    560              }
+    561            } else {
+    562              // default output file is stdout 
+    563              output_file = write_stdout();
+    564            }
+    565          
+    566          #ifdef PROGRESS_REPORT
+    567            start_progress_monitor((j_common_ptr) &cinfo, &progress);
+    568          #endif
+    569          
+    570            // Figure out the input file format, and set up to read it. 
+    571            src_mgr = select_file_type(&cinfo, input_file);
+    572            src_mgr->input_file = input_file;
+    573          
+    574            //Read the input file header to obtain file size & colorspace. 
+    575            (*src_mgr->start_input) (&cinfo, src_mgr);
+    576          
+    577            // Now that we know input colorspace, fix colorspace-dependent defaults 
+    578            jpeg_default_colorspace(&cinfo);
+    579          
+    580            // Adjust default compression parameters by re-parsing the options 
+    581            file_index = parse_switches(&cinfo, argc, argv, 0, TRUE);
+    582          
+    583            // Specify data destination for compression 
+    584            jpeg_stdio_dest(&cinfo, output_file);
+    585          
+    586            // Start compressor 
+    587            jpeg_start_compress(&cinfo, TRUE);
+    588          
+    589            // Process data 
+    590            while (cinfo.next_scanline < cinfo.image_height) {
+    591              num_scanlines = (*src_mgr->get_pixel_rows) (&cinfo, src_mgr);
+    592              (void) jpeg_write_scanlines(&cinfo, src_mgr->buffer, num_scanlines);
+    593            }
+    594          
+    595            
+    596            (*src_mgr->finish_input) (&cinfo, src_mgr);
+    597            jpeg_finish_compress(&cinfo);
+    598            jpeg_destroy_compress(&cinfo);
+    599          
+    600            
+    601            if (input_file != stdin)
+    602              fclose(input_file);
+    603            if (output_file != stdout)
+    604              fclose(output_file);
+    605          
+    606          #ifdef PROGRESS_REPORT
+    607            end_progress_monitor((j_common_ptr) &cinfo);
+    608          #endif
+    609          
+    610            
+    611            exit(jerr.num_warnings ? EXIT_WARNING : EXIT_SUCCESS);
+    612            return 0;			
+    613          }
+    614          */
+    615          
+
+   Maximum stack usage in bytes:
+
+     Function CSTACK
+     -------- ------
+     getc         8
+
+
+   Segment part sizes:
+
+     Function/Label Bytes
+     -------------- -----
+     getc             32
+      Others           4
+
+ 
+ 36 bytes in segment CODE
+ 
+ 32 bytes of CODE memory (+ 4 bytes shared)
+
+Errors: none
+Warnings: 4

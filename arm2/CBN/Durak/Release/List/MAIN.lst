@@ -1,0 +1,1963 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    05/Aug/2009  15:42:39 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\CBN\Durak\MAIN.C                              #
+#    Command line    =  C:\arm\CBN\Durak\MAIN.C -D NEWSGOLD -D HIGHCOLOR -D  #
+#                       GRAPH -D UNPACK -D NOZIP -D NORAR -lC                #
+#                       C:\arm\CBN\Durak\Release\List\ -o                    #
+#                       C:\arm\CBN\Durak\Release\Obj\ -s9 --no_unroll        #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --char_is_signed --fpu None -I "C:\arm2\Embedded     #
+#                       Workbench 4.0 Evaluation\ARM\INC\"                   #
+#                       --inline_threshold=2                                 #
+#    List file       =  C:\arm\CBN\Durak\Release\List\MAIN.lst               #
+#    Object file     =  C:\arm\CBN\Durak\Release\Obj\MAIN.r79                #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\CBN\Durak\MAIN.C
+      1          
+      2          // Durak
+      3          
+      4          #include "..\swilib.h"
+      5          #include "..\random.h"
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+   \   unsigned int __data randseed
+   \                     randseed:
+   \   00000000                      DS8 4
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \   __??Code32?? __code __interwork __atpcs unsigned int randint(int)
+   \                     randint:
+   \   00000000   ........           LDR      R1,??DataTable1  ;; randseed
+   \   00000004   2C309FE5           LDR      R3,??randint_0   ;; 0x8088405
+   \   00000008   10002DE9           PUSH     {R4}
+   \   0000000C   002091E5           LDR      R2,[R1, #+0]
+   \   00000010   930202E0           MUL      R2,R3,R2
+   \   00000014   C03FA0E1           ASR      R3,R0,#+31
+   \   00000018   014082E2           ADD      R4,R2,#+1
+   \   0000001C   004081E5           STR      R4,[R1, #+0]
+   \   00000020   0020A0E1           MOV      R2,R0
+   \   00000024   940281E0           UMULL    R0,R1,R4,R2
+   \   00000028   941321E0           MLA      R1,R4,R3,R1
+   \   0000002C   1000BDE8           POP      {R4}
+   \   00000030   0100A0E1           MOV      R0,R1
+   \   00000034   1EFF2FE1           BX       LR               ;; return
+   \                     ??randint_0:
+   \   00000038   05840808           DC32     0x8088405
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \   __??Code32?? __code __interwork __atpcs unsigned int rand()
+   \                     rand:
+   \   00000000   4009A0E3           MOV      R0,#+1048576
+   \   00000004   ........           B        randint          ;; tailcall
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \   __??Code32?? __code __interwork __atpcs void Randomize()
+   \                     Randomize:
+   \   00000000   00402DE9           PUSH     {LR}
+   \   00000004   10D04DE2           SUB      SP,SP,#+16
+   \   00000008   0D10A0E1           MOV      R1,SP
+   \   0000000C   08008DE2           ADD      R0,SP,#+8
+   \   00000010   B40000EF           SWI      +180
+   \   00000014   0110DDE5           LDRB     R1,[SP, #+1]
+   \   00000018   0220DDE5           LDRB     R2,[SP, #+2]
+   \   0000001C   ........           LDR      R0,??DataTable1  ;; randseed
+   \   00000020   821281E1           ORR      R1,R1,R2, LSL #+5
+   \   00000024   001080E5           STR      R1,[R0, #+0]
+   \   00000028   0F80BDE8           POP      {R0-R3,PC}       ;; return
+      6          
+      7          extern short *screen; // Экран 132*176*2
+      8          extern void DrawScreen(); // Функция перерисовки экрана
+      9          void onredraw();
+     10          typedef unsigned char byte;
+     11          extern int width, height, screensize;
+     12          extern unsigned char SGOLD2, C65, S75, EL71;
+     13          
+
+   \                                 In segment DATA_I, align 4, align-sorted
+     14          char *Title="Durak 0.3 (c)bn";
+   \                     Title:
+   \   00000000                      DS8 4
+   \   00000004                      REQUIRE `?<Initializer for Title>`
+     15          
+     16          #define forg for(i=0;i<strlen(girl);i++)
+     17          
+
+   \                                 In segment DATA_I, align 4, align-sorted
+     18          const char *errors[]={
+   \                     errors:
+   \   00000000                      DS8 20
+   \   00000014                      REQUIRE `?<Initializer for errors>`
+     19            0,
+     20            "Mess.bmp не найден!\0",
+     21            "Cards.bmp не найден!\0",
+     22            "Font.bmp шрифт не найден!\0",
+     23          //  "Мало памяти для буфера\0",
+     24            "unknown error"
+     25          };
+     26          
+     27          //размеры карт
+     28          #define cardx 19
+     29          #define cardy 27
+     30          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     31          char filename[128], *ext;
+   \                     filename:
+   \   00000000                      DS8 128
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+   \                     ext:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     32          char *mess=0, *bmpcards=0, *fon=0, *font=0; //free
+   \                     mess:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+   \                     bmpcards:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+   \                     fon:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+   \                     font:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     33          char *msg[256];
+   \                     msg:
+   \   00000000                      DS8 1024
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     34          int maxmsg;
+   \                     maxmsg:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     35          int razdel[5];  //начало каждого раздела 0=служебный, 1=...
+   \                     razdel:
+   \   00000000                      DS8 20
+     36          enum{ msgvictory, msgloss, msgkozir};
+     37          enum{ razsluj, razstart, razend, razloss, razvictory};
+     38          
+     39          #define maxcards 37
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     40          char coloda[maxcards], player[maxcards], girl[maxcards], current[maxcards]; // Карты... выложены
+   \                     coloda:
+   \   00000000                      DS8 40
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+   \                     player:
+   \   00000000                      DS8 40
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+   \                     girl:
+   \   00000000                      DS8 40
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+   \                     current:
+   \   00000000                      DS8 40
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     41          char tmp1[maxcards], tmp2[maxcards];
+   \                     tmp1:
+   \   00000000                      DS8 40
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+   \                     tmp2:
+   \   00000000                      DS8 40
+
+   \                                 In segment DATA_Z, align 1, align-sorted
+     42          byte fastfon=0, kozir=0; //козырь
+   \                     fastfon:
+   \   00000000                      DS8 1
+
+   \                                 In segment DATA_Z, align 1, align-sorted
+   \                     kozir:
+   \   00000000                      DS8 1
+     43          
+
+   \                                 In segment DATA_C, align 4, align-sorted
+     44          const char girlbmp[]="Girl00.bmp";
+   \                     girlbmp:
+   \   00000000   4769726C3030       DC8 "Girl00.bmp"
+   \              2E626D7000  
+   \   0000000B   00                 DC8 0
+     45          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     46          int mode=0;
+   \                     mode:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 1, align-sorted
+     47          char level=0;
+   \                     level:
+   \   00000000                      DS8 1
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     48          int curx=0;
+   \                     curx:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     49          int showmsg=0;
+   \                     showmsg:
+   \   00000000                      DS8 4
+     50          //int xod=0; //чей ход: четное=я
+     51          
+     52          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     53          void randmsg(int raz){
+     54            showmsg=razdel[raz]+randint(razdel[raz+1]-razdel[raz]-1);
+   \                     randmsg:
+   \   00000000   ........           LDR      R1,??DataTable70  ;; razdel
+   \   00000004   10402DE9           PUSH     {R4,LR}
+   \   00000008   004191E7           LDR      R4,[R1, +R0, LSL #+2]
+   \   0000000C   000181E0           ADD      R0,R1,R0, LSL #+2
+   \   00000010   040090E5           LDR      R0,[R0, #+4]
+   \   00000014   040040E0           SUB      R0,R0,R4
+   \   00000018   010040E2           SUB      R0,R0,#+1
+   \   0000001C   ........           BL       randint
+   \   00000020   ........           LDR      R1,??DataTable55  ;; showmsg
+   \   00000024   040080E0           ADD      R0,R0,R4
+   \   00000028   000081E5           STR      R0,[R1, #+0]
+     55          }
+   \   0000002C   1080BDE8           POP      {R4,PC}          ;; return
+     56          
+     57          inline void centerbmp(char *bmp){
+     58            if(bmp){
+     59            int x=(width-*(short*)bmp)>>1, y=(height-*(short*)(bmp+2))>>1;
+     60              bitblt(screen, bmp, x<0?0:x, y<0?0:y, 0,0,0,0,0,0);
+     61            }
+     62          }
+     63          
+     64          inline void cls(){ memsetd(screen,0,screensize>>2);}
+     65          
+     66          inline void showfon(){ 
+     67            if(fastfon) memcpy(screen,fon+4,screensize);
+     68            else{
+     69              cls();
+     70              centerbmp(fon);
+     71            }
+     72          //  showstart();
+     73          }
+     74          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     75          void drawcard(int x, int y, int card){ // нарисовать карту. 0=рубашка
+   \                     drawcard:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+     76            if(card){
+   \   00000004   000052E3           CMP      R2,#+0
+   \   00000008   0500000A           BEQ      ??drawcard_0
+     77              card=((card-6)&0xf)+(card>>4)*9;
+   \   0000000C   063042E2           SUB      R3,R2,#+6
+   \   00000010   0F3003E2           AND      R3,R3,#0xF
+   \   00000014   4222A0E1           ASR      R2,R2,#+4
+   \   00000018   822182E0           ADD      R2,R2,R2, LSL #+3
+   \   0000001C   032082E0           ADD      R2,R2,R3
+   \   00000020   000000EA           B        ??drawcard_1
+     78            }else card=36;
+   \                     ??drawcard_0:
+   \   00000024   2420A0E3           MOV      R2,#+36
+     79            bitblt(screen,bmpcards, x,y, cardx,cardy, (card%6)*cardx, (card/6)*cardy, 0,0);
+   \                     ??drawcard_1:
+   \   00000028   0030A0E3           MOV      R3,#+0
+   \   0000002C   08002DE9           PUSH     {R3}
+   \   00000030   08002DE9           PUSH     {R3}
+   \   00000034   68309FE5           LDR      R3,??drawcard_2  ;; 0x2aaaaaab
+   \   00000038   93C2C4E0           SMULL    R12,R4,R3,R2
+   \   0000003C   A23F84E0           ADD      R3,R4,R2, LSR #+31
+   \   00000040   1B40A0E3           MOV      R4,#+27
+   \   00000044   940303E0           MUL      R3,R4,R3
+   \   00000048   08002DE9           PUSH     {R3}
+   \   0000004C   50309FE5           LDR      R3,??drawcard_2  ;; 0x2aaaaaab
+   \   00000050   9243CCE0           SMULL    R4,R12,R2,R3
+   \   00000054   0640A0E3           MOV      R4,#+6
+   \   00000058   A2CF8CE0           ADD      R12,R12,R2, LSR #+31
+   \   0000005C   940C0CE0           MUL      R12,R4,R12
+   \   00000060   1330A0E3           MOV      R3,#+19
+   \   00000064   0C2042E0           SUB      R2,R2,R12
+   \   00000068   930202E0           MUL      R2,R3,R2
+   \   0000006C   0130A0E1           MOV      R3,R1
+   \   00000070   04002DE9           PUSH     {R2}
+   \   00000074   1B20A0E3           MOV      R2,#+27
+   \   00000078   04002DE9           PUSH     {R2}
+   \   0000007C   1320A0E3           MOV      R2,#+19
+   \   00000080   04002DE9           PUSH     {R2}
+   \   00000084   0020A0E1           MOV      R2,R0
+   \   00000088   ........           LDR      R0,??DataTable74  ;; bmpcards
+   \   0000008C   001090E5           LDR      R1,[R0, #+0]
+   \   00000090   ........           LDR      R0,??DataTable8  ;; screen
+   \   00000094   000090E5           LDR      R0,[R0, #+0]
+   \   00000098   ........           _BLF     bitblt,??bitblt??rA
+     80          }
+   \   0000009C   18D08DE2           ADD      SP,SP,#+24
+   \   000000A0   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??drawcard_2:
+   \   000000A4   ABAAAA2A           DC32     0x2aaaaaab
+     81          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     82          void showcards(char *who, int y, int deltax){
+   \                     showcards:
+   \   00000000   F0432DE9           PUSH     {R4-R9,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+   \   0000000C   0260A0E1           MOV      R6,R2
+     83            int i,len,x=0, dx;
+   \   00000010   0070A0E3           MOV      R7,#+0
+     84            if(len=strlen(who)){
+   \   00000014   ........           _BLF     strlen,??strlen??rA
+   \   00000018   0080B0E1           MOVS     R8,R0
+   \   0000001C   F083BD08           POPEQ    {R4-R9,PC}
+     85              dx=width/(len+deltax);
+   \   00000020   ........           LDR      R0,??DataTable51  ;; width
+   \   00000024   081086E0           ADD      R1,R6,R8
+   \   00000028   000090E5           LDR      R0,[R0, #+0]
+     86              for(i=0;i<len;i++){
+   \   0000002C   0090A0E3           MOV      R9,#+0
+   \   00000030   ........           _BLF     ??div32_a,??rA??div32_a
+   \   00000034   0160A0E1           MOV      R6,R1
+   \   00000038   010058E3           CMP      R8,#+1
+   \   0000003C   050000AA           BGE      ??showcards_0
+     87                drawcard(x,y,y?who[i]:0);
+     88                x+=dx;
+     89              }
+     90            }
+     91          }
+   \   00000040   F083BDE8           POP      {R4-R9,PC}       ;; return
+   \                     ??showcards_1:
+   \   00000044   0510A0E1           MOV      R1,R5
+   \   00000048   0700A0E1           MOV      R0,R7
+   \   0000004C   ........           BL       drawcard
+   \   00000050   077086E0           ADD      R7,R6,R7
+   \   00000054   019089E2           ADD      R9,R9,#+1
+   \                     ??showcards_0:
+   \   00000058   080059E1           CMP      R9,R8
+   \   0000005C   F083BDA8           POPGE    {R4-R9,PC}
+   \   00000060   000055E3           CMP      R5,#+0
+   \   00000064   D4209911           LDRSBNE  R2,[R9, +R4]
+   \   00000068   0020A003           MOVEQ    R2,#+0
+   \   0000006C   F4FFFFEA           B        ??showcards_1
+     92          
+     93          inline void showcursor(){
+     94            int len=strlen(player);
+     95            if(curx>=len) curx=0;
+     96            if(len){
+     97              bitblt(screen,bmpcards, width/len*curx,height-cardy, cardx,cardy, (38%6)*cardx, (38/6)*cardy, 0,0x40);
+     98            }
+     99          }
+    100          
+    101          inline void showcurrent(){
+    102            char *s=current, *s1=tmp1, *s2=tmp2, d=(strlen(current)&1)==0;
+    103            while(*s){
+    104              if(!d) 
+    105                *s1++=*s++;
+    106              else d=0;
+    107              if(*s) *s2++=*s++;
+    108            }
+    109            *s1=*s2=0;
+    110            showcards(tmp1,(height>>1)-cardy-8,0);
+    111            showcards(tmp2,height>>1,strlen(tmp1)-strlen(tmp2));
+    112          //  showcards(current,(height-cardy)>>1);
+    113          }
+    114          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    115          void onredraw(){ // Перерисовка экрана screen[132*176]
+    116            short *scr;
+    117            byte *bb, b;
+    118            char *tmsg;
+    119            int i,j, dx, dy;
+    120            //
+    121            showfon();
+   \                     onredraw:
+   \   00000000   C4129FE5           LDR      R1,??onredraw_0  ;; screensize
+   \   00000004   F04F2DE9           PUSH     {R4-R11,LR}
+   \   00000008   002091E5           LDR      R2,[R1, #+0]
+   \   0000000C   ........           LDR      R1,??DataTable53  ;; fastfon
+   \   00000010   ........           LDR      R4,??DataTable8  ;; screen
+   \   00000014   0010D1E5           LDRB     R1,[R1, #+0]
+   \   00000018   000094E5           LDR      R0,[R4, #+0]
+   \   0000001C   ........           LDR      R5,??DataTable52  ;; height
+   \   00000020   ........           LDR      R6,??DataTable66  ;; fon
+   \   00000024   000051E3           CMP      R1,#+0
+   \   00000028   0300000A           BEQ      ??onredraw_1
+   \   0000002C   001096E5           LDR      R1,[R6, #+0]
+   \   00000030   041081E2           ADD      R1,R1,#+4
+   \   00000034   ........           _BLF     memcpy,??memcpy??rA
+   \   00000038   1A0000EA           B        ??onredraw_2
+   \                     ??onredraw_1:
+   \   0000003C   4221A0E1           ASR      R2,R2,#+2
+   \   00000040   ........           _BLF     memsetd,??memsetd??rA
+   \   00000044   001096E5           LDR      R1,[R6, #+0]
+   \   00000048   000051E3           CMP      R1,#+0
+   \   0000004C   1500000A           BEQ      ??onredraw_2
+   \   00000050   ........           LDR      R0,??DataTable51  ;; width
+   \   00000054   F020D1E1           LDRSH    R2,[R1, #+0]
+   \   00000058   000090E5           LDR      R0,[R0, #+0]
+   \   0000005C   F230D1E1           LDRSH    R3,[R1, #+2]
+   \   00000060   020040E0           SUB      R0,R0,R2
+   \   00000064   C020A0E1           ASR      R2,R0,#+1
+   \   00000068   000095E5           LDR      R0,[R5, #+0]
+   \   0000006C   030040E0           SUB      R0,R0,R3
+   \   00000070   C030B0E1           ASRS     R3,R0,#+1
+   \   00000074   0000A0E3           MOV      R0,#+0
+   \   00000078   01002DE9           PUSH     {R0}
+   \   0000007C   01002DE9           PUSH     {R0}
+   \   00000080   01002DE9           PUSH     {R0}
+   \   00000084   01002DE9           PUSH     {R0}
+   \   00000088   01002DE9           PUSH     {R0}
+   \   0000008C   01002DE9           PUSH     {R0}
+   \   00000090   000094E5           LDR      R0,[R4, #+0]
+   \   00000094   0030A043           MOVMI    R3,#+0
+   \   00000098   000052E3           CMP      R2,#+0
+   \   0000009C   0020A043           MOVMI    R2,#+0
+   \   000000A0   ........           _BLF     bitblt,??bitblt??rA
+   \   000000A4   18D08DE2           ADD      SP,SP,#+24
+    122            showcards(girl,0,0);
+    123            showcurrent();
+   \                     ??onredraw_2:
+   \   000000A8   ........           LDR      R11,??DataTable63  ;; current
+   \   000000AC   ........           LDR      R0,??DataTable60  ;; girl
+   \   000000B0   0020A0E3           MOV      R2,#+0
+   \   000000B4   14629FE5           LDR      R6,??onredraw_0+0x4  ;; tmp1
+   \   000000B8   14829FE5           LDR      R8,??onredraw_0+0x8  ;; tmp2
+   \   000000BC   0010A0E3           MOV      R1,#+0
+   \   000000C0   ........           BL       showcards
+   \   000000C4   0B00A0E1           MOV      R0,R11
+   \   000000C8   ........           _BLF     strlen,??strlen??rA
+   \   000000CC   D010DBE1           LDRSB    R1,[R11, #+0]
+   \   000000D0   0670A0E1           MOV      R7,R6
+   \   000000D4   0890A0E1           MOV      R9,R8
+   \   000000D8   010000E2           AND      R0,R0,#0x1
+   \   000000DC   010020E2           EOR      R0,R0,#0x1
+   \   000000E0   00A0A0E3           MOV      R10,#+0
+   \   000000E4   000051E3           CMP      R1,#+0
+   \   000000E8   4600001A           BNE      ??onredraw_3
+   \                     ??onredraw_4:
+   \   000000EC   00A0C9E5           STRB     R10,[R9, #+0]
+   \   000000F0   00A0C7E5           STRB     R10,[R7, #+0]
+   \   000000F4   000095E5           LDR      R0,[R5, #+0]
+   \   000000F8   0020A0E3           MOV      R2,#+0
+   \   000000FC   C000A0E1           ASR      R0,R0,#+1
+   \   00000100   231040E2           SUB      R1,R0,#+35
+   \   00000104   0600A0E1           MOV      R0,R6
+   \   00000108   ........           BL       showcards
+   \   0000010C   0600A0E1           MOV      R0,R6
+   \   00000110   ........           _BLF     strlen,??strlen??rA
+   \   00000114   0060A0E1           MOV      R6,R0
+   \   00000118   0800A0E1           MOV      R0,R8
+   \   0000011C   ........           _BLF     strlen,??strlen??rA
+   \   00000120   002046E0           SUB      R2,R6,R0
+   \   00000124   000095E5           LDR      R0,[R5, #+0]
+    124            //showcards(current,height>>1,0);
+    125            showcards(player,height-cardy,0);
+   \   00000128   ........           LDR      R6,??DataTable62  ;; player
+   \   0000012C   C010A0E1           ASR      R1,R0,#+1
+   \   00000130   0800A0E1           MOV      R0,R8
+   \   00000134   ........           BL       showcards
+   \   00000138   000095E5           LDR      R0,[R5, #+0]
+   \   0000013C   0A20A0E1           MOV      R2,R10
+   \   00000140   1B1040E2           SUB      R1,R0,#+27
+   \   00000144   0600A0E1           MOV      R0,R6
+   \   00000148   ........           BL       showcards
+    126            showcursor();
+   \   0000014C   0600A0E1           MOV      R0,R6
+   \   00000150   ........           _BLF     strlen,??strlen??rA
+   \   00000154   ........           LDR      R2,??DataTable61  ;; curx
+   \   00000158   0010A0E1           MOV      R1,R0
+   \   0000015C   000092E5           LDR      R0,[R2, #+0]
+   \   00000160   010050E1           CMP      R0,R1
+   \   00000164   00A082A5           STRGE    R10,[R2, #+0]
+   \   00000168   000051E3           CMP      R1,#+0
+   \   0000016C   1700000A           BEQ      ??onredraw_5
+   \   00000170   4000A0E3           MOV      R0,#+64
+   \   00000174   01002DE9           PUSH     {R0}
+   \   00000178   0000A0E3           MOV      R0,#+0
+   \   0000017C   01002DE9           PUSH     {R0}
+   \   00000180   A200A0E3           MOV      R0,#+162
+   \   00000184   01002DE9           PUSH     {R0}
+   \   00000188   2600A0E3           MOV      R0,#+38
+   \   0000018C   01002DE9           PUSH     {R0}
+   \   00000190   1B00A0E3           MOV      R0,#+27
+   \   00000194   01002DE9           PUSH     {R0}
+   \   00000198   1300A0E3           MOV      R0,#+19
+   \   0000019C   01002DE9           PUSH     {R0}
+   \   000001A0   000095E5           LDR      R0,[R5, #+0]
+   \   000001A4   1B3040E2           SUB      R3,R0,#+27
+   \   000001A8   ........           LDR      R0,??DataTable51  ;; width
+   \   000001AC   000090E5           LDR      R0,[R0, #+0]
+   \   000001B0   ........           _BLF     ??div32_a,??rA??div32_a
+   \   000001B4   000092E5           LDR      R0,[R2, #+0]
+   \   000001B8   900102E0           MUL      R2,R0,R1
+   \   000001BC   ........           LDR      R0,??DataTable74  ;; bmpcards
+   \   000001C0   001090E5           LDR      R1,[R0, #+0]
+   \   000001C4   000094E5           LDR      R0,[R4, #+0]
+   \   000001C8   ........           _BLF     bitblt,??bitblt??rA
+   \   000001CC   18D08DE2           ADD      SP,SP,#+24
+    127            if(showmsg){/////////вывести сообщение
+   \                     ??onredraw_5:
+   \   000001D0   ........           LDR      R0,??DataTable55  ;; showmsg
+   \   000001D4   001090E5           LDR      R1,[R0, #+0]
+   \   000001D8   000051E3           CMP      R1,#+0
+   \   000001DC   F08FBD08           POPEQ    {R4-R11,PC}
+    128              tmsg=msg[showmsg]-1;
+   \   000001E0   ........           LDR      R2,??DataTable69  ;; msg
+   \   000001E4   011192E7           LDR      R1,[R2, +R1, LSL #+2]
+    129              dx=dy=0;
+   \   000001E8   0020A0E3           MOV      R2,#+0
+   \   000001EC   011041E2           SUB      R1,R1,#+1
+   \   000001F0   0230A0E1           MOV      R3,R2
+   \   000001F4   180000EA           B        ??onredraw_6
+   \                     ??onredraw_7:
+   \   000001F8   D010DBE1           LDRSB    R1,[R11, #+0]
+   \   000001FC   000051E3           CMP      R1,#+0
+   \   00000200   ........           LDRSBNE  R1,[R11], #+1
+   \   00000204   ........           STRBNE   R1,[R9], #+1
+   \                     ??onredraw_3:
+   \   00000208   D010DBE1           LDRSB    R1,[R11, #+0]
+   \   0000020C   000051E3           CMP      R1,#+0
+   \   00000210   B5FFFF0A           BEQ      ??onredraw_4
+   \   00000214   000CA0E1           MOV      R0,R0, LSL #+24
+   \   00000218   400CB0E1           MOVS     R0,R0, ASR #+24
+   \   0000021C   ........           LDRSBEQ  R1,[R11], #+1
+   \   00000220   0000A013           MOVNE    R0,#+0
+   \   00000224   ........           STRBEQ   R1,[R7], #+1
+   \   00000228   F2FFFFEA           B        ??onredraw_7
+    130              while(*++tmsg){
+    131                if(dx>=width-8){
+    132                  dx=0; dy+=10;
+    133                }
+    134                scr=screen+dy*width+dx;
+    135                bb=(byte*)font+*(byte*)tmsg * 8;
+    136                for(j=0;j<8;j++){
+    137                  b=*bb++;
+    138                  for(i=0;i<8;i++){
+    139                    *scr++=(b&0x80)?0:0xffff;
+   \                     ??onredraw_8:
+   \   0000022C   B090CBE1           STRH     R9,[R11, #+0]
+    140                    //if(b&0x80) *scr=0xffff;
+    141                    //scr++;
+    142                    b<<=1;
+   \   00000230   8CCCA0E1           LSL      R12,R12,#+25
+   \   00000234   2CCCA0E1           LSR      R12,R12,#+24
+   \   00000238   01E08EE2           ADD      LR,LR,#+1
+   \   0000023C   08005EE3           CMP      LR,#+8
+   \   00000240   190000BA           BLT      ??onredraw_9
+    143                  }
+    144                  scr+=width-8;
+   \   00000244   858088E0           ADD      R8,R8,R5, LSL #+1
+   \   00000248   108048E2           SUB      R8,R8,#+16
+   \   0000024C   016086E2           ADD      R6,R6,#+1
+   \   00000250   080056E3           CMP      R6,#+8
+   \   00000254   120000BA           BLT      ??onredraw_10
+    145                }
+    146                dx+=8;
+   \   00000258   083083E2           ADD      R3,R3,#+8
+   \                     ??onredraw_6:
+   \   0000025C   D150F1E1           LDRSB    R5,[R1, #+1]!
+   \   00000260   000055E3           CMP      R5,#+0
+   \   00000264   1600000A           BEQ      ??onredraw_11
+   \   00000268   ........           LDR      R5,??DataTable51  ;; width
+   \   0000026C   007094E5           LDR      R7,[R4, #+0]
+   \   00000270   005095E5           LDR      R5,[R5, #+0]
+   \   00000274   086045E2           SUB      R6,R5,#+8
+   \   00000278   060053E1           CMP      R3,R6
+   \   0000027C   0A2082A2           ADDGE    R2,R2,#+10
+   \   00000280   950206E0           MUL      R6,R5,R2
+   \   00000284   0030A0A3           MOVGE    R3,#+0
+   \   00000288   866087E0           ADD      R6,R7,R6, LSL #+1
+   \   0000028C   ........           LDR      R7,??DataTable75  ;; font
+   \   00000290   838086E0           ADD      R8,R6,R3, LSL #+1
+   \   00000294   0060D1E5           LDRB     R6,[R1, #+0]
+   \   00000298   007097E5           LDR      R7,[R7, #+0]
+   \   0000029C   867187E0           ADD      R7,R7,R6, LSL #+3
+   \   000002A0   0060A0E3           MOV      R6,#+0
+   \                     ??onredraw_10:
+   \   000002A4   ........           LDRB     R12,[R7], #+1
+   \   000002A8   00E0A0E3           MOV      LR,#+0
+   \                     ??onredraw_9:
+   \   000002AC   08B0A0E1           MOV      R11,R8
+   \   000002B0   02808BE2           ADD      R8,R11,#+2
+   \   000002B4   80001CE3           TST      R12,#0x80
+   \   000002B8   0A90E001           MVNEQ    R9,R10
+   \   000002BC   0090A013           MOVNE    R9,#+0
+   \   000002C0   D9FFFFEA           B        ??onredraw_8
+    147              }
+    148              showmsg=0;
+   \                     ??onredraw_11:
+   \   000002C4   00A080E5           STR      R10,[R0, #+0]
+    149            }
+    150          }
+   \   000002C8   F08FBDE8           POP      {R4-R11,PC}      ;; return
+   \                     ??onredraw_0:
+   \   000002CC   ........           DC32     screensize
+   \   000002D0   ........           DC32     tmp1
+   \   000002D4   ........           DC32     tmp2
+    151          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    152          void delcard(char *who, int pos){ //удалить карту
+   \                     delcard:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+    153            who[pos]=who[strlen(who)-1];
+   \   0000000C   ........           _BLF     strlen,??strlen??rA
+   \   00000010   040080E0           ADD      R0,R0,R4
+   \   00000014   D10050E1           LDRSB    R0,[R0, #-1]
+   \   00000018   0400C5E7           STRB     R0,[R5, +R4]
+    154            who[strlen(who)-1]=0;
+   \   0000001C   0400A0E1           MOV      R0,R4
+   \   00000020   ........           _BLF     strlen,??strlen??rA
+   \   00000024   040080E0           ADD      R0,R0,R4
+   \   00000028   0010A0E3           MOV      R1,#+0
+   \   0000002C   011040E5           STRB     R1,[R0, #-1]
+    155          }
+   \   00000030   3080BDE8           POP      {R4,R5,PC}       ;; return
+    156          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    157          int getcard(char *who){ // получить карту. return 0=no card
+   \                     getcard:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+    158            int rnd;
+    159            if(!*coloda) return 0;
+   \   00000004   ........           LDR      R5,??DataTable57  ;; coloda
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   D000D5E1           LDRSB    R0,[R5, #+0]
+   \   00000010   000050E3           CMP      R0,#+0
+   \   00000014   7080BD08           POPEQ    {R4-R6,PC}
+    160            rnd=random(strlen(coloda));
+   \   00000018   0500A0E1           MOV      R0,R5
+   \   0000001C   ........           _BLF     strlen,??strlen??rA
+   \   00000020   ........           BL       randint
+   \   00000024   0060A0E1           MOV      R6,R0
+    161            who[strlen(who)]=coloda[rnd];
+   \   00000028   0400A0E1           MOV      R0,R4
+   \   0000002C   ........           _BLF     strlen,??strlen??rA
+   \   00000030   D51096E1           LDRSB    R1,[R6, +R5]
+   \   00000034   0410C0E7           STRB     R1,[R0, +R4]
+    162            delcard(coloda,rnd);
+   \   00000038   0610A0E1           MOV      R1,R6
+   \   0000003C   0500A0E1           MOV      R0,R5
+   \   00000040   ........           BL       delcard
+    163          //  coloda[rnd]=coloda[strlen(coloda)-1];
+    164          //  coloda[strlen(coloda)-1]=0;
+    165            return 1;
+   \   00000044   0100A0E3           MOV      R0,#+1
+   \   00000048   7080BDE8           POP      {R4-R6,PC}       ;; return
+    166          }
+    167          
+    168          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    169          int putcard(char card){ // выложить карту. return 0=низя
+   \                     putcard:
+   \   00000000   B0412DE9           PUSH     {R4,R5,R7,R8,LR}
+    170            char *cur=current+strlen(current)-1;
+   \   00000004   ........           LDR      R8,??DataTable63  ;; current
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   0800A0E1           MOV      R0,R8
+   \   00000010   ........           _BLF     strlen,??strlen??rA
+   \   00000014   080080E0           ADD      R0,R0,R8
+   \   00000018   015040E2           SUB      R5,R0,#+1
+    171            char last=*cur;
+   \   0000001C   D070D5E1           LDRSB    R7,[R5, #+0]
+    172            int i;
+    173            if(strlen(current)&1){//защищаемся
+   \   00000020   0800A0E1           MOV      R0,R8
+   \   00000024   ........           _BLF     strlen,??strlen??rA
+   \   00000028   010010E3           TST      R0,#0x1
+   \   0000002C   0F00000A           BEQ      ??putcard_0
+    174              if((card>>4)==kozir && (last>>4)!=kozir); //можно
+   \   00000030   ........           LDR      R0,??DataTable43  ;; kozir
+   \   00000034   4412A0E1           ASR      R1,R4,#+4
+   \   00000038   0000D0E5           LDRB     R0,[R0, #+0]
+   \   0000003C   4722A0E1           ASR      R2,R7,#+4
+   \   00000040   000051E1           CMP      R1,R0
+   \   00000044   0100001A           BNE      ??putcard_1
+   \   00000048   000052E1           CMP      R2,R0
+   \   0000004C   1700001A           BNE      ??putcard_2
+    175              else{
+    176                if((card>>4)==(last>>4) && (card&0xf)>(last&0xf));//можно
+   \                     ??putcard_1:
+   \   00000050   020051E1           CMP      R1,R2
+   \   00000054   0300001A           BNE      ??putcard_3
+   \   00000058   0F0007E2           AND      R0,R7,#0xF
+   \   0000005C   0F1004E2           AND      R1,R4,#0xF
+   \   00000060   010050E1           CMP      R0,R1
+   \   00000064   110000BA           BLT      ??putcard_2
+    177                else return 0; //низя
+   \                     ??putcard_3:
+   \   00000068   0000A0E3           MOV      R0,#+0
+   \   0000006C   B081BDE8           POP      {R4,R5,R7,R8,PC}
+    178              }
+    179            }else{ //атакуем
+    180              if(strlen(current)){
+   \                     ??putcard_0:
+   \   00000070   0800A0E1           MOV      R0,R8
+   \   00000074   ........           _BLF     strlen,??strlen??rA
+   \   00000078   000050E3           CMP      R0,#+0
+   \   0000007C   0B00000A           BEQ      ??putcard_2
+    181                for(i=0;i<strlen(current);i++)
+   \   00000080   0070A0E3           MOV      R7,#+0
+   \   00000084   000000EA           B        ??putcard_4
+   \                     ??putcard_5:
+   \   00000088   017087E2           ADD      R7,R7,#+1
+   \                     ??putcard_4:
+   \   0000008C   0800A0E1           MOV      R0,R8
+   \   00000090   ........           _BLF     strlen,??strlen??rA
+   \   00000094   000057E1           CMP      R7,R0
+   \   00000098   F2FFFF2A           BCS      ??putcard_3
+    182                  if((current[i]&0xf)==(card&0xf)) goto ata;
+   \   0000009C   D80097E1           LDRSB    R0,[R7, +R8]
+   \   000000A0   0F1004E2           AND      R1,R4,#0xF
+   \   000000A4   0F0000E2           AND      R0,R0,#0xF
+   \   000000A8   010050E1           CMP      R0,R1
+   \   000000AC   F5FFFF1A           BNE      ??putcard_5
+    183                return 0;
+    184              }
+    185            }
+    186          ata:  
+    187            *++cur=card;
+   \                     ??putcard_2:
+   \   000000B0   015085E2           ADD      R5,R5,#+1
+   \   000000B4   ........           STRB     R4,[R5], #+1
+    188            *++cur=0;
+   \   000000B8   0000A0E3           MOV      R0,#+0
+   \   000000BC   0000C5E5           STRB     R0,[R5, #+0]
+    189            return 1;
+   \   000000C0   0100A0E3           MOV      R0,#+1
+   \   000000C4   B081BDE8           POP      {R4,R5,R7,R8,PC}
+    190          }
+    191          
+    192          inline void pickall(char *who){ //взять все карты
+    193            strcat(who,current);
+    194            *current=0;
+    195          }
+    196          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    197          void pickup(){ //взять из колоды до 6 карт
+   \                     pickup:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   ........           LDR      R4,??DataTable62  ;; player
+    198            while(strlen(player)<6)
+   \                     ??pickup_0:
+   \   00000008   0400A0E1           MOV      R0,R4
+   \   0000000C   ........           _BLF     strlen,??strlen??rA
+   \   00000010   060050E3           CMP      R0,#+6
+   \   00000014   0300002A           BCS      ??pickup_1
+    199              if(!getcard(player)) break;
+   \   00000018   0400A0E1           MOV      R0,R4
+   \   0000001C   ........           BL       getcard
+   \   00000020   000050E3           CMP      R0,#+0
+   \   00000024   F7FFFF1A           BNE      ??pickup_0
+    200            while(strlen(girl)<6)
+   \                     ??pickup_1:
+   \   00000028   ........           LDR      R4,??DataTable60  ;; girl
+   \   0000002C   0400A0E1           MOV      R0,R4
+   \   00000030   ........           _BLF     strlen,??strlen??rA
+   \   00000034   060050E3           CMP      R0,#+6
+   \   00000038   1080BD28           POPCS    {R4,PC}
+    201              if(!getcard(girl)) break;
+   \   0000003C   0400A0E1           MOV      R0,R4
+   \   00000040   ........           BL       getcard
+   \   00000044   000050E3           CMP      R0,#+0
+   \   00000048   F6FFFF1A           BNE      ??pickup_1
+    202          }
+   \   0000004C   1080BDE8           POP      {R4,PC}          ;; return
+    203          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    204          int findmin(char card){ //найти мин карту данной масти -1=нет
+   \                     findmin:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    205            int pos=-1, i;
+   \   00000008   0050E0E3           MVN      R5,#+0
+    206            forg{
+   \   0000000C   ........           LDR      R7,??DataTable60  ;; girl
+   \   00000010   0060A0E3           MOV      R6,#+0
+   \   00000014   0D0000EA           B        ??findmin_0
+    207              if((girl[i]>>4)==(card>>4) && girl[i]>card)
+   \                     ??findmin_1:
+   \   00000018   D70096E1           LDRSB    R0,[R6, +R7]
+   \   0000001C   0010A0E1           MOV      R1,R0
+   \   00000020   4112A0E1           ASR      R1,R1,#+4
+   \   00000024   440251E1           CMP      R1,R4, ASR #+4
+   \   00000028   0700001A           BNE      ??findmin_2
+   \   0000002C   000054E1           CMP      R4,R0
+   \   00000030   050000AA           BGE      ??findmin_2
+    208                if(pos<0 || girl[i]<girl[pos]) pos=i;
+   \   00000034   000055E3           CMP      R5,#+0
+   \   00000038   0200004A           BMI      ??findmin_3
+   \   0000003C   D71095E1           LDRSB    R1,[R5, +R7]
+   \   00000040   010050E1           CMP      R0,R1
+   \   00000044   000000AA           BGE      ??findmin_2
+   \                     ??findmin_3:
+   \   00000048   0650A0E1           MOV      R5,R6
+    209            }
+   \                     ??findmin_2:
+   \   0000004C   016086E2           ADD      R6,R6,#+1
+   \                     ??findmin_0:
+   \   00000050   0700A0E1           MOV      R0,R7
+   \   00000054   ........           _BLF     strlen,??strlen??rA
+   \   00000058   000056E1           CMP      R6,R0
+   \   0000005C   EDFFFF3A           BCC      ??findmin_1
+    210            return pos;//i error!
+   \   00000060   0500A0E1           MOV      R0,R5
+   \   00000064   F080BDE8           POP      {R4-R7,PC}       ;; return
+    211          }
+    212          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    213          char pair[9];//сколько пар
+   \                     pair:
+   \   00000000                      DS8 12
+    214          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    215          void findpair(int koz){ //найти пары для атаки, koz - козырной поиск
+   \                     findpair:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+    216            int i;
+    217            memset(pair,0,9);
+   \   00000004   ........           LDR      R5,??DataTable40  ;; pair
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   0920A0E3           MOV      R2,#+9
+   \   00000010   0010A0E3           MOV      R1,#+0
+    218            forg{
+   \   00000014   ........           LDR      R7,??DataTable60  ;; girl
+   \   00000018   0500A0E1           MOV      R0,R5
+   \   0000001C   ........           _BLF     memset,??memset??rA
+   \   00000020   0060A0E3           MOV      R6,#+0
+   \   00000024   0C0000EA           B        ??findpair_0
+    219              if(koz || (girl[i]>>4)!=kozir)
+   \                     ??findpair_1:
+   \   00000028   D70096E1           LDRSB    R0,[R6, +R7]
+   \   0000002C   000054E3           CMP      R4,#+0
+   \   00000030   0300001A           BNE      ??findpair_2
+   \   00000034   ........           LDR      R1,??DataTable43  ;; kozir
+   \   00000038   0010D1E5           LDRB     R1,[R1, #+0]
+   \   0000003C   400251E1           CMP      R1,R0, ASR #+4
+   \   00000040   0400000A           BEQ      ??findpair_3
+    220                ++pair[(girl[i]&0xf)-6];
+   \                     ??findpair_2:
+   \   00000044   0F0000E2           AND      R0,R0,#0xF
+   \   00000048   050080E0           ADD      R0,R0,R5
+   \   0000004C   D61050E1           LDRSB    R1,[R0, #-6]
+   \   00000050   011081E2           ADD      R1,R1,#+1
+   \   00000054   061040E5           STRB     R1,[R0, #-6]
+    221            }
+   \                     ??findpair_3:
+   \   00000058   016086E2           ADD      R6,R6,#+1
+   \                     ??findpair_0:
+   \   0000005C   0700A0E1           MOV      R0,R7
+   \   00000060   ........           _BLF     strlen,??strlen??rA
+   \   00000064   000056E1           CMP      R6,R0
+   \   00000068   EEFFFF3A           BCC      ??findpair_1
+    222          }
+   \   0000006C   F080BDE8           POP      {R4-R7,PC}       ;; return
+    223          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    224          void AIdefence(){ //защищаемся
+   \                     AIdefence:
+   \   00000000   F0432DE9           PUSH     {R4-R9,LR}
+    225            int i;
+    226            int cnt=strlen(current);
+   \   00000004   ........           LDR      R4,??DataTable63  ;; current
+    227            char cur=current[cnt-1];
+    228            if((cur>>4)==kozir){ //если козырь
+   \   00000008   ........           LDR      R6,??DataTable60  ;; girl
+   \   0000000C   ........           LDR      R9,??DataTable43  ;; kozir
+   \   00000010   ........           LDR      R7,??DataTable57  ;; coloda
+   \   00000014   0400A0E1           MOV      R0,R4
+   \   00000018   ........           _BLF     strlen,??strlen??rA
+   \   0000001C   0050A0E1           MOV      R5,R0
+   \   00000020   040085E0           ADD      R0,R5,R4
+   \   00000024   D18050E1           LDRSB    R8,[R0, #-1]
+   \   00000028   0000D9E5           LDRB     R0,[R9, #+0]
+   \   0000002C   480250E1           CMP      R0,R8, ASR #+4
+   \   00000030   1100001A           BNE      ??AIdefence_0
+    229              if(cnt<4 && strlen(coloda)>6){ //если начало с козыря и много в колоде - берем
+   \   00000034   040055E3           CMP      R5,#+4
+   \   00000038   0A0000AA           BGE      ??AIdefence_1
+   \   0000003C   0700A0E1           MOV      R0,R7
+   \   00000040   ........           _BLF     strlen,??strlen??rA
+   \   00000044   070050E3           CMP      R0,#+7
+   \   00000048   0600003A           BCC      ??AIdefence_1
+    230          lget:      pickall(girl);  pickup(); return; 
+   \                     ??AIdefence_2:
+   \   0000004C   0410A0E1           MOV      R1,R4
+   \   00000050   0600A0E1           MOV      R0,R6
+   \   00000054   ........           _BLF     strcat,??strcat??rA
+   \   00000058   0000A0E3           MOV      R0,#+0
+   \   0000005C   0000C4E5           STRB     R0,[R4, #+0]
+   \   00000060   ........           BL       pickup
+   \   00000064   F083BDE8           POP      {R4-R9,PC}
+    231              } 
+    232              if((i=findmin(cur))<0){ //нет козыря побить
+   \                     ??AIdefence_1:
+   \   00000068   0800A0E1           MOV      R0,R8
+   \   0000006C   ........           BL       findmin
+   \   00000070   0080B0E1           MOVS     R8,R0
+   \   00000074   1600005A           BPL      ??AIdefence_3
+   \   00000078   F3FFFFEA           B        ??AIdefence_2
+    233                goto lget;
+    234              }
+    235            }else{ //не козырь
+    236              if((i=findmin(cur))<0){ //есть нет такой масти
+   \                     ??AIdefence_0:
+   \   0000007C   0800A0E1           MOV      R0,R8
+   \   00000080   ........           BL       findmin
+   \   00000084   0080B0E1           MOVS     R8,R0
+   \   00000088   1100005A           BPL      ??AIdefence_3
+    237          //lkoz:
+    238                if((i=findmin((kozir<<4)+5))<0) goto lget; //если нет козырей берем
+   \   0000008C   0000D9E5           LDRB     R0,[R9, #+0]
+   \   00000090   0510A0E3           MOV      R1,#+5
+   \   00000094   000281E0           ADD      R0,R1,R0, LSL #+4
+   \   00000098   000CA0E1           MOV      R0,R0, LSL #+24
+   \   0000009C   400CA0E1           MOV      R0,R0, ASR #+24
+   \   000000A0   ........           BL       findmin
+   \   000000A4   0080B0E1           MOVS     R8,R0
+   \   000000A8   E7FFFF4A           BMI      ??AIdefence_2
+    239                if(strlen(coloda)<7 || cnt>8) ; //если мало осталось или много карт то ложим любой
+   \   000000AC   0700A0E1           MOV      R0,R7
+   \   000000B0   ........           _BLF     strlen,??strlen??rA
+   \   000000B4   070050E3           CMP      R0,#+7
+   \   000000B8   0500003A           BCC      ??AIdefence_3
+   \   000000BC   090055E3           CMP      R5,#+9
+   \   000000C0   030000AA           BGE      ??AIdefence_3
+    240                else{
+    241                  if((girl[i]&0xf)>9) goto lget; //жалко   rnd()
+   \   000000C4   D60098E1           LDRSB    R0,[R8, +R6]
+   \   000000C8   0F0000E2           AND      R0,R0,#0xF
+   \   000000CC   0A0050E3           CMP      R0,#+10
+   \   000000D0   DDFFFFAA           BGE      ??AIdefence_2
+    242                }
+    243              }
+    244            }
+    245            putcard(girl[i]);
+   \                     ??AIdefence_3:
+   \   000000D4   D60098E1           LDRSB    R0,[R8, +R6]
+   \   000000D8   ........           BL       putcard
+    246            delcard(girl,i);
+   \   000000DC   0810A0E1           MOV      R1,R8
+   \   000000E0   0600A0E1           MOV      R0,R6
+   \   000000E4   ........           BL       delcard
+    247          }
+   \   000000E8   F083BDE8           POP      {R4-R9,PC}       ;; return
+    248          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    249          void AIcont(){ //атакуем продолжаем // найти минимальную из карт (продолжить атаку)
+   \                     AIcont:
+   \   00000000   F0432DE9           PUSH     {R4-R9,LR}
+    250            int j,i,k=-1,l,m=1000;
+    251            for(j=0;j<strlen(current);j++)
+   \   00000004   ........           LDR      R7,??DataTable63  ;; current
+   \   00000008   ........           LDR      R8,??DataTable60  ;; girl
+   \   0000000C   0040E0E3           MVN      R4,#+0
+   \   00000010   FA5FA0E3           MOV      R5,#+1000
+   \   00000014   0060A0E3           MOV      R6,#+0
+   \   00000018   120000EA           B        ??AIcont_0
+    252              forg{
+    253                if((girl[i]>>4)!=kozir && (l=(girl[i]&0xf))==(current[j]&0xf)) if(l<m){ m=l; k=i;}
+   \                     ??AIcont_1:
+   \   0000001C   ........           LDR      R1,??DataTable43  ;; kozir
+   \   00000020   D80099E1           LDRSB    R0,[R9, +R8]
+   \   00000024   0010D1E5           LDRB     R1,[R1, #+0]
+   \   00000028   400251E1           CMP      R1,R0, ASR #+4
+   \   0000002C   0700000A           BEQ      ??AIcont_2
+   \   00000030   D71096E1           LDRSB    R1,[R6, +R7]
+   \   00000034   0F0000E2           AND      R0,R0,#0xF
+   \   00000038   0F1001E2           AND      R1,R1,#0xF
+   \   0000003C   010050E1           CMP      R0,R1
+   \   00000040   0200001A           BNE      ??AIcont_2
+   \   00000044   050050E1           CMP      R0,R5
+   \   00000048   0050A0B1           MOVLT    R5,R0
+   \   0000004C   0940A0B1           MOVLT    R4,R9
+    254              }
+   \                     ??AIcont_2:
+   \   00000050   019089E2           ADD      R9,R9,#+1
+   \                     ??AIcont_3:
+   \   00000054   0800A0E1           MOV      R0,R8
+   \   00000058   ........           _BLF     strlen,??strlen??rA
+   \   0000005C   000059E1           CMP      R9,R0
+   \   00000060   EDFFFF3A           BCC      ??AIcont_1
+   \   00000064   016086E2           ADD      R6,R6,#+1
+   \                     ??AIcont_0:
+   \   00000068   0700A0E1           MOV      R0,R7
+   \   0000006C   ........           _BLF     strlen,??strlen??rA
+   \   00000070   000056E1           CMP      R6,R0
+   \   00000074   0090A033           MOVCC    R9,#+0
+   \   00000078   F5FFFF3A           BCC      ??AIcont_3
+    255            if(k<0){
+   \   0000007C   000054E3           CMP      R4,#+0
+   \   00000080   0300005A           BPL      ??AIcont_4
+    256              *current=0; //отбой
+   \   00000084   0000A0E3           MOV      R0,#+0
+   \   00000088   0000C7E5           STRB     R0,[R7, #+0]
+    257              pickup();
+   \   0000008C   ........           BL       pickup
+   \   00000090   F083BDE8           POP      {R4-R9,PC}
+    258            }else{
+    259              putcard(girl[k]);
+   \                     ??AIcont_4:
+   \   00000094   D80094E1           LDRSB    R0,[R4, +R8]
+   \   00000098   ........           BL       putcard
+    260              delcard(girl,k);
+   \   0000009C   0410A0E1           MOV      R1,R4
+   \   000000A0   0800A0E1           MOV      R0,R8
+   \   000000A4   ........           BL       delcard
+    261            }
+    262          }
+   \   000000A8   F083BDE8           POP      {R4-R9,PC}       ;; return
+    263          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    264          void AIatack(){ //атакуем с нуля (ищем пары с чего походить)
+   \                     AIatack:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+    265            int i,k,flag=0;
+   \   00000004   ........           LDR      R5,??DataTable60  ;; girl
+   \   00000008   ........           LDR      R6,??DataTable43  ;; kozir
+   \   0000000C   0040A0E3           MOV      R4,#+0
+   \   00000010   000000EA           B        ??AIatack_0
+    266          lll:  
+    267            findpair(flag); //ищем некозырные пары
+    268            for(k=0;k<6;k++)
+    269              if(pair[k]>1) break;
+    270            if(k>=6){ //нет пар - берем минимальную некозырную карту
+    271              for(k=0;k<9;k++)
+    272                if(pair[k]>0) break;
+    273              if(k>=9){ //все козыри - ходим с минимального
+    274                if(flag){/////error randcard here!!!
+    275                   if((i=findmin((kozir<<4)+5))<0) i=0; // от балды
+    276                   goto allll;
+    277                }else{ 
+    278                  flag=1;
+   \                     ??AIatack_1:
+   \   00000014   0140A0E3           MOV      R4,#+1
+    279                  goto lll;
+    280                }
+   \                     ??AIatack_0:
+   \   00000018   0400A0E1           MOV      R0,R4
+   \   0000001C   ........           BL       findpair
+   \   00000020   ........           LDR      R0,??DataTable40  ;; pair
+   \   00000024   0070A0E3           MOV      R7,#+0
+   \                     ??AIatack_2:
+   \   00000028   D01097E1           LDRSB    R1,[R7, +R0]
+   \   0000002C   020051E3           CMP      R1,#+2
+   \   00000030   150000AA           BGE      ??AIatack_3
+   \   00000034   017087E2           ADD      R7,R7,#+1
+   \   00000038   060057E3           CMP      R7,#+6
+   \   0000003C   F9FFFFBA           BLT      ??AIatack_2
+   \   00000040   0070A0E3           MOV      R7,#+0
+   \                     ??AIatack_4:
+   \   00000044   D01097E1           LDRSB    R1,[R7, +R0]
+   \   00000048   010051E3           CMP      R1,#+1
+   \   0000004C   0E0000AA           BGE      ??AIatack_3
+   \   00000050   017087E2           ADD      R7,R7,#+1
+   \   00000054   090057E3           CMP      R7,#+9
+   \   00000058   F9FFFFBA           BLT      ??AIatack_4
+   \   0000005C   000054E3           CMP      R4,#+0
+   \   00000060   EBFFFF0A           BEQ      ??AIatack_1
+   \   00000064   0000D6E5           LDRB     R0,[R6, #+0]
+   \   00000068   0510A0E3           MOV      R1,#+5
+   \   0000006C   000281E0           ADD      R0,R1,R0, LSL #+4
+   \   00000070   000CA0E1           MOV      R0,R0, LSL #+24
+   \   00000074   400CA0E1           MOV      R0,R0, ASR #+24
+   \   00000078   ........           BL       findmin
+   \   0000007C   0080B0E1           MOVS     R8,R0
+   \   00000080   1400005A           BPL      ??AIatack_5
+   \   00000084   0080A0E3           MOV      R8,#+0
+   \   00000088   120000EA           B        ??AIatack_5
+    281              }
+    282            }
+    283            forg{
+   \                     ??AIatack_3:
+   \   0000008C   0080A0E3           MOV      R8,#+0
+   \   00000090   000000EA           B        ??AIatack_6
+   \                     ??AIatack_7:
+   \   00000094   018088E2           ADD      R8,R8,#+1
+   \                     ??AIatack_6:
+   \   00000098   0500A0E1           MOV      R0,R5
+   \   0000009C   ........           _BLF     strlen,??strlen??rA
+   \   000000A0   000058E1           CMP      R8,R0
+   \   000000A4   0B00002A           BCS      ??AIatack_5
+    284              if(((flag || girl[i]>>4)!=kozir) && (girl[i]&0xf)==k+6) break;
+   \   000000A8   0010D6E5           LDRB     R1,[R6, #+0]
+   \   000000AC   000054E3           CMP      R4,#+0
+   \   000000B0   D5009801           LDRSBEQ  R0,[R8, +R5]
+   \   000000B4   4002B001           ASRSEQ   R0,R0,#+4
+   \   000000B8   0100A013           MOVNE    R0,#+1
+   \   000000BC   010050E1           CMP      R0,R1
+   \   000000C0   F3FFFF0A           BEQ      ??AIatack_7
+   \   000000C4   D50098E1           LDRSB    R0,[R8, +R5]
+   \   000000C8   061087E2           ADD      R1,R7,#+6
+   \   000000CC   0F0000E2           AND      R0,R0,#0xF
+   \   000000D0   010050E1           CMP      R0,R1
+   \   000000D4   EEFFFF1A           BNE      ??AIatack_7
+    285            }
+    286          allll:  
+    287            putcard(girl[i]);
+   \                     ??AIatack_5:
+   \   000000D8   D50098E1           LDRSB    R0,[R8, +R5]
+   \   000000DC   ........           BL       putcard
+    288            delcard(girl,i);
+   \   000000E0   0810A0E1           MOV      R1,R8
+   \   000000E4   0500A0E1           MOV      R0,R5
+   \   000000E8   ........           BL       delcard
+    289          }
+   \   000000EC   F081BDE8           POP      {R4-R8,PC}       ;; return
+    290          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    291          void newgame(){
+    292            int i,j;
+    293          //  xod=0;//rand()&1;
+    294            //заполнить колоду
+    295            char *s=coloda;
+   \                     newgame:
+   \   00000000   ........           LDR      R0,??DataTable57  ;; coloda
+   \   00000004   F0412DE9           PUSH     {R4-R8,LR}
+    296            for(j=0;j<4;j++)
+   \   00000008   0010A0E3           MOV      R1,#+0
+    297              for(i=0;i<9;i++) *s++=(i+6)+(j<<4);
+   \                     ??newgame_0:
+   \   0000000C   0020A0E3           MOV      R2,#+0
+   \                     ??newgame_1:
+   \   00000010   013282E0           ADD      R3,R2,R1, LSL #+4
+   \   00000014   063083E2           ADD      R3,R3,#+6
+   \   00000018   ........           STRB     R3,[R0], #+1
+   \   0000001C   012082E2           ADD      R2,R2,#+1
+   \   00000020   090052E3           CMP      R2,#+9
+   \   00000024   F9FFFFBA           BLT      ??newgame_1
+   \   00000028   011081E2           ADD      R1,R1,#+1
+   \   0000002C   040051E3           CMP      R1,#+4
+   \   00000030   F5FFFFBA           BLT      ??newgame_0
+    298            *s=*current=0; 
+   \   00000034   ........           LDR      R1,??DataTable63  ;; current
+    299            curx=0;
+    300            kozir=random(4);
+   \   00000038   ........           LDR      R5,??DataTable43  ;; kozir
+    301            //раздать карты
+    302            memset(player,0,37);
+   \   0000003C   ........           LDR      R6,??DataTable62  ;; player
+    303            memset(girl,0,37);
+   \   00000040   ........           LDR      R7,??DataTable60  ;; girl
+   \   00000044   0040A0E3           MOV      R4,#+0
+   \   00000048   0040C1E5           STRB     R4,[R1, #+0]
+   \   0000004C   0040C0E5           STRB     R4,[R0, #+0]
+   \   00000050   ........           LDR      R0,??DataTable61  ;; curx
+    304            for(i=0;i<6;i++){ 
+   \   00000054   0480A0E1           MOV      R8,R4
+   \   00000058   004080E5           STR      R4,[R0, #+0]
+   \   0000005C   0400A0E3           MOV      R0,#+4
+   \   00000060   ........           BL       randint
+   \   00000064   0000C5E5           STRB     R0,[R5, #+0]
+   \   00000068   2520A0E3           MOV      R2,#+37
+   \   0000006C   0010A0E3           MOV      R1,#+0
+   \   00000070   0600A0E1           MOV      R0,R6
+   \   00000074   ........           _BLF     memset,??memset??rA
+   \   00000078   2520A0E3           MOV      R2,#+37
+   \   0000007C   0410A0E1           MOV      R1,R4
+   \   00000080   0700A0E1           MOV      R0,R7
+   \   00000084   ........           _BLF     memset,??memset??rA
+    305              getcard(player); 
+   \                     ??newgame_2:
+   \   00000088   0600A0E1           MOV      R0,R6
+   \   0000008C   ........           BL       getcard
+    306              getcard(girl);
+   \   00000090   0700A0E1           MOV      R0,R7
+   \   00000094   ........           BL       getcard
+    307            }
+   \   00000098   018088E2           ADD      R8,R8,#+1
+   \   0000009C   060058E3           CMP      R8,#+6
+   \   000000A0   F8FFFFBA           BLT      ??newgame_2
+    308            //картинка
+    309            *(char*)(girlbmp+5)=level+'0';
+   \   000000A4   ........           LDR      R6,??DataTable59  ;; level
+   \   000000A8   A8109FE5           LDR      R1,??newgame_3   ;; girlbmp
+   \   000000AC   D000D6E1           LDRSB    R0,[R6, #+0]
+    310            strcpy(ext,girlbmp);
+    311            if(fon) mfree(fon);
+   \   000000B0   ........           LDR      R7,??DataTable66  ;; fon
+   \   000000B4   300080E2           ADD      R0,R0,#+48
+   \   000000B8   0500C1E5           STRB     R0,[R1, #+5]
+   \   000000BC   ........           LDR      R0,??DataTable72  ;; ext
+   \   000000C0   000090E5           LDR      R0,[R0, #+0]
+   \   000000C4   ........           _BLF     strcpy,??strcpy??rA
+   \   000000C8   000097E5           LDR      R0,[R7, #+0]
+   \   000000CC   000050E3           CMP      R0,#+0
+   \   000000D0   0200000A           BEQ      ??newgame_4
+   \   000000D4   150000EF           SWI      +21
+   \   000000D8   000000EA           B        ??newgame_4
+    312          lll:  
+    313            if(fon=loadgraph(filename)){
+    314              if(*(short*)fon==width && *(short*)(fon+2)==height) fastfon=1;
+    315            }else 
+    316              if(level){ level=0; goto lll;}
+   \                     ??newgame_5:
+   \   000000DC   0040C6E5           STRB     R4,[R6, #+0]
+   \                     ??newgame_4:
+   \   000000E0   ........           LDR      R0,??DataTable71  ;; filename
+   \   000000E4   ........           _BLF     loadgraph,??loadgraph??rA
+   \   000000E8   000087E5           STR      R0,[R7, #+0]
+   \   000000EC   000050E3           CMP      R0,#+0
+   \   000000F0   0D00000A           BEQ      ??newgame_6
+   \   000000F4   F010D0E1           LDRSH    R1,[R0, #+0]
+   \   000000F8   ........           LDR      R2,??DataTable51  ;; width
+   \   000000FC   002092E5           LDR      R2,[R2, #+0]
+   \   00000100   020051E1           CMP      R1,R2
+   \   00000104   0B00001A           BNE      ??newgame_7
+   \   00000108   F200D0E1           LDRSH    R0,[R0, #+2]
+   \   0000010C   ........           LDR      R1,??DataTable52  ;; height
+   \   00000110   001091E5           LDR      R1,[R1, #+0]
+   \   00000114   010050E1           CMP      R0,R1
+   \   00000118   0600001A           BNE      ??newgame_7
+   \   0000011C   ........           LDR      R0,??DataTable53  ;; fastfon
+   \   00000120   0110A0E3           MOV      R1,#+1
+   \   00000124   0010C0E5           STRB     R1,[R0, #+0]
+   \   00000128   020000EA           B        ??newgame_7
+   \                     ??newgame_6:
+   \   0000012C   D000D6E1           LDRSB    R0,[R6, #+0]
+   \   00000130   000050E3           CMP      R0,#+0
+   \   00000134   E8FFFF1A           BNE      ??newgame_5
+    317            //
+    318            showmsg=razdel[razsluj]+msgkozir+kozir;
+   \                     ??newgame_7:
+   \   00000138   ........           LDR      R1,??DataTable70  ;; razdel
+   \   0000013C   0020D5E5           LDRB     R2,[R5, #+0]
+   \   00000140   ........           LDR      R0,??DataTable55  ;; showmsg
+   \   00000144   001091E5           LDR      R1,[R1, #+0]
+   \   00000148   011082E0           ADD      R1,R2,R1
+   \   0000014C   021081E2           ADD      R1,R1,#+2
+   \   00000150   001080E5           STR      R1,[R0, #+0]
+    319          }
+   \   00000154   F081BDE8           POP      {R4-R8,PC}       ;; return
+   \                     ??newgame_3:
+   \   00000158   ........           DC32     girlbmp
+    320          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    321          void ai(){ //искусственный интеллект
+    322            if(!*current) AIatack();
+   \                     ai:
+   \   00000000   ........           LDR      R0,??DataTable63  ;; current
+   \   00000004   10402DE9           PUSH     {R4,LR}
+   \   00000008   D010D0E1           LDRSB    R1,[R0, #+0]
+   \   0000000C   000051E3           CMP      R1,#+0
+   \   00000010   0100001A           BNE      ??ai_0
+   \   00000014   ........           BL       AIatack
+   \   00000018   050000EA           B        ??ai_1
+    323            else if(strlen(current)&1) AIdefence(); 
+   \                     ??ai_0:
+   \   0000001C   ........           _BLF     strlen,??strlen??rA
+   \   00000020   010010E3           TST      R0,#0x1
+   \   00000024   0100000A           BEQ      ??ai_2
+   \   00000028   ........           BL       AIdefence
+   \   0000002C   000000EA           B        ??ai_1
+    324            else AIcont(); 
+   \                     ??ai_2:
+   \   00000030   ........           BL       AIcont
+    325          //  xod=1;
+    326            REDRAW();
+   \                     ??ai_1:
+   \   00000034   720100EF           SWI      +370
+    327            if(!*coloda){
+   \   00000038   ........           LDR      R0,??DataTable57  ;; coloda
+   \   0000003C   D000D0E1           LDRSB    R0,[R0, #+0]
+   \   00000040   000050E3           CMP      R0,#+0
+   \   00000044   1080BD18           POPNE    {R4,PC}
+    328              if(!strlen(player)){ ++level; newgame();}   //levelup
+   \   00000048   ........           LDR      R0,??DataTable62  ;; player
+   \   0000004C   ........           LDR      R4,??DataTable59  ;; level
+   \   00000050   ........           _BLF     strlen,??strlen??rA
+   \   00000054   000050E3           CMP      R0,#+0
+   \   00000058   0300001A           BNE      ??ai_3
+   \   0000005C   D000D4E1           LDRSB    R0,[R4, #+0]
+   \   00000060   010080E2           ADD      R0,R0,#+1
+   \   00000064   0000C4E5           STRB     R0,[R4, #+0]
+   \   00000068   070000EA           B        ??ai_4
+    329              else if(!strlen(girl)){ if(level>0) --level; newgame();}
+   \                     ??ai_3:
+   \   0000006C   ........           LDR      R0,??DataTable60  ;; girl
+   \   00000070   ........           _BLF     strlen,??strlen??rA
+   \   00000074   000050E3           CMP      R0,#+0
+   \   00000078   1080BD18           POPNE    {R4,PC}
+   \   0000007C   D000D4E1           LDRSB    R0,[R4, #+0]
+   \   00000080   010050E3           CMP      R0,#+1
+   \   00000084   010040A2           SUBGE    R0,R0,#+1
+   \   00000088   0000C4A5           STRBGE   R0,[R4, #+0]
+   \                     ??ai_4:
+   \   0000008C   ........           BL       newgame
+    330              //НЕВЕРНО!!! нужны еще проверки.. добавление колоды и т.п.
+    331            }
+    332          }
+   \   00000090   1080BDE8           POP      {R4,PC}          ;; return
+    333          
+    334          // keycode - код клавиши, pressed - нажата/отпущена/удерживается
+
+   \                                 In segment CODE, align 4, keep-with-next
+    335          int onkey(unsigned char keycode, int pressed){ //  Обработчик клавиш. Вернуть 0 или 1 для выхода
+   \                     onkey:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+    336            switch(pressed){      
+   \   00000004   9320A0E3           MOV      R2,#+147
+   \   00000008   402F82E3           ORR      R2,R2,#0x100
+   \   0000000C   020051E1           CMP      R1,R2
+   \   00000010   02208212           ADDNE    R2,R2,#+2
+   \   00000014   02005111           CMPNE    R1,R2
+   \   00000018   1D00001A           BNE      ??onkey_1
+    337            case KEY_UP: break; // Клавиша отпущена
+    338            case LONG_PRESS: // Клавиша удерживается долго (повтор)
+    339            case KEY_DOWN: // Клавиша нажата
+    340              //if(mode)//????
+    341              switch(keycode){ // Код клавиши
+   \   0000001C   ........           LDR      R4,??DataTable61  ;; curx
+   \   00000020   ........           LDR      R6,??DataTable62  ;; player
+   \   00000024   001094E5           LDR      R1,[R4, #+0]
+   \   00000028   0050A0E3           MOV      R5,#+0
+   \   0000002C   010040E2           SUB      R0,R0,#+1
+   \   00000030   3D0050E3           CMP      R0,#+61
+   \   00000034   1600008A           BHI      ??onkey_1
+   \   00000038   012F8FE2           ADR      R2,??onkey_0
+   \   0000003C   0020D2E7           LDRB     R2,[R2, R0]
+   \   00000040   02F18FE0           ADD      PC,PC,R2, LSL #+2
+   \                     ??onkey_0:
+   \   00000044   11131334           DC8      +17,+19,+19,+52
+   \   00000048   13131313           DC8      +19,+19,+19,+19
+   \   0000004C   1313110F           DC8      +19,+19,+17,+15
+   \   00000050   13131313           DC8      +19,+19,+19,+19
+   \   00000054   13131313           DC8      +19,+19,+19,+19
+   \   00000058   13131313           DC8      +19,+19,+19,+19
+   \   0000005C   13341313           DC8      +19,+52,+19,+19
+   \   00000060   13131313           DC8      +19,+19,+19,+19
+   \   00000064   13131313           DC8      +19,+19,+19,+19
+   \   00000068   13131313           DC8      +19,+19,+19,+19
+   \   0000006C   13131313           DC8      +19,+19,+19,+19
+   \   00000070   13131313           DC8      +19,+19,+19,+19
+   \   00000074   13131313           DC8      +19,+19,+19,+19
+   \   00000078   13131313           DC8      +19,+19,+19,+19
+   \   0000007C   13132727           DC8      +19,+19,+39,+39
+   \   00000080   151E0000           DC8      +21,+30,+0,+0
+    342              case RED_BUTTON: return 1; // Выход
+   \                     ??onkey_2:
+   \   00000084   0100A0E3           MOV      R0,#+1
+   \   00000088   7080BDE8           POP      {R4-R6,PC}       ;; return
+    343              case LEFT_SOFT: case GREEN_BUTTON: newgame(); break;
+   \                     ??onkey_3:
+   \   0000008C   ........           BL       newgame
+    344            
+    345              case LEFT_BUTTON: 
+    346                if(curx>0) --curx; else curx=strlen(player)-1; break;
+    347              case RIGHT_BUTTON: 
+    348                if(curx<strlen(player)-1) ++curx; else curx=0; break;
+    349                
+    350              case UP_BUTTON: case DOWN_BUTTON: //взять карты
+    351                if(strlen(current)&1)
+    352                  pickall(player);
+    353          //      else{
+    354                  *current=0;
+    355          //      }
+    356                pickup();
+    357                //randmsg(razstart);
+    358                ai(); 
+    359                break;
+    360          
+    361              case RIGHT_SOFT: case ENTER_BUTTON: // выложить
+    362                if(putcard(player[curx])){
+    363                  delcard(player,curx);
+    364                  ai();
+    365                  break;
+    366                }else return 0;
+    367              default: return 0;
+    368              }
+    369          //    onredraw(); DrawScreen(); // Перерисовать экран
+    370              REDRAW();
+   \                     ??onkey_4:
+   \   00000090   720100EF           SWI      +370
+   \                     ??onkey_1:
+   \   00000094   0000A0E3           MOV      R0,#+0
+   \   00000098   7080BDE8           POP      {R4-R6,PC}
+   \                     ??onkey_5:
+   \   0000009C   010051E3           CMP      R1,#+1
+   \   000000A0   020000BA           BLT      ??onkey_6
+   \   000000A4   010041E2           SUB      R0,R1,#+1
+   \                     ??onkey_7:
+   \   000000A8   000084E5           STR      R0,[R4, #+0]
+   \   000000AC   F7FFFFEA           B        ??onkey_4
+   \                     ??onkey_6:
+   \   000000B0   0600A0E1           MOV      R0,R6
+   \   000000B4   ........           _BLF     strlen,??strlen??rA
+   \   000000B8   010040E2           SUB      R0,R0,#+1
+   \   000000BC   F9FFFFEA           B        ??onkey_7
+   \                     ??onkey_8:
+   \   000000C0   0600A0E1           MOV      R0,R6
+   \   000000C4   ........           _BLF     strlen,??strlen??rA
+   \   000000C8   001094E5           LDR      R1,[R4, #+0]
+   \   000000CC   010040E2           SUB      R0,R0,#+1
+   \   000000D0   000051E1           CMP      R1,R0
+   \   000000D4   00508425           STRCS    R5,[R4, #+0]
+   \   000000D8   01008132           ADDCC    R0,R1,#+1
+   \   000000DC   00008435           STRCC    R0,[R4, #+0]
+   \   000000E0   EAFFFFEA           B        ??onkey_4
+   \                     ??onkey_9:
+   \   000000E4   ........           LDR      R4,??DataTable63  ;; current
+   \   000000E8   0400A0E1           MOV      R0,R4
+   \   000000EC   ........           _BLF     strlen,??strlen??rA
+   \   000000F0   010010E3           TST      R0,#0x1
+   \   000000F4   0300000A           BEQ      ??onkey_10
+   \   000000F8   0410A0E1           MOV      R1,R4
+   \   000000FC   0600A0E1           MOV      R0,R6
+   \   00000100   ........           _BLF     strcat,??strcat??rA
+   \   00000104   0050C4E5           STRB     R5,[R4, #+0]
+   \                     ??onkey_10:
+   \   00000108   0050C4E5           STRB     R5,[R4, #+0]
+   \   0000010C   ........           BL       pickup
+   \                     ??onkey_11:
+   \   00000110   ........           BL       ai
+   \   00000114   DDFFFFEA           B        ??onkey_4
+   \                     ??onkey_12:
+   \   00000118   D60091E1           LDRSB    R0,[R1, +R6]
+   \   0000011C   ........           BL       putcard
+   \   00000120   000050E3           CMP      R0,#+0
+   \   00000124   7080BD08           POPEQ    {R4-R6,PC}
+   \   00000128   001094E5           LDR      R1,[R4, #+0]
+   \   0000012C   0600A0E1           MOV      R0,R6
+   \   00000130   ........           BL       delcard
+   \   00000134   F5FFFFEA           B        ??onkey_11
+    371            }
+    372            return 0;
+    373          }
+    374          
+    375          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    376          void onclose(){ // Закрытие окна
+    377          }
+   \                     onclose:
+   \   00000000   1EFF2FE1           BX       LR               ;; return
+    378          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    379          void onexit(){ // Выход
+    380            if(mess) mfree(mess); // Освобождаем память
+   \                     onexit:
+   \   00000000   ........           LDR      R0,??DataTable73  ;; mess
+   \   00000004   00402DE9           PUSH     {LR}
+   \   00000008   000090E5           LDR      R0,[R0, #+0]
+   \   0000000C   000050E3           CMP      R0,#+0
+   \   00000010   0000000A           BEQ      ??onexit_0
+   \   00000014   150000EF           SWI      +21
+    381            if(bmpcards) mfree(bmpcards);
+   \                     ??onexit_0:
+   \   00000018   ........           LDR      R0,??DataTable74  ;; bmpcards
+   \   0000001C   000090E5           LDR      R0,[R0, #+0]
+   \   00000020   000050E3           CMP      R0,#+0
+   \   00000024   0000000A           BEQ      ??onexit_1
+   \   00000028   150000EF           SWI      +21
+    382            if(fon) mfree(fon);
+   \                     ??onexit_1:
+   \   0000002C   ........           LDR      R0,??DataTable66  ;; fon
+   \   00000030   000090E5           LDR      R0,[R0, #+0]
+   \   00000034   000050E3           CMP      R0,#+0
+   \   00000038   0000000A           BEQ      ??onexit_2
+   \   0000003C   150000EF           SWI      +21
+    383            if(font) mfree(font);
+   \                     ??onexit_2:
+   \   00000040   ........           LDR      R0,??DataTable75  ;; font
+   \   00000044   000090E5           LDR      R0,[R0, #+0]
+   \   00000048   000050E3           CMP      R0,#+0
+   \   0000004C   0080BD08           POPEQ    {PC}
+   \   00000050   150000EF           SWI      +21
+    384          }
+   \   00000054   0080BDE8           POP      {PC}             ;; return
+    385          
+    386          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    387          void oncreate(){ // Создание окна
+    388            newgame();
+   \                     oncreate:
+   \   00000000   ........           B        newgame          ;; tailcall
+    389          }
+    390          
+    391          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    392          void txt(){
+    393            int i, raz;
+    394            char *s=mess, **ptr=msg;
+   \                     txt:
+   \   00000000   ........           LDR      R0,??DataTable73  ;; mess
+   \   00000004   10002DE9           PUSH     {R4}
+   \   00000008   001090E5           LDR      R1,[R0, #+0]
+   \   0000000C   ........           LDR      R0,??DataTable69  ;; msg
+    395            mess[loadfilesize-2]=0;
+   \   00000010   A8409FE5           LDR      R4,??txt_0       ;; loadfilesize
+   \   00000014   0020A0E1           MOV      R2,R0
+   \   00000018   004094E5           LDR      R4,[R4, #+0]
+   \   0000001C   0030A0E3           MOV      R3,#+0
+   \   00000020   014084E0           ADD      R4,R4,R1
+   \   00000024   023044E5           STRB     R3,[R4, #-2]
+   \   00000028   000000EA           B        ??txt_1
+    396            //перекодировка
+    397          //  for(i=0, s=data; i<datasize; i++,s++) *s=~*s; 
+    398            //копирование в Daemons...
+    399          //  daemcopy(exename);
+    400           //разбивка строк
+    401            do{
+    402              while(*s==' ') ++s;
+   \                     ??txt_2:
+   \   0000002C   011081E2           ADD      R1,R1,#+1
+   \                     ??txt_1:
+   \   00000030   D040D1E1           LDRSB    R4,[R1, #+0]
+   \   00000034   200054E3           CMP      R4,#+32
+   \   00000038   FBFFFF0A           BEQ      ??txt_2
+    403              *ptr++=s;
+   \   0000003C   ........           STR      R1,[R2], #+4
+    404              --s;
+   \   00000040   011041E2           SUB      R1,R1,#+1
+   \   00000044   010000EA           B        ??txt_3
+    405              while(*++s && *s!=0xd);
+   \                     ??txt_4:
+   \   00000048   0D0054E3           CMP      R4,#+13
+   \   0000004C   0D00000A           BEQ      ??txt_5
+   \                     ??txt_3:
+   \   00000050   D140F1E1           LDRSB    R4,[R1, #+1]!
+   \   00000054   000054E3           CMP      R4,#+0
+   \   00000058   FAFFFF1A           BNE      ??txt_4
+    406              if(!*s) break;
+    407              *s=0; s+=2;
+    408            }while(1);
+    409            *ptr=0;
+    410            maxmsg=ptr-msg;
+   \   0000005C   60109FE5           LDR      R1,??txt_0+0x4   ;; maxmsg
+    411            //подготовить разделы
+    412            i=raz=0;
+   \   00000060   ........           LDR      R12,??DataTable70  ;; razdel
+   \   00000064   003082E5           STR      R3,[R2, #+0]
+   \   00000068   2221A0E1           LSR      R2,R2,#+2
+   \   0000006C   202142E0           SUB      R2,R2,R0, LSR #+2
+   \   00000070   002081E5           STR      R2,[R1, #+0]
+   \   00000074   001091E5           LDR      R1,[R1, #+0]
+   \   00000078   0020A0E3           MOV      R2,#+0
+   \   0000007C   010051E3           CMP      R1,#+1
+   \   00000080   090000AA           BGE      ??txt_6
+   \   00000084   0A0000EA           B        ??txt_7
+   \                     ??txt_5:
+   \   00000088   ........           STRB     R3,[R1], #+2
+   \   0000008C   E7FFFFEA           B        ??txt_1
+    413            while(i<maxmsg){
+    414              if(*msg[i]=='['){
+   \                     ??txt_8:
+   \   00000090   014083E2           ADD      R4,R3,#+1
+   \   00000094   033190E7           LDR      R3,[R0, +R3, LSL #+2]
+   \   00000098   D030D3E1           LDRSB    R3,[R3, #+0]
+   \   0000009C   5B0053E3           CMP      R3,#+91
+    415                razdel[raz++]=i+1;
+   \   000000A0   02418C07           STREQ    R4,[R12, +R2, LSL #+2]
+   \   000000A4   01208202           ADDEQ    R2,R2,#+1
+    416              }
+    417              ++i;
+   \   000000A8   0430A0E1           MOV      R3,R4
+    418            }
+   \                     ??txt_6:
+   \   000000AC   010053E1           CMP      R3,R1
+   \   000000B0   F6FFFFBA           BLT      ??txt_8
+    419            razdel[raz]=maxmsg;
+   \                     ??txt_7:
+   \   000000B4   02118CE7           STR      R1,[R12, +R2, LSL #+2]
+    420          }
+   \   000000B8   1000BDE8           POP      {R4}
+   \   000000BC   1EFF2FE1           BX       LR               ;; return
+   \                     ??txt_0:
+   \   000000C0   ........           DC32     loadfilesize
+   \   000000C4   ........           DC32     maxmsg
+    421          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    422          int onstart(char *exename, char *fname){ // Старт приложения. Возвращает 0 или 1 для выхода.
+   \                     onstart:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+    423            strcpy(filename,exename);
+   \   00000004   ........           LDR      R4,??DataTable71  ;; filename
+    424            ext=strrchr(filename,'\\')+1;
+   \   00000008   ........           LDR      R5,??DataTable72  ;; ext
+   \   0000000C   0010A0E1           MOV      R1,R0
+   \   00000010   0400A0E1           MOV      R0,R4
+   \   00000014   ........           _BLF     strcpy,??strcpy??rA
+   \   00000018   5C10A0E3           MOV      R1,#+92
+   \   0000001C   0400A0E1           MOV      R0,R4
+   \   00000020   ........           _BLF     strrchr,??strrchr??rA
+    425            strcpy(ext,"mess.bmp");
+   \   00000024   84109FE5           LDR      R1,??onstart_0   ;; `?<Constant "mess.bmp">`
+   \   00000028   010080E2           ADD      R0,R0,#+1
+   \   0000002C   000085E5           STR      R0,[R5, #+0]
+   \   00000030   ........           _BLF     strcpy,??strcpy??rA
+    426            if(!(mess=loadfile(filename))) return 1;
+   \   00000034   0400A0E1           MOV      R0,R4
+   \   00000038   ........           _BLF     loadfile,??loadfile??rA
+   \   0000003C   ........           LDR      R1,??DataTable73  ;; mess
+   \   00000040   000050E3           CMP      R0,#+0
+   \   00000044   000081E5           STR      R0,[R1, #+0]
+   \   00000048   0100A003           MOVEQ    R0,#+1
+   \   0000004C   3080BD08           POPEQ    {R4,R5,PC}
+    427            txt();
+   \   00000050   ........           BL       txt
+    428            strcpy(ext,"cards.bmp");
+   \   00000054   58109FE5           LDR      R1,??onstart_0+0x4  ;; `?<Constant "cards.bmp">`
+   \   00000058   000095E5           LDR      R0,[R5, #+0]
+   \   0000005C   ........           _BLF     strcpy,??strcpy??rA
+    429            if(!(bmpcards=loadgraph(filename))) return 2;
+   \   00000060   0400A0E1           MOV      R0,R4
+   \   00000064   ........           _BLF     loadgraph,??loadgraph??rA
+   \   00000068   ........           LDR      R1,??DataTable74  ;; bmpcards
+   \   0000006C   000050E3           CMP      R0,#+0
+   \   00000070   000081E5           STR      R0,[R1, #+0]
+   \   00000074   0200A003           MOVEQ    R0,#+2
+   \   00000078   3080BD08           POPEQ    {R4,R5,PC}
+    430            strcpy(ext,"font.bmp");
+   \   0000007C   34109FE5           LDR      R1,??onstart_0+0x8  ;; `?<Constant "font.bmp">`
+   \   00000080   000095E5           LDR      R0,[R5, #+0]
+   \   00000084   ........           _BLF     strcpy,??strcpy??rA
+    431            if(!(font=loadfile(filename))) return 3;
+   \   00000088   0400A0E1           MOV      R0,R4
+   \   0000008C   ........           _BLF     loadfile,??loadfile??rA
+   \   00000090   ........           LDR      R1,??DataTable75  ;; font
+   \   00000094   000050E3           CMP      R0,#+0
+   \   00000098   000081E5           STR      R0,[R1, #+0]
+   \   0000009C   0300A003           MOVEQ    R0,#+3
+   \   000000A0   3080BD08           POPEQ    {R4,R5,PC}
+    432          //  if(!(back=(char*)malloc(screensize))) return 4;
+    433            randomize();
+   \   000000A4   ........           BL       Randomize
+    434            return 0;
+   \   000000A8   0000A0E3           MOV      R0,#+0
+   \   000000AC   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??onstart_0:
+   \   000000B0   ........           DC32     `?<Constant "mess.bmp">`
+   \   000000B4   ........           DC32     `?<Constant "cards.bmp">`
+   \   000000B8   ........           DC32     `?<Constant "font.bmp">`
+    435          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable1:
+   \   00000000   ........           DC32     randseed
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable8:
+   \   00000000   ........           DC32     screen
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable40:
+   \   00000000   ........           DC32     pair
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable43:
+   \   00000000   ........           DC32     kozir
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable51:
+   \   00000000   ........           DC32     width
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable52:
+   \   00000000   ........           DC32     height
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable53:
+   \   00000000   ........           DC32     fastfon
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable55:
+   \   00000000   ........           DC32     showmsg
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable57:
+   \   00000000   ........           DC32     coloda
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable59:
+   \   00000000   ........           DC32     level
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable60:
+   \   00000000   ........           DC32     girl
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable61:
+   \   00000000   ........           DC32     curx
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable62:
+   \   00000000   ........           DC32     player
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable63:
+   \   00000000   ........           DC32     current
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable66:
+   \   00000000   ........           DC32     fon
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable69:
+   \   00000000   ........           DC32     msg
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable70:
+   \   00000000   ........           DC32     razdel
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable71:
+   \   00000000   ........           DC32     filename
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable72:
+   \   00000000   ........           DC32     ext
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable73:
+   \   00000000   ........           DC32     mess
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable74:
+   \   00000000   ........           DC32     bmpcards
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable75:
+   \   00000000   ........           DC32     font
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for Title>`:
+   \   00000000   ........           DC32 `?<Constant "Durak 0.3 (c)bn">`
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for errors>`:
+   \   00000000   00000000....       DC32 0H, `?<Constant "Mess.bmp \\355\\345 \\355\\340\\351\\344`
+   \              ....        
+   \   00000008   ........           DC32 `?<Constant "Cards.bmp \\355\\345 \\355\\340\\351\\34`
+   \   0000000C   ........           DC32 `?<Constant "Font.bmp \\370\\360\\350\\364\\362 \\355`
+   \   00000010   ........           DC32 `?<Constant "unknown error">`
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "font.bmp">`:
+   \   00000000   666F6E742E62       DC8 "font.bmp"
+   \              6D7000      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Mess.bmp \\355\\345 \\355\\340\\351\\344`:
+   \   00000000   4D6573732E62       DC8 4DH, 65H, 73H, 73H, 2EH, 62H, 6DH, 70H
+   \              6D70        
+   \   00000008   20EDE520EDE0       DC8 20H, 0EDH, 0E5H, 20H, 0EDH, 0E0H, 0E9H, 0E4H
+   \              E9E4        
+   \   00000010   E5ED210000         DC8 0E5H, 0EDH, 21H, 0, 0
+   \   00000015   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Durak 0.3 (c)bn">`:
+   \   00000000   447572616B20       DC8 "Durak 0.3 (c)bn"
+   \              302E33202863
+   \              29626E00    
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "cards.bmp">`:
+   \   00000000   63617264732E       DC8 "cards.bmp"
+   \              626D7000    
+   \   0000000A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "mess.bmp">`:
+   \   00000000   6D6573732E62       DC8 "mess.bmp"
+   \              6D7000      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "unknown error">`:
+   \   00000000   756E6B6E6F77       DC8 "unknown error"
+   \              6E206572726F
+   \              7200        
+   \   0000000E   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Font.bmp \\370\\360\\350\\364\\362 \\355`:
+   \   00000000   466F6E742E62       DC8 46H, 6FH, 6EH, 74H, 2EH, 62H, 6DH, 70H
+   \              6D70        
+   \   00000008   20F8F0E8F4F2       DC8 20H, 0F8H, 0F0H, 0E8H, 0F4H, 0F2H, 20H, 0EDH
+   \              20ED        
+   \   00000010   E520EDE0E9E4       DC8 0E5H, 20H, 0EDH, 0E0H, 0E9H, 0E4H, 0E5H, 0EDH
+   \              E5ED        
+   \   00000018   210000             DC8 21H, 0, 0
+   \   0000001B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Cards.bmp \\355\\345 \\355\\340\\351\\34`:
+   \   00000000   43617264732E       DC8 43H, 61H, 72H, 64H, 73H, 2EH, 62H, 6DH
+   \              626D        
+   \   00000008   7020EDE520ED       DC8 70H, 20H, 0EDH, 0E5H, 20H, 0EDH, 0E0H, 0E9H
+   \              E0E9        
+   \   00000010   E4E5ED210000       DC8 0E4H, 0E5H, 0EDH, 21H, 0, 0
+   \   00000016   0000               DC8 0, 0
+
+   Maximum stack usage in bytes:
+
+     Function  CSTACK
+     --------  ------
+     AIatack      24
+     AIcont       28
+     AIdefence    28
+     Randomize    20
+     ai            8
+     delcard      12
+     drawcard     32
+     findmin      20
+     findpair     20
+     getcard      16
+     newgame      24
+     onclose       0
+     oncreate      4
+     onexit        4
+     onkey        16
+     onredraw     60
+     onstart      12
+     pickup        8
+     putcard      24
+     rand          4
+     randint       8
+     randmsg       8
+     showcards    28
+     txt           4
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     randseed                          4
+     randint                          60
+     rand                              8
+     Randomize                        44
+     Title                             4
+     errors                           20
+     filename                        128
+     ext                               4
+     mess                              4
+     bmpcards                          4
+     fon                               4
+     font                              4
+     msg                            1024
+     maxmsg                            4
+     razdel                           20
+     coloda                           40
+     player                           40
+     girl                             40
+     current                          40
+     tmp1                             40
+     tmp2                             40
+     fastfon                           1
+     kozir                             1
+     girlbmp                          12
+     mode                              4
+     level                             1
+     curx                              4
+     showmsg                           4
+     randmsg                          48
+     drawcard                        168
+     showcards                       112
+     onredraw                        728
+     delcard                          52
+     getcard                          76
+     putcard                         200
+     pickup                           80
+     findmin                         104
+     pair                             12
+     findpair                        112
+     AIdefence                       236
+     AIcont                          172
+     AIatack                         240
+     newgame                         348
+     ai                              148
+     onkey                           312
+     onclose                           4
+     onexit                           88
+     oncreate                          4
+     txt                             200
+     onstart                         188
+     ??DataTable1                      4
+     ??DataTable8                      4
+     ??DataTable40                     4
+     ??DataTable43                     4
+     ??DataTable51                     4
+     ??DataTable52                     4
+     ??DataTable53                     4
+     ??DataTable55                     4
+     ??DataTable57                     4
+     ??DataTable59                     4
+     ??DataTable60                     4
+     ??DataTable61                     4
+     ??DataTable62                     4
+     ??DataTable63                     4
+     ??DataTable66                     4
+     ??DataTable69                     4
+     ??DataTable70                     4
+     ??DataTable71                     4
+     ??DataTable72                     4
+     ??DataTable73                     4
+     ??DataTable74                     4
+     ??DataTable75                     4
+     ?<Initializer for Title>          4
+     ?<Initializer for errors>        20
+     ?<Constant "font.bmp">           12
+     ?<Constant "Mess.bmp \355\345 \355\340\351\344
+                                      24
+     ?<Constant "Durak 0.3 (c)bn">    16
+     ?<Constant "cards.bmp">          12
+     ?<Constant "mess.bmp">           12
+     ?<Constant "unknown error">      16
+     ?<Constant "Font.bmp \370\360\350\364\362 \355
+                                      28
+     ?<Constant "Cards.bmp \355\345 \355\340\351\34
+                                      24
+      Others                         252
+
+ 
+ 4 048 bytes in segment CODE
+   156 bytes in segment DATA_C
+    24 bytes in segment DATA_I
+    24 bytes in segment DATA_ID
+ 1 467 bytes in segment DATA_Z
+    24 bytes in segment INITTAB
+ 
+ 3 820 bytes of CODE  memory (+ 252 bytes shared)
+   180 bytes of CONST memory
+ 1 491 bytes of DATA  memory
+
+Errors: none
+Warnings: none

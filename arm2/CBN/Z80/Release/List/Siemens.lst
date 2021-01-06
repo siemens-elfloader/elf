@@ -1,0 +1,893 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    31/Mar/2011  22:54:04 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\CBN\Siemens.c                                 #
+#    Command line    =  C:\arm\CBN\Siemens.c -D NEWSGOLD -D UNPACK -lC       #
+#                       C:\arm\CBN\Z80\Release\List\ -o                      #
+#                       C:\arm\CBN\Z80\Release\Obj\ -s9 --no_unroll          #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --char_is_signed --fpu None -I "C:\arm2\Embedded     #
+#                       Workbench 4.0 Evaluation\ARM\INC\"                   #
+#                       --inline_threshold=2                                 #
+#    List file       =  C:\arm\CBN\Z80\Release\List\Siemens.lst              #
+#    Object file     =  C:\arm\CBN\Z80\Release\Obj\Siemens.r79               #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\CBN\Siemens.c
+      1          // Siemens.c 0.5 cbn(c) SGOLD 1,2,3 вместе! :) +FreeRam
+      2          // http://cbn.narod.ru  e-mail: cbn@yandex.ru
+      3          // Интерфейс мобилы для IAR
+      4          // Здесь ничего не трогаем! (если не уверены)
+      5          // #define NEWSGOLD //ДОЛЖНО БЫТЬ ЗАДАНО ВСЕГДА!
+      6          // т.к. тип мобилы определяется автоматически
+      7          // Если экран в приложении объявлен как short *screen, то нужно указать и #define HIGHCOLOR
+      8          // Внешние функции вызываются при:
+      9          
+     10          //#define DLL //для обработки elf2dll
+     11          
+     12          extern int onstart(char *exename, char *fname); // Старте приложения. Возвращает 0 или 1 для выхода.
+     13          extern void oncreate(); // Создании окна
+     14          extern void onclose(); // Закрытии окна
+     15          extern void onexit(); // Выходе
+     16          extern void onredraw(); // Перерисовке экрана
+     17          extern int onkey(unsigned char keycode, int pressed); // Нажатии клавиши. Возвращает 0 или 1 для выхода.
+     18          extern char *Title;
+     19          extern const char *errors[]; //строки ошибок для кодов возврата
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     20          char *msgerror=0; //текст ошибки при выходе
+   \                     msgerror:
+   \   00000000                      DS8 4
+     21          
+     22          //#define RAMSCREEN
+     23          //экран в памяти
+     24          //#define FREERAM
+     25          // FREERAM задает нестандартное использ. памяти
+     26          #ifdef FREERAM
+     27            extern int isFreeRam(char *exename, char *fname); //1=использ.FreeRam, 0=нет
+     28            extern void FreeRamInit(char *exename);
+     29            extern void FreeRamExit();
+     30            unsigned char USERAM=0; //использ. ли FreeRam
+     31          #endif
+     32          //#define HIGHCOLOR
+     33          #include "swilib.h"
+     34          //#define NEWSGOLD
+     35          // HIGHCOLOR задает 16 битный режим (RGB 565 по 2 байта на точку экрана screen)
+     36          // или 8 битный режим (RGB 232 по 1 байту на точку)
+     37          #ifdef HIGHCOLOR
+     38            #define scrtype short
+     39            #define scrtypedat 8
+     40          #else
+     41            #define scrtype char
+     42            #define scrtypedat 5
+     43          #endif
+     44          
+
+   \                                 In segment DATA_Z, align 1, align-sorted
+     45          unsigned char SGOLD2=0, C65=0, S75=0, EL71=0;
+   \                     SGOLD2:
+   \   00000000                      DS8 1
+
+   \                                 In segment DATA_Z, align 1, align-sorted
+   \                     C65:
+   \   00000000                      DS8 1
+
+   \                                 In segment DATA_Z, align 1, align-sorted
+   \                     S75:
+   \   00000000                      DS8 1
+
+   \                                 In segment DATA_Z, align 1, align-sorted
+   \                     EL71:
+   \   00000000                      DS8 1
+     46          #ifdef DEBUG
+     47            unsigned char debug=0;
+     48          #endif
+
+   \                                 In segment DATA_I, align 4, align-sorted
+     49          int width=132, height=176, screensize;
+   \                     width:
+   \   00000000                      DS8 4
+   \   00000004                      REQUIRE `?<Initializer for width>`
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     height:
+   \   00000000                      DS8 4
+   \   00000004                      REQUIRE `?<Initializer for height>`
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+   \                     screensize:
+   \   00000000                      DS8 4
+     50          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     51          scrtype *screen=0;//[width*height];
+   \                     screen:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_I, align 4, align-sorted
+     52          unsigned char img[12]={132,176,scrtypedat,0,0,0};
+   \                     img:
+   \   00000000                      DS8 12
+   \   0000000C                      REQUIRE `?<Initializer for img>`
+     53          //IMGHDR img = {132, 176, scrtypedat,0,0};
+     54          
+     55          // Ниже читать уже не надо! :)
+     56          typedef struct
+     57          {
+     58            GUI gui;
+     59            WSHDR *ws1;
+     60            WSHDR *ws2;
+     61            int i1;
+     62          }MAIN_GUI;
+     63          
+     64          typedef struct
+     65          {
+     66            CSM_RAM csm;
+     67            int gui_id;
+     68          }MAIN_CSM;
+     69          
+     70          typedef struct{
+     71          //#ifdef NEWSGOLD
+     72          //  int pid_from;
+     73          //  int msg;
+     74          //#else
+     75            short pid_from;
+     76            short msg;
+     77          //#endif
+     78            int submess;
+     79            void *data0;
+     80            void *data1;
+     81          } GBSS_MSG;
+     82          
+     83          void UpdateCSMname();
+
+   \                                 In segment CODE, align 4, keep-with-next
+     84          void DrawScreen(){
+     85          #ifndef RAMSCREEN
+     86            RECT rc;  DRWOBJ drwobj;
+     87            StoreXYWHtoRECT(&rc,0,EL71?24:0,width,height);
+   \                     DrawScreen:
+   \   00000000   ........           LDR      R0,??DataTable12  ;; EL71
+   \   00000004   10402DE9           PUSH     {R4,LR}
+   \   00000008   2CD04DE2           SUB      SP,SP,#+44
+   \   0000000C   0000D0E5           LDRB     R0,[R0, #+0]
+   \   00000010   0010A0E3           MOV      R1,#+0
+   \   00000014   000050E3           CMP      R0,#+0
+   \   00000018   ........           LDR      R0,??DataTable9  ;; height
+   \   0000001C   1820A013           MOVNE    R2,#+24
+   \   00000020   000090E5           LDR      R0,[R0, #+0]
+   \   00000024   0020A003           MOVEQ    R2,#+0
+   \   00000028   01002DE9           PUSH     {R0}
+   \   0000002C   ........           LDR      R0,??DataTable11  ;; width
+   \   00000030   003090E5           LDR      R3,[R0, #+0]
+   \   00000034   04008DE2           ADD      R0,SP,#+4
+   \   00000038   330100EF           SWI      +307
+     88            SetPropTo_Obj5(&drwobj,&rc,0,(IMGHDR*)&img);
+   \   0000003C   ........           LDR      R3,??DataTable10  ;; img
+   \   00000040   0020A0E3           MOV      R2,#+0
+   \   00000044   04108DE2           ADD      R1,SP,#+4
+   \   00000048   0C008DE2           ADD      R0,SP,#+12
+   \   0000004C   510100EF           SWI      +337
+     89            SetColor(&drwobj,GetPaletteAdrByColorIndex(0),GetPaletteAdrByColorIndex(1));
+   \   00000050   0100A0E3           MOV      R0,#+1
+   \   00000054   2E0100EF           SWI      +302
+   \   00000058   0040A0E1           MOV      R4,R0
+   \   0000005C   0000A0E3           MOV      R0,#+0
+   \   00000060   2E0100EF           SWI      +302
+   \   00000064   0010A0E1           MOV      R1,R0
+   \   00000068   0420A0E1           MOV      R2,R4
+   \   0000006C   0C008DE2           ADD      R0,SP,#+12
+   \   00000070   4B0100EF           SWI      +331
+     90            DrawObject(&drwobj);
+   \   00000074   0C008DE2           ADD      R0,SP,#+12
+   \   00000078   2A0100EF           SWI      +298
+     91          #endif  
+     92          }
+   \   0000007C   30D08DE2           ADD      SP,SP,#+48
+   \   00000080   1080BDE8           POP      {R4,PC}          ;; return
+     93          
+     94          //FAKES delete!!!
+     95          //void *memset(void *mem, int val, int size){ return 0;}
+     96          //void *memcpy(void *to, const void *from, int size){return 0;}
+     97          
+     98          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     99          void method0(MAIN_GUI *data){ onredraw(); DrawScreen();}
+   \                     method0:
+   \   00000000   00402DE9           PUSH     {LR}
+   \   00000004   ........           _BLF     onredraw,??onredraw??rA
+   \   00000008   0040BDE8           POP      {LR}             ;; Pop
+   \   0000000C   ........           B        DrawScreen       ;; tailcall
+
+   \                                 In segment CODE, align 4, keep-with-next
+    100          void method1(MAIN_GUI *data, void *(*malloc_adr)(int)){  oncreate(); data->gui.state=1;}
+   \                     method1:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   ........           _BLF     oncreate,??oncreate??rA
+   \   0000000C   0100A0E3           MOV      R0,#+1
+   \   00000010   0C00C4E5           STRB     R0,[R4, #+12]
+   \   00000014   1080BDE8           POP      {R4,PC}          ;; return
+
+   \                                 In segment CODE, align 4, keep-with-next
+    101          void method2(MAIN_GUI *data, void (*mfree_adr)(void *)){  data->gui.state=0;}
+   \                     method2:
+   \   00000000   0010A0E3           MOV      R1,#+0
+   \   00000004   0C10C0E5           STRB     R1,[R0, #+12]
+   \   00000008   1EFF2FE1           BX       LR               ;; return
+
+   \                                 In segment CODE, align 4, keep-with-next
+    102          void method3(MAIN_GUI *data, void *(*malloc_adr)(int), void (*mfree_adr)(void *)){ 
+   \                     method3:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    103          #ifndef NOIDLETMR  
+    104            DisableIDLETMR();// это чтобы эльф не выкл. через 2 минуты
+   \   00000008   7F0100EF           SWI      +383
+    105          #endif  
+    106            data->gui.state=2;
+   \   0000000C   0200A0E3           MOV      R0,#+2
+   \   00000010   0C00C4E5           STRB     R0,[R4, #+12]
+    107          }
+   \   00000014   1080BDE8           POP      {R4,PC}          ;; return
+
+   \                                 In segment CODE, align 4, keep-with-next
+    108          void method4(MAIN_GUI *data, void (*mfree_adr)(void *)){ if (data->gui.state!=2) return; data->gui.state=1;}
+   \                     method4:
+   \   00000000   DC10D0E1           LDRSB    R1,[R0, #+12]
+   \   00000004   020051E3           CMP      R1,#+2
+   \   00000008   0110A003           MOVEQ    R1,#+1
+   \   0000000C   0C10C005           STRBEQ   R1,[R0, #+12]
+   \   00000010   1EFF2FE1           BX       LR               ;; return
+
+   \                                 In segment CODE, align 4, keep-with-next
+    109          int method5(MAIN_GUI *data, GUI_MSG *msg){
+    110            if(SGOLD2) return onkey(msg->gbsmsg->submess, msg->gbsmsg->msg);
+   \                     method5:
+   \   00000000   040091E5           LDR      R0,[R1, #+4]
+   \   00000004   ........           LDR      R1,??DataTable13  ;; SGOLD2
+   \   00000008   0010D1E5           LDRB     R1,[R1, #+0]
+   \   0000000C   000051E3           CMP      R1,#+0
+   \   00000010   04109015           LDRNE    R1,[R0, #+4]
+   \   00000014   08009015           LDRNE    R0,[R0, #+8]
+    111            return onkey(((GBSS_MSG*)msg->gbsmsg)->submess, ((GBSS_MSG*)msg->gbsmsg)->msg);}
+   \   00000018   F210D001           LDRSHEQ  R1,[R0, #+2]
+   \   0000001C   04009005           LDREQ    R0,[R0, #+4]
+   \   00000020   FF0000E2           AND      R0,R0,#0xFF
+   \   00000024   ........           _BF      onkey,??onkey??rA  ;; tailcall
+
+   \                                 In segment CODE, align 4, keep-with-next
+    112          void method7(MAIN_GUI *data, void (*mfree_adr)(void *)){}//  mfree_adr(data);
+   \                     method7:
+   \   00000000   1EFF2FE1           BX       LR               ;; return
+
+   \                                 In segment CODE, align 4, keep-with-next
+    113          int method8(void){return(0);} // Пустая ф-я
+   \                     method8:
+   \   00000000   0000A0E3           MOV      R0,#+0
+   \   00000004   1EFF2FE1           BX       LR               ;; return
+
+   \                                 In segment CODE, align 4, keep-with-next
+    114          int method9(void){return(0);} // Пустая ф-я
+   \                     method9:
+   \   00000000   0000A0E3           MOV      R0,#+0
+   \   00000004   1EFF2FE1           BX       LR               ;; return
+    115          
+
+   \                                 In segment DATA_C, align 4, align-sorted
+    116          const void * const gui_methods[11]={
+   \                     gui_methods:
+   \   00000000   ............       DC32 method0, method1, method2, method3, method4, method5, 0H, method7
+   \              ............
+   \              ............
+   \              ............
+   \              00000000....
+   \              ....        
+   \   00000020   ............       DC32 method8, method9, 0H
+   \              ....00000000
+    117            (void *)method0,	//Redraw
+    118            (void *)method1,	//Create
+    119            (void *)method2,	//Close
+    120            (void *)method3,	//Focus
+    121            (void *)method4,	//Unfocus
+    122            (void *)method5,	//OnKey
+    123            0,
+    124            (void *)method7,	//Destroy
+    125            (void *)method8,
+    126            (void *)method9,
+    127            0
+    128          };
+    129          
+
+   \                                 In segment DATA_I, align 4, align-sorted
+    130          RECT Canvas={0,0,131,175};
+   \                     Canvas:
+   \   00000000                      DS8 8
+   \   00000008                      REQUIRE `?<Initializer for Canvas>`
+    131          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    132          void maincsm_oncreate(CSM_RAM *data)
+    133          {
+   \                     maincsm_oncreate:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    134            MAIN_GUI *main_gui=(MAIN_GUI *)malloc(sizeof(MAIN_GUI));
+   \   00000008   4000A0E3           MOV      R0,#+64
+   \   0000000C   140000EF           SWI      +20
+   \   00000010   0050A0E1           MOV      R5,R0
+    135            MAIN_CSM*csm=(MAIN_CSM*)data;
+    136            zeromem(main_gui,sizeof(MAIN_GUI));
+   \   00000014   4020A0E3           MOV      R2,#+64
+   \   00000018   0010A0E3           MOV      R1,#+0
+   \   0000001C   ........           _BLF     memset,??memset??rA
+    137           // ustk=malloc(STKSZ); // Выделяем память
+    138           // info_ws=AllocWS(512);
+    139            if(EL71){ Canvas.x2=239; Canvas.y2=319;}//added
+   \   00000020   ........           LDR      R1,??DataTable12  ;; EL71
+   \   00000024   60009FE5           LDR      R0,??maincsm_oncreate_0  ;; Canvas
+   \   00000028   0010D1E5           LDRB     R1,[R1, #+0]
+   \   0000002C   000051E3           CMP      R1,#+0
+   \   00000030   0300000A           BEQ      ??maincsm_oncreate_1
+   \   00000034   EF10A0E3           MOV      R1,#+239
+   \   00000038   B410C0E1           STRH     R1,[R0, #+4]
+   \   0000003C   501081E2           ADD      R1,R1,#+80
+   \   00000040   B610C0E1           STRH     R1,[R0, #+6]
+    140            
+    141            main_gui->gui.canvas=(RECT*)((void *)(&Canvas));
+   \                     ??maincsm_oncreate_1:
+   \   00000044   000085E5           STR      R0,[R5, #+0]
+    142            main_gui->gui.flag30=2;
+   \   00000048   0200A0E3           MOV      R0,#+2
+   \   0000004C   300085E5           STR      R0,[R5, #+48]
+    143            main_gui->gui.methods=(void *)gui_methods;
+   \   00000050   38009FE5           LDR      R0,??maincsm_oncreate_0+0x4  ;; gui_methods
+   \   00000054   040085E5           STR      R0,[R5, #+4]
+    144            main_gui->gui.item_ll.data_mfree=(void (*)(void *))mfree_adr();
+   \   00000058   158000EF           SWI      +32789
+   \   0000005C   200085E5           STR      R0,[R5, #+32]
+    145            csm->csm.state=0;
+   \   00000060   0000A0E3           MOV      R0,#+0
+   \   00000064   100084E5           STR      R0,[R4, #+16]
+    146            csm->csm.unk1=0;
+   \   00000068   140084E5           STR      R0,[R4, #+20]
+    147            csm->gui_id=CreateGUI(main_gui);
+   \   0000006C   0500A0E1           MOV      R0,R5
+   \   00000070   370100EF           SWI      +311
+   \   00000074   280084E5           STR      R0,[R4, #+40]
+    148            UpdateCSMname();
+   \   00000078   14009FE5           LDR      R0,??maincsm_oncreate_0+0x8  ;; Title
+   \   0000007C   001090E5           LDR      R1,[R0, #+0]
+   \   00000080   10009FE5           LDR      R0,??maincsm_oncreate_0+0xC  ;; MAINCSM + 40
+   \   00000084   240100EF           SWI      +292
+    149          }
+   \   00000088   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??maincsm_oncreate_0:
+   \   0000008C   ........           DC32     Canvas
+   \   00000090   ........           DC32     gui_methods
+   \   00000094   ........           DC32     Title
+   \   00000098   ........           DC32     MAINCSM + 40
+    150          
+    151          //#ifdef CPP
+    152          //#define externC extern "C"
+    153          //#else
+    154          //#define externC extern
+    155          //#endif
+    156          externC void *ELF_BEGIN;
+    157          externC void kill_data(void *p, void (*func_p)(void *));
+    158          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    159          void Killer(void){
+   \                     Killer:
+   \   00000000   00402DE9           PUSH     {LR}
+    160            onexit();
+   \   00000004   ........           _BLF     onexit,??onexit??rA
+    161          #ifdef RAMSCREEN
+    162            if(C65)
+    163          #endif
+    164            if(screen) mfree(screen); //screen=0; //moved
+   \   00000008   ........           LDR      R0,??DataTable14  ;; screen
+   \   0000000C   000090E5           LDR      R0,[R0, #+0]
+   \   00000010   000050E3           CMP      R0,#+0
+   \   00000014   0000000A           BEQ      ??Killer_0
+   \   00000018   150000EF           SWI      +21
+    165          #ifdef FREERAM
+    166            ////if(USERAM) 
+    167              FreeRamExit();
+    168          #endif    
+    169          #ifndef DLL    
+    170            kill_data(&ELF_BEGIN,(void (*)(void *))mfree_adr());
+   \                     ??Killer_0:
+   \   0000001C   158000EF           SWI      +32789
+   \   00000020   0010A0E1           MOV      R1,R0
+   \   00000024   04009FE5           LDR      R0,??Killer_1    ;; ELF_BEGIN
+   \   00000028   0040BDE8           POP      {LR}             ;; Pop
+   \   0000002C   ........           _BF      kill_data,??kill_data??rA  ;; tailcall
+   \                     ??Killer_1:
+   \   00000030   ........           DC32     ELF_BEGIN
+    171          #endif  
+    172          //  ((void (*)(void *))(mfree_adr()))(&ELF_BEGIN);
+    173          }
+    174          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    175          void maincsm_onclose(CSM_RAM *csm)
+    176          {
+   \                     maincsm_onclose:
+   \   00000000   00402DE9           PUSH     {LR}
+    177            onclose();
+   \   00000004   ........           _BLF     onclose,??onclose??rA
+    178          #ifdef DLL  
+    179            Killer();
+    180          #else  
+    181            SUBPROC((void *)Killer);
+   \   00000008   ........           LDR      R0,??DataTable15  ;; Killer
+   \   0000000C   710100EF           SWI      +369
+    182          #endif  
+    183          }
+   \   00000010   0080BDE8           POP      {PC}             ;; return
+    184          
+    185          //int maincsm_onmessage(CSM_RAM *data, GBS_MSG *msg){  
+    186          //  MAIN_CSM *csm=(MAIN_CSM*)data;
+    187          //  if ((msg->msg==MSG_GUI_DESTROYED)&&((int)msg->data0==csm->gui_id))
+    188          //     csm->csm.state=-3; 
+    189          //  return(1);
+    190          //}
+    191          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    192          int maincsm_onmessage(CSM_RAM *data, GBS_MSG *ms){  
+    193            MAIN_CSM *csm=(MAIN_CSM*)data;
+    194            if(SGOLD2){
+   \                     maincsm_onmessage:
+   \   00000000   ........           LDR      R3,??DataTable13  ;; SGOLD2
+   \   00000004   0220E0E3           MVN      R2,#+2
+   \   00000008   0030D3E5           LDRB     R3,[R3, #+0]
+   \   0000000C   000053E3           CMP      R3,#+0
+   \   00000010   0600000A           BEQ      ??maincsm_onmessage_0
+    195              if ((ms->msg==MSG_GUI_DESTROYED)&&((int)ms->data0==csm->gui_id))
+   \   00000014   043091E5           LDR      R3,[R1, #+4]
+   \   00000018   0EC0A0E3           MOV      R12,#+14
+   \   0000001C   64CC8CE3           ORR      R12,R12,#0x6400
+   \   00000020   0C0053E1           CMP      R3,R12
+   \   00000024   0800001A           BNE      ??maincsm_onmessage_1
+   \   00000028   0C1091E5           LDR      R1,[R1, #+12]
+   \   0000002C   030000EA           B        ??maincsm_onmessage_2
+    196               csm->csm.state=-3; 
+    197            }else{
+    198              GBSS_MSG *msg=(GBSS_MSG *)ms;
+    199              if ((msg->msg==0x98)&&((int)msg->data0==csm->gui_id))
+   \                     ??maincsm_onmessage_0:
+   \   00000030   F230D1E1           LDRSH    R3,[R1, #+2]
+   \   00000034   980053E3           CMP      R3,#+152
+   \   00000038   0300001A           BNE      ??maincsm_onmessage_1
+   \   0000003C   081091E5           LDR      R1,[R1, #+8]
+   \                     ??maincsm_onmessage_2:
+   \   00000040   283090E5           LDR      R3,[R0, #+40]
+   \   00000044   030051E1           CMP      R1,R3
+    200               csm->csm.state=-3; 
+   \   00000048   10208005           STREQ    R2,[R0, #+16]
+    201            }
+    202            return(1);
+   \                     ??maincsm_onmessage_1:
+   \   0000004C   0100A0E3           MOV      R0,#+1
+   \   00000050   1EFF2FE1           BX       LR               ;; return
+    203          }
+    204          
+    205          
+
+   \                                 In segment DATA_C, align 4, align-sorted
+    206          const int minus11=-11;
+   \                     minus11:
+   \   00000000   F5FFFFFF           DC32 -11
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    207          unsigned short maincsm_name_body[140];
+   \                     maincsm_name_body:
+   \   00000000                      DS8 280
+    208          
+    209          const struct
+    210          {
+    211            CSM_DESC maincsm;
+    212            WSHDR maincsm_name;
+
+   \                                 In segment DATA_C, align 4, align-sorted
+    213          }MAINCSM =
+   \                     MAINCSM:
+   \   00000000   ............       DC32 maincsm_onmessage, maincsm_oncreate, 0, 0, 0, 0, maincsm_onclose
+   \              ....00000000
+   \              000000000000
+   \              000000000000
+   \              ........    
+   \   0000001C   2C0000000100       DC32 44, 1, minus11, maincsm_name_body, 55AACCCCH, 3333AA55H, 0, 139
+   \              0000........
+   \              ........CCCC
+   \              AA5555AA3333
+   \              000000008B00
+   \              0000        
+    214          {
+    215            {
+    216            maincsm_onmessage,
+    217            maincsm_oncreate,
+    218          //#ifdef NEWSGOLD
+    219            0,
+    220            0,
+    221            0,
+    222            0,
+    223          //#endif  
+    224            maincsm_onclose,
+    225            sizeof(MAIN_CSM),
+    226            1,
+    227            &minus11
+    228            },
+    229            {
+    230              maincsm_name_body,
+    231              NAMECSM_MAGIC1,
+    232              NAMECSM_MAGIC2,
+    233              0x0,
+    234              139
+    235            }
+    236          };
+    237          
+    238          inline void UpdateCSMname(){
+    239            wsprintf((WSHDR *)&MAINCSM.maincsm_name,Title);
+    240          }
+    241          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    242          int main(char *exename, char *fname){
+   \                     main:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+    243            char dummy[sizeof(MAIN_CSM)];
+    244            char *s;
+    245            int f;
+    246          #ifdef DEBUG
+    247            if((f=fopen("0:\\ZBin\\DEBUG",A_ReadOnly+A_BIN,P_READ,&err))!=-1){
+    248              debug=1; fclose(f,&err);
+    249            }
+    250          #endif  
+    251            if((f=fopen("0:\\ZBin\\SGOLD",A_ReadOnly+A_BIN,P_READ,&err))!=-1){
+   \   00000004   9CB19FE5           LDR      R11,??main_0     ;; err
+   \   00000008   ........           LDR      R6,??DataTable9  ;; height
+   \   0000000C   ........           LDR      R7,??DataTable10  ;; img
+   \   00000010   ........           LDR      R8,??DataTable11  ;; width
+   \   00000014   ........           LDR      R10,??DataTable12  ;; EL71
+   \   00000018   ........           LDR      R9,??DataTable13  ;; SGOLD2
+   \   0000001C   0040A0E1           MOV      R4,R0
+   \   00000020   84019FE5           LDR      R0,??main_0+0x4  ;; `?<Constant "0:\\\\ZBin\\\\SGOLD">`
+   \   00000024   B0D04DE2           SUB      SP,SP,#+176
+   \   00000028   0150A0E1           MOV      R5,R1
+   \   0000002C   0B30A0E1           MOV      R3,R11
+   \   00000030   8020A0E3           MOV      R2,#+128
+   \   00000034   801CA0E3           MOV      R1,#+32768
+   \   00000038   0A0000EF           SWI      +10
+   \   0000003C   010070E3           CMN      R0,#+1
+   \   00000040   0200000A           BEQ      ??main_1
+    252              fclose(f,&err);
+   \   00000044   0B10A0E1           MOV      R1,R11
+   \   00000048   0D0000EF           SWI      +13
+   \   0000004C   190000EA           B        ??main_2
+    253            }else{
+    254            if((f=ScreenH())<176) C65=1; //C65
+   \                     ??main_1:
+   \   00000050   898100EF           SWI      +33161
+   \   00000054   01B0A0E3           MOV      R11,#+1
+   \   00000058   B00050E3           CMP      R0,#+176
+   \   0000005C   4C019FB5           LDRLT    R0,??main_0+0x8  ;; C65
+   \   00000060   130000BA           BLT      ??main_3
+    255            else if(f>176){ EL71=SGOLD2=1; //EL71
+   \   00000064   B10050E3           CMP      R0,#+177
+   \   00000068   0A0000BA           BLT      ??main_4
+   \   0000006C   00B0C9E5           STRB     R11,[R9, #+0]
+   \   00000070   00B0CAE5           STRB     R11,[R10, #+0]
+    256              *(short*)img=width=240; *(short*)(img+2)=height=296;
+   \   00000074   F000A0E3           MOV      R0,#+240
+   \   00000078   000088E5           STR      R0,[R8, #+0]
+   \   0000007C   B000C7E1           STRH     R0,[R7, #+0]
+   \   00000080   4A0FA0E3           MOV      R0,#+296
+   \   00000084   000086E5           STR      R0,[R6, #+0]
+   \   00000088   B200C7E1           STRH     R0,[R7, #+2]
+    257              img[4]=scrtypedat;
+   \   0000008C   0500A0E3           MOV      R0,#+5
+   \   00000090   0400C7E5           STRB     R0,[R7, #+4]
+   \   00000094   0A0000EA           B        ??main_5
+    258            }else{
+    259              if(s=(char*)malloc(2500000)){
+   \                     ??main_4:
+   \   00000098   14019FE5           LDR      R0,??main_0+0xC  ;; 0x2625a0
+   \   0000009C   140000EF           SWI      +20
+   \   000000A0   000050E3           CMP      R0,#+0
+   \   000000A4   0300000A           BEQ      ??main_2
+    260                mfree(s); S75=SGOLD2=1; //S75 
+   \   000000A8   150000EF           SWI      +21
+   \   000000AC   04019FE5           LDR      R0,??main_0+0x10  ;; S75
+   \   000000B0   00B0C9E5           STRB     R11,[R9, #+0]
+   \                     ??main_3:
+   \   000000B4   00B0C0E5           STRB     R11,[R0, #+0]
+    261              }
+    262            }
+    263            }
+    264          #ifdef FREERAM
+    265            if((f=fopen("0:\\ZBin\\NEWSGOLD",A_ReadOnly+A_BIN,P_READ,&err))!=-1){
+    266              fclose(f,&err);
+    267            }else
+    268              if(USERAM=isFreeRam(exename,fname)) FreeRamInit(exename);//!SGOLD вместо EL
+    269          #endif  
+    270          #ifdef RAMSCREEN
+    271            if(C65){
+    272          #endif
+    273            if(!(*(long*)(img+(EL71?8:4))=(long)(screen=(scrtype*)malloc(screensize=width*height*sizeof(scrtype))))){
+   \                     ??main_2:
+   \   000000B8   0000DAE5           LDRB     R0,[R10, #+0]
+   \   000000BC   000050E3           CMP      R0,#+0
+   \   000000C0   0100000A           BEQ      ??main_6
+   \                     ??main_5:
+   \   000000C4   08A0A0E3           MOV      R10,#+8
+   \   000000C8   000000EA           B        ??main_7
+   \                     ??main_6:
+   \   000000CC   04A0A0E3           MOV      R10,#+4
+   \                     ??main_7:
+   \   000000D0   000098E5           LDR      R0,[R8, #+0]
+   \   000000D4   001096E5           LDR      R1,[R6, #+0]
+   \   000000D8   DC609FE5           LDR      R6,??main_0+0x14  ;; screensize
+   \   000000DC   ........           LDR      R8,??DataTable14  ;; screen
+   \   000000E0   910000E0           MUL      R0,R1,R0
+   \   000000E4   000086E5           STR      R0,[R6, #+0]
+   \   000000E8   140000EF           SWI      +20
+   \   000000EC   000088E5           STR      R0,[R8, #+0]
+   \   000000F0   ........           LDR      R8,??DataTable15  ;; Killer
+   \   000000F4   07008AE7           STR      R0,[R10, +R7]
+   \   000000F8   000050E3           CMP      R0,#+0
+   \   000000FC   0100001A           BNE      ??main_8
+    274              ShowMSG(1,(int)"NoMemory");
+   \   00000100   B8109FE5           LDR      R1,??main_0+0x18  ;; `?<Constant "NoMemory">`
+   \   00000104   110000EA           B        ??main_9
+    275             #ifdef DLL  
+    276               Killer();
+    277             #else  
+    278               SUBPROC((void *)Killer);
+    279             #endif  
+    280              return 0;
+    281            }
+    282          #ifdef RAMSCREEN
+    283            }else screen=RamScreenBuffer()+(EL71?(24*240):0);
+    284          #endif  
+    285            memset(screen,0,screensize);
+   \                     ??main_8:
+   \   00000108   002096E5           LDR      R2,[R6, #+0]
+   \   0000010C   0010A0E3           MOV      R1,#+0
+   \   00000110   ........           _BLF     memset,??memset??rA
+    286            if(f=onstart(exename,fname)){
+   \   00000114   0510A0E1           MOV      R1,R5
+   \   00000118   0400A0E1           MOV      R0,R4
+   \   0000011C   ........           _BLF     onstart,??onstart??rA
+   \   00000120   000050E3           CMP      R0,#+0
+   \   00000124   1000000A           BEQ      ??main_10
+    287              char buf[128];
+    288              sprintf(buf,"%s Ошибка %d", (msgerror)?msgerror:errors[f], f);
+   \   00000128   94109FE5           LDR      R1,??main_0+0x1C  ;; msgerror
+   \   0000012C   0030A0E1           MOV      R3,R0
+   \   00000130   002091E5           LDR      R2,[R1, #+0]
+   \   00000134   000052E3           CMP      R2,#+0
+   \   00000138   88109F05           LDREQ    R1,??main_0+0x20  ;; errors
+   \   0000013C   00219107           LDREQ    R2,[R1, +R0, LSL #+2]
+   \   00000140   84109FE5           LDR      R1,??main_0+0x24  ;; `?<Constant "%s \\316\\370\\350\\341\\352\\340 %d">`
+   \   00000144   04008DE2           ADD      R0,SP,#+4
+   \   00000148   160000EF           SWI      +22
+    289              ShowMSG(1,(int)buf);
+   \   0000014C   04108DE2           ADD      R1,SP,#+4
+   \                     ??main_9:
+   \   00000150   0100A0E3           MOV      R0,#+1
+   \   00000154   480100EF           SWI      +328
+    290          //#ifdef FREERAM
+    291          //    if(USERAM) FreeRamExit();
+    292          //#endif    
+    293            #ifdef DLL  
+    294            Killer();
+    295            #else  
+    296            SUBPROC((void *)Killer);
+   \   00000158   0800A0E1           MOV      R0,R8
+   \   0000015C   710100EF           SWI      +369
+   \   00000160   0000A0E3           MOV      R0,#+0
+   \   00000164   B0D08DE2           ADD      SP,SP,#+176
+   \   00000168   F08FBDE8           POP      {R4-R11,PC}
+    297            #endif  
+    298            }else{
+    299              if(!SGOLD2) memcpy(((char*)&MAINCSM.maincsm)+8,((char*)&MAINCSM.maincsm)+24,sizeof(CSM_DESC)-24);
+   \                     ??main_10:
+   \   0000016C   0000D9E5           LDRB     R0,[R9, #+0]
+   \   00000170   58409FE5           LDR      R4,??main_0+0x28  ;; MAINCSM
+   \   00000174   000050E3           CMP      R0,#+0
+   \   00000178   0300001A           BNE      ??main_11
+   \   0000017C   1020A0E3           MOV      R2,#+16
+   \   00000180   181084E2           ADD      R1,R4,#+24
+   \   00000184   080084E2           ADD      R0,R4,#+8
+   \   00000188   ........           _BLF     memcpy,??memcpy??rA
+    300              CreateCSM(&MAINCSM.maincsm,dummy,0);
+   \                     ??main_11:
+   \   0000018C   0020A0E3           MOV      R2,#+0
+   \   00000190   84108DE2           ADD      R1,SP,#+132
+   \   00000194   0400A0E1           MOV      R0,R4
+   \   00000198   070100EF           SWI      +263
+    301            }
+    302            return 0;
+   \   0000019C   0000A0E3           MOV      R0,#+0
+   \   000001A0   B0D08DE2           ADD      SP,SP,#+176
+   \   000001A4   F08FBDE8           POP      {R4-R11,PC}      ;; return
+   \                     ??main_0:
+   \   000001A8   ........           DC32     err
+   \   000001AC   ........           DC32     `?<Constant "0:\\\\ZBin\\\\SGOLD">`
+   \   000001B0   ........           DC32     C65
+   \   000001B4   A0252600           DC32     0x2625a0
+   \   000001B8   ........           DC32     S75
+   \   000001BC   ........           DC32     screensize
+   \   000001C0   ........           DC32     `?<Constant "NoMemory">`
+   \   000001C4   ........           DC32     msgerror
+   \   000001C8   ........           DC32     errors
+   \   000001CC   ........           DC32     `?<Constant "%s \\316\\370\\350\\341\\352\\340 %d">`
+   \   000001D0   ........           DC32     MAINCSM
+    303          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable9:
+   \   00000000   ........           DC32     height
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable10:
+   \   00000000   ........           DC32     img
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable11:
+   \   00000000   ........           DC32     width
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable12:
+   \   00000000   ........           DC32     EL71
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable13:
+   \   00000000   ........           DC32     SGOLD2
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable14:
+   \   00000000   ........           DC32     screen
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable15:
+   \   00000000   ........           DC32     Killer
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for width>`:
+   \   00000000   84000000           DC32 132
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for height>`:
+   \   00000000   B0000000           DC32 176
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for img>`:
+   \   00000000   84B005000000       DC8 132, 176, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for Canvas>`:
+   \   00000000   000000008300       DC16 0, 0, 131, 175
+   \              AF00        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "0:\\\\ZBin\\\\SGOLD">`:
+   \   00000000   303A5C5A4269       DC8 "0:\\ZBin\\SGOLD"
+   \              6E5C53474F4C
+   \              4400        
+   \   0000000E   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "NoMemory">`:
+   \   00000000   4E6F4D656D6F       DC8 "NoMemory"
+   \              727900      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "%s \\316\\370\\350\\341\\352\\340 %d">`:
+   \   00000000   257320CEF8E8       DC8 "%s \316\370\350\341\352\340 %d"
+   \              E1EAE0202564
+   \              00          
+   \   0000000D   000000             DC8 0, 0, 0
+    304                                           
+
+   Maximum stack usage in bytes:
+
+     Function          CSTACK
+     --------          ------
+     DrawScreen           56
+     Killer                4
+     main                212
+     maincsm_onclose       4
+     maincsm_oncreate     12
+     maincsm_onmessage     0
+     method0               4
+     method1               8
+     method2               0
+     method3               8
+     method4               0
+     method5               4
+     method7               0
+     method8               0
+     method9               0
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     msgerror                          4
+     SGOLD2                            1
+     C65                               1
+     S75                               1
+     EL71                              1
+     width                             4
+     height                            4
+     screensize                        4
+     screen                            4
+     img                              12
+     DrawScreen                      132
+     method0                          16
+     method1                          24
+     method2                          12
+     method3                          24
+     method4                          20
+     method5                          40
+     method7                           4
+     method8                           8
+     method9                           8
+     gui_methods                      44
+     Canvas                            8
+     maincsm_oncreate                156
+     Killer                           52
+     maincsm_onclose                  20
+     maincsm_onmessage                84
+     minus11                           4
+     maincsm_name_body               280
+     MAINCSM                          60
+     main                            468
+     ??DataTable9                      4
+     ??DataTable10                     4
+     ??DataTable11                     4
+     ??DataTable12                     4
+     ??DataTable13                     4
+     ??DataTable14                     4
+     ??DataTable15                     4
+     ?<Initializer for width>          4
+     ?<Initializer for height>         4
+     ?<Initializer for img>           12
+     ?<Initializer for Canvas>         8
+     ?<Constant "0:\\ZBin\\SGOLD">    16
+     ?<Constant "NoMemory">           12
+     ?<Constant "%s \316\370\350\341\352\340 %d">
+                                      16
+      Others                         192
+
+ 
+ 1 264 bytes in segment CODE
+   152 bytes in segment DATA_C
+    28 bytes in segment DATA_I
+    28 bytes in segment DATA_ID
+   296 bytes in segment DATA_Z
+    24 bytes in segment INITTAB
+ 
+ 1 096 bytes of CODE  memory (+ 192 bytes shared)
+   180 bytes of CONST memory
+   324 bytes of DATA  memory
+
+Errors: none
+Warnings: none

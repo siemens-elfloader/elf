@@ -1,0 +1,455 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    31/Mar/2011  22:53:54 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\CBN\Arc\Zlib\ADLER32.C                        #
+#    Command line    =  C:\arm\CBN\Arc\Zlib\ADLER32.C -D NEWSGOLD -D UNPACK  #
+#                       -lC C:\arm\CBN\Z80\Release\List\ -o                  #
+#                       C:\arm\CBN\Z80\Release\Obj\ -s9 --no_unroll          #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --char_is_signed --fpu None -I "C:\arm2\Embedded     #
+#                       Workbench 4.0 Evaluation\ARM\INC\"                   #
+#                       --inline_threshold=2                                 #
+#    List file       =  C:\arm\CBN\Z80\Release\List\ADLER32.lst              #
+#    Object file     =  C:\arm\CBN\Z80\Release\Obj\ADLER32.r79               #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\CBN\Arc\Zlib\ADLER32.C
+      1          /* adler32.c -- compute the Adler-32 checksum of a data stream
+      2           * Copyright (C) 1995-2004 Mark Adler
+      3           * For conditions of distribution and use, see copyright notice in zlib.h
+      4           */
+      5          
+      6          /* @(#) $Id$ */
+      7          
+      8          #define ZLIB_INTERNAL
+      9          #include "zlib.h"
+     10          
+     11          #define BASE 65521UL    /* largest prime smaller than 65536 */
+     12          #define NMAX 5552
+     13          /* NMAX is the largest n such that 255n(n+1)/2 + (n+1)(BASE-1) <= 2^32-1 */
+     14          
+     15          #define DO1(buf,i)  {adler += (buf)[i]; sum2 += adler;}
+     16          #define DO2(buf,i)  DO1(buf,i); DO1(buf,i+1);
+     17          #define DO4(buf,i)  DO2(buf,i); DO2(buf,i+2);
+     18          #define DO8(buf,i)  DO4(buf,i); DO4(buf,i+4);
+     19          #define DO16(buf)   DO8(buf,0); DO8(buf,8);
+     20          
+     21          /* use NO_DIVIDE if your processor does not do division in hardware */
+     22          #ifdef NO_DIVIDE
+     23          #  define MOD(a) \
+     24              do { \
+     25                  if (a >= (BASE << 16)) a -= (BASE << 16); \
+     26                  if (a >= (BASE << 15)) a -= (BASE << 15); \
+     27                  if (a >= (BASE << 14)) a -= (BASE << 14); \
+     28                  if (a >= (BASE << 13)) a -= (BASE << 13); \
+     29                  if (a >= (BASE << 12)) a -= (BASE << 12); \
+     30                  if (a >= (BASE << 11)) a -= (BASE << 11); \
+     31                  if (a >= (BASE << 10)) a -= (BASE << 10); \
+     32                  if (a >= (BASE << 9)) a -= (BASE << 9); \
+     33                  if (a >= (BASE << 8)) a -= (BASE << 8); \
+     34                  if (a >= (BASE << 7)) a -= (BASE << 7); \
+     35                  if (a >= (BASE << 6)) a -= (BASE << 6); \
+     36                  if (a >= (BASE << 5)) a -= (BASE << 5); \
+     37                  if (a >= (BASE << 4)) a -= (BASE << 4); \
+     38                  if (a >= (BASE << 3)) a -= (BASE << 3); \
+     39                  if (a >= (BASE << 2)) a -= (BASE << 2); \
+     40                  if (a >= (BASE << 1)) a -= (BASE << 1); \
+     41                  if (a >= BASE) a -= BASE; \
+     42              } while (0)
+     43          #  define MOD4(a) \
+     44              do { \
+     45                  if (a >= (BASE << 4)) a -= (BASE << 4); \
+     46                  if (a >= (BASE << 3)) a -= (BASE << 3); \
+     47                  if (a >= (BASE << 2)) a -= (BASE << 2); \
+     48                  if (a >= (BASE << 1)) a -= (BASE << 1); \
+     49                  if (a >= BASE) a -= BASE; \
+     50              } while (0)
+     51          #else
+     52          #  define MOD(a) a %= BASE
+     53          #  define MOD4(a) a %= BASE
+     54          #endif
+     55          
+     56          /* ========================================================================= */
+
+   \                                 In segment CODE, align 4, keep-with-next
+     57          uLong ZEXPORT adler32(adler, buf, len)
+     58              uLong adler;
+     59              const Bytef *buf;
+     60              uInt len;
+     61          {
+   \                     adler32:
+   \   00000000   30002DE9           PUSH     {R4,R5}
+     62              unsigned long sum2;
+     63              unsigned n;
+     64          
+     65              /* split Adler-32 into component sums */
+     66              sum2 = (adler >> 16) & 0xffff;
+   \   00000004   2038A0E1           LSR      R3,R0,#+16
+     67              adler &= 0xffff;
+   \   00000008   0008A0E1           LSL      R0,R0,#+16
+   \   0000000C   20C8A0E1           LSR      R12,R0,#+16
+     68          
+     69              /* in case user likes doing a byte at a time, keep it fast */
+     70              if (len == 1) {
+   \   00000010   F000E0E3           MVN      R0,#+240
+   \   00000014   FF0CC0E3           BIC      R0,R0,#0xFF00
+   \   00000018   004060E2           RSB      R4,R0,#+0
+   \   0000001C   010052E3           CMP      R2,#+1
+   \   00000020   0900001A           BNE      ??adler32_0
+     71                  adler += buf[0];
+   \   00000024   0010D1E5           LDRB     R1,[R1, #+0]
+   \   00000028   0CC081E0           ADD      R12,R1,R12
+     72                  if (adler >= BASE)
+   \   0000002C   04005CE1           CMP      R12,R4
+     73                      adler -= BASE;
+   \   00000030   0CC08020           ADDCS    R12,R0,R12
+     74                  sum2 += adler;
+   \   00000034   03308CE0           ADD      R3,R12,R3
+     75                  if (sum2 >= BASE)
+   \   00000038   040053E1           CMP      R3,R4
+     76                      sum2 -= BASE;
+   \   0000003C   03308020           ADDCS    R3,R0,R3
+     77                  return adler | (sum2 << 16);
+   \                     ??adler32_1:
+   \   00000040   03088CE1           ORR      R0,R12,R3, LSL #+16
+   \                     ??adler32_2:
+   \   00000044   3000BDE8           POP      {R4,R5}
+   \   00000048   1EFF2FE1           BX       LR               ;; return
+     78              }
+     79          
+     80              /* initial Adler-32 value (deferred check for len == 1 speed) */
+     81              if (buf == Z_NULL)
+   \                     ??adler32_0:
+   \   0000004C   000051E3           CMP      R1,#+0
+     82                  return 1L;
+   \   00000050   0100A003           MOVEQ    R0,#+1
+   \   00000054   FAFFFF0A           BEQ      ??adler32_2
+     83          
+     84              /* in case short lengths are provided, keep it somewhat fast */
+     85              if (len < 16) {
+   \   00000058   100052E3           CMP      R2,#+16
+   \   0000005C   5400002A           BCS      ??adler32_3
+   \   00000060   020000EA           B        ??adler32_4
+     86                  while (len--) {
+     87                      adler += *buf++;
+   \                     ??adler32_5:
+   \   00000064   ........           LDRB     R5,[R1], #+1
+   \   00000068   0CC085E0           ADD      R12,R5,R12
+     88                      sum2 += adler;
+   \   0000006C   03308CE0           ADD      R3,R12,R3
+     89                  }
+   \                     ??adler32_4:
+   \   00000070   0250A0E1           MOV      R5,R2
+   \   00000074   012045E2           SUB      R2,R5,#+1
+   \   00000078   000055E3           CMP      R5,#+0
+   \   0000007C   F8FFFF1A           BNE      ??adler32_5
+     90                  if (adler >= BASE)
+   \   00000080   04005CE1           CMP      R12,R4
+     91                      adler -= BASE;
+   \   00000084   0CC08020           ADDCS    R12,R0,R12
+     92                  MOD4(sum2);             /* only added so many BASE's */
+     93                  return adler | (sum2 << 16);
+   \   00000088   ........           LDR      R0,??DataTable4  ;; 0xffffffff80078071
+   \   0000008C   901382E0           UMULL    R1,R2,R0,R3
+   \   00000090   A227A0E1           LSR      R2,R2,#+15
+   \   00000094   940202E0           MUL      R2,R4,R2
+   \   00000098   3000BDE8           POP      {R4,R5}
+   \   0000009C   022043E0           SUB      R2,R3,R2
+   \   000000A0   02088CE1           ORR      R0,R12,R2, LSL #+16
+   \   000000A4   1EFF2FE1           BX       LR
+     94              }
+     95          
+     96              /* do length NMAX blocks -- requires just one modulo operation */
+     97              while (len >= NMAX) {
+     98                  len -= NMAX;
+   \                     ??adler32_6:
+   \   000000A8   000060E2           RSB      R0,R0,#+0
+   \   000000AC   022080E0           ADD      R2,R0,R2
+     99                  n = NMAX / 16;          /* NMAX is divisible by 16 */
+   \   000000B0   5B00A0E3           MOV      R0,#+91
+   \   000000B4   400F80E3           ORR      R0,R0,#0x100
+    100                  do {
+    101                      DO16(buf);          /* 16 sums unrolled */
+   \                     ??adler32_7:
+   \   000000B8   ........           LDRB     R4,[R1], #+1
+   \   000000BC   ........           LDRB     R5,[R1], #+1
+    102                      buf += 16;
+    103                  } while (--n);
+   \   000000C0   010050E2           SUBS     R0,R0,#+1
+   \   000000C4   0C4084E0           ADD      R4,R4,R12
+   \   000000C8   033084E0           ADD      R3,R4,R3
+   \   000000CC   044085E0           ADD      R4,R5,R4
+   \   000000D0   ........           LDRB     R5,[R1], #+1
+   \   000000D4   033084E0           ADD      R3,R4,R3
+   \   000000D8   044085E0           ADD      R4,R5,R4
+   \   000000DC   ........           LDRB     R5,[R1], #+1
+   \   000000E0   033084E0           ADD      R3,R4,R3
+   \   000000E4   044085E0           ADD      R4,R5,R4
+   \   000000E8   ........           LDRB     R5,[R1], #+1
+   \   000000EC   033084E0           ADD      R3,R4,R3
+   \   000000F0   044085E0           ADD      R4,R5,R4
+   \   000000F4   ........           LDRB     R5,[R1], #+1
+   \   000000F8   033084E0           ADD      R3,R4,R3
+   \   000000FC   044085E0           ADD      R4,R5,R4
+   \   00000100   ........           LDRB     R5,[R1], #+1
+   \   00000104   033084E0           ADD      R3,R4,R3
+   \   00000108   044085E0           ADD      R4,R5,R4
+   \   0000010C   ........           LDRB     R5,[R1], #+1
+   \   00000110   033084E0           ADD      R3,R4,R3
+   \   00000114   044085E0           ADD      R4,R5,R4
+   \   00000118   ........           LDRB     R5,[R1], #+1
+   \   0000011C   033084E0           ADD      R3,R4,R3
+   \   00000120   044085E0           ADD      R4,R5,R4
+   \   00000124   ........           LDRB     R5,[R1], #+1
+   \   00000128   033084E0           ADD      R3,R4,R3
+   \   0000012C   044085E0           ADD      R4,R5,R4
+   \   00000130   ........           LDRB     R5,[R1], #+1
+   \   00000134   033084E0           ADD      R3,R4,R3
+   \   00000138   044085E0           ADD      R4,R5,R4
+   \   0000013C   ........           LDRB     R5,[R1], #+1
+   \   00000140   033084E0           ADD      R3,R4,R3
+   \   00000144   044085E0           ADD      R4,R5,R4
+   \   00000148   ........           LDRB     R5,[R1], #+1
+   \   0000014C   033084E0           ADD      R3,R4,R3
+   \   00000150   044085E0           ADD      R4,R5,R4
+   \   00000154   ........           LDRB     R5,[R1], #+1
+   \   00000158   033084E0           ADD      R3,R4,R3
+   \   0000015C   044085E0           ADD      R4,R5,R4
+   \   00000160   ........           LDRB     R5,[R1], #+1
+   \   00000164   033084E0           ADD      R3,R4,R3
+   \   00000168   044085E0           ADD      R4,R5,R4
+   \   0000016C   ........           LDRB     R5,[R1], #+1
+   \   00000170   033084E0           ADD      R3,R4,R3
+   \   00000174   04C085E0           ADD      R12,R5,R4
+   \   00000178   03308CE0           ADD      R3,R12,R3
+   \   0000017C   CDFFFF1A           BNE      ??adler32_7
+    104                  MOD(adler);
+   \   00000180   ........           LDR      R0,??DataTable4  ;; 0xffffffff80078071
+   \   00000184   904C85E0           UMULL    R4,R5,R0,R12
+   \   00000188   F140A0E3           MOV      R4,#+241
+   \   0000018C   A557A0E1           LSR      R5,R5,#+15
+   \   00000190   FF4C84E3           ORR      R4,R4,#0xFF00
+   \   00000194   940505E0           MUL      R5,R4,R5
+   \   00000198   05C04CE0           SUB      R12,R12,R5
+    105                  MOD(sum2);
+   \   0000019C   904385E0           UMULL    R4,R5,R0,R3
+   \   000001A0   F140A0E3           MOV      R4,#+241
+   \   000001A4   A557A0E1           LSR      R5,R5,#+15
+   \   000001A8   FF4C84E3           ORR      R4,R4,#0xFF00
+   \   000001AC   940505E0           MUL      R5,R4,R5
+   \   000001B0   053043E0           SUB      R3,R3,R5
+    106              }
+   \                     ??adler32_3:
+   \   000001B4   B000A0E3           MOV      R0,#+176
+   \   000001B8   540D80E3           ORR      R0,R0,#0x1500
+   \   000001BC   000052E1           CMP      R2,R0
+   \   000001C0   B8FFFF2A           BCS      ??adler32_6
+    107          
+    108              /* do remaining bytes (less than NMAX, still just one modulo) */
+    109              if (len) {                  /* avoid modulos if none remaining */
+   \   000001C4   000052E3           CMP      R2,#+0
+   \   000001C8   3100001A           BNE      ??adler32_8
+   \   000001CC   9BFFFFEA           B        ??adler32_1
+    110                  while (len >= 16) {
+    111                      len -= 16;
+    112                      DO16(buf);
+   \                     ??adler32_9:
+   \   000001D0   ........           LDRB     R0,[R1], #+1
+   \   000001D4   ........           LDRB     R4,[R1], #+1
+   \   000001D8   102042E2           SUB      R2,R2,#+16
+   \   000001DC   0C0080E0           ADD      R0,R0,R12
+   \   000001E0   033080E0           ADD      R3,R0,R3
+   \   000001E4   000084E0           ADD      R0,R4,R0
+   \   000001E8   ........           LDRB     R4,[R1], #+1
+   \   000001EC   033080E0           ADD      R3,R0,R3
+   \   000001F0   000084E0           ADD      R0,R4,R0
+   \   000001F4   ........           LDRB     R4,[R1], #+1
+   \   000001F8   033080E0           ADD      R3,R0,R3
+   \   000001FC   000084E0           ADD      R0,R4,R0
+   \   00000200   ........           LDRB     R4,[R1], #+1
+   \   00000204   033080E0           ADD      R3,R0,R3
+   \   00000208   000084E0           ADD      R0,R4,R0
+   \   0000020C   ........           LDRB     R4,[R1], #+1
+   \   00000210   033080E0           ADD      R3,R0,R3
+   \   00000214   000084E0           ADD      R0,R4,R0
+   \   00000218   ........           LDRB     R4,[R1], #+1
+   \   0000021C   033080E0           ADD      R3,R0,R3
+   \   00000220   000084E0           ADD      R0,R4,R0
+   \   00000224   ........           LDRB     R4,[R1], #+1
+   \   00000228   033080E0           ADD      R3,R0,R3
+   \   0000022C   000084E0           ADD      R0,R4,R0
+   \   00000230   ........           LDRB     R4,[R1], #+1
+   \   00000234   033080E0           ADD      R3,R0,R3
+   \   00000238   000084E0           ADD      R0,R4,R0
+   \   0000023C   ........           LDRB     R4,[R1], #+1
+   \   00000240   033080E0           ADD      R3,R0,R3
+   \   00000244   000084E0           ADD      R0,R4,R0
+   \   00000248   ........           LDRB     R4,[R1], #+1
+   \   0000024C   033080E0           ADD      R3,R0,R3
+   \   00000250   000084E0           ADD      R0,R4,R0
+   \   00000254   ........           LDRB     R4,[R1], #+1
+   \   00000258   033080E0           ADD      R3,R0,R3
+   \   0000025C   000084E0           ADD      R0,R4,R0
+   \   00000260   ........           LDRB     R4,[R1], #+1
+   \   00000264   033080E0           ADD      R3,R0,R3
+   \   00000268   000084E0           ADD      R0,R4,R0
+   \   0000026C   ........           LDRB     R4,[R1], #+1
+   \   00000270   033080E0           ADD      R3,R0,R3
+   \   00000274   000084E0           ADD      R0,R4,R0
+   \   00000278   ........           LDRB     R4,[R1], #+1
+   \   0000027C   033080E0           ADD      R3,R0,R3
+   \   00000280   000084E0           ADD      R0,R4,R0
+   \   00000284   ........           LDRB     R4,[R1], #+1
+   \   00000288   033080E0           ADD      R3,R0,R3
+   \   0000028C   00C084E0           ADD      R12,R4,R0
+   \   00000290   03308CE0           ADD      R3,R12,R3
+    113                      buf += 16;
+    114                  }
+   \                     ??adler32_8:
+   \   00000294   100052E3           CMP      R2,#+16
+   \   00000298   CCFFFF2A           BCS      ??adler32_9
+    115                  while (len--) {
+   \                     ??adler32_10:
+   \   0000029C   0200A0E1           MOV      R0,R2
+   \   000002A0   012040E2           SUB      R2,R0,#+1
+   \   000002A4   000050E3           CMP      R0,#+0
+   \   000002A8   0300000A           BEQ      ??adler32_11
+    116                      adler += *buf++;
+   \   000002AC   ........           LDRB     R0,[R1], #+1
+   \   000002B0   0CC080E0           ADD      R12,R0,R12
+    117                      sum2 += adler;
+   \   000002B4   03308CE0           ADD      R3,R12,R3
+   \   000002B8   F7FFFFEA           B        ??adler32_10
+    118                  }
+    119                  MOD(adler);
+   \                     ??adler32_11:
+   \   000002BC   ........           LDR      R0,??DataTable4  ;; 0xffffffff80078071
+   \   000002C0   901C82E0           UMULL    R1,R2,R0,R12
+   \   000002C4   F110A0E3           MOV      R1,#+241
+   \   000002C8   A227A0E1           LSR      R2,R2,#+15
+   \   000002CC   FF1C81E3           ORR      R1,R1,#0xFF00
+   \   000002D0   910202E0           MUL      R2,R1,R2
+   \   000002D4   02C04CE0           SUB      R12,R12,R2
+    120                  MOD(sum2);
+   \   000002D8   901382E0           UMULL    R1,R2,R0,R3
+   \   000002DC   F110A0E3           MOV      R1,#+241
+   \   000002E0   A227A0E1           LSR      R2,R2,#+15
+   \   000002E4   FF1C81E3           ORR      R1,R1,#0xFF00
+   \   000002E8   910202E0           MUL      R2,R1,R2
+   \   000002EC   023043E0           SUB      R3,R3,R2
+   \   000002F0   52FFFFEA           B        ??adler32_1
+    121              }
+    122          
+    123              /* return recombined sums */
+    124              return adler | (sum2 << 16);
+    125          }
+    126          
+    127          /* ========================================================================= */
+
+   \                                 In segment CODE, align 4, keep-with-next
+    128          uLong ZEXPORT adler32_combine(adler1, adler2, len2)
+    129              uLong adler1;
+    130              uLong adler2;
+    131              z_off_t len2;
+    132          {
+   \                     adler32_combine:
+   \   00000000   70002DE9           PUSH     {R4-R6}
+    133              unsigned long sum1;
+    134              unsigned long sum2;
+    135              unsigned rem;
+    136          
+    137              /* the derivation of this formula is left as an exercise for the reader */
+    138              rem = (unsigned)(len2 % BASE);
+   \   00000004   ........           LDR      R4,??DataTable4  ;; 0xffffffff80078071
+    139              sum1 = adler1 & 0xffff;
+    140              sum2 = rem * sum1;
+    141              MOD(sum2);
+    142              sum1 += (adler2 & 0xffff) + BASE - 1;
+   \   00000008   F050A0E3           MOV      R5,#+240
+   \   0000000C   94C283E0           UMULL    R12,R3,R4,R2
+   \   00000010   F1C0A0E3           MOV      R12,#+241
+   \   00000014   A337A0E1           LSR      R3,R3,#+15
+   \   00000018   FFCC8CE3           ORR      R12,R12,#0xFF00
+   \   0000001C   9C0303E0           MUL      R3,R12,R3
+   \   00000020   FF5C85E3           ORR      R5,R5,#0xFF00
+   \   00000024   033042E0           SUB      R3,R2,R3
+   \   00000028   0E208CE3           ORR      R2,R12,#0xE
+   \   0000002C   00C002E0           AND      R12,R2,R0
+   \   00000030   9C0304E0           MUL      R4,R12,R3
+   \   00000034   012002E0           AND      R2,R2,R1
+   \   00000038   022085E0           ADD      R2,R5,R2
+    143              sum2 += ((adler1 >> 16) & 0xffff) + ((adler2 >> 16) & 0xffff) + BASE - rem;
+   \   0000003C   ........           LDR      R5,??DataTable4  ;; 0xffffffff80078071
+   \   00000040   0C2082E0           ADD      R2,R2,R12
+   \   00000044   95C486E0           UMULL    R12,R6,R5,R4
+   \   00000048   F1C0A0E3           MOV      R12,#+241
+   \   0000004C   A667A0E1           LSR      R6,R6,#+15
+   \   00000050   FFCC8CE3           ORR      R12,R12,#0xFF00
+   \   00000054   9C0606E0           MUL      R6,R12,R6
+   \   00000058   066044E0           SUB      R6,R4,R6
+    144              if (sum1 > BASE) sum1 -= BASE;
+    145              if (sum1 > BASE) sum1 -= BASE;
+    146              if (sum2 > (BASE << 1)) sum2 -= (BASE << 1);
+   \   0000005C   48409FE5           LDR      R4,??adler32_combine_0  ;; 0x1ffe3
+   \   00000060   200886E0           ADD      R0,R6,R0, LSR #+16
+   \   00000064   210880E0           ADD      R0,R0,R1, LSR #+16
+   \   00000068   0C10A0E1           MOV      R1,R12
+   \   0000006C   000081E0           ADD      R0,R1,R0
+   \   00000070   030040E0           SUB      R0,R0,R3
+   \   00000074   001061E2           RSB      R1,R1,#+0
+   \   00000078   01308CE2           ADD      R3,R12,#+1
+   \   0000007C   030052E1           CMP      R2,R3
+   \   00000080   02208120           ADDCS    R2,R1,R2
+   \   00000084   030052E1           CMP      R2,R3
+   \   00000088   02208120           ADDCS    R2,R1,R2
+   \   0000008C   040050E1           CMP      R0,R4
+   \   00000090   18409F25           LDRCS    R4,??adler32_combine_0+0x4  ;; 0xfffffffffffe001e
+   \   00000094   00008420           ADDCS    R0,R4,R0
+    147              if (sum2 > BASE) sum2 -= BASE;
+    148              return sum1 | (sum2 << 16);
+   \   00000098   7000BDE8           POP      {R4-R6}
+   \   0000009C   030050E1           CMP      R0,R3
+   \   000000A0   00008120           ADDCS    R0,R1,R0
+   \   000000A4   000882E1           ORR      R0,R2,R0, LSL #+16
+   \   000000A8   1EFF2FE1           BX       LR               ;; return
+   \                     ??adler32_combine_0:
+   \   000000AC   E3FF0100           DC32     0x1ffe3
+   \   000000B0   1E00FEFF           DC32     0xfffffffffffe001e
+    149          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable4:
+   \   00000000   71800780           DC32     0xffffffff80078071
+
+   Maximum stack usage in bytes:
+
+     Function        CSTACK
+     --------        ------
+     adler32             8
+     adler32_combine    12
+
+
+   Segment part sizes:
+
+     Function/Label  Bytes
+     --------------  -----
+     adler32          756
+     adler32_combine  180
+     ??DataTable4       4
+      Others            8
+
+ 
+ 948 bytes in segment CODE
+ 
+ 940 bytes of CODE memory (+ 8 bytes shared)
+
+Errors: none
+Warnings: none

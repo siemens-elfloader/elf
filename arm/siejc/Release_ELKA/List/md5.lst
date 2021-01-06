@@ -1,0 +1,1236 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    23/Feb/2011  16:38:14 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\siejc\md5.c                                   #
+#    Command line    =  C:\arm\siejc\md5.c -D NEWSGOLD -D ELKA --preprocess  #
+#                       C:\arm\siejc\Release_ELKA\List\ -lC                  #
+#                       C:\arm\siejc\Release_ELKA\List\ -o                   #
+#                       C:\arm\siejc\Release_ELKA\Obj\ -s9 --no_unroll       #
+#                       --cpu_mode arm --endian little --cpu ARM926EJ-S      #
+#                       --stack_align 4 --interwork -e --fpu None            #
+#                       --dlib_config "C:\arm2\Embedded Workbench 4.0        #
+#                       Evaluation\ARM\LIB\dl5tpainl8f.h" -I                 #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\siejc\Release_ELKA\List\md5.lst               #
+#    Object file     =  C:\arm\siejc\Release_ELKA\Obj\md5.r79                #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\siejc\md5.c
+      1          /*
+      2            Copyright (C) 1999, 2000, 2002 Aladdin Enterprises.  All rights reserved.
+      3          
+      4            This software is provided 'as-is', without any express or implied
+      5            warranty.  In no event will the authors be held liable for any damages
+      6            arising from the use of this software.
+      7          
+      8            Permission is granted to anyone to use this software for any purpose,
+      9            including commercial applications, and to alter it and redistribute it
+     10            freely, subject to the following restrictions:
+     11          
+     12            1. The origin of this software must not be misrepresented; you must not
+     13               claim that you wrote the original software. If you use this software
+     14               in a product, an acknowledgment in the product documentation would be
+     15               appreciated but is not required.
+     16            2. Altered source versions must be plainly marked as such, and must not be
+     17               misrepresented as being the original software.
+     18            3. This notice may not be removed or altered from any source distribution.
+     19          
+     20            L. Peter Deutsch
+     21            ghost@aladdin.com
+     22          
+     23           */
+     24          /* $Id: md5.c,v 1.6 2002/04/13 19:20:28 lpd Exp $ */
+     25          /*
+     26            Independent implementation of MD5 (RFC 1321).
+     27          
+     28            This code implements the MD5 Algorithm defined in RFC 1321, whose
+     29            text is available at
+     30          	http://www.ietf.org/rfc/rfc1321.txt
+     31            The code is derived from the text of the RFC, including the test suite
+     32            (section A.5) but excluding the rest of Appendix A.  It does not include
+     33            any code or documentation that is identified in the RFC as being
+     34            copyrighted.
+     35          
+     36            The original and principal author of md5.c is L. Peter Deutsch
+     37            <ghost@aladdin.com>.  Other authors are noted in the change history
+     38            that follows (in reverse chronological order):
+     39          
+     40            2002-04-13 lpd Clarified derivation from RFC 1321; now handles byte order
+     41          	either statically or dynamically; added missing #include <string.h>
+     42          	in library.
+     43            2002-03-11 lpd Corrected argument list for main(), and added int return
+     44          	type, in test program and T value program.
+     45            2002-02-21 lpd Added missing #include <stdio.h> in test program.
+     46            2000-07-03 lpd Patched to eliminate warnings about "constant is
+     47          	unsigned in ANSI C, signed in traditional"; made test program
+     48          	self-checking.
+     49            1999-11-04 lpd Edited comments slightly for automatic TOC extraction.
+     50            1999-10-18 lpd Fixed typo in header comment (ansi2knr rather than md5).
+     51            1999-05-03 lpd Original version.
+     52           */
+     53          
+     54          #include "../inc/swilib.h"
+     55          #include "md5.h"
+     56          
+     57          #define ARCH_IS_BIG_ENDIAN 0
+     58          
+     59          #undef BYTE_ORDER	/* 1 = big-endian, -1 = little-endian, 0 = unknown */
+     60          #ifdef ARCH_IS_BIG_ENDIAN
+     61          #  define BYTE_ORDER (ARCH_IS_BIG_ENDIAN ? 1 : -1)
+     62          #else
+     63          #  define BYTE_ORDER 0
+     64          #endif
+     65          
+     66          #define T_MASK ((md5_word_t)~0)
+     67          #define T1 /* 0xd76aa478 */ (T_MASK ^ 0x28955b87)
+     68          #define T2 /* 0xe8c7b756 */ (T_MASK ^ 0x173848a9)
+     69          #define T3    0x242070db
+     70          #define T4 /* 0xc1bdceee */ (T_MASK ^ 0x3e423111)
+     71          #define T5 /* 0xf57c0faf */ (T_MASK ^ 0x0a83f050)
+     72          #define T6    0x4787c62a
+     73          #define T7 /* 0xa8304613 */ (T_MASK ^ 0x57cfb9ec)
+     74          #define T8 /* 0xfd469501 */ (T_MASK ^ 0x02b96afe)
+     75          #define T9    0x698098d8
+     76          #define T10 /* 0x8b44f7af */ (T_MASK ^ 0x74bb0850)
+     77          #define T11 /* 0xffff5bb1 */ (T_MASK ^ 0x0000a44e)
+     78          #define T12 /* 0x895cd7be */ (T_MASK ^ 0x76a32841)
+     79          #define T13    0x6b901122
+     80          #define T14 /* 0xfd987193 */ (T_MASK ^ 0x02678e6c)
+     81          #define T15 /* 0xa679438e */ (T_MASK ^ 0x5986bc71)
+     82          #define T16    0x49b40821
+     83          #define T17 /* 0xf61e2562 */ (T_MASK ^ 0x09e1da9d)
+     84          #define T18 /* 0xc040b340 */ (T_MASK ^ 0x3fbf4cbf)
+     85          #define T19    0x265e5a51
+     86          #define T20 /* 0xe9b6c7aa */ (T_MASK ^ 0x16493855)
+     87          #define T21 /* 0xd62f105d */ (T_MASK ^ 0x29d0efa2)
+     88          #define T22    0x02441453
+     89          #define T23 /* 0xd8a1e681 */ (T_MASK ^ 0x275e197e)
+     90          #define T24 /* 0xe7d3fbc8 */ (T_MASK ^ 0x182c0437)
+     91          #define T25    0x21e1cde6
+     92          #define T26 /* 0xc33707d6 */ (T_MASK ^ 0x3cc8f829)
+     93          #define T27 /* 0xf4d50d87 */ (T_MASK ^ 0x0b2af278)
+     94          #define T28    0x455a14ed
+     95          #define T29 /* 0xa9e3e905 */ (T_MASK ^ 0x561c16fa)
+     96          #define T30 /* 0xfcefa3f8 */ (T_MASK ^ 0x03105c07)
+     97          #define T31    0x676f02d9
+     98          #define T32 /* 0x8d2a4c8a */ (T_MASK ^ 0x72d5b375)
+     99          #define T33 /* 0xfffa3942 */ (T_MASK ^ 0x0005c6bd)
+    100          #define T34 /* 0x8771f681 */ (T_MASK ^ 0x788e097e)
+    101          #define T35    0x6d9d6122
+    102          #define T36 /* 0xfde5380c */ (T_MASK ^ 0x021ac7f3)
+    103          #define T37 /* 0xa4beea44 */ (T_MASK ^ 0x5b4115bb)
+    104          #define T38    0x4bdecfa9
+    105          #define T39 /* 0xf6bb4b60 */ (T_MASK ^ 0x0944b49f)
+    106          #define T40 /* 0xbebfbc70 */ (T_MASK ^ 0x4140438f)
+    107          #define T41    0x289b7ec6
+    108          #define T42 /* 0xeaa127fa */ (T_MASK ^ 0x155ed805)
+    109          #define T43 /* 0xd4ef3085 */ (T_MASK ^ 0x2b10cf7a)
+    110          #define T44    0x04881d05
+    111          #define T45 /* 0xd9d4d039 */ (T_MASK ^ 0x262b2fc6)
+    112          #define T46 /* 0xe6db99e5 */ (T_MASK ^ 0x1924661a)
+    113          #define T47    0x1fa27cf8
+    114          #define T48 /* 0xc4ac5665 */ (T_MASK ^ 0x3b53a99a)
+    115          #define T49 /* 0xf4292244 */ (T_MASK ^ 0x0bd6ddbb)
+    116          #define T50    0x432aff97
+    117          #define T51 /* 0xab9423a7 */ (T_MASK ^ 0x546bdc58)
+    118          #define T52 /* 0xfc93a039 */ (T_MASK ^ 0x036c5fc6)
+    119          #define T53    0x655b59c3
+    120          #define T54 /* 0x8f0ccc92 */ (T_MASK ^ 0x70f3336d)
+    121          #define T55 /* 0xffeff47d */ (T_MASK ^ 0x00100b82)
+    122          #define T56 /* 0x85845dd1 */ (T_MASK ^ 0x7a7ba22e)
+    123          #define T57    0x6fa87e4f
+    124          #define T58 /* 0xfe2ce6e0 */ (T_MASK ^ 0x01d3191f)
+    125          #define T59 /* 0xa3014314 */ (T_MASK ^ 0x5cfebceb)
+    126          #define T60    0x4e0811a1
+    127          #define T61 /* 0xf7537e82 */ (T_MASK ^ 0x08ac817d)
+    128          #define T62 /* 0xbd3af235 */ (T_MASK ^ 0x42c50dca)
+    129          #define T63    0x2ad7d2bb
+    130          #define T64 /* 0xeb86d391 */ (T_MASK ^ 0x14792c6e)
+    131          
+    132          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    133          static void
+    134          md5_process(md5_state_t *pms, const md5_byte_t *data /*[64]*/)
+    135          {
+   \                     md5_process:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   40D04DE2           SUB      SP,SP,#+64
+   \   00000008   0040A0E1           MOV      R4,R0
+    136              md5_word_t
+    137          	a = pms->abcd[0], b = pms->abcd[1],
+   \   0000000C   088094E5           LDR      R8,[R4, #+8]
+   \   00000010   0C5094E5           LDR      R5,[R4, #+12]
+    138          	c = pms->abcd[2], d = pms->abcd[3];
+   \   00000014   106094E5           LDR      R6,[R4, #+16]
+   \   00000018   147094E5           LDR      R7,[R4, #+20]
+    139              md5_word_t t;
+    140          #if BYTE_ORDER > 0
+    141              /* Define storage only for big-endian CPUs. */
+    142              md5_word_t X[16];
+    143          #else
+    144              /* Define storage for little-endian or both types of CPUs. */
+    145              md5_word_t xbuf[16];
+    146              const md5_word_t *X;
+    147          #endif
+    148          
+    149              {
+    150          #if BYTE_ORDER == 0
+    151          	/*
+    152          	 * Determine dynamically whether this is a big-endian or
+    153          	 * little-endian machine, since we can use a more efficient
+    154          	 * algorithm on the latter.
+    155          	 */
+    156          	static const int w = 1;
+    157          
+    158          	if (*((const md5_byte_t *)&w)) /* dynamic little-endian */
+    159          #endif
+    160          #if BYTE_ORDER <= 0		/* little-endian */
+    161          	{
+    162          	    /*
+    163          	     * On little-endian machines, we can process properly aligned
+    164          	     * data without copying it.
+    165          	     */
+    166          	    if (!((data - (const md5_byte_t *)0) & 3)) {
+   \   0000001C   030011E3           TST      R1,#0x3
+   \   00000020   0300000A           BEQ      ??md5_process_0
+    167          		/* data are properly aligned */
+    168          		X = (const md5_word_t *)data;
+    169          	    } else {
+    170          		/* not aligned */
+    171          		memcpy(xbuf, data, 64);
+   \   00000024   4020A0E3           MOV      R2,#+64
+   \   00000028   0D00A0E1           MOV      R0,SP
+   \   0000002C   1E0100EF           SWI      +286
+    172          		X = xbuf;
+   \   00000030   0D10A0E1           MOV      R1,SP
+    173          	    }
+    174          	}
+    175          #endif
+    176          #if BYTE_ORDER == 0
+    177          	else			/* dynamic big-endian */
+    178          #endif
+    179          #if BYTE_ORDER >= 0		/* big-endian */
+    180          	{
+    181          	    /*
+    182          	     * On big-endian machines, we must arrange the bytes in the
+    183          	     * right order.
+    184          	     */
+    185          	    const md5_byte_t *xp = data;
+    186          	    int i;
+    187          
+    188          #  if BYTE_ORDER == 0
+    189          	    X = xbuf;		/* (dynamic only) */
+    190          #  else
+    191          #    define xbuf X		/* (static only) */
+    192          #  endif
+    193          	    for (i = 0; i < 16; ++i, xp += 4)
+    194          		xbuf[i] = xp[0] + (xp[1] << 8) + (xp[2] << 16) + (xp[3] << 24);
+    195          	}
+    196          #endif
+    197              }
+    198          
+    199          #define ROTATE_LEFT(x, n) (((x) << (n)) | ((x) >> (32 - (n))))
+    200          
+    201              /* Round 1. */
+    202              /* Let [abcd k s i] denote the operation
+    203                 a = b + ((a + F(b,c,d) + X[k] + T[i]) <<< s). */
+    204          #define F(x, y, z) (((x) & (y)) | (~(x) & (z)))
+    205          #define SET(a, b, c, d, k, s, Ti)\
+    206            t = a + F(b,c,d) + X[k] + Ti;\
+    207            a = ROTATE_LEFT(t, s) + b
+    208              /* Do the following 16 operations. */
+    209              SET(a, b, c, d,  0,  7,  T1);
+   \                     ??md5_process_0:
+   \   00000034   050006E0           AND      R0,R6,R5
+   \   00000038   0520C7E1           BIC      R2,R7,R5
+   \   0000003C   000082E1           ORR      R0,R2,R0
+   \   00000040   002091E5           LDR      R2,[R1, #+0]
+   \   00000044   080080E0           ADD      R0,R0,R8
+   \   00000048   000082E0           ADD      R0,R2,R0
+   \   0000004C   E4289FE5           LDR      R2,??md5_process_1  ;; 0xffffffffd76aa478
+   \   00000050   000082E0           ADD      R0,R2,R0
+   \   00000054   E00C85E0           ADD      R0,R5,R0, ROR #+25
+    210              SET(d, a, b, c,  1, 12,  T2);
+   \   00000058   002005E0           AND      R2,R5,R0
+   \   0000005C   0030C6E1           BIC      R3,R6,R0
+   \   00000060   022083E1           ORR      R2,R3,R2
+   \   00000064   043091E5           LDR      R3,[R1, #+4]
+   \   00000068   072082E0           ADD      R2,R2,R7
+   \   0000006C   022083E0           ADD      R2,R3,R2
+   \   00000070   C4389FE5           LDR      R3,??md5_process_1+0x4  ;; 0xffffffffe8c7b756
+   \   00000074   022083E0           ADD      R2,R3,R2
+   \   00000078   622A80E0           ADD      R2,R0,R2, ROR #+20
+    211              SET(c, d, a, b,  2, 17,  T3);
+   \   0000007C   023000E0           AND      R3,R0,R2
+   \   00000080   0270C5E1           BIC      R7,R5,R2
+   \   00000084   033087E1           ORR      R3,R7,R3
+   \   00000088   063083E0           ADD      R3,R3,R6
+   \   0000008C   086091E5           LDR      R6,[R1, #+8]
+   \   00000090   033086E0           ADD      R3,R6,R3
+   \   00000094   A4689FE5           LDR      R6,??md5_process_1+0x8  ;; 0x242070db
+   \   00000098   033086E0           ADD      R3,R6,R3
+   \   0000009C   E33782E0           ADD      R3,R2,R3, ROR #+15
+    212              SET(b, c, d, a,  3, 22,  T4);
+   \   000000A0   036002E0           AND      R6,R2,R3
+   \   000000A4   0370C0E1           BIC      R7,R0,R3
+   \   000000A8   066087E1           ORR      R6,R7,R6
+   \   000000AC   055086E0           ADD      R5,R6,R5
+   \   000000B0   0C6091E5           LDR      R6,[R1, #+12]
+   \   000000B4   055086E0           ADD      R5,R6,R5
+   \   000000B8   84689FE5           LDR      R6,??md5_process_1+0xC  ;; 0xffffffffc1bdceee
+   \   000000BC   055086E0           ADD      R5,R6,R5
+   \   000000C0   655583E0           ADD      R5,R3,R5, ROR #+10
+    213              SET(a, b, c, d,  4,  7,  T5);
+   \   000000C4   056003E0           AND      R6,R3,R5
+   \   000000C8   0570C2E1           BIC      R7,R2,R5
+   \   000000CC   066087E1           ORR      R6,R7,R6
+   \   000000D0   000086E0           ADD      R0,R6,R0
+   \   000000D4   106091E5           LDR      R6,[R1, #+16]
+   \   000000D8   000086E0           ADD      R0,R6,R0
+   \   000000DC   64689FE5           LDR      R6,??md5_process_1+0x10  ;; 0xfffffffff57c0faf
+   \   000000E0   000086E0           ADD      R0,R6,R0
+   \   000000E4   E00C85E0           ADD      R0,R5,R0, ROR #+25
+    214              SET(d, a, b, c,  5, 12,  T6);
+   \   000000E8   006005E0           AND      R6,R5,R0
+   \   000000EC   0070C3E1           BIC      R7,R3,R0
+   \   000000F0   066087E1           ORR      R6,R7,R6
+   \   000000F4   022086E0           ADD      R2,R6,R2
+   \   000000F8   146091E5           LDR      R6,[R1, #+20]
+   \   000000FC   022086E0           ADD      R2,R6,R2
+   \   00000100   44689FE5           LDR      R6,??md5_process_1+0x14  ;; 0x4787c62a
+   \   00000104   022086E0           ADD      R2,R6,R2
+   \   00000108   622A80E0           ADD      R2,R0,R2, ROR #+20
+    215              SET(c, d, a, b,  6, 17,  T7);
+   \   0000010C   026000E0           AND      R6,R0,R2
+   \   00000110   0270C5E1           BIC      R7,R5,R2
+   \   00000114   066087E1           ORR      R6,R7,R6
+   \   00000118   033086E0           ADD      R3,R6,R3
+   \   0000011C   186091E5           LDR      R6,[R1, #+24]
+   \   00000120   033086E0           ADD      R3,R6,R3
+   \   00000124   24689FE5           LDR      R6,??md5_process_1+0x18  ;; 0xffffffffa8304613
+   \   00000128   033086E0           ADD      R3,R6,R3
+   \   0000012C   E33782E0           ADD      R3,R2,R3, ROR #+15
+    216              SET(b, c, d, a,  7, 22,  T8);
+   \   00000130   036002E0           AND      R6,R2,R3
+   \   00000134   0370C0E1           BIC      R7,R0,R3
+   \   00000138   066087E1           ORR      R6,R7,R6
+   \   0000013C   055086E0           ADD      R5,R6,R5
+   \   00000140   1C6091E5           LDR      R6,[R1, #+28]
+   \   00000144   055086E0           ADD      R5,R6,R5
+   \   00000148   04689FE5           LDR      R6,??md5_process_1+0x1C  ;; 0xfffffffffd469501
+   \   0000014C   055086E0           ADD      R5,R6,R5
+   \   00000150   655583E0           ADD      R5,R3,R5, ROR #+10
+    217              SET(a, b, c, d,  8,  7,  T9);
+   \   00000154   056003E0           AND      R6,R3,R5
+   \   00000158   0570C2E1           BIC      R7,R2,R5
+   \   0000015C   066087E1           ORR      R6,R7,R6
+   \   00000160   000086E0           ADD      R0,R6,R0
+   \   00000164   206091E5           LDR      R6,[R1, #+32]
+   \   00000168   000086E0           ADD      R0,R6,R0
+   \   0000016C   E4679FE5           LDR      R6,??md5_process_1+0x20  ;; 0x698098d8
+   \   00000170   000086E0           ADD      R0,R6,R0
+   \   00000174   E00C85E0           ADD      R0,R5,R0, ROR #+25
+    218              SET(d, a, b, c,  9, 12, T10);
+   \   00000178   006005E0           AND      R6,R5,R0
+   \   0000017C   0070C3E1           BIC      R7,R3,R0
+   \   00000180   066087E1           ORR      R6,R7,R6
+   \   00000184   022086E0           ADD      R2,R6,R2
+   \   00000188   246091E5           LDR      R6,[R1, #+36]
+   \   0000018C   022086E0           ADD      R2,R6,R2
+   \   00000190   C4679FE5           LDR      R6,??md5_process_1+0x24  ;; 0xffffffff8b44f7af
+   \   00000194   022086E0           ADD      R2,R6,R2
+   \   00000198   622A80E0           ADD      R2,R0,R2, ROR #+20
+    219              SET(c, d, a, b, 10, 17, T11);
+   \   0000019C   026000E0           AND      R6,R0,R2
+   \   000001A0   0270C5E1           BIC      R7,R5,R2
+   \   000001A4   066087E1           ORR      R6,R7,R6
+   \   000001A8   033086E0           ADD      R3,R6,R3
+   \   000001AC   286091E5           LDR      R6,[R1, #+40]
+   \   000001B0   033086E0           ADD      R3,R6,R3
+   \   000001B4   4E60E0E3           MVN      R6,#+78
+   \   000001B8   A46CC6E3           BIC      R6,R6,#0xA400
+   \   000001BC   033086E0           ADD      R3,R6,R3
+   \   000001C0   E33782E0           ADD      R3,R2,R3, ROR #+15
+    220              SET(b, c, d, a, 11, 22, T12);
+   \   000001C4   036002E0           AND      R6,R2,R3
+   \   000001C8   0370C0E1           BIC      R7,R0,R3
+   \   000001CC   066087E1           ORR      R6,R7,R6
+   \   000001D0   055086E0           ADD      R5,R6,R5
+   \   000001D4   2C6091E5           LDR      R6,[R1, #+44]
+   \   000001D8   055086E0           ADD      R5,R6,R5
+   \   000001DC   7C679FE5           LDR      R6,??md5_process_1+0x28  ;; 0xffffffff895cd7be
+   \   000001E0   055086E0           ADD      R5,R6,R5
+   \   000001E4   655583E0           ADD      R5,R3,R5, ROR #+10
+    221              SET(a, b, c, d, 12,  7, T13);
+   \   000001E8   056003E0           AND      R6,R3,R5
+   \   000001EC   0570C2E1           BIC      R7,R2,R5
+   \   000001F0   066087E1           ORR      R6,R7,R6
+   \   000001F4   000086E0           ADD      R0,R6,R0
+   \   000001F8   306091E5           LDR      R6,[R1, #+48]
+   \   000001FC   000086E0           ADD      R0,R6,R0
+   \   00000200   5C679FE5           LDR      R6,??md5_process_1+0x2C  ;; 0x6b901122
+   \   00000204   000086E0           ADD      R0,R6,R0
+   \   00000208   E00C85E0           ADD      R0,R5,R0, ROR #+25
+    222              SET(d, a, b, c, 13, 12, T14);
+   \   0000020C   006005E0           AND      R6,R5,R0
+   \   00000210   0070C3E1           BIC      R7,R3,R0
+   \   00000214   066087E1           ORR      R6,R7,R6
+   \   00000218   022086E0           ADD      R2,R6,R2
+   \   0000021C   346091E5           LDR      R6,[R1, #+52]
+   \   00000220   022086E0           ADD      R2,R6,R2
+   \   00000224   3C679FE5           LDR      R6,??md5_process_1+0x30  ;; 0xfffffffffd987193
+   \   00000228   022086E0           ADD      R2,R6,R2
+   \   0000022C   622A80E0           ADD      R2,R0,R2, ROR #+20
+    223              SET(c, d, a, b, 14, 17, T15);
+   \   00000230   0260E0E1           MVN      R6,R2
+   \   00000234   027000E0           AND      R7,R0,R2
+   \   00000238   068005E0           AND      R8,R5,R6
+   \   0000023C   077088E1           ORR      R7,R8,R7
+   \   00000240   033087E0           ADD      R3,R7,R3
+   \   00000244   387091E5           LDR      R7,[R1, #+56]
+   \   00000248   033087E0           ADD      R3,R7,R3
+   \   0000024C   18779FE5           LDR      R7,??md5_process_1+0x34  ;; 0xffffffffa679438e
+   \   00000250   033087E0           ADD      R3,R7,R3
+   \   00000254   E33782E0           ADD      R3,R2,R3, ROR #+15
+    224              SET(b, c, d, a, 15, 22, T16);
+   \   00000258   0370E0E1           MVN      R7,R3
+   \   0000025C   038002E0           AND      R8,R2,R3
+   \   00000260   07C000E0           AND      R12,R0,R7
+   \   00000264   08808CE1           ORR      R8,R12,R8
+   \   00000268   055088E0           ADD      R5,R8,R5
+   \   0000026C   3C8091E5           LDR      R8,[R1, #+60]
+    225          #undef SET
+    226          
+    227               /* Round 2. */
+    228               /* Let [abcd k s i] denote the operation
+    229                    a = b + ((a + G(b,c,d) + X[k] + T[i]) <<< s). */
+    230          #define G(x, y, z) (((x) & (z)) | ((y) & ~(z)))
+    231          #define SET(a, b, c, d, k, s, Ti)\
+    232            t = a + G(b,c,d) + X[k] + Ti;\
+    233            a = ROTATE_LEFT(t, s) + b
+    234               /* Do the following 16 operations. */
+    235              SET(a, b, c, d,  1,  5, T17);
+   \   00000270   036006E0           AND      R6,R6,R3
+   \   00000274   055088E0           ADD      R5,R8,R5
+   \   00000278   F0869FE5           LDR      R8,??md5_process_1+0x38  ;; 0x49b40821
+   \   0000027C   055088E0           ADD      R5,R8,R5
+   \   00000280   655583E0           ADD      R5,R3,R5, ROR #+10
+   \   00000284   058002E0           AND      R8,R2,R5
+   \   00000288   086086E1           ORR      R6,R6,R8
+   \   0000028C   000086E0           ADD      R0,R6,R0
+   \   00000290   046091E5           LDR      R6,[R1, #+4]
+    236              SET(d, a, b, c,  6,  9, T18);
+   \   00000294   057007E0           AND      R7,R7,R5
+   \   00000298   000086E0           ADD      R0,R6,R0
+   \   0000029C   D0669FE5           LDR      R6,??md5_process_1+0x3C  ;; 0xfffffffff61e2562
+   \   000002A0   000086E0           ADD      R0,R6,R0
+   \   000002A4   E00D85E0           ADD      R0,R5,R0, ROR #+27
+   \   000002A8   006003E0           AND      R6,R3,R0
+   \   000002AC   066087E1           ORR      R6,R7,R6
+   \   000002B0   022086E0           ADD      R2,R6,R2
+   \   000002B4   186091E5           LDR      R6,[R1, #+24]
+    237              SET(c, d, a, b, 11, 14, T19);
+   \   000002B8   0570C0E1           BIC      R7,R0,R5
+   \   000002BC   022086E0           ADD      R2,R6,R2
+   \   000002C0   B0669FE5           LDR      R6,??md5_process_1+0x40  ;; 0xffffffffc040b340
+   \   000002C4   022086E0           ADD      R2,R6,R2
+   \   000002C8   E22B80E0           ADD      R2,R0,R2, ROR #+23
+   \   000002CC   026005E0           AND      R6,R5,R2
+   \   000002D0   066087E1           ORR      R6,R7,R6
+   \   000002D4   033086E0           ADD      R3,R6,R3
+   \   000002D8   2C6091E5           LDR      R6,[R1, #+44]
+    238              SET(b, c, d, a,  0, 20, T20);
+   \   000002DC   0070C2E1           BIC      R7,R2,R0
+   \   000002E0   033086E0           ADD      R3,R6,R3
+   \   000002E4   90669FE5           LDR      R6,??md5_process_1+0x44  ;; 0x265e5a51
+   \   000002E8   033086E0           ADD      R3,R6,R3
+   \   000002EC   633982E0           ADD      R3,R2,R3, ROR #+18
+   \   000002F0   036000E0           AND      R6,R0,R3
+   \   000002F4   066087E1           ORR      R6,R7,R6
+   \   000002F8   055086E0           ADD      R5,R6,R5
+   \   000002FC   006091E5           LDR      R6,[R1, #+0]
+    239              SET(a, b, c, d,  5,  5, T21);
+   \   00000300   0270C3E1           BIC      R7,R3,R2
+   \   00000304   055086E0           ADD      R5,R6,R5
+   \   00000308   70669FE5           LDR      R6,??md5_process_1+0x48  ;; 0xffffffffe9b6c7aa
+   \   0000030C   055086E0           ADD      R5,R6,R5
+   \   00000310   655683E0           ADD      R5,R3,R5, ROR #+12
+   \   00000314   056002E0           AND      R6,R2,R5
+   \   00000318   066087E1           ORR      R6,R7,R6
+   \   0000031C   000086E0           ADD      R0,R6,R0
+   \   00000320   146091E5           LDR      R6,[R1, #+20]
+    240              SET(d, a, b, c, 10,  9, T22);
+   \   00000324   0370C5E1           BIC      R7,R5,R3
+   \   00000328   000086E0           ADD      R0,R6,R0
+   \   0000032C   50669FE5           LDR      R6,??md5_process_1+0x4C  ;; 0xffffffffd62f105d
+   \   00000330   000086E0           ADD      R0,R6,R0
+   \   00000334   E00D85E0           ADD      R0,R5,R0, ROR #+27
+   \   00000338   006003E0           AND      R6,R3,R0
+   \   0000033C   066087E1           ORR      R6,R7,R6
+   \   00000340   022086E0           ADD      R2,R6,R2
+   \   00000344   286091E5           LDR      R6,[R1, #+40]
+    241              SET(c, d, a, b, 15, 14, T23);
+   \   00000348   0570C0E1           BIC      R7,R0,R5
+   \   0000034C   022086E0           ADD      R2,R6,R2
+   \   00000350   30669FE5           LDR      R6,??md5_process_1+0x50  ;; 0x2441453
+   \   00000354   022086E0           ADD      R2,R6,R2
+   \   00000358   E22B80E0           ADD      R2,R0,R2, ROR #+23
+   \   0000035C   026005E0           AND      R6,R5,R2
+   \   00000360   066087E1           ORR      R6,R7,R6
+   \   00000364   033086E0           ADD      R3,R6,R3
+   \   00000368   3C6091E5           LDR      R6,[R1, #+60]
+    242              SET(b, c, d, a,  4, 20, T24);
+   \   0000036C   0070C2E1           BIC      R7,R2,R0
+   \   00000370   033086E0           ADD      R3,R6,R3
+   \   00000374   10669FE5           LDR      R6,??md5_process_1+0x54  ;; 0xffffffffd8a1e681
+   \   00000378   033086E0           ADD      R3,R6,R3
+   \   0000037C   633982E0           ADD      R3,R2,R3, ROR #+18
+   \   00000380   036000E0           AND      R6,R0,R3
+   \   00000384   066087E1           ORR      R6,R7,R6
+   \   00000388   055086E0           ADD      R5,R6,R5
+   \   0000038C   106091E5           LDR      R6,[R1, #+16]
+    243              SET(a, b, c, d,  9,  5, T25);
+   \   00000390   0270C3E1           BIC      R7,R3,R2
+   \   00000394   055086E0           ADD      R5,R6,R5
+   \   00000398   F0659FE5           LDR      R6,??md5_process_1+0x58  ;; 0xffffffffe7d3fbc8
+   \   0000039C   055086E0           ADD      R5,R6,R5
+   \   000003A0   655683E0           ADD      R5,R3,R5, ROR #+12
+   \   000003A4   056002E0           AND      R6,R2,R5
+   \   000003A8   066087E1           ORR      R6,R7,R6
+   \   000003AC   000086E0           ADD      R0,R6,R0
+   \   000003B0   246091E5           LDR      R6,[R1, #+36]
+    244              SET(d, a, b, c, 14,  9, T26);
+   \   000003B4   0370C5E1           BIC      R7,R5,R3
+   \   000003B8   000086E0           ADD      R0,R6,R0
+   \   000003BC   D0659FE5           LDR      R6,??md5_process_1+0x5C  ;; 0x21e1cde6
+   \   000003C0   000086E0           ADD      R0,R6,R0
+   \   000003C4   E00D85E0           ADD      R0,R5,R0, ROR #+27
+   \   000003C8   006003E0           AND      R6,R3,R0
+   \   000003CC   066087E1           ORR      R6,R7,R6
+   \   000003D0   022086E0           ADD      R2,R6,R2
+   \   000003D4   386091E5           LDR      R6,[R1, #+56]
+    245              SET(c, d, a, b,  3, 14, T27);
+   \   000003D8   0570C0E1           BIC      R7,R0,R5
+   \   000003DC   022086E0           ADD      R2,R6,R2
+   \   000003E0   B0659FE5           LDR      R6,??md5_process_1+0x60  ;; 0xffffffffc33707d6
+   \   000003E4   022086E0           ADD      R2,R6,R2
+   \   000003E8   E22B80E0           ADD      R2,R0,R2, ROR #+23
+   \   000003EC   026005E0           AND      R6,R5,R2
+   \   000003F0   066087E1           ORR      R6,R7,R6
+   \   000003F4   033086E0           ADD      R3,R6,R3
+   \   000003F8   0C6091E5           LDR      R6,[R1, #+12]
+    246              SET(b, c, d, a,  8, 20, T28);
+   \   000003FC   0070C2E1           BIC      R7,R2,R0
+   \   00000400   033086E0           ADD      R3,R6,R3
+   \   00000404   90659FE5           LDR      R6,??md5_process_1+0x64  ;; 0xfffffffff4d50d87
+   \   00000408   033086E0           ADD      R3,R6,R3
+   \   0000040C   633982E0           ADD      R3,R2,R3, ROR #+18
+   \   00000410   036000E0           AND      R6,R0,R3
+   \   00000414   066087E1           ORR      R6,R7,R6
+   \   00000418   055086E0           ADD      R5,R6,R5
+   \   0000041C   206091E5           LDR      R6,[R1, #+32]
+   \   00000420   055086E0           ADD      R5,R6,R5
+   \   00000424   74659FE5           LDR      R6,??md5_process_1+0x68  ;; 0x455a14ed
+   \   00000428   055086E0           ADD      R5,R6,R5
+   \   0000042C   655683E0           ADD      R5,R3,R5, ROR #+12
+    247              SET(a, b, c, d, 13,  5, T29);
+   \   00000430   056002E0           AND      R6,R2,R5
+   \   00000434   0270C3E1           BIC      R7,R3,R2
+   \   00000438   066087E1           ORR      R6,R7,R6
+   \   0000043C   000086E0           ADD      R0,R6,R0
+   \   00000440   346091E5           LDR      R6,[R1, #+52]
+    248              SET(d, a, b, c,  2,  9, T30);
+   \   00000444   0370C5E1           BIC      R7,R5,R3
+   \   00000448   000086E0           ADD      R0,R6,R0
+   \   0000044C   50659FE5           LDR      R6,??md5_process_1+0x6C  ;; 0xffffffffa9e3e905
+   \   00000450   000086E0           ADD      R0,R6,R0
+   \   00000454   E00D85E0           ADD      R0,R5,R0, ROR #+27
+   \   00000458   006003E0           AND      R6,R3,R0
+   \   0000045C   066087E1           ORR      R6,R7,R6
+   \   00000460   022086E0           ADD      R2,R6,R2
+   \   00000464   086091E5           LDR      R6,[R1, #+8]
+    249              SET(c, d, a, b,  7, 14, T31);
+   \   00000468   0570C0E1           BIC      R7,R0,R5
+   \   0000046C   022086E0           ADD      R2,R6,R2
+   \   00000470   30659FE5           LDR      R6,??md5_process_1+0x70  ;; 0xfffffffffcefa3f8
+   \   00000474   022086E0           ADD      R2,R6,R2
+   \   00000478   E22B80E0           ADD      R2,R0,R2, ROR #+23
+   \   0000047C   026005E0           AND      R6,R5,R2
+   \   00000480   066087E1           ORR      R6,R7,R6
+   \   00000484   033086E0           ADD      R3,R6,R3
+   \   00000488   1C6091E5           LDR      R6,[R1, #+28]
+    250              SET(b, c, d, a, 12, 20, T32);
+   \   0000048C   0070C2E1           BIC      R7,R2,R0
+   \   00000490   033086E0           ADD      R3,R6,R3
+   \   00000494   10659FE5           LDR      R6,??md5_process_1+0x74  ;; 0x676f02d9
+   \   00000498   033086E0           ADD      R3,R6,R3
+   \   0000049C   633982E0           ADD      R3,R2,R3, ROR #+18
+   \   000004A0   036000E0           AND      R6,R0,R3
+   \   000004A4   066087E1           ORR      R6,R7,R6
+   \   000004A8   055086E0           ADD      R5,R6,R5
+   \   000004AC   306091E5           LDR      R6,[R1, #+48]
+   \   000004B0   055086E0           ADD      R5,R6,R5
+   \   000004B4   F4649FE5           LDR      R6,??md5_process_1+0x78  ;; 0xffffffff8d2a4c8a
+   \   000004B8   055086E0           ADD      R5,R6,R5
+   \   000004BC   655683E0           ADD      R5,R3,R5, ROR #+12
+    251          #undef SET
+    252          
+    253               /* Round 3. */
+    254               /* Let [abcd k s t] denote the operation
+    255                    a = b + ((a + H(b,c,d) + X[k] + T[i]) <<< s). */
+    256          #define H(x, y, z) ((x) ^ (y) ^ (z))
+    257          #define SET(a, b, c, d, k, s, Ti)\
+    258            t = a + H(b,c,d) + X[k] + Ti;\
+    259            a = ROTATE_LEFT(t, s) + b
+    260               /* Do the following 16 operations. */
+    261              SET(a, b, c, d,  5,  4, T33);
+   \   000004C0   056023E0           EOR      R6,R3,R5
+   \   000004C4   066022E0           EOR      R6,R2,R6
+   \   000004C8   000086E0           ADD      R0,R6,R0
+   \   000004CC   146091E5           LDR      R6,[R1, #+20]
+   \   000004D0   000086E0           ADD      R0,R6,R0
+   \   000004D4   D8649FE5           LDR      R6,??md5_process_1+0x7C  ;; 0xfffffffffffa3942
+   \   000004D8   000086E0           ADD      R0,R6,R0
+   \   000004DC   600E85E0           ADD      R0,R5,R0, ROR #+28
+    262              SET(d, a, b, c,  8, 11, T34);
+   \   000004E0   006025E0           EOR      R6,R5,R0
+   \   000004E4   066023E0           EOR      R6,R3,R6
+   \   000004E8   022086E0           ADD      R2,R6,R2
+   \   000004EC   206091E5           LDR      R6,[R1, #+32]
+   \   000004F0   022086E0           ADD      R2,R6,R2
+   \   000004F4   BC649FE5           LDR      R6,??md5_process_1+0x80  ;; 0xffffffff8771f681
+   \   000004F8   022086E0           ADD      R2,R6,R2
+   \   000004FC   E22A80E0           ADD      R2,R0,R2, ROR #+21
+    263              SET(c, d, a, b, 11, 16, T35);
+   \   00000500   026020E0           EOR      R6,R0,R2
+   \   00000504   066025E0           EOR      R6,R5,R6
+   \   00000508   033086E0           ADD      R3,R6,R3
+   \   0000050C   2C6091E5           LDR      R6,[R1, #+44]
+   \   00000510   033086E0           ADD      R3,R6,R3
+   \   00000514   A0649FE5           LDR      R6,??md5_process_1+0x84  ;; 0x6d9d6122
+   \   00000518   033086E0           ADD      R3,R6,R3
+   \   0000051C   633882E0           ADD      R3,R2,R3, ROR #+16
+    264              SET(b, c, d, a, 14, 23, T36);
+   \   00000520   036022E0           EOR      R6,R2,R3
+   \   00000524   066020E0           EOR      R6,R0,R6
+   \   00000528   055086E0           ADD      R5,R6,R5
+   \   0000052C   386091E5           LDR      R6,[R1, #+56]
+   \   00000530   055086E0           ADD      R5,R6,R5
+   \   00000534   84649FE5           LDR      R6,??md5_process_1+0x88  ;; 0xfffffffffde5380c
+   \   00000538   055086E0           ADD      R5,R6,R5
+   \   0000053C   E55483E0           ADD      R5,R3,R5, ROR #+9
+    265              SET(a, b, c, d,  1,  4, T37);
+   \   00000540   056023E0           EOR      R6,R3,R5
+   \   00000544   066022E0           EOR      R6,R2,R6
+   \   00000548   000086E0           ADD      R0,R6,R0
+   \   0000054C   046091E5           LDR      R6,[R1, #+4]
+   \   00000550   000086E0           ADD      R0,R6,R0
+   \   00000554   68649FE5           LDR      R6,??md5_process_1+0x8C  ;; 0xffffffffa4beea44
+   \   00000558   000086E0           ADD      R0,R6,R0
+   \   0000055C   600E85E0           ADD      R0,R5,R0, ROR #+28
+    266              SET(d, a, b, c,  4, 11, T38);
+   \   00000560   006025E0           EOR      R6,R5,R0
+   \   00000564   066023E0           EOR      R6,R3,R6
+   \   00000568   022086E0           ADD      R2,R6,R2
+   \   0000056C   106091E5           LDR      R6,[R1, #+16]
+   \   00000570   022086E0           ADD      R2,R6,R2
+   \   00000574   4C649FE5           LDR      R6,??md5_process_1+0x90  ;; 0x4bdecfa9
+   \   00000578   022086E0           ADD      R2,R6,R2
+   \   0000057C   E22A80E0           ADD      R2,R0,R2, ROR #+21
+    267              SET(c, d, a, b,  7, 16, T39);
+   \   00000580   026020E0           EOR      R6,R0,R2
+   \   00000584   066025E0           EOR      R6,R5,R6
+   \   00000588   033086E0           ADD      R3,R6,R3
+   \   0000058C   1C6091E5           LDR      R6,[R1, #+28]
+   \   00000590   033086E0           ADD      R3,R6,R3
+   \   00000594   30649FE5           LDR      R6,??md5_process_1+0x94  ;; 0xfffffffff6bb4b60
+   \   00000598   033086E0           ADD      R3,R6,R3
+   \   0000059C   633882E0           ADD      R3,R2,R3, ROR #+16
+    268              SET(b, c, d, a, 10, 23, T40);
+   \   000005A0   036022E0           EOR      R6,R2,R3
+   \   000005A4   066020E0           EOR      R6,R0,R6
+   \   000005A8   055086E0           ADD      R5,R6,R5
+   \   000005AC   286091E5           LDR      R6,[R1, #+40]
+   \   000005B0   055086E0           ADD      R5,R6,R5
+   \   000005B4   14649FE5           LDR      R6,??md5_process_1+0x98  ;; 0xffffffffbebfbc70
+   \   000005B8   055086E0           ADD      R5,R6,R5
+   \   000005BC   E55483E0           ADD      R5,R3,R5, ROR #+9
+    269              SET(a, b, c, d, 13,  4, T41);
+   \   000005C0   056023E0           EOR      R6,R3,R5
+   \   000005C4   066022E0           EOR      R6,R2,R6
+   \   000005C8   000086E0           ADD      R0,R6,R0
+   \   000005CC   346091E5           LDR      R6,[R1, #+52]
+   \   000005D0   000086E0           ADD      R0,R6,R0
+   \   000005D4   F8639FE5           LDR      R6,??md5_process_1+0x9C  ;; 0x289b7ec6
+   \   000005D8   000086E0           ADD      R0,R6,R0
+   \   000005DC   600E85E0           ADD      R0,R5,R0, ROR #+28
+    270              SET(d, a, b, c,  0, 11, T42);
+   \   000005E0   006025E0           EOR      R6,R5,R0
+   \   000005E4   066023E0           EOR      R6,R3,R6
+   \   000005E8   022086E0           ADD      R2,R6,R2
+   \   000005EC   006091E5           LDR      R6,[R1, #+0]
+   \   000005F0   022086E0           ADD      R2,R6,R2
+   \   000005F4   DC639FE5           LDR      R6,??md5_process_1+0xA0  ;; 0xffffffffeaa127fa
+   \   000005F8   022086E0           ADD      R2,R6,R2
+   \   000005FC   E22A80E0           ADD      R2,R0,R2, ROR #+21
+    271              SET(c, d, a, b,  3, 16, T43);
+   \   00000600   026020E0           EOR      R6,R0,R2
+   \   00000604   066025E0           EOR      R6,R5,R6
+   \   00000608   033086E0           ADD      R3,R6,R3
+   \   0000060C   0C6091E5           LDR      R6,[R1, #+12]
+   \   00000610   033086E0           ADD      R3,R6,R3
+   \   00000614   C0639FE5           LDR      R6,??md5_process_1+0xA4  ;; 0xffffffffd4ef3085
+   \   00000618   033086E0           ADD      R3,R6,R3
+   \   0000061C   633882E0           ADD      R3,R2,R3, ROR #+16
+    272              SET(b, c, d, a,  6, 23, T44);
+   \   00000620   036022E0           EOR      R6,R2,R3
+   \   00000624   066020E0           EOR      R6,R0,R6
+   \   00000628   055086E0           ADD      R5,R6,R5
+   \   0000062C   186091E5           LDR      R6,[R1, #+24]
+   \   00000630   055086E0           ADD      R5,R6,R5
+   \   00000634   A4639FE5           LDR      R6,??md5_process_1+0xA8  ;; 0x4881d05
+   \   00000638   055086E0           ADD      R5,R6,R5
+   \   0000063C   E55483E0           ADD      R5,R3,R5, ROR #+9
+    273              SET(a, b, c, d,  9,  4, T45);
+   \   00000640   056023E0           EOR      R6,R3,R5
+   \   00000644   066022E0           EOR      R6,R2,R6
+   \   00000648   000086E0           ADD      R0,R6,R0
+   \   0000064C   246091E5           LDR      R6,[R1, #+36]
+   \   00000650   000086E0           ADD      R0,R6,R0
+   \   00000654   88639FE5           LDR      R6,??md5_process_1+0xAC  ;; 0xffffffffd9d4d039
+   \   00000658   000086E0           ADD      R0,R6,R0
+   \   0000065C   600E85E0           ADD      R0,R5,R0, ROR #+28
+    274              SET(d, a, b, c, 12, 11, T46);
+   \   00000660   006025E0           EOR      R6,R5,R0
+   \   00000664   066023E0           EOR      R6,R3,R6
+   \   00000668   022086E0           ADD      R2,R6,R2
+   \   0000066C   306091E5           LDR      R6,[R1, #+48]
+   \   00000670   022086E0           ADD      R2,R6,R2
+   \   00000674   6C639FE5           LDR      R6,??md5_process_1+0xB0  ;; 0xffffffffe6db99e5
+   \   00000678   022086E0           ADD      R2,R6,R2
+   \   0000067C   E22A80E0           ADD      R2,R0,R2, ROR #+21
+    275              SET(c, d, a, b, 15, 16, T47);
+   \   00000680   026020E0           EOR      R6,R0,R2
+   \   00000684   066025E0           EOR      R6,R5,R6
+   \   00000688   033086E0           ADD      R3,R6,R3
+   \   0000068C   3C6091E5           LDR      R6,[R1, #+60]
+   \   00000690   033086E0           ADD      R3,R6,R3
+   \   00000694   50639FE5           LDR      R6,??md5_process_1+0xB4  ;; 0x1fa27cf8
+   \   00000698   033086E0           ADD      R3,R6,R3
+   \   0000069C   633882E0           ADD      R3,R2,R3, ROR #+16
+    276              SET(b, c, d, a,  2, 23, T48);
+   \   000006A0   036022E0           EOR      R6,R2,R3
+   \   000006A4   066020E0           EOR      R6,R0,R6
+   \   000006A8   055086E0           ADD      R5,R6,R5
+   \   000006AC   086091E5           LDR      R6,[R1, #+8]
+   \   000006B0   055086E0           ADD      R5,R6,R5
+   \   000006B4   34639FE5           LDR      R6,??md5_process_1+0xB8  ;; 0xffffffffc4ac5665
+   \   000006B8   055086E0           ADD      R5,R6,R5
+   \   000006BC   E55483E0           ADD      R5,R3,R5, ROR #+9
+    277          #undef SET
+    278          
+    279               /* Round 4. */
+    280               /* Let [abcd k s t] denote the operation
+    281                    a = b + ((a + I(b,c,d) + X[k] + T[i]) <<< s). */
+    282          #define I(x, y, z) ((y) ^ ((x) | ~(z)))
+    283          #define SET(a, b, c, d, k, s, Ti)\
+    284            t = a + I(b,c,d) + X[k] + Ti;\
+    285            a = ROTATE_LEFT(t, s) + b
+    286               /* Do the following 16 operations. */
+    287              SET(a, b, c, d,  0,  6, T49);
+   \   000006C0   0260E0E1           MVN      R6,R2
+   \   000006C4   056086E1           ORR      R6,R6,R5
+   \   000006C8   036026E0           EOR      R6,R6,R3
+   \   000006CC   000086E0           ADD      R0,R6,R0
+   \   000006D0   006091E5           LDR      R6,[R1, #+0]
+   \   000006D4   000086E0           ADD      R0,R6,R0
+   \   000006D8   14639FE5           LDR      R6,??md5_process_1+0xBC  ;; 0xfffffffff4292244
+   \   000006DC   000086E0           ADD      R0,R6,R0
+   \   000006E0   600D85E0           ADD      R0,R5,R0, ROR #+26
+    288              SET(d, a, b, c,  7, 10, T50);
+   \   000006E4   0360E0E1           MVN      R6,R3
+   \   000006E8   006086E1           ORR      R6,R6,R0
+   \   000006EC   056026E0           EOR      R6,R6,R5
+   \   000006F0   022086E0           ADD      R2,R6,R2
+   \   000006F4   1C6091E5           LDR      R6,[R1, #+28]
+   \   000006F8   022086E0           ADD      R2,R6,R2
+   \   000006FC   F4629FE5           LDR      R6,??md5_process_1+0xC0  ;; 0x432aff97
+   \   00000700   022086E0           ADD      R2,R6,R2
+   \   00000704   622B80E0           ADD      R2,R0,R2, ROR #+22
+    289              SET(c, d, a, b, 14, 15, T51);
+   \   00000708   0560E0E1           MVN      R6,R5
+   \   0000070C   026086E1           ORR      R6,R6,R2
+   \   00000710   006026E0           EOR      R6,R6,R0
+   \   00000714   033086E0           ADD      R3,R6,R3
+   \   00000718   386091E5           LDR      R6,[R1, #+56]
+   \   0000071C   033086E0           ADD      R3,R6,R3
+   \   00000720   D4629FE5           LDR      R6,??md5_process_1+0xC4  ;; 0xffffffffab9423a7
+   \   00000724   033086E0           ADD      R3,R6,R3
+   \   00000728   E33882E0           ADD      R3,R2,R3, ROR #+17
+    290              SET(b, c, d, a,  5, 21, T52);
+   \   0000072C   0060E0E1           MVN      R6,R0
+   \   00000730   036086E1           ORR      R6,R6,R3
+   \   00000734   026026E0           EOR      R6,R6,R2
+   \   00000738   055086E0           ADD      R5,R6,R5
+   \   0000073C   146091E5           LDR      R6,[R1, #+20]
+   \   00000740   055086E0           ADD      R5,R6,R5
+   \   00000744   B4629FE5           LDR      R6,??md5_process_1+0xC8  ;; 0xfffffffffc93a039
+   \   00000748   055086E0           ADD      R5,R6,R5
+   \   0000074C   E55583E0           ADD      R5,R3,R5, ROR #+11
+    291              SET(a, b, c, d, 12,  6, T53);
+   \   00000750   0260E0E1           MVN      R6,R2
+   \   00000754   056086E1           ORR      R6,R6,R5
+   \   00000758   036026E0           EOR      R6,R6,R3
+   \   0000075C   000086E0           ADD      R0,R6,R0
+   \   00000760   306091E5           LDR      R6,[R1, #+48]
+   \   00000764   000086E0           ADD      R0,R6,R0
+   \   00000768   94629FE5           LDR      R6,??md5_process_1+0xCC  ;; 0x655b59c3
+   \   0000076C   000086E0           ADD      R0,R6,R0
+   \   00000770   600D85E0           ADD      R0,R5,R0, ROR #+26
+    292              SET(d, a, b, c,  3, 10, T54);
+   \   00000774   0360E0E1           MVN      R6,R3
+   \   00000778   006086E1           ORR      R6,R6,R0
+   \   0000077C   056026E0           EOR      R6,R6,R5
+   \   00000780   022086E0           ADD      R2,R6,R2
+   \   00000784   0C6091E5           LDR      R6,[R1, #+12]
+   \   00000788   022086E0           ADD      R2,R6,R2
+   \   0000078C   74629FE5           LDR      R6,??md5_process_1+0xD0  ;; 0xffffffff8f0ccc92
+   \   00000790   022086E0           ADD      R2,R6,R2
+   \   00000794   622B80E0           ADD      R2,R0,R2, ROR #+22
+    293              SET(c, d, a, b, 10, 15, T55);
+   \   00000798   0560E0E1           MVN      R6,R5
+   \   0000079C   026086E1           ORR      R6,R6,R2
+   \   000007A0   006026E0           EOR      R6,R6,R0
+   \   000007A4   033086E0           ADD      R3,R6,R3
+   \   000007A8   286091E5           LDR      R6,[R1, #+40]
+   \   000007AC   033086E0           ADD      R3,R6,R3
+   \   000007B0   54629FE5           LDR      R6,??md5_process_1+0xD4  ;; 0xffffffffffeff47d
+   \   000007B4   033086E0           ADD      R3,R6,R3
+   \   000007B8   E33882E0           ADD      R3,R2,R3, ROR #+17
+    294              SET(b, c, d, a,  1, 21, T56);
+   \   000007BC   0060E0E1           MVN      R6,R0
+   \   000007C0   036086E1           ORR      R6,R6,R3
+   \   000007C4   026026E0           EOR      R6,R6,R2
+   \   000007C8   055086E0           ADD      R5,R6,R5
+   \   000007CC   046091E5           LDR      R6,[R1, #+4]
+   \   000007D0   055086E0           ADD      R5,R6,R5
+   \   000007D4   34629FE5           LDR      R6,??md5_process_1+0xD8  ;; 0xffffffff85845dd1
+   \   000007D8   055086E0           ADD      R5,R6,R5
+   \   000007DC   E55583E0           ADD      R5,R3,R5, ROR #+11
+    295              SET(a, b, c, d,  8,  6, T57);
+   \   000007E0   0260E0E1           MVN      R6,R2
+   \   000007E4   056086E1           ORR      R6,R6,R5
+   \   000007E8   036026E0           EOR      R6,R6,R3
+   \   000007EC   000086E0           ADD      R0,R6,R0
+   \   000007F0   206091E5           LDR      R6,[R1, #+32]
+   \   000007F4   000086E0           ADD      R0,R6,R0
+   \   000007F8   14629FE5           LDR      R6,??md5_process_1+0xDC  ;; 0x6fa87e4f
+   \   000007FC   000086E0           ADD      R0,R6,R0
+   \   00000800   600D85E0           ADD      R0,R5,R0, ROR #+26
+    296              SET(d, a, b, c, 15, 10, T58);
+   \   00000804   0360E0E1           MVN      R6,R3
+   \   00000808   006086E1           ORR      R6,R6,R0
+   \   0000080C   056026E0           EOR      R6,R6,R5
+   \   00000810   022086E0           ADD      R2,R6,R2
+   \   00000814   3C6091E5           LDR      R6,[R1, #+60]
+   \   00000818   022086E0           ADD      R2,R6,R2
+   \   0000081C   F4619FE5           LDR      R6,??md5_process_1+0xE0  ;; 0xfffffffffe2ce6e0
+   \   00000820   022086E0           ADD      R2,R6,R2
+   \   00000824   622B80E0           ADD      R2,R0,R2, ROR #+22
+    297              SET(c, d, a, b,  6, 15, T59);
+   \   00000828   0560E0E1           MVN      R6,R5
+   \   0000082C   026086E1           ORR      R6,R6,R2
+   \   00000830   006026E0           EOR      R6,R6,R0
+   \   00000834   033086E0           ADD      R3,R6,R3
+   \   00000838   186091E5           LDR      R6,[R1, #+24]
+   \   0000083C   033086E0           ADD      R3,R6,R3
+   \   00000840   D4619FE5           LDR      R6,??md5_process_1+0xE4  ;; 0xffffffffa3014314
+   \   00000844   033086E0           ADD      R3,R6,R3
+   \   00000848   E33882E0           ADD      R3,R2,R3, ROR #+17
+    298              SET(b, c, d, a, 13, 21, T60);
+   \   0000084C   0060E0E1           MVN      R6,R0
+   \   00000850   036086E1           ORR      R6,R6,R3
+   \   00000854   026026E0           EOR      R6,R6,R2
+   \   00000858   055086E0           ADD      R5,R6,R5
+   \   0000085C   346091E5           LDR      R6,[R1, #+52]
+   \   00000860   055086E0           ADD      R5,R6,R5
+   \   00000864   B4619FE5           LDR      R6,??md5_process_1+0xE8  ;; 0x4e0811a1
+   \   00000868   055086E0           ADD      R5,R6,R5
+   \   0000086C   E55583E0           ADD      R5,R3,R5, ROR #+11
+    299              SET(a, b, c, d,  4,  6, T61);
+   \   00000870   0260E0E1           MVN      R6,R2
+   \   00000874   056086E1           ORR      R6,R6,R5
+   \   00000878   036026E0           EOR      R6,R6,R3
+   \   0000087C   000086E0           ADD      R0,R6,R0
+   \   00000880   106091E5           LDR      R6,[R1, #+16]
+   \   00000884   000086E0           ADD      R0,R6,R0
+   \   00000888   94619FE5           LDR      R6,??md5_process_1+0xEC  ;; 0xfffffffff7537e82
+   \   0000088C   000086E0           ADD      R0,R6,R0
+   \   00000890   600D85E0           ADD      R0,R5,R0, ROR #+26
+    300              SET(d, a, b, c, 11, 10, T62);
+   \   00000894   0360E0E1           MVN      R6,R3
+   \   00000898   006086E1           ORR      R6,R6,R0
+   \   0000089C   056026E0           EOR      R6,R6,R5
+   \   000008A0   022086E0           ADD      R2,R6,R2
+   \   000008A4   2C6091E5           LDR      R6,[R1, #+44]
+   \   000008A8   022086E0           ADD      R2,R6,R2
+   \   000008AC   74619FE5           LDR      R6,??md5_process_1+0xF0  ;; 0xffffffffbd3af235
+   \   000008B0   022086E0           ADD      R2,R6,R2
+   \   000008B4   622B80E0           ADD      R2,R0,R2, ROR #+22
+    301              SET(c, d, a, b,  2, 15, T63);
+   \   000008B8   0560E0E1           MVN      R6,R5
+   \   000008BC   026086E1           ORR      R6,R6,R2
+   \   000008C0   006026E0           EOR      R6,R6,R0
+   \   000008C4   033086E0           ADD      R3,R6,R3
+   \   000008C8   086091E5           LDR      R6,[R1, #+8]
+    302              SET(b, c, d, a,  9, 21, T64);
+   \   000008CC   241091E5           LDR      R1,[R1, #+36]
+   \   000008D0   033086E0           ADD      R3,R6,R3
+   \   000008D4   50619FE5           LDR      R6,??md5_process_1+0xF4  ;; 0x2ad7d2bb
+   \   000008D8   033086E0           ADD      R3,R6,R3
+   \   000008DC   E33882E0           ADD      R3,R2,R3, ROR #+17
+   \   000008E0   0060E0E1           MVN      R6,R0
+   \   000008E4   036086E1           ORR      R6,R6,R3
+   \   000008E8   026026E0           EOR      R6,R6,R2
+   \   000008EC   055086E0           ADD      R5,R6,R5
+   \   000008F0   051081E0           ADD      R1,R1,R5
+   \   000008F4   34519FE5           LDR      R5,??md5_process_1+0xF8  ;; 0xffffffffeb86d391
+   \   000008F8   011085E0           ADD      R1,R5,R1
+    303          #undef SET
+    304          
+    305               /* Then perform the following additions. (That is increment each
+    306                  of the four registers by the value it had before this block
+    307                  was started.) */
+    308              pms->abcd[0] += a;
+   \   000008FC   085094E5           LDR      R5,[R4, #+8]
+    309              pms->abcd[1] += b;
+   \   00000900   E11583E0           ADD      R1,R3,R1, ROR #+11
+   \   00000904   050080E0           ADD      R0,R0,R5
+   \   00000908   080084E5           STR      R0,[R4, #+8]
+   \   0000090C   0C0094E5           LDR      R0,[R4, #+12]
+   \   00000910   000081E0           ADD      R0,R1,R0
+   \   00000914   0C0084E5           STR      R0,[R4, #+12]
+    310              pms->abcd[2] += c;
+   \   00000918   100094E5           LDR      R0,[R4, #+16]
+   \   0000091C   000083E0           ADD      R0,R3,R0
+   \   00000920   100084E5           STR      R0,[R4, #+16]
+    311              pms->abcd[3] += d;
+   \   00000924   140094E5           LDR      R0,[R4, #+20]
+   \   00000928   000082E0           ADD      R0,R2,R0
+   \   0000092C   140084E5           STR      R0,[R4, #+20]
+    312          }
+   \   00000930   40D08DE2           ADD      SP,SP,#+64
+   \   00000934   F081BDE8           POP      {R4-R8,PC}       ;; return
+   \                     ??md5_process_1:
+   \   00000938   78A46AD7           DC32     0xffffffffd76aa478
+   \   0000093C   56B7C7E8           DC32     0xffffffffe8c7b756
+   \   00000940   DB702024           DC32     0x242070db
+   \   00000944   EECEBDC1           DC32     0xffffffffc1bdceee
+   \   00000948   AF0F7CF5           DC32     0xfffffffff57c0faf
+   \   0000094C   2AC68747           DC32     0x4787c62a
+   \   00000950   134630A8           DC32     0xffffffffa8304613
+   \   00000954   019546FD           DC32     0xfffffffffd469501
+   \   00000958   D8988069           DC32     0x698098d8
+   \   0000095C   AFF7448B           DC32     0xffffffff8b44f7af
+   \   00000960   BED75C89           DC32     0xffffffff895cd7be
+   \   00000964   2211906B           DC32     0x6b901122
+   \   00000968   937198FD           DC32     0xfffffffffd987193
+   \   0000096C   8E4379A6           DC32     0xffffffffa679438e
+   \   00000970   2108B449           DC32     0x49b40821
+   \   00000974   62251EF6           DC32     0xfffffffff61e2562
+   \   00000978   40B340C0           DC32     0xffffffffc040b340
+   \   0000097C   515A5E26           DC32     0x265e5a51
+   \   00000980   AAC7B6E9           DC32     0xffffffffe9b6c7aa
+   \   00000984   5D102FD6           DC32     0xffffffffd62f105d
+   \   00000988   53144402           DC32     0x2441453
+   \   0000098C   81E6A1D8           DC32     0xffffffffd8a1e681
+   \   00000990   C8FBD3E7           DC32     0xffffffffe7d3fbc8
+   \   00000994   E6CDE121           DC32     0x21e1cde6
+   \   00000998   D60737C3           DC32     0xffffffffc33707d6
+   \   0000099C   870DD5F4           DC32     0xfffffffff4d50d87
+   \   000009A0   ED145A45           DC32     0x455a14ed
+   \   000009A4   05E9E3A9           DC32     0xffffffffa9e3e905
+   \   000009A8   F8A3EFFC           DC32     0xfffffffffcefa3f8
+   \   000009AC   D9026F67           DC32     0x676f02d9
+   \   000009B0   8A4C2A8D           DC32     0xffffffff8d2a4c8a
+   \   000009B4   4239FAFF           DC32     0xfffffffffffa3942
+   \   000009B8   81F67187           DC32     0xffffffff8771f681
+   \   000009BC   22619D6D           DC32     0x6d9d6122
+   \   000009C0   0C38E5FD           DC32     0xfffffffffde5380c
+   \   000009C4   44EABEA4           DC32     0xffffffffa4beea44
+   \   000009C8   A9CFDE4B           DC32     0x4bdecfa9
+   \   000009CC   604BBBF6           DC32     0xfffffffff6bb4b60
+   \   000009D0   70BCBFBE           DC32     0xffffffffbebfbc70
+   \   000009D4   C67E9B28           DC32     0x289b7ec6
+   \   000009D8   FA27A1EA           DC32     0xffffffffeaa127fa
+   \   000009DC   8530EFD4           DC32     0xffffffffd4ef3085
+   \   000009E0   051D8804           DC32     0x4881d05
+   \   000009E4   39D0D4D9           DC32     0xffffffffd9d4d039
+   \   000009E8   E599DBE6           DC32     0xffffffffe6db99e5
+   \   000009EC   F87CA21F           DC32     0x1fa27cf8
+   \   000009F0   6556ACC4           DC32     0xffffffffc4ac5665
+   \   000009F4   442229F4           DC32     0xfffffffff4292244
+   \   000009F8   97FF2A43           DC32     0x432aff97
+   \   000009FC   A72394AB           DC32     0xffffffffab9423a7
+   \   00000A00   39A093FC           DC32     0xfffffffffc93a039
+   \   00000A04   C3595B65           DC32     0x655b59c3
+   \   00000A08   92CC0C8F           DC32     0xffffffff8f0ccc92
+   \   00000A0C   7DF4EFFF           DC32     0xffffffffffeff47d
+   \   00000A10   D15D8485           DC32     0xffffffff85845dd1
+   \   00000A14   4F7EA86F           DC32     0x6fa87e4f
+   \   00000A18   E0E62CFE           DC32     0xfffffffffe2ce6e0
+   \   00000A1C   144301A3           DC32     0xffffffffa3014314
+   \   00000A20   A111084E           DC32     0x4e0811a1
+   \   00000A24   827E53F7           DC32     0xfffffffff7537e82
+   \   00000A28   35F23ABD           DC32     0xffffffffbd3af235
+   \   00000A2C   BBD2D72A           DC32     0x2ad7d2bb
+   \   00000A30   91D386EB           DC32     0xffffffffeb86d391
+    313          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    314          void
+    315          md5_init(md5_state_t *pms)
+    316          {
+    317              pms->count[0] = pms->count[1] = 0;
+   \                     md5_init:
+   \   00000000   0010A0E3           MOV      R1,#+0
+   \   00000004   041080E5           STR      R1,[R0, #+4]
+   \   00000008   001080E5           STR      R1,[R0, #+0]
+    318              pms->abcd[0] = 0x67452301;
+   \   0000000C   1C109FE5           LDR      R1,??md5_init_0  ;; 0x67452301
+   \   00000010   081080E5           STR      R1,[R0, #+8]
+    319              pms->abcd[1] = /*0xefcdab89*/ T_MASK ^ 0x10325476;
+   \   00000014   18109FE5           LDR      R1,??md5_init_0+0x4  ;; 0xffffffffefcdab89
+   \   00000018   0C1080E5           STR      R1,[R0, #+12]
+    320              pms->abcd[2] = /*0x98badcfe*/ T_MASK ^ 0x67452301;
+   \   0000001C   14109FE5           LDR      R1,??md5_init_0+0x8  ;; 0xffffffff98badcfe
+   \   00000020   101080E5           STR      R1,[R0, #+16]
+    321              pms->abcd[3] = 0x10325476;
+   \   00000024   10109FE5           LDR      R1,??md5_init_0+0xC  ;; 0x10325476
+   \   00000028   141080E5           STR      R1,[R0, #+20]
+    322          }
+   \   0000002C   1EFF2FE1           BX       LR               ;; return
+   \                     ??md5_init_0:
+   \   00000030   01234567           DC32     0x67452301
+   \   00000034   89ABCDEF           DC32     0xffffffffefcdab89
+   \   00000038   FEDCBA98           DC32     0xffffffff98badcfe
+   \   0000003C   76543210           DC32     0x10325476
+    323          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    324          void
+    325          md5_append(md5_state_t *pms, const md5_byte_t *data, int nbytes)
+    326          {
+   \                     md5_append:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    327              const md5_byte_t *p = data;
+    328              int left = nbytes;
+    329              int offset = (pms->count[0] >> 3) & 63;
+   \   00000008   000094E5           LDR      R0,[R4, #+0]
+   \   0000000C   0180A0E1           MOV      R8,R1
+   \   00000010   0250A0E1           MOV      R5,R2
+   \   00000014   0560A0E1           MOV      R6,R5
+   \   00000018   3F10A0E3           MOV      R1,#+63
+   \   0000001C   A07101E0           AND      R7,R1,R0, LSR #+3
+    330              md5_word_t nbits = (md5_word_t)(nbytes << 3);
+   \   00000020   8511A0E1           LSL      R1,R5,#+3
+    331          
+    332              if (nbytes <= 0)
+   \   00000024   010055E3           CMP      R5,#+1
+   \   00000028   F081BDB8           POPLT    {R4-R8,PC}
+    333          	return;
+    334          
+    335              /* Update the message length. */
+    336              pms->count[1] += nbytes >> 29;
+   \   0000002C   042094E5           LDR      R2,[R4, #+4]
+    337              pms->count[0] += nbits;
+   \   00000030   000081E0           ADD      R0,R1,R0
+   \   00000034   C52E82E0           ADD      R2,R2,R5, ASR #+29
+   \   00000038   042084E5           STR      R2,[R4, #+4]
+   \   0000003C   000084E5           STR      R0,[R4, #+0]
+    338              if (pms->count[0] < nbits)
+   \   00000040   010050E1           CMP      R0,R1
+    339          	pms->count[1]++;
+   \   00000044   01008232           ADDCC    R0,R2,#+1
+   \   00000048   04008435           STRCC    R0,[R4, #+4]
+    340          
+    341              /* Process an initial partial block. */
+    342              if (offset) {
+   \   0000004C   000057E3           CMP      R7,#+0
+   \   00000050   1500000A           BEQ      ??md5_append_0
+    343          	int copy = (offset + nbytes > 64 ? 64 - offset : nbytes);
+   \   00000054   070085E0           ADD      R0,R5,R7
+   \   00000058   410050E3           CMP      R0,#+65
+   \   0000005C   405067A2           RSBGE    R5,R7,#+64
+    344          
+    345          	memcpy(pms->buf + offset, p, copy);
+   \   00000060   0520A0E1           MOV      R2,R5
+   \   00000064   0810A0E1           MOV      R1,R8
+   \   00000068   040087E0           ADD      R0,R7,R4
+   \   0000006C   180080E2           ADD      R0,R0,#+24
+   \   00000070   1E0100EF           SWI      +286
+    346          	if (offset + copy < 64)
+   \   00000074   070085E0           ADD      R0,R5,R7
+   \   00000078   400050E3           CMP      R0,#+64
+   \   0000007C   F081BDB8           POPLT    {R4-R8,PC}
+    347          	    return;
+    348          	p += copy;
+    349          	left -= copy;
+    350          	md5_process(pms, pms->buf);
+   \   00000080   181084E2           ADD      R1,R4,#+24
+   \   00000084   0400A0E1           MOV      R0,R4
+   \   00000088   ........           BL       md5_process
+   \   0000008C   088085E0           ADD      R8,R5,R8
+   \   00000090   056046E0           SUB      R6,R6,R5
+   \   00000094   040000EA           B        ??md5_append_0
+    351              }
+    352          
+    353              /* Process full blocks. */
+    354              for (; left >= 64; p += 64, left -= 64)
+    355          	md5_process(pms, p);
+   \                     ??md5_append_1:
+   \   00000098   0810A0E1           MOV      R1,R8
+   \   0000009C   0400A0E1           MOV      R0,R4
+   \   000000A0   ........           BL       md5_process
+   \   000000A4   408088E2           ADD      R8,R8,#+64
+   \   000000A8   406046E2           SUB      R6,R6,#+64
+   \                     ??md5_append_0:
+   \   000000AC   400056E3           CMP      R6,#+64
+   \   000000B0   F8FFFFAA           BGE      ??md5_append_1
+    356          
+    357              /* Process a final partial block. */
+    358              if (left)
+   \   000000B4   000056E3           CMP      R6,#+0
+   \   000000B8   F081BD08           POPEQ    {R4-R8,PC}
+    359          	memcpy(pms->buf, p, left);
+   \   000000BC   0620A0E1           MOV      R2,R6
+   \   000000C0   0810A0E1           MOV      R1,R8
+   \   000000C4   180084E2           ADD      R0,R4,#+24
+   \   000000C8   1E0100EF           SWI      +286
+   \   000000CC   F081BDE8           POP      {R4-R8,PC}       ;; return
+    360          }
+    361          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    362          void
+    363          md5_finish(md5_state_t *pms, md5_byte_t digest[16])
+    364          {
+   \                     md5_finish:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   08D04DE2           SUB      SP,SP,#+8
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   0150A0E1           MOV      R5,R1
+    365              static const md5_byte_t pad[64] = {
+    366          	0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    367          	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    368          	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    369          	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    370              };
+    371              md5_byte_t data[8];
+    372              int i;
+    373          
+    374              /* Save the length before padding. */
+    375              for (i = 0; i < 8; ++i)
+   \   00000010   0000A0E3           MOV      R0,#+0
+   \   00000014   0D10A0E1           MOV      R1,SP
+    376          	data[i] = (md5_byte_t)(pms->count[i >> 2] >> ((i & 3) << 3));
+   \                     ??md5_finish_0:
+   \   00000018   4021A0E1           ASR      R2,R0,#+2
+   \   0000001C   022194E7           LDR      R2,[R4, +R2, LSL #+2]
+   \   00000020   033000E2           AND      R3,R0,#0x3
+   \   00000024   8331A0E1           LSL      R3,R3,#+3
+   \   00000028   3223A0E1           LSR      R2,R2,R3
+   \   0000002C   0120C0E7           STRB     R2,[R0, +R1]
+   \   00000030   010080E2           ADD      R0,R0,#+1
+   \   00000034   080050E3           CMP      R0,#+8
+   \   00000038   F6FFFFBA           BLT      ??md5_finish_0
+    377              /* Pad to 56 bytes mod 64. */
+    378              md5_append(pms, pad, ((55 - (pms->count[0] >> 3)) & 63) + 1);
+   \   0000003C   001094E5           LDR      R1,[R4, #+0]
+   \   00000040   3700A0E3           MOV      R0,#+55
+   \   00000044   A10140E0           SUB      R0,R0,R1, LSR #+3
+   \   00000048   4C109FE5           LDR      R1,??md5_finish_1  ;; ??pad
+   \   0000004C   3F0000E2           AND      R0,R0,#0x3F
+   \   00000050   012080E2           ADD      R2,R0,#+1
+   \   00000054   0400A0E1           MOV      R0,R4
+   \   00000058   ........           BL       md5_append
+    379              /* Append the length. */
+    380              md5_append(pms, data, 8);
+   \   0000005C   0820A0E3           MOV      R2,#+8
+   \   00000060   0D10A0E1           MOV      R1,SP
+   \   00000064   0400A0E1           MOV      R0,R4
+   \   00000068   ........           BL       md5_append
+    381              for (i = 0; i < 16; ++i)
+   \   0000006C   0000A0E3           MOV      R0,#+0
+    382          	digest[i] = (md5_byte_t)(pms->abcd[i >> 2] >> ((i & 3) << 3));
+   \                     ??md5_finish_2:
+   \   00000070   4011A0E1           ASR      R1,R0,#+2
+   \   00000074   011184E0           ADD      R1,R4,R1, LSL #+2
+   \   00000078   081091E5           LDR      R1,[R1, #+8]
+   \   0000007C   032000E2           AND      R2,R0,#0x3
+   \   00000080   8221A0E1           LSL      R2,R2,#+3
+   \   00000084   3112A0E1           LSR      R1,R1,R2
+   \   00000088   0510C0E7           STRB     R1,[R0, +R5]
+   \   0000008C   010080E2           ADD      R0,R0,#+1
+   \   00000090   100050E3           CMP      R0,#+16
+   \   00000094   F5FFFFBA           BLT      ??md5_finish_2
+    383          }
+   \   00000098   3380BDE8           POP      {R0,R1,R4,R5,PC}  ;; return
+   \                     ??md5_finish_1:
+   \   0000009C   ........           DC32     ??pad
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     ??pad:
+   \   00000000   800000000000       DC8 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              000000000000
+   \              00000000    
+   \   00000016   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              000000000000
+   \              0000000000  
+   \   0000002D   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              000000000000
+   \              00          
+
+   Maximum stack usage in bytes:
+
+     Function    CSTACK
+     --------    ------
+     md5_append     24
+     md5_finish     20
+     md5_init        0
+     md5_process    88
+
+
+   Segment part sizes:
+
+     Function/Label Bytes
+     -------------- -----
+     md5_process    2612
+     md5_init         64
+     md5_append      208
+     md5_finish      160
+     pad              64
+      Others          16
+
+ 
+ 3 060 bytes in segment CODE
+    64 bytes in segment DATA_C
+ 
+ 3 044 bytes of CODE  memory (+ 16 bytes shared)
+    64 bytes of CONST memory
+
+Errors: none
+Warnings: none

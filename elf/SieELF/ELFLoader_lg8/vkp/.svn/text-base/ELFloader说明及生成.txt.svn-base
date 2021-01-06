@@ -1,0 +1,129 @@
+这个目录下的根目录里为部分65原版本的ELFLoader，暂时保留；
+
+机型目录下是去掉了ESI部分重新找一段空白地址的麻烦(by jpg001)，功能上与根目录下的ELFLoader一致！
+SWILIB.VKP在对应机型目录下
+
+////////////////////////////////////////////////////////////////
+;2007-10-05
+;binghelingxi
+;继续修改ESI.asm
+;加入如下修改，彻底摆脱中间跳转，测试成功，并去掉上次jpg001所做的修改
+
+#ifdef SGOLD_CN
+ESI_PATCH:
+        PUSH    {R4,LR}
+	      MOV	R3,R0,LSR #28
+	      CMP	R3,#0x0A
+        LDMEQFD SP!,{R4,LR}
+        BEQ     ESI 
+#else
+        ESI_PATCH:
+	      MOV	R3,R0,LSR #28
+	      CMP	R3,#0x0A
+        LDMEQFD SP!,{R4,LR}
+        BEQ     ESI 
+#endif
+
+****************************************************************
+
+作者: jpg001
+日期: 2007年9月14日
+信息:
+
+写了个批处理，直接得到elfloader，一并清除各机型目录下的临时文件。
+所以将各机型的资源目录一起转移到vkp下，新的elfloader也会直接生成在vkp\机型下。
+
+
+具体做法是，各机型直接改写GetELFPackbyyourself.bat然后运行即可：
+
+
+ELFPack.bat S6Cv53 J:\mobilephone\fullflash\S6CV53.bin
+
+
+如例，改写机型（请和目录名对应）和fubu路径即可。
+
+*********************************************************************************
+以下内容为旧，不感兴趣可以不看。
+*********************************************************************************
+
+*********************************************************************************
+
+/*
+ESI.asm的sgold部分PATCH_ESI的修改（暂时x6C可用，SK6C和sgold x7C尚未测试）。
+
+可以一次编译成功，再无需手动修改ESI跳转设定。
+
+除SK6C外的x6C，在
+选项-assembler-预处理程序-定义符号：SGOLDCN
+
+*****************************************************************
+包括SK6C和sgold 的x7C，原定操作步骤，稍有异，尚未测试：
+定义符号 SGOLDCN 和 SGOLDx7C；
+
+修改 机型.xcl 文件，增加定义（例C7Cv22）：
+-Z(CODE)PATCH_ESI_Hook=A075A008-A075A00F
+
+修改 rets_机型.asm 文件，增加定义（例C7Cv22）：
+defadr	PATCH_ESI_Hook1,0xA09A5350
+*/
+
+**************************************************
+#ifdef NEWSGOLD
+……
+……
+……
+
+#else      
+; ==============================================   
+#ifdef  SGOLDCN
+#ifdef  SGOLDX7C
+        RSEG	PATCH_ESI:DATA
+        EXTERN  PATCH_ESI_Hook1
+        CODE16
+        BLX      PATCH_ESI_Hook1
+        NOP
+        NOP
+	RSEG	PATCH_ESI_Hook
+	LDR	R3,=ESI_PATCH
+	BX	R3
+#else
+        RSEG	PATCH_ESI:DATA
+        CODE16
+        BL      ESI_Hook
+        NOP
+        NOP
+	RSEG	CODE:CODE:NOROOT
+ESI_Hook
+	LDR	R3,=ESI_PATCH
+	BX	R3
+#endif
+#else
+        RSEG	PATCH_ESI:CODE:ROOT
+	CODE16
+	LDR	R3,=ESI_PATCH
+	BX	R3
+#endif
+; ----------------------------------------------  
+……
+……
+…… 
+**************************************************
+
+
+//ESI.asm此部分原始内容为：
+#ifdef NEWSGOLD
+……
+……
+……
+
+#else 
+; ==============================================   
+	RSEG	PATCH_ESI:CODE:ROOT
+	CODE16
+	LDR	R3,=ESI_PATCH
+	BX	R3
+        
+; ----------------------------------------------  
+……
+……
+……  

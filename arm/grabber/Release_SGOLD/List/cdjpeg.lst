@@ -1,0 +1,296 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    19/Jan/2011  13:20:40 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\grabber\jpeg-7\cdjpeg.c                       #
+#    Command line    =  C:\arm\grabber\jpeg-7\cdjpeg.c -lC                   #
+#                       C:\arm\grabber\Release_SGOLD\List\ -o                #
+#                       C:\arm\grabber\Release_SGOLD\Obj\ -s9 --no_unroll    #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\grabber\Release_SGOLD\List\cdjpeg.lst         #
+#    Object file     =  C:\arm\grabber\Release_SGOLD\Obj\cdjpeg.r79          #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\grabber\jpeg-7\cdjpeg.c
+      1          /*
+      2           * cdjpeg.c
+      3           *
+      4           * Copyright (C) 1991-1997, Thomas G. Lane.
+      5           * This file is part of the Independent JPEG Group's software.
+      6           * For conditions of distribution and use, see the accompanying README file.
+      7           *
+      8           * This file contains common support routines used by the IJG application
+      9           * programs (cjpeg, djpeg, jpegtran).
+     10           */
+     11          
+     12          #include "cdjpeg.h"		/* Common decls for cjpeg/djpeg applications */
+     13          //#include <ctype.h>		/* to declare isupper(), tolower() */
+     14          #ifdef NEED_SIGNAL_CATCHER
+     15          //#include <signal.h>		/* to declare signal() */
+     16          #endif
+     17          #ifdef USE_SETMODE
+     18          //#include <fcntl.h>		/* to declare setmode()'s parameter macros */
+     19          /* If you have setmode() but not <io.h>, just delete this line: */
+     20          //#include <io.h>			/* to declare setmode() */
+     21          #endif
+     22          
+     23          
+     24          inline int tolower(int toLower)
+     25          {
+     26              if ((toLower >= 'A') && (toLower <= 'Z')) return (toLower + 0x20);
+     27              return toLower;
+     28          }
+     29          #define UC(c)   ((unsigned char)c)
+     30          inline char isupper (unsigned char c)
+     31          {
+     32              if ( c >= UC('A') && c <= UC('Z') )
+     33                  return 1;
+     34              return 0;
+     35          }
+     36          
+     37          /*
+     38           * Signal catcher to ensure that temporary files are removed before aborting.
+     39           * NB: for Amiga Manx C this is actually a global routine named _abort();
+     40           * we put "#define signal_catcher _abort" in jconfig.h.  Talk about bogus...
+     41           */
+     42          
+     43          #ifdef NEED_SIGNAL_CATCHER
+     44          
+     45          static j_common_ptr sig_cinfo;
+     46          
+     47          void				/* must be global for Manx C */
+     48          signal_catcher (int signum)
+     49          {
+     50            if (sig_cinfo != NULL) {
+     51              if (sig_cinfo->err != NULL) /* turn off trace output */
+     52                sig_cinfo->err->trace_level = 0;
+     53              jpeg_destroy(sig_cinfo);	/* clean up memory allocation & temp files */
+     54            }
+     55            exit(EXIT_FAILURE);
+     56          }
+     57          
+     58          
+     59          GLOBAL(void)
+     60          enable_signal_catcher (j_common_ptr cinfo)
+     61          {
+     62            sig_cinfo = cinfo;
+     63          #ifdef SIGINT			/* not all systems have SIGINT */
+     64            signal(SIGINT, signal_catcher);
+     65          #endif
+     66          #ifdef SIGTERM			/* not all systems have SIGTERM */
+     67            signal(SIGTERM, signal_catcher);
+     68          #endif
+     69          }
+     70          
+     71          #endif
+     72          
+     73          
+     74          /*
+     75           * Optional progress monitor: display a percent-done figure on stderr.
+     76           */
+     77          
+     78          #ifdef PROGRESS_REPORT
+     79          
+     80          METHODDEF(void)
+     81          progress_monitor (j_common_ptr cinfo)
+     82          {
+     83            cd_progress_ptr prog = (cd_progress_ptr) cinfo->progress;
+     84            int total_passes = prog->pub.total_passes + prog->total_extra_passes;
+     85            int percent_done = (int) (prog->pub.pass_counter*100L/prog->pub.pass_limit);
+     86          
+     87            if (percent_done != prog->percent_done) {
+     88              prog->percent_done = percent_done;
+     89              if (total_passes > 1) {
+     90                fprintf(stderr, "\rPass %d/%d: %3d%% ",
+     91          	      prog->pub.completed_passes + prog->completed_extra_passes + 1,
+     92          	      total_passes, percent_done);
+     93              } else {
+     94                fprintf(stderr, "\r %3d%% ", percent_done);
+     95              }
+     96              fflush(stderr);
+     97            }
+     98          }
+     99          
+    100          
+    101          GLOBAL(void)
+    102          start_progress_monitor (j_common_ptr cinfo, cd_progress_ptr progress)
+    103          {
+    104            /* Enable progress display, unless trace output is on */
+    105            if (cinfo->err->trace_level == 0) {
+    106              progress->pub.progress_monitor = progress_monitor;
+    107              progress->completed_extra_passes = 0;
+    108              progress->total_extra_passes = 0;
+    109              progress->percent_done = -1;
+    110              cinfo->progress = &progress->pub;
+    111            }
+    112          }
+    113          
+    114          
+    115          GLOBAL(void)
+    116          end_progress_monitor (j_common_ptr cinfo)
+    117          {
+    118            /* Clear away progress display */
+    119            if (cinfo->err->trace_level == 0) {
+    120              fprintf(stderr, "\r                \r");
+    121              fflush(stderr);
+    122            }
+    123          }
+    124          
+    125          #endif
+    126          
+    127          
+    128          /*
+    129           * Case-insensitive matching of possibly-abbreviated keyword switches.
+    130           * keyword is the constant keyword (must be lower case already),
+    131           * minchars is length of minimum legal abbreviation.
+    132           */
+    133          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    134          GLOBAL(boolean)
+    135          keymatch (char * arg, const char * keyword, int minchars)
+    136          {
+   \                     keymatch:
+   \   00000000   10002DE9           PUSH     {R4}
+    137            register int ca, ck;
+    138            register int nmatched = 0;
+   \   00000004   0030A0E3           MOV      R3,#+0
+   \   00000008   000000EA           B        ??keymatch_0
+    139          
+    140            while ((ca = *arg++) != '\0') {
+    141              if ((ck = *keyword++) == '\0')
+    142                return FALSE;		/* arg longer than keyword, no good */
+    143              if (isupper(ca))		/* force arg to lcase (assume ck is already) */
+    144                ca = tolower(ca);
+    145              if (ca != ck)
+    146                return FALSE;		/* no good */
+    147              nmatched++;			/* count matched characters */
+   \                     ??keymatch_1:
+   \   0000000C   013083E2           ADD      R3,R3,#+1
+   \                     ??keymatch_0:
+   \   00000010   ........           LDRB     R12,[R0], #+1
+   \   00000014   00005CE3           CMP      R12,#+0
+   \   00000018   0F00000A           BEQ      ??keymatch_2
+   \   0000001C   ........           LDRB     R4,[R1], #+1
+   \   00000020   000054E3           CMP      R4,#+0
+   \   00000024   0900000A           BEQ      ??keymatch_3
+   \                     ??keymatch_4:
+   \   00000028   41005CE3           CMP      R12,#+65
+   \   0000002C   0500003A           BCC      ??keymatch_5
+   \   00000030   5B005CE3           CMP      R12,#+91
+   \   00000034   0300002A           BCS      ??keymatch_5
+   \   00000038   41005CE3           CMP      R12,#+65
+   \   0000003C   010000BA           BLT      ??keymatch_5
+   \   00000040   5B005CE3           CMP      R12,#+91
+   \   00000044   20C08CB2           ADDLT    R12,R12,#+32
+   \                     ??keymatch_5:
+   \   00000048   04005CE1           CMP      R12,R4
+   \   0000004C   EEFFFF0A           BEQ      ??keymatch_1
+   \                     ??keymatch_3:
+   \   00000050   1000BDE8           POP      {R4}
+   \   00000054   0000A0E3           MOV      R0,#+0
+   \   00000058   1EFF2FE1           BX       LR
+    148            }
+    149            /* reached end of argument; fail if it's too short for unique abbrev */
+    150            if (nmatched < minchars)
+    151              return FALSE;
+    152            return TRUE;			/* A-OK */
+   \                     ??keymatch_2:
+   \   0000005C   1000BDE8           POP      {R4}
+   \   00000060   020053E1           CMP      R3,R2
+   \   00000064   0000A0B3           MOVLT    R0,#+0
+   \   00000068   0100A0A3           MOVGE    R0,#+1
+   \   0000006C   1EFF2FE1           BX       LR               ;; return
+    153          }
+    154          
+    155          
+    156          /*
+    157           * Routines to establish binary I/O mode for stdin and stdout.
+    158           * Non-Unix systems often require some hacking to get out of text mode.
+    159           */
+    160          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    161          GLOBAL(int)
+    162          read_stdin (void)
+    163          {
+    164            int input_file;
+    165          
+    166          #ifdef USE_SETMODE		/* need to hack file mode? */
+    167            setmode(fileno(stdin), O_BINARY);
+    168          #endif
+    169          #ifdef USE_FDOPEN		/* need to re-open in binary mode? */
+    170            if ((input_file = fdopen(fileno(stdin), READ_BINARY)) == NULL) {
+    171              fprintf(stderr, "Cannot reopen stdin\n");
+    172              exit(EXIT_FAILURE);
+    173            }
+    174          #endif
+    175            return input_file;
+                          ^
+Warning[Pe549]: variable "input_file" is used before its value is set
+   \                     read_stdin:
+   \   00000000   0000A0E3           MOV      R0,#+0
+   \   00000004   1EFF2FE1           BX       LR               ;; return
+    176          }
+    177          
+    178          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    179          GLOBAL(int)
+    180          write_stdout (void)
+    181          {
+    182            int output_file;
+    183          
+    184          #ifdef USE_SETMODE		/* need to hack file mode? */
+    185            setmode(fileno(stdout), O_BINARY);
+    186          #endif
+    187          #ifdef USE_FDOPEN		/* need to re-open in binary mode? */
+    188            if ((output_file = fdopen(fileno(stdout), WRITE_BINARY)) == NULL) {
+    189              fprintf(stderr, "Cannot reopen stdout\n");
+    190              exit(EXIT_FAILURE);
+    191            }
+    192          #endif
+    193            return output_file;
+                          ^
+Warning[Pe549]: variable "output_file" is used before its value is set
+   \                     write_stdout:
+   \   00000000   0000A0E3           MOV      R0,#+0
+   \   00000004   1EFF2FE1           BX       LR               ;; return
+    194          }
+
+   Maximum stack usage in bytes:
+
+     Function     CSTACK
+     --------     ------
+     keymatch         8
+     read_stdin       0
+     write_stdout     0
+
+
+   Segment part sizes:
+
+     Function/Label Bytes
+     -------------- -----
+     keymatch        112
+     read_stdin        8
+     write_stdout      8
+      Others          12
+
+ 
+ 140 bytes in segment CODE
+ 
+ 128 bytes of CODE memory (+ 12 bytes shared)
+
+Errors: none
+Warnings: 2

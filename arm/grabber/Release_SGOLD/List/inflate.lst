@@ -1,0 +1,1074 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    19/Jan/2011  13:20:43 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\grabber\zlib\inflate.c                        #
+#    Command line    =  C:\arm\grabber\zlib\inflate.c -lC                    #
+#                       C:\arm\grabber\Release_SGOLD\List\ -o                #
+#                       C:\arm\grabber\Release_SGOLD\Obj\ -s9 --no_unroll    #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\grabber\Release_SGOLD\List\inflate.lst        #
+#    Object file     =  C:\arm\grabber\Release_SGOLD\Obj\inflate.r79         #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\grabber\zlib\inflate.c
+      1          /* inflate.c -- zlib interface to inflate modules
+      2           * Copyright (C) 1995-2002 Mark Adler
+      3           * For conditions of distribution and use, see copyright notice in zlib.h 
+      4           */
+      5          
+      6          #include "zutil.h"
+      7          #include "infblock.h"
+      8          
+      9          struct inflate_blocks_state {int dummy;}; /* for buggy compilers */
+     10          
+     11          typedef enum {
+     12                METHOD,   /* waiting for method byte */
+     13                FLAG,     /* waiting for flag byte */
+     14                DICT4,    /* four dictionary check bytes to go */
+     15                DICT3,    /* three dictionary check bytes to go */
+     16                DICT2,    /* two dictionary check bytes to go */
+     17                DICT1,    /* one dictionary check byte to go */
+     18                DICT0,    /* waiting for inflateSetDictionary */
+     19                BLOCKS,   /* decompressing blocks */
+     20                CHECK4,   /* four check bytes to go */
+     21                CHECK3,   /* three check bytes to go */
+     22                CHECK2,   /* two check bytes to go */
+     23                CHECK1,   /* one check byte to go */
+     24                DONE,     /* finished check, done */
+     25                BAD}      /* got an error--stay here */
+     26          inflate_mode;
+     27          
+     28          /* inflate private state */
+     29          struct internal_state {
+     30          
+     31            /* mode */
+     32            inflate_mode  mode;   /* current inflate mode */
+     33          
+     34            /* mode dependent information */
+     35            union {
+     36              uInt method;        /* if FLAGS, method byte */
+     37              struct {
+     38                uLong was;                /* computed check value */
+     39                uLong need;               /* stream check value */
+     40              } check;            /* if CHECK, check values to compare */
+     41              uInt marker;        /* if BAD, inflateSync's marker bytes count */
+     42            } sub;        /* submode */
+     43          
+     44            /* mode independent information */
+     45            int  nowrap;          /* flag for no wrapper */
+     46            uInt wbits;           /* log2(window size)  (8..15, defaults to 15) */
+     47            inflate_blocks_statef 
+     48              *blocks;            /* current inflate_blocks state */
+     49          
+     50          };
+     51          
+     52          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     53          int ZEXPORT inflateReset(z)
+     54          z_streamp z;
+     55          {
+   \                     inflateReset:
+   \   00000000   00402DE9           PUSH     {LR}
+     56            if (z == Z_NULL || z->state == Z_NULL)
+   \   00000004   000050E3           CMP      R0,#+0
+   \   00000008   1C109015           LDRNE    R1,[R0, #+28]
+   \   0000000C   00005113           CMPNE    R1,#+0
+     57              return Z_STREAM_ERROR;
+   \   00000010   0100E003           MVNEQ    R0,#+1
+   \   00000014   0080BD08           POPEQ    {PC}
+     58            z->total_in = z->total_out = 0;
+   \   00000018   0020A0E3           MOV      R2,#+0
+   \   0000001C   142080E5           STR      R2,[R0, #+20]
+   \   00000020   082080E5           STR      R2,[R0, #+8]
+     59            z->msg = Z_NULL;
+   \   00000024   182080E5           STR      R2,[R0, #+24]
+     60            z->state->mode = z->state->nowrap ? BLOCKS : METHOD;
+   \   00000028   0C3091E5           LDR      R3,[R1, #+12]
+   \   0000002C   000053E3           CMP      R3,#+0
+   \   00000030   0720A013           MOVNE    R2,#+7
+   \   00000034   0020C1E5           STRB     R2,[R1, #+0]
+     61            inflate_blocks_reset(z->state->blocks, z, Z_NULL);
+   \   00000038   0010A0E1           MOV      R1,R0
+   \   0000003C   1C0090E5           LDR      R0,[R0, #+28]
+   \   00000040   0020A0E3           MOV      R2,#+0
+   \   00000044   140090E5           LDR      R0,[R0, #+20]
+   \   00000048   ........           _BLF     inflate_blocks_reset,??inflate_blocks_reset??rA
+     62            Tracev((stderr, "inflate: reset\n"));
+     63            return Z_OK;
+   \   0000004C   0000A0E3           MOV      R0,#+0
+   \   00000050   0080BDE8           POP      {PC}             ;; return
+     64          }
+     65          
+     66          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     67          int ZEXPORT inflateEnd(z)
+     68          z_streamp z;
+     69          {
+   \                     inflateEnd:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040B0E1           MOVS     R4,R0
+     70            if (z == Z_NULL || z->state == Z_NULL || z->zfree == Z_NULL)
+   \   00000008   1C009415           LDRNE    R0,[R4, #+28]
+   \   0000000C   00005013           CMPNE    R0,#+0
+   \   00000010   24109415           LDRNE    R1,[R4, #+36]
+   \   00000014   00005113           CMPNE    R1,#+0
+     71              return Z_STREAM_ERROR;
+   \   00000018   0100E003           MVNEQ    R0,#+1
+   \   0000001C   1080BD08           POPEQ    {R4,PC}
+     72            if (z->state->blocks != Z_NULL)
+   \   00000020   141090E5           LDR      R1,[R0, #+20]
+   \   00000024   000051E3           CMP      R1,#+0
+   \   00000028   0200000A           BEQ      ??inflateEnd_0
+     73              inflate_blocks_free(z->state->blocks, z);
+   \   0000002C   140090E5           LDR      R0,[R0, #+20]
+   \   00000030   0410A0E1           MOV      R1,R4
+   \   00000034   ........           _BLF     inflate_blocks_free,??inflate_blocks_free??rA
+     74            ZFREE(z, z->state);
+   \                     ??inflateEnd_0:
+   \   00000038   280094E5           LDR      R0,[R4, #+40]
+   \   0000003C   1C1094E5           LDR      R1,[R4, #+28]
+   \   00000040   242094E5           LDR      R2,[R4, #+36]
+   \   00000044   32FF2FE1           BLX      R2
+     75            z->state = Z_NULL;
+   \   00000048   0000A0E3           MOV      R0,#+0
+   \   0000004C   1C0084E5           STR      R0,[R4, #+28]
+     76            Tracev((stderr, "inflate: end\n"));
+     77            return Z_OK;
+   \   00000050   1080BDE8           POP      {R4,PC}          ;; return
+     78          }
+     79          
+     80          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     81          int ZEXPORT inflateInit2_(z, w, version, stream_size)
+     82          z_streamp z;
+     83          int w;
+     84          const char *version;
+     85          int stream_size;
+     86          {
+   \                     inflateInit2_:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+     87            if (version == Z_NULL || version[0] != ZLIB_VERSION[0] ||
+     88                stream_size != sizeof(z_stream))
+   \   0000000C   000052E3           CMP      R2,#+0
+   \   00000010   0300000A           BEQ      ??inflateInit2__0
+   \   00000014   0000D2E5           LDRB     R0,[R2, #+0]
+   \   00000018   310050E3           CMP      R0,#+49
+   \   0000001C   38005303           CMPEQ    R3,#+56
+   \   00000020   0100000A           BEQ      ??inflateInit2__1
+     89                return Z_VERSION_ERROR;
+   \                     ??inflateInit2__0:
+   \   00000024   0500E0E3           MVN      R0,#+5
+   \   00000028   7080BDE8           POP      {R4-R6,PC}
+     90          
+     91            /* initialize state */
+     92            if (z == Z_NULL)
+   \                     ??inflateInit2__1:
+   \   0000002C   000054E3           CMP      R4,#+0
+   \   00000030   1E00000A           BEQ      ??inflateInit2__2
+     93              return Z_STREAM_ERROR;
+     94            z->msg = Z_NULL;
+   \   00000034   0060A0E3           MOV      R6,#+0
+   \   00000038   186084E5           STR      R6,[R4, #+24]
+     95            if (z->zalloc == Z_NULL)
+   \   0000003C   200094E5           LDR      R0,[R4, #+32]
+     96            {
+     97              z->zalloc = zcalloc;
+     98              z->opaque = (voidpf)0;
+     99            }
+    100            if (z->zfree == Z_NULL) z->zfree = zcfree;
+    101            if ((z->state = (struct internal_state FAR *)
+    102                 ZALLOC(z,1,sizeof(struct internal_state))) == Z_NULL)
+   \   00000040   1820A0E3           MOV      R2,#+24
+   \   00000044   000050E3           CMP      R0,#+0
+   \   00000048   B4009F05           LDREQ    R0,??inflateInit2__3  ;; zcalloc
+   \   0000004C   0110A0E3           MOV      R1,#+1
+   \   00000050   20008405           STREQ    R0,[R4, #+32]
+   \   00000054   28608405           STREQ    R6,[R4, #+40]
+   \   00000058   240094E5           LDR      R0,[R4, #+36]
+   \   0000005C   000050E3           CMP      R0,#+0
+   \   00000060   A0009F05           LDREQ    R0,??inflateInit2__3+0x4  ;; zcfree
+   \   00000064   24008405           STREQ    R0,[R4, #+36]
+   \   00000068   280094E5           LDR      R0,[R4, #+40]
+   \   0000006C   203094E5           LDR      R3,[R4, #+32]
+   \   00000070   33FF2FE1           BLX      R3
+   \   00000074   1C0084E5           STR      R0,[R4, #+28]
+   \   00000078   000050E3           CMP      R0,#+0
+   \   0000007C   1B00000A           BEQ      ??inflateInit2__4
+    103              return Z_MEM_ERROR;
+    104            z->state->blocks = Z_NULL;
+   \   00000080   146080E5           STR      R6,[R0, #+20]
+    105          
+    106            /* handle undocumented nowrap option (no zlib header or check) */
+    107            z->state->nowrap = 0;
+   \   00000084   0C6080E5           STR      R6,[R0, #+12]
+    108            if (w < 0)
+   \   00000088   0110A0E3           MOV      R1,#+1
+   \   0000008C   000055E3           CMP      R5,#+0
+    109            {
+    110              w = - w;
+   \   00000090   00506542           RSBMI    R5,R5,#+0
+    111              z->state->nowrap = 1;
+   \   00000094   0C108045           STRMI    R1,[R0, #+12]
+    112            }
+    113          
+    114            /* set window size */
+    115            if (w < 8 || w > 15)
+   \   00000098   080055E3           CMP      R5,#+8
+   \   0000009C   010000BA           BLT      ??inflateInit2__5
+   \   000000A0   100055E3           CMP      R5,#+16
+   \   000000A4   030000BA           BLT      ??inflateInit2__6
+    116            {
+    117              inflateEnd(z);
+   \                     ??inflateInit2__5:
+   \   000000A8   0400A0E1           MOV      R0,R4
+   \   000000AC   ........           BL       inflateEnd
+    118              return Z_STREAM_ERROR;
+   \                     ??inflateInit2__2:
+   \   000000B0   0100E0E3           MVN      R0,#+1
+   \   000000B4   7080BDE8           POP      {R4-R6,PC}
+    119            }
+    120            z->state->wbits = (uInt)w;
+   \                     ??inflateInit2__6:
+   \   000000B8   105080E5           STR      R5,[R0, #+16]
+    121          
+    122            /* create inflate_blocks state */
+    123            if ((z->state->blocks =
+    124                inflate_blocks_new(z, z->state->nowrap ? Z_NULL : adler32, (uInt)1 << w))
+    125                == Z_NULL)
+   \   000000BC   0C0090E5           LDR      R0,[R0, #+12]
+   \   000000C0   1125A0E1           LSL      R2,R1,R5
+   \   000000C4   000050E3           CMP      R0,#+0
+   \   000000C8   ........           LDREQ    R6,??DataTable1  ;; adler32
+   \   000000CC   0400A0E1           MOV      R0,R4
+   \   000000D0   0610A0E1           MOV      R1,R6
+   \   000000D4   ........           _BLF     inflate_blocks_new,??inflate_blocks_new??rA
+   \   000000D8   1C1094E5           LDR      R1,[R4, #+28]
+   \   000000DC   000050E3           CMP      R0,#+0
+   \   000000E0   140081E5           STR      R0,[R1, #+20]
+   \   000000E4   0400A0E1           MOV      R0,R4
+   \   000000E8   0200001A           BNE      ??inflateInit2__7
+    126            {
+    127              inflateEnd(z);
+   \   000000EC   ........           BL       inflateEnd
+    128              return Z_MEM_ERROR;
+   \                     ??inflateInit2__4:
+   \   000000F0   0300E0E3           MVN      R0,#+3
+   \   000000F4   7080BDE8           POP      {R4-R6,PC}
+    129            }
+    130            Tracev((stderr, "inflate: allocated\n"));
+    131          
+    132            /* reset state */
+    133            inflateReset(z);
+   \                     ??inflateInit2__7:
+   \   000000F8   ........           BL       inflateReset
+    134            return Z_OK;
+   \   000000FC   0000A0E3           MOV      R0,#+0
+   \   00000100   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??inflateInit2__3:
+   \   00000104   ........           DC32     zcalloc
+   \   00000108   ........           DC32     zcfree
+    135          }
+    136          
+    137          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    138          int ZEXPORT inflateInit_(z, version, stream_size)
+    139          z_streamp z;
+    140          const char *version;
+    141          int stream_size;
+    142          {
+    143            return inflateInit2_(z, DEF_WBITS, version, stream_size);
+   \                     inflateInit_:
+   \   00000000   0230A0E1           MOV      R3,R2
+   \   00000004   0120A0E1           MOV      R2,R1
+   \   00000008   0F10A0E3           MOV      R1,#+15
+   \   0000000C   ........           B        inflateInit2_    ;; tailcall
+    144          }
+    145          
+    146          
+    147          #define NEEDBYTE {if(z->avail_in==0)return r;r=f;}
+    148          #define NEXTBYTE (z->avail_in--,z->total_in++,*z->next_in++)
+    149          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    150          int ZEXPORT inflate(z, f)
+    151          z_streamp z;
+    152          int f;
+    153          {
+   \                     inflate:
+   \   00000000   F0472DE9           PUSH     {R4-R10,LR}
+   \   00000004   0040B0E1           MOVS     R4,R0
+    154            int r;
+    155            uInt b;
+    156          
+    157            if (z == Z_NULL || z->state == Z_NULL || z->next_in == Z_NULL)
+   \   00000008   1C009415           LDRNE    R0,[R4, #+28]
+   \   0000000C   00005013           CMPNE    R0,#+0
+   \   00000010   B000000A           BEQ      ??inflate_1
+   \   00000014   000094E5           LDR      R0,[R4, #+0]
+   \   00000018   000050E3           CMP      R0,#+0
+   \   0000001C   0100001A           BNE      ??inflate_2
+    158              return Z_STREAM_ERROR;
+   \                     ??inflate_3:
+   \   00000020   0100E0E3           MVN      R0,#+1
+   \   00000024   F087BDE8           POP      {R4-R10,PC}
+    159            f = f == Z_FINISH ? Z_BUF_ERROR : Z_OK;
+   \                     ??inflate_2:
+   \   00000028   040051E3           CMP      R1,#+4
+   \   0000002C   0450E003           MVNEQ    R5,#+4
+   \   00000030   0050A013           MOVNE    R5,#+0
+    160            r = Z_BUF_ERROR;
+   \   00000034   0460E0E3           MVN      R6,#+4
+   \   00000038   0570A0E3           MOV      R7,#+5
+   \   0000003C   0D80A0E3           MOV      R8,#+13
+   \   00000040   040000EA           B        ??inflate_4
+    161            while (1) switch (z->state->mode)
+    162            {
+    163              case METHOD:
+    164                NEEDBYTE
+    165                if (((z->state->sub.method = NEXTBYTE) & 0xf) != Z_DEFLATED)
+    166                {
+    167                  z->state->mode = BAD;
+   \                     ??inflate_5:
+   \   00000044   0080C0E5           STRB     R8,[R0, #+0]
+    168                  z->msg = (char*)"unknown compression method";
+   \   00000048   58049FE5           LDR      R0,??inflate_6   ;; `?<Constant "unknown compression m...">`
+   \                     ??inflate_7:
+   \   0000004C   180084E5           STR      R0,[R4, #+24]
+    169                  z->state->sub.marker = 5;       /* can't try inflateSync */
+   \   00000050   1C0094E5           LDR      R0,[R4, #+28]
+   \   00000054   047080E5           STR      R7,[R0, #+4]
+    170                  break;
+    171                }
+   \                     ??inflate_4:
+   \   00000058   1C0094E5           LDR      R0,[R4, #+28]
+   \   0000005C   0C90A0E3           MOV      R9,#+12
+   \   00000060   0010D0E5           LDRB     R1,[R0, #+0]
+   \   00000064   00A0A0E3           MOV      R10,#+0
+   \   00000068   0D0051E3           CMP      R1,#+13
+   \   0000006C   9900008A           BHI      ??inflate_1
+   \   00000070   022F8FE2           ADR      R2,??inflate_0
+   \   00000074   8110A0E1           MOV      R1,R1, LSL #+1
+   \   00000078   F12092E1           LDRSH    R2,[R2, R1]
+   \   0000007C   02F18FE0           ADD      PC,PC,R2, LSL #+2
+   \                     ??inflate_0:
+   \   00000080   060021004400       DC16     +6,+33,+68,+86
+   \              5600        
+   \   00000088   69007B009000       DC16     +105,+123,+144,+151
+   \              9700        
+   \   00000090   B500C700DA00       DC16     +181,+199,+218,+237
+   \              ED00        
+   \   00000098   05010701           DC16     +261,+263
+   \                     ??inflate_8:
+   \   0000009C   041094E5           LDR      R1,[R4, #+4]
+   \   000000A0   000051E3           CMP      R1,#+0
+   \   000000A4   1A00000A           BEQ      ??inflate_9
+   \   000000A8   011041E2           SUB      R1,R1,#+1
+   \   000000AC   041084E5           STR      R1,[R4, #+4]
+   \   000000B0   081094E5           LDR      R1,[R4, #+8]
+   \   000000B4   0560A0E1           MOV      R6,R5
+   \   000000B8   011081E2           ADD      R1,R1,#+1
+   \   000000BC   081084E5           STR      R1,[R4, #+8]
+   \   000000C0   001094E5           LDR      R1,[R4, #+0]
+   \   000000C4   012081E2           ADD      R2,R1,#+1
+   \   000000C8   002084E5           STR      R2,[R4, #+0]
+   \   000000CC   0010D1E5           LDRB     R1,[R1, #+0]
+   \   000000D0   041080E5           STR      R1,[R0, #+4]
+   \   000000D4   0F1001E2           AND      R1,R1,#0xF
+   \   000000D8   080051E3           CMP      R1,#+8
+   \   000000DC   D8FFFF1A           BNE      ??inflate_5
+    172                if ((z->state->sub.method >> 4) + 8 > z->state->wbits)
+   \   000000E0   101090E5           LDR      R1,[R0, #+16]
+   \   000000E4   042090E5           LDR      R2,[R0, #+4]
+   \   000000E8   0830A0E3           MOV      R3,#+8
+   \   000000EC   222283E0           ADD      R2,R3,R2, LSR #+4
+   \   000000F0   020051E1           CMP      R1,R2
+    173                {
+    174                  z->state->mode = BAD;
+   \   000000F4   0080C035           STRBCC   R8,[R0, #+0]
+    175                  z->msg = (char*)"invalid window size";
+   \   000000F8   AC039F35           LDRCC    R0,??inflate_6+0x4  ;; `?<Constant "invalid window size">`
+   \   000000FC   D2FFFF3A           BCC      ??inflate_7
+    176                  z->state->sub.marker = 5;       /* can't try inflateSync */
+    177                  break;
+    178                }
+    179                z->state->mode = FLAG;
+   \   00000100   0110A0E3           MOV      R1,#+1
+   \   00000104   0010C0E5           STRB     R1,[R0, #+0]
+    180              case FLAG:
+    181                NEEDBYTE
+   \                     ??inflate_10:
+   \   00000108   040094E5           LDR      R0,[R4, #+4]
+   \   0000010C   000050E3           CMP      R0,#+0
+   \   00000110   0100001A           BNE      ??inflate_11
+   \                     ??inflate_9:
+   \   00000114   0600A0E1           MOV      R0,R6
+   \   00000118   F087BDE8           POP      {R4-R10,PC}
+    182                b = NEXTBYTE;
+    183                if (((z->state->sub.method << 8) + b) % 31)
+   \                     ??inflate_11:
+   \   0000011C   8C339FE5           LDR      R3,??inflate_6+0x8  ;; 0x8421085
+   \   00000120   010040E2           SUB      R0,R0,#+1
+   \   00000124   040084E5           STR      R0,[R4, #+4]
+   \   00000128   080094E5           LDR      R0,[R4, #+8]
+   \   0000012C   0560A0E1           MOV      R6,R5
+   \   00000130   010080E2           ADD      R0,R0,#+1
+   \   00000134   080084E5           STR      R0,[R4, #+8]
+   \   00000138   000094E5           LDR      R0,[R4, #+0]
+   \   0000013C   011080E2           ADD      R1,R0,#+1
+   \   00000140   001084E5           STR      R1,[R4, #+0]
+   \   00000144   0000D0E5           LDRB     R0,[R0, #+0]
+   \   00000148   1C1094E5           LDR      R1,[R4, #+28]
+   \   0000014C   042091E5           LDR      R2,[R1, #+4]
+   \   00000150   022480E0           ADD      R2,R0,R2, LSL #+8
+   \   00000154   93928AE0           UMULL    R9,R10,R3,R2
+   \   00000158   1F90A0E3           MOV      R9,#+31
+   \   0000015C   02A09AE0           ADDS     R10,R10,R2
+   \   00000160   6AA0A0E1           RRX      R10,R10
+   \   00000164   2AA2A0E1           LSR      R10,R10,#+4
+   \   00000168   990A0AE0           MUL      R10,R9,R10
+   \   0000016C   0AA052E0           SUBS     R10,R2,R10
+    184                {
+    185                  z->state->mode = BAD;
+    186                  z->msg = (char*)"incorrect header check";
+   \   00000170   3C039F15           LDRNE    R0,??inflate_6+0xC  ;; `?<Constant "incorrect header check">`
+   \   00000174   0080C115           STRBNE   R8,[R1, #+0]
+   \   00000178   B3FFFF1A           BNE      ??inflate_7
+    187                  z->state->sub.marker = 5;       /* can't try inflateSync */
+    188                  break;
+    189                }
+    190                Tracev((stderr, "inflate: zlib header ok\n"));
+    191                if (!(b & PRESET_DICT))
+   \   0000017C   200010E3           TST      R0,#0x20
+    192                {
+    193                  z->state->mode = BLOCKS;
+   \   00000180   0700A003           MOVEQ    R0,#+7
+   \   00000184   0000C105           STRBEQ   R0,[R1, #+0]
+    194                  break;
+   \   00000188   B2FFFF0A           BEQ      ??inflate_4
+    195                }
+    196                z->state->mode = DICT4;
+   \   0000018C   0200A0E3           MOV      R0,#+2
+   \   00000190   0000C1E5           STRB     R0,[R1, #+0]
+    197              case DICT4:
+    198                NEEDBYTE
+   \                     ??inflate_12:
+   \   00000194   040094E5           LDR      R0,[R4, #+4]
+   \   00000198   000050E3           CMP      R0,#+0
+   \   0000019C   DCFFFF0A           BEQ      ??inflate_9
+    199                z->state->sub.check.need = (uLong)NEXTBYTE << 24;
+   \   000001A0   010040E2           SUB      R0,R0,#+1
+   \   000001A4   040084E5           STR      R0,[R4, #+4]
+   \   000001A8   080094E5           LDR      R0,[R4, #+8]
+   \   000001AC   0560A0E1           MOV      R6,R5
+   \   000001B0   010080E2           ADD      R0,R0,#+1
+   \   000001B4   080084E5           STR      R0,[R4, #+8]
+   \   000001B8   000094E5           LDR      R0,[R4, #+0]
+   \   000001BC   011080E2           ADD      R1,R0,#+1
+   \   000001C0   001084E5           STR      R1,[R4, #+0]
+   \   000001C4   0000D0E5           LDRB     R0,[R0, #+0]
+   \   000001C8   1C1094E5           LDR      R1,[R4, #+28]
+   \   000001CC   000CA0E1           LSL      R0,R0,#+24
+   \   000001D0   080081E5           STR      R0,[R1, #+8]
+    200                z->state->mode = DICT3;
+   \   000001D4   0300A0E3           MOV      R0,#+3
+   \   000001D8   0000C1E5           STRB     R0,[R1, #+0]
+    201              case DICT3:
+    202                NEEDBYTE
+   \                     ??inflate_13:
+   \   000001DC   040094E5           LDR      R0,[R4, #+4]
+   \   000001E0   000050E3           CMP      R0,#+0
+   \   000001E4   CAFFFF0A           BEQ      ??inflate_9
+    203                z->state->sub.check.need += (uLong)NEXTBYTE << 16;
+   \   000001E8   010040E2           SUB      R0,R0,#+1
+   \   000001EC   040084E5           STR      R0,[R4, #+4]
+   \   000001F0   080094E5           LDR      R0,[R4, #+8]
+   \   000001F4   0560A0E1           MOV      R6,R5
+   \   000001F8   010080E2           ADD      R0,R0,#+1
+   \   000001FC   080084E5           STR      R0,[R4, #+8]
+   \   00000200   000094E5           LDR      R0,[R4, #+0]
+   \   00000204   011080E2           ADD      R1,R0,#+1
+   \   00000208   001084E5           STR      R1,[R4, #+0]
+   \   0000020C   1C1094E5           LDR      R1,[R4, #+28]
+   \   00000210   0000D0E5           LDRB     R0,[R0, #+0]
+   \   00000214   082091E5           LDR      R2,[R1, #+8]
+   \   00000218   000882E0           ADD      R0,R2,R0, LSL #+16
+   \   0000021C   080081E5           STR      R0,[R1, #+8]
+    204                z->state->mode = DICT2;
+   \   00000220   0400A0E3           MOV      R0,#+4
+   \   00000224   0000C1E5           STRB     R0,[R1, #+0]
+    205              case DICT2:
+    206                NEEDBYTE
+   \                     ??inflate_14:
+   \   00000228   040094E5           LDR      R0,[R4, #+4]
+   \   0000022C   000050E3           CMP      R0,#+0
+   \   00000230   B7FFFF0A           BEQ      ??inflate_9
+    207                z->state->sub.check.need += (uLong)NEXTBYTE << 8;
+   \   00000234   010040E2           SUB      R0,R0,#+1
+   \   00000238   040084E5           STR      R0,[R4, #+4]
+   \   0000023C   080094E5           LDR      R0,[R4, #+8]
+   \   00000240   0560A0E1           MOV      R6,R5
+   \   00000244   010080E2           ADD      R0,R0,#+1
+   \   00000248   080084E5           STR      R0,[R4, #+8]
+   \   0000024C   000094E5           LDR      R0,[R4, #+0]
+   \   00000250   011080E2           ADD      R1,R0,#+1
+   \   00000254   001084E5           STR      R1,[R4, #+0]
+   \   00000258   1C1094E5           LDR      R1,[R4, #+28]
+   \   0000025C   0000D0E5           LDRB     R0,[R0, #+0]
+   \   00000260   082091E5           LDR      R2,[R1, #+8]
+   \   00000264   000482E0           ADD      R0,R2,R0, LSL #+8
+   \   00000268   080081E5           STR      R0,[R1, #+8]
+    208                z->state->mode = DICT1;
+   \   0000026C   0070C1E5           STRB     R7,[R1, #+0]
+    209              case DICT1:
+    210                NEEDBYTE
+   \                     ??inflate_15:
+   \   00000270   040094E5           LDR      R0,[R4, #+4]
+   \   00000274   000050E3           CMP      R0,#+0
+   \   00000278   A5FFFF0A           BEQ      ??inflate_9
+    211                z->state->sub.check.need += (uLong)NEXTBYTE;
+   \   0000027C   010040E2           SUB      R0,R0,#+1
+   \   00000280   040084E5           STR      R0,[R4, #+4]
+   \   00000284   080094E5           LDR      R0,[R4, #+8]
+   \   00000288   010080E2           ADD      R0,R0,#+1
+   \   0000028C   080084E5           STR      R0,[R4, #+8]
+   \   00000290   000094E5           LDR      R0,[R4, #+0]
+   \   00000294   011080E2           ADD      R1,R0,#+1
+   \   00000298   001084E5           STR      R1,[R4, #+0]
+   \   0000029C   1C1094E5           LDR      R1,[R4, #+28]
+   \   000002A0   0000D0E5           LDRB     R0,[R0, #+0]
+   \   000002A4   082091E5           LDR      R2,[R1, #+8]
+   \   000002A8   020080E0           ADD      R0,R0,R2
+   \   000002AC   080081E5           STR      R0,[R1, #+8]
+    212                z->adler = z->state->sub.check.need;
+   \   000002B0   300084E5           STR      R0,[R4, #+48]
+    213                z->state->mode = DICT0;
+   \   000002B4   0600A0E3           MOV      R0,#+6
+   \   000002B8   0000C1E5           STRB     R0,[R1, #+0]
+    214                return Z_NEED_DICT;
+   \   000002BC   0200A0E3           MOV      R0,#+2
+   \   000002C0   F087BDE8           POP      {R4-R10,PC}
+    215              case DICT0:
+    216                z->state->mode = BAD;
+   \                     ??inflate_16:
+   \   000002C4   0080C0E5           STRB     R8,[R0, #+0]
+    217                z->msg = (char*)"need dictionary";
+   \   000002C8   E8019FE5           LDR      R0,??inflate_6+0x10  ;; `?<Constant "need dictionary">`
+   \   000002CC   180084E5           STR      R0,[R4, #+24]
+    218                z->state->sub.marker = 0;       /* can try inflateSync */
+   \   000002D0   1C0094E5           LDR      R0,[R4, #+28]
+   \   000002D4   04A080E5           STR      R10,[R0, #+4]
+    219                return Z_STREAM_ERROR;
+   \                     ??inflate_1:
+   \   000002D8   0100E0E3           MVN      R0,#+1
+   \   000002DC   F087BDE8           POP      {R4-R10,PC}
+    220              case BLOCKS:
+    221                r = inflate_blocks(z->state->blocks, z, r);
+   \                     ??inflate_17:
+   \   000002E0   140090E5           LDR      R0,[R0, #+20]
+   \   000002E4   0620A0E1           MOV      R2,R6
+   \   000002E8   0410A0E1           MOV      R1,R4
+   \   000002EC   ........           _BLF     inflate_blocks,??inflate_blocks??rA
+   \   000002F0   0060A0E1           MOV      R6,R0
+    222                if (r == Z_DATA_ERROR)
+   \   000002F4   030076E3           CMN      R6,#+3
+   \   000002F8   0400001A           BNE      ??inflate_18
+    223                {
+    224                  z->state->mode = BAD;
+   \   000002FC   1C0094E5           LDR      R0,[R4, #+28]
+   \   00000300   0080C0E5           STRB     R8,[R0, #+0]
+    225                  z->state->sub.marker = 0;       /* can try inflateSync */
+   \   00000304   1C0094E5           LDR      R0,[R4, #+28]
+   \   00000308   04A080E5           STR      R10,[R0, #+4]
+    226                  break;
+   \   0000030C   51FFFFEA           B        ??inflate_4
+    227                }
+    228                if (r == Z_OK)
+   \                     ??inflate_18:
+   \   00000310   000056E3           CMP      R6,#+0
+    229                  r = f;
+   \   00000314   0560A001           MOVEQ    R6,R5
+   \   00000318   7DFFFF0A           BEQ      ??inflate_9
+    230                if (r != Z_STREAM_END)
+   \   0000031C   010056E3           CMP      R6,#+1
+   \   00000320   7BFFFF1A           BNE      ??inflate_9
+    231                  return r;
+    232                r = f;
+    233                inflate_blocks_reset(z->state->blocks, z, &z->state->sub.check.was);
+   \   00000324   1C0094E5           LDR      R0,[R4, #+28]
+   \   00000328   0410A0E1           MOV      R1,R4
+   \   0000032C   042080E2           ADD      R2,R0,#+4
+   \   00000330   140090E5           LDR      R0,[R0, #+20]
+   \   00000334   0560A0E1           MOV      R6,R5
+   \   00000338   ........           _BLF     inflate_blocks_reset,??inflate_blocks_reset??rA
+    234                if (z->state->nowrap)
+   \   0000033C   1C0094E5           LDR      R0,[R4, #+28]
+   \   00000340   0C1090E5           LDR      R1,[R0, #+12]
+   \   00000344   000051E3           CMP      R1,#+0
+    235                {
+    236                  z->state->mode = DONE;
+   \   00000348   0090C015           STRBNE   R9,[R0, #+0]
+    237                  break;
+   \   0000034C   41FFFF1A           BNE      ??inflate_4
+    238                }
+    239                z->state->mode = CHECK4;
+   \   00000350   0810A0E3           MOV      R1,#+8
+   \   00000354   0010C0E5           STRB     R1,[R0, #+0]
+    240              case CHECK4:
+    241                NEEDBYTE
+   \                     ??inflate_19:
+   \   00000358   040094E5           LDR      R0,[R4, #+4]
+   \   0000035C   000050E3           CMP      R0,#+0
+   \   00000360   6BFFFF0A           BEQ      ??inflate_9
+    242                z->state->sub.check.need = (uLong)NEXTBYTE << 24;
+   \   00000364   010040E2           SUB      R0,R0,#+1
+   \   00000368   040084E5           STR      R0,[R4, #+4]
+   \   0000036C   080094E5           LDR      R0,[R4, #+8]
+   \   00000370   0560A0E1           MOV      R6,R5
+   \   00000374   010080E2           ADD      R0,R0,#+1
+   \   00000378   080084E5           STR      R0,[R4, #+8]
+   \   0000037C   000094E5           LDR      R0,[R4, #+0]
+   \   00000380   011080E2           ADD      R1,R0,#+1
+   \   00000384   001084E5           STR      R1,[R4, #+0]
+   \   00000388   0000D0E5           LDRB     R0,[R0, #+0]
+   \   0000038C   1C1094E5           LDR      R1,[R4, #+28]
+   \   00000390   000CA0E1           LSL      R0,R0,#+24
+   \   00000394   080081E5           STR      R0,[R1, #+8]
+    243                z->state->mode = CHECK3;
+   \   00000398   0900A0E3           MOV      R0,#+9
+   \   0000039C   0000C1E5           STRB     R0,[R1, #+0]
+    244              case CHECK3:
+    245                NEEDBYTE
+   \                     ??inflate_20:
+   \   000003A0   040094E5           LDR      R0,[R4, #+4]
+   \   000003A4   000050E3           CMP      R0,#+0
+   \   000003A8   59FFFF0A           BEQ      ??inflate_9
+    246                z->state->sub.check.need += (uLong)NEXTBYTE << 16;
+   \   000003AC   010040E2           SUB      R0,R0,#+1
+   \   000003B0   040084E5           STR      R0,[R4, #+4]
+   \   000003B4   080094E5           LDR      R0,[R4, #+8]
+   \   000003B8   0560A0E1           MOV      R6,R5
+   \   000003BC   010080E2           ADD      R0,R0,#+1
+   \   000003C0   080084E5           STR      R0,[R4, #+8]
+   \   000003C4   000094E5           LDR      R0,[R4, #+0]
+   \   000003C8   011080E2           ADD      R1,R0,#+1
+   \   000003CC   001084E5           STR      R1,[R4, #+0]
+   \   000003D0   1C1094E5           LDR      R1,[R4, #+28]
+   \   000003D4   0000D0E5           LDRB     R0,[R0, #+0]
+   \   000003D8   082091E5           LDR      R2,[R1, #+8]
+   \   000003DC   000882E0           ADD      R0,R2,R0, LSL #+16
+   \   000003E0   080081E5           STR      R0,[R1, #+8]
+    247                z->state->mode = CHECK2;
+   \   000003E4   0A00A0E3           MOV      R0,#+10
+   \   000003E8   0000C1E5           STRB     R0,[R1, #+0]
+    248              case CHECK2:
+    249                NEEDBYTE
+   \                     ??inflate_21:
+   \   000003EC   040094E5           LDR      R0,[R4, #+4]
+   \   000003F0   000050E3           CMP      R0,#+0
+   \   000003F4   46FFFF0A           BEQ      ??inflate_9
+    250                z->state->sub.check.need += (uLong)NEXTBYTE << 8;
+   \   000003F8   010040E2           SUB      R0,R0,#+1
+   \   000003FC   040084E5           STR      R0,[R4, #+4]
+   \   00000400   080094E5           LDR      R0,[R4, #+8]
+   \   00000404   0560A0E1           MOV      R6,R5
+   \   00000408   010080E2           ADD      R0,R0,#+1
+   \   0000040C   080084E5           STR      R0,[R4, #+8]
+   \   00000410   000094E5           LDR      R0,[R4, #+0]
+   \   00000414   011080E2           ADD      R1,R0,#+1
+   \   00000418   001084E5           STR      R1,[R4, #+0]
+   \   0000041C   1C1094E5           LDR      R1,[R4, #+28]
+   \   00000420   0000D0E5           LDRB     R0,[R0, #+0]
+   \   00000424   082091E5           LDR      R2,[R1, #+8]
+   \   00000428   000482E0           ADD      R0,R2,R0, LSL #+8
+   \   0000042C   080081E5           STR      R0,[R1, #+8]
+    251                z->state->mode = CHECK1;
+   \   00000430   0B00A0E3           MOV      R0,#+11
+   \   00000434   0000C1E5           STRB     R0,[R1, #+0]
+    252              case CHECK1:
+    253                NEEDBYTE
+   \                     ??inflate_22:
+   \   00000438   040094E5           LDR      R0,[R4, #+4]
+   \   0000043C   000050E3           CMP      R0,#+0
+   \   00000440   33FFFF0A           BEQ      ??inflate_9
+    254                z->state->sub.check.need += (uLong)NEXTBYTE;
+   \   00000444   010040E2           SUB      R0,R0,#+1
+   \   00000448   040084E5           STR      R0,[R4, #+4]
+   \   0000044C   080094E5           LDR      R0,[R4, #+8]
+   \   00000450   0560A0E1           MOV      R6,R5
+   \   00000454   010080E2           ADD      R0,R0,#+1
+   \   00000458   080084E5           STR      R0,[R4, #+8]
+   \   0000045C   000094E5           LDR      R0,[R4, #+0]
+   \   00000460   011080E2           ADD      R1,R0,#+1
+   \   00000464   001084E5           STR      R1,[R4, #+0]
+   \   00000468   1C1094E5           LDR      R1,[R4, #+28]
+   \   0000046C   0000D0E5           LDRB     R0,[R0, #+0]
+   \   00000470   082091E5           LDR      R2,[R1, #+8]
+   \   00000474   020080E0           ADD      R0,R0,R2
+   \   00000478   080081E5           STR      R0,[R1, #+8]
+    255          
+    256                if (z->state->sub.check.was != z->state->sub.check.need)
+   \   0000047C   040091E5           LDR      R0,[R1, #+4]
+   \   00000480   082091E5           LDR      R2,[R1, #+8]
+   \   00000484   020050E1           CMP      R0,R2
+    257                {
+    258                  z->state->mode = BAD;
+    259                  z->msg = (char*)"incorrect data check";
+   \   00000488   2C009F15           LDRNE    R0,??inflate_6+0x14  ;; `?<Constant "incorrect data check">`
+   \   0000048C   0080C115           STRBNE   R8,[R1, #+0]
+   \   00000490   EDFEFF1A           BNE      ??inflate_7
+    260                  z->state->sub.marker = 5;       /* can't try inflateSync */
+    261                  break;
+    262                }
+    263                Tracev((stderr, "inflate: zlib check ok\n"));
+    264                z->state->mode = DONE;
+   \   00000494   0090C1E5           STRB     R9,[R1, #+0]
+    265              case DONE:
+    266                return Z_STREAM_END;
+   \                     ??inflate_23:
+   \   00000498   0100A0E3           MOV      R0,#+1
+   \   0000049C   F087BDE8           POP      {R4-R10,PC}
+    267              case BAD:
+    268                return Z_DATA_ERROR;
+   \                     ??inflate_24:
+   \   000004A0   0200E0E3           MVN      R0,#+2
+   \   000004A4   F087BDE8           POP      {R4-R10,PC}      ;; return
+   \                     ??inflate_6:
+   \   000004A8   ........           DC32     `?<Constant "unknown compression m...">`
+   \   000004AC   ........           DC32     `?<Constant "invalid window size">`
+   \   000004B0   85104208           DC32     0x8421085
+   \   000004B4   ........           DC32     `?<Constant "incorrect header check">`
+   \   000004B8   ........           DC32     `?<Constant "need dictionary">`
+   \   000004BC   ........           DC32     `?<Constant "incorrect data check">`
+    269              default:
+    270                return Z_STREAM_ERROR;
+    271            }
+    272          #ifdef NEED_DUMMY_RETURN
+    273            return Z_STREAM_ERROR;  /* Some dumb compilers complain without this */
+    274          #endif
+    275          }
+    276          
+    277          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    278          int ZEXPORT inflateSetDictionary(z, dictionary, dictLength)
+    279          z_streamp z;
+    280          const Bytef *dictionary;
+    281          uInt  dictLength;
+    282          {
+   \                     inflateSetDictionary:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    283            uInt length = dictLength;
+    284          
+    285            if (z == Z_NULL || z->state == Z_NULL || z->state->mode != DICT0)
+   \   00000008   000054E3           CMP      R4,#+0
+   \   0000000C   1C009415           LDRNE    R0,[R4, #+28]
+   \   00000010   0150A0E1           MOV      R5,R1
+   \   00000014   0260A0E1           MOV      R6,R2
+   \   00000018   0670A0E1           MOV      R7,R6
+   \   0000001C   00005013           CMPNE    R0,#+0
+   \   00000020   0200000A           BEQ      ??inflateSetDictionary_0
+   \   00000024   0000D0E5           LDRB     R0,[R0, #+0]
+   \   00000028   060050E3           CMP      R0,#+6
+   \   0000002C   0100000A           BEQ      ??inflateSetDictionary_1
+    286              return Z_STREAM_ERROR;
+   \                     ??inflateSetDictionary_0:
+   \   00000030   0100E0E3           MVN      R0,#+1
+   \   00000034   F080BDE8           POP      {R4-R7,PC}
+    287          
+    288            if (adler32(1L, dictionary, dictLength) != z->adler) return Z_DATA_ERROR;
+   \                     ??inflateSetDictionary_1:
+   \   00000038   0100A0E3           MOV      R0,#+1
+   \   0000003C   ........           _BLF     adler32,??adler32??rA
+   \   00000040   301094E5           LDR      R1,[R4, #+48]
+   \   00000044   010050E1           CMP      R0,R1
+   \   00000048   0200E013           MVNNE    R0,#+2
+   \   0000004C   F080BD18           POPNE    {R4-R7,PC}
+    289            z->adler = 1L;
+   \   00000050   0100A0E3           MOV      R0,#+1
+   \   00000054   300084E5           STR      R0,[R4, #+48]
+    290          
+    291            if (length >= ((uInt)1<<z->state->wbits))
+   \   00000058   1C3094E5           LDR      R3,[R4, #+28]
+   \   0000005C   101093E5           LDR      R1,[R3, #+16]
+   \   00000060   100157E1           CMP      R7,R0, LSL R1
+   \   00000064   0300003A           BCC      ??inflateSetDictionary_2
+    292            {
+    293              length = (1<<z->state->wbits)-1;
+   \   00000068   1001A0E1           LSL      R0,R0,R1
+   \   0000006C   017040E2           SUB      R7,R0,#+1
+    294              dictionary += dictLength - length;
+   \   00000070   070046E0           SUB      R0,R6,R7
+   \   00000074   055080E0           ADD      R5,R0,R5
+    295            }
+    296            inflate_set_dictionary(z->state->blocks, dictionary, length);
+   \                     ??inflateSetDictionary_2:
+   \   00000078   140093E5           LDR      R0,[R3, #+20]
+   \   0000007C   0720A0E1           MOV      R2,R7
+   \   00000080   0510A0E1           MOV      R1,R5
+   \   00000084   ........           _BLF     inflate_set_dictionary,??inflate_set_dictionary??rA
+    297            z->state->mode = BLOCKS;
+   \   00000088   1C0094E5           LDR      R0,[R4, #+28]
+   \   0000008C   0710A0E3           MOV      R1,#+7
+   \   00000090   0010C0E5           STRB     R1,[R0, #+0]
+    298            return Z_OK;
+   \   00000094   0000A0E3           MOV      R0,#+0
+   \   00000098   F080BDE8           POP      {R4-R7,PC}       ;; return
+    299          }
+    300          
+    301          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    302          int ZEXPORT inflateSync(z)
+    303          z_streamp z;
+    304          {
+   \                     inflateSync:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0040B0E1           MOVS     R4,R0
+    305            uInt n;       /* number of bytes to look at */
+    306            Bytef *p;     /* pointer to bytes */
+    307            uInt m;       /* number of marker bytes found in a row */
+    308            uLong r, w;   /* temporaries to save total_in and total_out */
+    309          
+    310            /* set up */
+    311            if (z == Z_NULL || z->state == Z_NULL)
+   \   00000008   1C009415           LDRNE    R0,[R4, #+28]
+   \   0000000C   00005013           CMPNE    R0,#+0
+    312              return Z_STREAM_ERROR;
+   \   00000010   0100E003           MVNEQ    R0,#+1
+   \   00000014   7080BD08           POPEQ    {R4-R6,PC}
+    313            if (z->state->mode != BAD)
+   \   00000018   0020D0E5           LDRB     R2,[R0, #+0]
+   \   0000001C   0010A0E3           MOV      R1,#+0
+   \   00000020   0D0052E3           CMP      R2,#+13
+   \   00000024   0300000A           BEQ      ??inflateSync_0
+    314            {
+    315              z->state->mode = BAD;
+   \   00000028   0D20A0E3           MOV      R2,#+13
+   \   0000002C   0020C0E5           STRB     R2,[R0, #+0]
+    316              z->state->sub.marker = 0;
+   \   00000030   1C0094E5           LDR      R0,[R4, #+28]
+   \   00000034   041080E5           STR      R1,[R0, #+4]
+    317            }
+    318            if ((n = z->avail_in) == 0)
+   \                     ??inflateSync_0:
+   \   00000038   040094E5           LDR      R0,[R4, #+4]
+   \   0000003C   000050E3           CMP      R0,#+0
+    319              return Z_BUF_ERROR;
+   \   00000040   0400E003           MVNEQ    R0,#+4
+   \   00000044   7080BD08           POPEQ    {R4-R6,PC}
+    320            p = z->next_in;
+   \   00000048   002094E5           LDR      R2,[R4, #+0]
+    321            m = z->state->sub.marker;
+   \   0000004C   1CC094E5           LDR      R12,[R4, #+28]
+   \   00000050   0230A0E1           MOV      R3,R2
+   \   00000054   04E09CE5           LDR      LR,[R12, #+4]
+   \                     ??inflateSync_1:
+   \   00000058   04005EE3           CMP      LR,#+4
+   \   0000005C   0B00002A           BCS      ??inflateSync_2
+    322          
+    323            /* search */
+    324            while (n && m < 4)
+    325            {
+    326              static const Byte mark[4] = {0, 0, 0xff, 0xff};
+    327              if (*p == mark[m])
+   \   00000060   78609FE5           LDR      R6,??inflateSync_3  ;; ??mark
+   \   00000064   0050D3E5           LDRB     R5,[R3, #+0]
+   \   00000068   0660DEE7           LDRB     R6,[LR, +R6]
+   \   0000006C   060055E1           CMP      R5,R6
+    328                m++;
+   \   00000070   01E08E02           ADDEQ    LR,LR,#+1
+   \   00000074   0200000A           BEQ      ??inflateSync_4
+    329              else if (*p)
+   \   00000078   000055E3           CMP      R5,#+0
+    330                m = 0;
+   \   0000007C   00E0A013           MOVNE    LR,#+0
+    331              else
+    332                m = 4 - m;
+   \   00000080   04E06E02           RSBEQ    LR,LR,#+4
+    333              p++, n--;
+   \                     ??inflateSync_4:
+   \   00000084   013083E2           ADD      R3,R3,#+1
+   \   00000088   010050E2           SUBS     R0,R0,#+1
+    334            }
+   \   0000008C   F1FFFF1A           BNE      ??inflateSync_1
+    335          
+    336            /* restore */
+    337            z->total_in += (uLong)(p - z->next_in); // JL 03/24/2002 - silenced a warning about typeconversion
+   \                     ??inflateSync_2:
+   \   00000090   081094E5           LDR      R1,[R4, #+8]
+    338            z->next_in = p;
+    339            z->avail_in = n;
+    340            z->state->sub.marker = m;
+    341          
+    342            /* return no joy or set up to restart on a new block */
+    343            if (m != 4)
+   \   00000094   04005EE3           CMP      LR,#+4
+   \   00000098   011083E0           ADD      R1,R3,R1
+   \   0000009C   025041E0           SUB      R5,R1,R2
+   \   000000A0   085084E5           STR      R5,[R4, #+8]
+   \   000000A4   003084E5           STR      R3,[R4, #+0]
+   \   000000A8   040084E5           STR      R0,[R4, #+4]
+   \   000000AC   04E08CE5           STR      LR,[R12, #+4]
+    344              return Z_DATA_ERROR;
+   \   000000B0   0200E013           MVNNE    R0,#+2
+   \   000000B4   7080BD18           POPNE    {R4-R6,PC}
+    345            r = z->total_in;  w = z->total_out;
+   \   000000B8   146094E5           LDR      R6,[R4, #+20]
+    346            inflateReset(z);
+   \   000000BC   0400A0E1           MOV      R0,R4
+   \   000000C0   ........           BL       inflateReset
+    347            z->total_in = r;  z->total_out = w;
+   \   000000C4   085084E5           STR      R5,[R4, #+8]
+   \   000000C8   146084E5           STR      R6,[R4, #+20]
+    348            z->state->mode = BLOCKS;
+   \   000000CC   1C0094E5           LDR      R0,[R4, #+28]
+   \   000000D0   0710A0E3           MOV      R1,#+7
+   \   000000D4   0010C0E5           STRB     R1,[R0, #+0]
+    349            return Z_OK;
+   \   000000D8   0000A0E3           MOV      R0,#+0
+   \   000000DC   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??inflateSync_3:
+   \   000000E0   ........           DC32     ??mark
+    350          }
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     ??mark:
+   \   00000000   0000FFFF           DC8 0, 0, 255, 255
+    351          
+    352          
+    353          /* Returns true if inflate is currently at the end of a block generated
+    354           * by Z_SYNC_FLUSH or Z_FULL_FLUSH. This function is used by one PPP
+    355           * implementation to provide an additional safety check. PPP uses Z_SYNC_FLUSH
+    356           * but removes the length bytes of the resulting empty stored block. When
+    357           * decompressing, PPP checks that at the end of input packet, inflate is
+    358           * waiting for these length bytes.
+    359           */
+
+   \                                 In segment CODE, align 4, keep-with-next
+    360          int ZEXPORT inflateSyncPoint(z)
+    361          z_streamp z;
+    362          {
+    363            if (z == Z_NULL || z->state == Z_NULL || z->state->blocks == Z_NULL)
+   \                     inflateSyncPoint:
+   \   00000000   000050E3           CMP      R0,#+0
+   \   00000004   1C009015           LDRNE    R0,[R0, #+28]
+   \   00000008   00005013           CMPNE    R0,#+0
+   \   0000000C   14109015           LDRNE    R1,[R0, #+20]
+   \   00000010   00005113           CMPNE    R1,#+0
+    364              return Z_STREAM_ERROR;
+   \   00000014   0100E003           MVNEQ    R0,#+1
+   \   00000018   1EFF2F01           BXEQ     LR
+    365            return inflate_blocks_sync_point(z->state->blocks);
+   \   0000001C   0100A0E1           MOV      R0,R1
+   \   00000020   ........           _BF      inflate_blocks_sync_point,??inflate_blocks_sync_point??rA  ;; tailcall
+    366          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable1:
+   \   00000000   ........           DC32     adler32
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "unknown compression m...">`:
+   \   00000000   756E6B6E6F77       DC8 "unknown compression method"
+   \              6E20636F6D70
+   \              72657373696F
+   \              6E206D657468
+   \              6F6400      
+   \   0000001B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "invalid window size">`:
+   \   00000000   696E76616C69       DC8 "invalid window size"
+   \              642077696E64
+   \              6F772073697A
+   \              6500        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "incorrect header check">`:
+   \   00000000   696E636F7272       DC8 "incorrect header check"
+   \              656374206865
+   \              616465722063
+   \              6865636B00  
+   \   00000017   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "need dictionary">`:
+   \   00000000   6E6565642064       DC8 "need dictionary"
+   \              696374696F6E
+   \              61727900    
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "incorrect data check">`:
+   \   00000000   696E636F7272       DC8 "incorrect data check"
+   \              656374206461
+   \              746120636865
+   \              636B00      
+   \   00000015   000000             DC8 0, 0, 0
+
+   Maximum stack usage in bytes:
+
+     Function             CSTACK
+     --------             ------
+     inflate                 32
+     inflateEnd               8
+     inflateInit2_           16
+     inflateInit_             4
+     inflateReset             4
+     inflateSetDictionary    20
+     inflateSync             16
+     inflateSyncPoint         4
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     inflateReset                     84
+     inflateEnd                       84
+     inflateInit2_                   268
+     inflateInit_                     16
+     inflate                        1216
+     inflateSetDictionary            156
+     inflateSync                     228
+     mark                              4
+     inflateSyncPoint                 36
+     ??DataTable1                      4
+     ?<Constant "unknown compression m...">
+                                      28
+     ?<Constant "invalid window size">
+                                      20
+     ?<Constant "incorrect header check">
+                                      24
+     ?<Constant "need dictionary">    16
+     ?<Constant "incorrect data check">
+                                      24
+      Others                         112
+
+ 
+ 2 204 bytes in segment CODE
+   116 bytes in segment DATA_C
+ 
+ 2 092 bytes of CODE  memory (+ 112 bytes shared)
+   116 bytes of CONST memory
+
+Errors: none
+Warnings: none

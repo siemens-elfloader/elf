@@ -1,0 +1,2059 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    31/Jul/2009  18:08:48 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\programming\мои проекты\ArcanoidStudio\menu.c     #
+#    Command line    =  "D:\programming\мои проекты\ArcanoidStudio\menu.c"   #
+#                       -D NEWSGOLD -D ELKA -lC "D:\programming\мои          #
+#                       проекты\ArcanoidStudio\Release_ELKA\List\" -o        #
+#                       "D:\programming\мои проекты\ArcanoidStudio\Release_E #
+#                       LKA\Obj\" -s9 --cpu_mode arm --endian little --cpu   #
+#                       ARM926EJ-S --stack_align 4 --interwork -e --fpu      #
+#                       None --dlib_config "D:\Embedded Workbench 4.0        #
+#                       Evaluation\ARM\LIB\dl5tpainl8n.h" -I "D:\Embedded    #
+#                       Workbench 4.0 Evaluation\ARM\INC\"                   #
+#                       --inline_threshold=2                                 #
+#    List file       =  D:\programming\мои проекты\ArcanoidStudio\Release_EL #
+#                       KA\List\menu.lst                                     #
+#    Object file     =  D:\programming\мои проекты\ArcanoidStudio\Release_EL #
+#                       KA\Obj\menu.r79                                      #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\programming\мои проекты\ArcanoidStudio\menu.c
+      1          #include "menu.h"
+      2          #include "engine.h"
+      3          #include "config.h"
+      4          //отстой,а не меню.Нет времени переделывать..
+      5          
+      6          
+      7          extern signed char state;
+      8          extern char cont;
+      9          extern char offset1;
+     10          extern short score;
+     11          extern char levelcounter;
+     12          
+     13          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     14          int sellcpx; //позиции курсора в меню выбора уровня
+   \                     sellcpx:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     15          int sellcpy;
+   \                     sellcpy:
+   \   00000000                      DS8 4
+     16          
+     17          
+     18          #define MENU_PX_STARTPOS 45
+     19          #define MENU_PY_STARTPOS 100
+     20          #define MENU_P_WIDTH 150
+     21          #define MENU_PY_OUTL 4
+     22          
+
+   \                                 In segment DATA_I, align 4, align-sorted
+     23          int menu_px=MENU_PX_STARTPOS,menu_py=MENU_PY_STARTPOS;
+   \                     menu_px:
+   \   00000000                      DS8 4
+   \   00000004                      REQUIRE `?<Initializer for menu_px>`
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     menu_py:
+   \   00000000                      DS8 4
+   \   00000004                      REQUIRE `?<Initializer for menu_py>`
+     24          WSHDR *mmws;
+     25          char *mmenu_items[]= {"","","","","",""};
+     26          
+     27          RECT sell={30,50,190,200};
+     28          int sellcx=30-2; //-погрешность из-за кривого шрифта
+     29          int sellcy=50+2; //+погрешность из-за кривого шрифта
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     30          int sellwsW;
+   \                     sellwsW:
+   \   00000000                      DS8 4
+     31          
+     32          
+     33          
+     34          char sets_cur = 0;
+     35          
+     36          
+     37          
+     38          #define FONT_SDVIG_X 5
+     39          #define FONT_SDVIG_Y 4
+     40          //int mcur_ypos=1;
+     41          int cur_pos;
+     42          //int cur_down;
+     43          //int cur_up;
+     44          
+     45          
+     46          //////////////////////////////////////////////
+     47          int list_counter;
+     48          int list_ypos;
+     49          int list_drawcount;
+     50          char list_lineheight;
+     51          char list_drawoffset;
+     52          #define Getcurpos() (list_counter+list_ypos)
+     53          //////////////////////////////////////////////
+     54          
+     55          #define UTF16_FONT_SMALL (0xE012)
+     56          #define UTF16_FONT_SMALL_BOLD (0xE013)
+     57          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     58          void Krakozyabra_2ws(WSHDR *name,char *krakozyabra)
+     59          {
+   \                     Krakozyabra_2ws:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+     60            str_2ws(name,krakozyabra,strlen(krakozyabra));
+   \   0000000C   0500A0E1           MOV      R0,R5
+   \   00000010   1B0000EF           SWI      +27
+   \   00000014   0020A0E1           MOV      R2,R0
+   \   00000018   0510A0E1           MOV      R1,R5
+   \   0000001C   0400A0E1           MOV      R0,R4
+   \   00000020   6C0100EF           SWI      +364
+     61                  int wi=1;
+   \   00000024   001094E5           LDR      R1,[R4, #+0]
+   \   00000028   0100A0E3           MOV      R0,#+1
+   \   0000002C   B020D1E1           LDRH     R2,[R1, #+0]
+   \   00000030   000052E3           CMP      R2,#+0
+   \   00000034   0600001A           BNE      ??Krakozyabra_2ws_0
+     62                  int c;
+     63                  while(wi<=name->wsbody[0])	
+     64                  {
+     65                    c=name->wsbody[wi];
+     66                    if (c==0xA8) c=0x401;
+     67                    if (c==0xAA) c=0x404;
+     68                    if (c==0xAF) c=0x407;
+     69                    if (c==0xB8) c=0x451;
+     70                    if (c==0xBA) c=0x454;
+     71                    if (c==0xBF) c=0x457;
+     72                    if ((c>=0xC0)&&(c<0x100)) c+=0x350;
+     73                    name->wsbody[wi++]=c;
+     74                  }
+     75          }
+   \   00000038   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??Krakozyabra_2ws_1:
+   \   0000003C   C00052E3           CMP      R2,#+192
+   \   00000040   010000BA           BLT      ??Krakozyabra_2ws_2
+   \   00000044   400F52E3           CMP      R2,#+256
+   \   00000048   D42F82B2           ADDLT    R2,R2,#+848
+   \                     ??Krakozyabra_2ws_2:
+   \   0000004C   B020C3E1           STRH     R2,[R3, #+0]
+   \   00000050   010080E2           ADD      R0,R0,#+1
+   \                     ??Krakozyabra_2ws_0:
+   \   00000054   B020D1E1           LDRH     R2,[R1, #+0]
+   \   00000058   000052E1           CMP      R2,R0
+   \   0000005C   3080BDB8           POPLT    {R4,R5,PC}
+   \   00000060   803081E0           ADD      R3,R1,R0, LSL #+1
+   \   00000064   B020D3E1           LDRH     R2,[R3, #+0]
+   \   00000068   A80052E3           CMP      R2,#+168
+   \   0000006C   0200001A           BNE      ??Krakozyabra_2ws_3
+   \   00000070   0120A0E3           MOV      R2,#+1
+   \                     ??Krakozyabra_2ws_4:
+   \   00000074   402E82E3           ORR      R2,R2,#0x400
+   \   00000078   F3FFFFEA           B        ??Krakozyabra_2ws_2
+   \                     ??Krakozyabra_2ws_3:
+   \   0000007C   AA0052E3           CMP      R2,#+170
+   \   00000080   0420A003           MOVEQ    R2,#+4
+   \   00000084   FAFFFF0A           BEQ      ??Krakozyabra_2ws_4
+   \   00000088   AF0052E3           CMP      R2,#+175
+   \   0000008C   0100001A           BNE      ??Krakozyabra_2ws_5
+   \   00000090   0720A0E3           MOV      R2,#+7
+   \                     ??Krakozyabra_2ws_6:
+   \   00000094   F6FFFFEA           B        ??Krakozyabra_2ws_4
+   \                     ??Krakozyabra_2ws_5:
+   \   00000098   B80052E3           CMP      R2,#+184
+   \   0000009C   5120A003           MOVEQ    R2,#+81
+   \   000000A0   F3FFFF0A           BEQ      ??Krakozyabra_2ws_4
+   \   000000A4   BA0052E3           CMP      R2,#+186
+   \   000000A8   5420A003           MOVEQ    R2,#+84
+   \   000000AC   F0FFFF0A           BEQ      ??Krakozyabra_2ws_4
+   \   000000B0   BF0052E3           CMP      R2,#+191
+   \   000000B4   E0FFFF1A           BNE      ??Krakozyabra_2ws_1
+   \   000000B8   5720A0E3           MOV      R2,#+87
+   \   000000BC   ECFFFFEA           B        ??Krakozyabra_2ws_4
+     76          
+     77          
+     78          
+     79          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     80          void DrawMenu()
+     81          {
+     82            char menu_pointer_pen[4]={50,50,50,100}; //для курсора
+   \                     DrawMenu:
+   \   00000000   54199FE5           LDR      R1,??DrawMenu_1  ;; `?<Constant {50, 50, 50, 100}>`
+   \   00000004   F0472DE9           PUSH     {R4-R10,LR}
+     83            char menu_pointer_brush[4]={90,90,90,90}; //для курсора
+     84            char menu_text_brush[4]={25,120,5,100}; //цвет текста в меню
+     85            char selcolor[4]={5,5,5,100}; //цвет текста выделенного пункта в меню и выборе левела
+     86            
+     87            //фон
+     88            char bg_color[4]={0,0,0,100};
+     89            DrawRoundedFrame(0,0,sw,sh,2,2,0,NULL,bg_color);
+   \   00000008   50899FE5           LDR      R8,??DrawMenu_1+0x4  ;; sw
+   \   0000000C   50A99FE5           LDR      R10,??DrawMenu_1+0x8  ;; sh
+     90            
+     91            switch(state)
+   \   00000010   ........           LDR      R4,??DataTable0  ;; `?<Constant {15, 80, 5, 60}>`
+   \   00000014   4C999FE5           LDR      R9,??DrawMenu_1+0xC  ;; offset1
+   \   00000018   ........           LDR      R5,??DataTable1  ;; mmenu_items
+   \   0000001C   48699FE5           LDR      R6,??DrawMenu_1+0x10  ;; perc_t
+   \   00000020   ........           LDR      R7,??DataTable2  ;; savedata
+   \   00000024   18D04DE2           SUB      SP,SP,#+24
+   \   00000028   002091E5           LDR      R2,[R1, #0]
+   \   0000002C   3C199FE5           LDR      R1,??DrawMenu_1+0x14  ;; `?<Constant {90, 90, 90, 90}>`
+   \   00000030   04008DE2           ADD      R0,SP,#+4
+   \   00000034   002080E5           STR      R2,[R0, #+0]
+   \   00000038   002091E5           LDR      R2,[R1, #0]
+   \   0000003C   30199FE5           LDR      R1,??DrawMenu_1+0x18  ;; `?<Constant {25, 120, 5, 100}>`
+   \   00000040   08008DE2           ADD      R0,SP,#+8
+   \   00000044   002080E5           STR      R2,[R0, #+0]
+   \   00000048   002091E5           LDR      R2,[R1, #0]
+   \   0000004C   24199FE5           LDR      R1,??DrawMenu_1+0x1C  ;; `?<Constant {5, 5, 5, 100}>`
+   \   00000050   0D00A0E1           MOV      R0,SP
+   \   00000054   002080E5           STR      R2,[R0, #+0]
+   \   00000058   002091E5           LDR      R2,[R1, #0]
+   \   0000005C   18199FE5           LDR      R1,??DrawMenu_1+0x20  ;; `?<Constant {0, 0, 0, 100}>`
+   \   00000060   10008DE2           ADD      R0,SP,#+16
+   \   00000064   002080E5           STR      R2,[R0, #+0]
+   \   00000068   002091E5           LDR      R2,[R1, #0]
+   \   0000006C   14008DE2           ADD      R0,SP,#+20
+   \   00000070   002080E5           STR      R2,[R0, #+0]
+   \   00000074   01002DE9           PUSH     {R0}
+   \   00000078   0010A0E3           MOV      R1,#+0
+   \   0000007C   0000A0E3           MOV      R0,#+0
+   \   00000080   01002DE9           PUSH     {R0}
+   \   00000084   01002DE9           PUSH     {R0}
+   \   00000088   0200A0E3           MOV      R0,#+2
+   \   0000008C   01002DE9           PUSH     {R0}
+   \   00000090   01002DE9           PUSH     {R0}
+   \   00000094   F030DAE1           LDRSH    R3,[R10, #+0]
+   \   00000098   F020D8E1           LDRSH    R2,[R8, #+0]
+   \   0000009C   0000A0E3           MOV      R0,#+0
+   \   000000A0   500100EF           SWI      +336
+   \   000000A4   ........           LDR      R0,??DataTable3  ;; state
+   \   000000A8   D000D0E1           LDRSB    R0,[R0, #+0]
+   \   000000AC   14D08DE2           ADD      SP,SP,#+20
+   \   000000B0   040050E3           CMP      R0,#+4
+   \   000000B4   2602008A           BHI      ??DrawMenu_2
+   \   000000B8   021F8FE2           ADR      R1,??DrawMenu_0
+   \   000000BC   8000A0E1           MOV      R0,R0, LSL #+1
+   \   000000C0   B01091E1           LDRH     R1,[R1, R0]
+   \   000000C4   01F18FE0           ADD      PC,PC,R1, LSL #+2
+   \                     ??DrawMenu_0:
+   \   000000C8   0200A3017B00       DC16     +2,+419,+123,+511
+   \              FF01        
+   \   000000D0   42000000           DC16     +66,+0
+     92            {
+     93              case STATE_MENU: //in main menu
+     94                {
+     95                  int sdvig_y = MENU_PY_STARTPOS;
+     96                  short line_h = GetFontYSIZE(FONT_MD)-FONT_SDVIG_Y;
+   \                     ??DrawMenu_3:
+   \   000000D4   0700A0E3           MOV      R0,#+7
+   \   000000D8   C50100EF           SWI      +453
+     97                  if(cont) mmenu_items[0]="продолжить";
+   \   000000DC   ........           LDR      R1,??DataTable12  ;; cont
+     98                  else mmenu_items[0]="новая игра";
+     99                  char *cl;
+    100                  //курсор
+    101                  DrawRoundedFrame(2,MENU_PY_STARTPOS+(line_h*cur_pos),sw-2,MENU_PY_STARTPOS+(line_h*cur_pos)+line_h,3,3,0,menu_pointer_pen,menu_pointer_brush);
+   \   000000E0   1C2095E5           LDR      R2,[R5, #+28]
+   \   000000E4   0010D1E5           LDRB     R1,[R1, #+0]
+   \   000000E8   040040E2           SUB      R0,R0,#+4
+   \   000000EC   0008A0E1           MOV      R0,R0, LSL #+16
+   \   000000F0   4008A0E1           MOV      R0,R0, ASR #+16
+   \   000000F4   000051E3           CMP      R1,#+0
+   \   000000F8   C8108412           ADDNE    R1,R4,#+200
+   \   000000FC   D4108402           ADDEQ    R1,R4,#+212
+   \   00000100   001085E5           STR      R1,[R5, #+0]
+   \   00000104   920001E0           MUL      R1,R2,R0
+   \   00000108   08208DE2           ADD      R2,SP,#+8
+   \   0000010C   04002DE9           PUSH     {R2}
+   \   00000110   010080E0           ADD      R0,R0,R1
+   \   00000114   643080E2           ADD      R3,R0,#+100
+   \   00000118   6470A0E3           MOV      R7,#+100
+   \   0000011C   08208DE2           ADD      R2,SP,#+8
+   \   00000120   04002DE9           PUSH     {R2}
+   \   00000124   641081E2           ADD      R1,R1,#+100
+    102                      
+    103                  for(int i=0;i<6;i++) //в цикеле рисуем имена итемов меню
+   \   00000128   0040A0E3           MOV      R4,#+0
+   \   0000012C   0020A0E3           MOV      R2,#+0
+   \   00000130   04002DE9           PUSH     {R2}
+   \   00000134   0320A0E3           MOV      R2,#+3
+   \   00000138   04002DE9           PUSH     {R2}
+   \   0000013C   04002DE9           PUSH     {R2}
+   \   00000140   F000D8E1           LDRSH    R0,[R8, #+0]
+   \   00000144   022040E2           SUB      R2,R0,#+2
+   \   00000148   0200A0E3           MOV      R0,#+2
+   \   0000014C   500100EF           SWI      +336
+   \   00000150   14D08DE2           ADD      SP,SP,#+20
+   \   00000154   190000EA           B        ??DrawMenu_4
+    104                  {
+    105                    if(i==cur_pos) cl = selcolor;
+    106                    else cl = menu_text_brush;
+    107                    wsprintf(mmws,perc_t,mmenu_items[i]);
+   \                     ??DrawMenu_5:
+   \   00000158   042195E7           LDR      R2,[R5, +R4, LSL #+2]
+   \   0000015C   180095E5           LDR      R0,[R5, #+24]
+   \   00000160   0610A0E1           MOV      R1,R6
+   \   00000164   240100EF           SWI      +292
+    108                    DrawString(mmws,0,sdvig_y-FONT_SDVIG_Y,sw,sh,FONT_MD,TEXT_ALIGNMIDDLE,cl,NULL);
+   \   00000168   0000A0E3           MOV      R0,#+0
+   \   0000016C   01002DE9           PUSH     {R0}
+   \   00000170   00022DE9           PUSH     {R9}
+   \   00000174   042047E2           SUB      R2,R7,#+4
+   \   00000178   0200A0E3           MOV      R0,#+2
+   \   0000017C   01002DE9           PUSH     {R0}
+   \   00000180   0010A0E3           MOV      R1,#+0
+    109                    sdvig_y+=GetFontYSIZE(FONT_MD)-FONT_SDVIG_Y; 
+   \   00000184   014084E2           ADD      R4,R4,#+1
+   \   00000188   0700A0E3           MOV      R0,#+7
+   \   0000018C   01002DE9           PUSH     {R0}
+   \   00000190   F000DAE1           LDRSH    R0,[R10, #+0]
+   \   00000194   01002DE9           PUSH     {R0}
+   \   00000198   F030D8E1           LDRSH    R3,[R8, #+0]
+   \   0000019C   180095E5           LDR      R0,[R5, #+24]
+   \   000001A0   4C0100EF           SWI      +332
+   \   000001A4   0700A0E3           MOV      R0,#+7
+   \   000001A8   C50100EF           SWI      +453
+   \   000001AC   040040E2           SUB      R0,R0,#+4
+   \   000001B0   077080E0           ADD      R7,R0,R7
+   \   000001B4   060054E3           CMP      R4,#+6
+   \   000001B8   14D08DE2           ADD      SP,SP,#+20
+   \   000001BC   E40100AA           BGE      ??DrawMenu_2
+   \                     ??DrawMenu_4:
+   \   000001C0   1C0095E5           LDR      R0,[R5, #+28]
+   \   000001C4   000054E1           CMP      R4,R0
+   \   000001C8   0D90A011           MOVNE    R9,SP
+   \   000001CC   10908D02           ADDEQ    R9,SP,#+16
+   \   000001D0   E0FFFFEA           B        ??DrawMenu_5
+    110                  }
+    111                  break;
+    112                }
+    113               case STATE_ABOUT: //about
+    114                {
+    115                  int text_y=75;
+    116                  int text_x=10;
+    117                  wsprintf(mmws,"%s","ArcanoidStudio\nfor SieELFPlatform\n version 1.3 Freeware\n(c)half65\nICQ - 404558107");
+   \                     ??DrawMenu_6:
+   \   000001D4   180095E5           LDR      R0,[R5, #+24]
+   \   000001D8   356F8FE2           ADR      R6,??DrawMenu_7  ;; "%s"
+   \   000001DC   E02084E2           ADD      R2,R4,#+224
+   \   000001E0   0610A0E1           MOV      R1,R6
+   \   000001E4   240100EF           SWI      +292
+    118                  DrawString(mmws,text_x,text_y,W,H,FONT_LG,TEXT_ALIGNMIDDLE,menu_text_brush,NULL);
+   \   000001E8   0000A0E3           MOV      R0,#+0
+   \   000001EC   01002DE9           PUSH     {R0}
+   \   000001F0   F030A0E3           MOV      R3,#+240
+   \   000001F4   4B20A0E3           MOV      R2,#+75
+   \   000001F8   0A10A0E3           MOV      R1,#+10
+   \   000001FC   04008DE2           ADD      R0,SP,#+4
+   \   00000200   01002DE9           PUSH     {R0}
+   \   00000204   0200A0E3           MOV      R0,#+2
+   \   00000208   01002DE9           PUSH     {R0}
+   \   0000020C   0500A0E3           MOV      R0,#+5
+   \   00000210   01002DE9           PUSH     {R0}
+   \   00000214   500FA0E3           MOV      R0,#+320
+   \   00000218   01002DE9           PUSH     {R0}
+   \   0000021C   180095E5           LDR      R0,[R5, #+24]
+   \   00000220   4C0100EF           SWI      +332
+    119                  wsprintf(mmws,"%s","back");
+   \   00000224   180095E5           LDR      R0,[R5, #+24]
+   \   00000228   642084E2           ADD      R2,R4,#+100
+   \   0000022C   0610A0E1           MOV      R1,R6
+   \   00000230   240100EF           SWI      +292
+    120                  DrawString(mmws,ScreenW()-Get_WS_width(mmws,FONT_MD)-6,ScreenH()-GetFontYSIZE(FONT_MD)-6,ScreenW(),ScreenH(),FONT_MD,TEXT_ALIGNMIDDLE,menu_text_brush,NULL);
+   \   00000234   898100EF           SWI      +33161
+   \   00000238   0040A0E1           MOV      R4,R0
+   \   0000023C   888100EF           SWI      +33160
+   \   00000240   0060A0E1           MOV      R6,R0
+   \   00000244   898100EF           SWI      +33161
+   \   00000248   0070A0E1           MOV      R7,R0
+   \   0000024C   0700A0E3           MOV      R0,#+7
+   \   00000250   C50100EF           SWI      +453
+   \   00000254   0080A0E1           MOV      R8,R0
+   \   00000258   888100EF           SWI      +33160
+   \   0000025C   0090A0E1           MOV      R9,R0
+   \   00000260   180095E5           LDR      R0,[R5, #+24]
+   \   00000264   0710A0E3           MOV      R1,#+7
+   \   00000268   080200EF           SWI      +520
+   \   0000026C   0010A0E3           MOV      R1,#+0
+   \   00000270   02002DE9           PUSH     {R1}
+   \   00000274   0630A0E1           MOV      R3,R6
+   \   00000278   000049E0           SUB      R0,R9,R0
+   \   0000027C   18108DE2           ADD      R1,SP,#+24
+   \   00000280   02002DE9           PUSH     {R1}
+   \   00000284   0210A0E3           MOV      R1,#+2
+   \   00000288   02002DE9           PUSH     {R1}
+   \   0000028C   0710A0E3           MOV      R1,#+7
+   \   00000290   02002DE9           PUSH     {R1}
+   \   00000294   10002DE9           PUSH     {R4}
+   \   00000298   081047E0           SUB      R1,R7,R8
+   \   0000029C   062041E2           SUB      R2,R1,#+6
+   \   000002A0   061040E2           SUB      R1,R0,#+6
+   \                     ??DrawMenu_8:
+   \   000002A4   180095E5           LDR      R0,[R5, #+24]
+   \   000002A8   4C0100EF           SWI      +332
+   \   000002AC   28D08DE2           ADD      SP,SP,#+40
+    121                  break;
+   \   000002B0   410100EA           B        ??DrawMenu_9
+   \                     ??DrawMenu_7:
+   \   000002B4   25730000           DC8      "%s",+0
+    122                }
+    123              case STATE_SETTINGS: //settings
+    124                {
+    125                  int offset3 = offset1+1;
+   \                     ??DrawMenu_10:
+   \   000002B8   0000D9E5           LDRB     R0,[R9, #+0]
+   \   000002BC   018080E2           ADD      R8,R0,#+1
+    126                  short sdvig = GetFontYSIZE(FONT_SM)+6;
+   \   000002C0   0800A0E3           MOV      R0,#+8
+   \   000002C4   C50100EF           SWI      +453
+   \   000002C8   069080E2           ADD      R9,R0,#+6
+    127                  char *cl = menu_text_brush;
+    128                  
+    129                  DrawRoundedFrame(1,offset3+(sets_cur*sdvig)-1,ScreenW()-1,offset3+(sets_cur*sdvig)+GetFontYSIZE(FONT_SM)+3,0,0,0,menu_pointer_brush,menu_pointer_pen); //курсор
+   \   000002CC   0800A0E3           MOV      R0,#+8
+   \   000002D0   C50100EF           SWI      +453
+   \   000002D4   00A0A0E1           MOV      R10,R0
+   \   000002D8   888100EF           SWI      +33160
+   \   000002DC   2C10D5E5           LDRB     R1,[R5, #+44]
+   \   000002E0   04208DE2           ADD      R2,SP,#+4
+   \   000002E4   04002DE9           PUSH     {R2}
+   \   000002E8   0998A0E1           MOV      R9,R9, LSL #+16
+   \   000002EC   4998A0E1           MOV      R9,R9, ASR #+16
+   \   000002F0   0C208DE2           ADD      R2,SP,#+12
+   \   000002F4   04002DE9           PUSH     {R2}
+   \   000002F8   998121E0           MLA      R1,R9,R1,R8
+   \   000002FC   0020A0E3           MOV      R2,#+0
+   \   00000300   04002DE9           PUSH     {R2}
+   \   00000304   04002DE9           PUSH     {R2}
+   \   00000308   04002DE9           PUSH     {R2}
+   \   0000030C   01208AE0           ADD      R2,R10,R1
+   \   00000310   033082E2           ADD      R3,R2,#+3
+   \   00000314   011041E2           SUB      R1,R1,#+1
+   \   00000318   012040E2           SUB      R2,R0,#+1
+   \   0000031C   0100A0E3           MOV      R0,#+1
+   \   00000320   500100EF           SWI      +336
+    130                  
+    131                  if(savedata.difficulty==DIFF_EASY) {wsprintf(mmws,perc_t,"сложность: легко");}
+   \   00000324   0000D7E5           LDRB     R0,[R7, #+0]
+   \   00000328   14D08DE2           ADD      SP,SP,#+20
+   \   0000032C   000050E3           CMP      R0,#+0
+   \   00000330   0300001A           BNE      ??DrawMenu_11
+   \   00000334   180095E5           LDR      R0,[R5, #+24]
+   \   00000338   4D2F84E2           ADD      R2,R4,#+308
+   \   0000033C   0610A0E1           MOV      R1,R6
+   \   00000340   240100EF           SWI      +292
+    132                  if(savedata.difficulty==DIFF_NORMAL) {wsprintf(mmws,perc_t,"сложность: норма");}
+   \                     ??DrawMenu_11:
+   \   00000344   0000D7E5           LDRB     R0,[R7, #+0]
+   \   00000348   010050E3           CMP      R0,#+1
+   \   0000034C   0300001A           BNE      ??DrawMenu_12
+   \   00000350   180095E5           LDR      R0,[R5, #+24]
+   \   00000354   522F84E2           ADD      R2,R4,#+328
+   \   00000358   0610A0E1           MOV      R1,R6
+   \   0000035C   240100EF           SWI      +292
+    133                  if(savedata.difficulty==DIFF_HARD) {wsprintf(mmws,perc_t,"сложность: оченнно сложно");}
+   \                     ??DrawMenu_12:
+   \   00000360   0000D7E5           LDRB     R0,[R7, #+0]
+   \   00000364   020050E3           CMP      R0,#+2
+   \   00000368   0300001A           BNE      ??DrawMenu_13
+   \   0000036C   180095E5           LDR      R0,[R5, #+24]
+   \   00000370   572F84E2           ADD      R2,R4,#+348
+   \   00000374   0610A0E1           MOV      R1,R6
+   \   00000378   240100EF           SWI      +292
+    134                  DrawString(mmws,1,offset3+(sdvig*0),W-1,offset3+(sdvig*0)+GetFontYSIZE(FONT_SM)+3,FONT_SM,TEXT_ALIGNMIDDLE,cl,NULL);
+   \                     ??DrawMenu_13:
+   \   0000037C   0800A0E3           MOV      R0,#+8
+   \   00000380   C50100EF           SWI      +453
+   \   00000384   0010A0E3           MOV      R1,#+0
+   \   00000388   02002DE9           PUSH     {R1}
+   \   0000038C   080080E0           ADD      R0,R0,R8
+   \   00000390   030080E2           ADD      R0,R0,#+3
+   \   00000394   EF30A0E3           MOV      R3,#+239
+   \   00000398   04108DE2           ADD      R1,SP,#+4
+   \   0000039C   02002DE9           PUSH     {R1}
+   \   000003A0   0820A0E1           MOV      R2,R8
+   \   000003A4   0210A0E3           MOV      R1,#+2
+   \   000003A8   02002DE9           PUSH     {R1}
+   \   000003AC   0810A0E3           MOV      R1,#+8
+   \   000003B0   02002DE9           PUSH     {R1}
+   \   000003B4   01002DE9           PUSH     {R0}
+   \   000003B8   180095E5           LDR      R0,[R5, #+24]
+   \   000003BC   0110A0E3           MOV      R1,#+1
+   \   000003C0   4C0100EF           SWI      +332
+    135                  
+    136                  if(savedata.recs_autosave==1) {wsprintf(mmws,perc_t,"автосохранение рекордов: вкл");}
+   \   000003C4   0200D7E5           LDRB     R0,[R7, #+2]
+   \   000003C8   14D08DE2           ADD      SP,SP,#+20
+   \   000003CC   010050E3           CMP      R0,#+1
+   \   000003D0   0300001A           BNE      ??DrawMenu_14
+   \   000003D4   180095E5           LDR      R0,[R5, #+24]
+   \   000003D8   5E2F84E2           ADD      R2,R4,#+376
+   \   000003DC   0610A0E1           MOV      R1,R6
+   \   000003E0   240100EF           SWI      +292
+    137                  if(savedata.recs_autosave==0) {wsprintf(mmws,perc_t,"автосохранение рекордов: выкл");}
+   \                     ??DrawMenu_14:
+   \   000003E4   0200D7E5           LDRB     R0,[R7, #+2]
+   \   000003E8   000050E3           CMP      R0,#+0
+   \   000003EC   0300001A           BNE      ??DrawMenu_15
+   \   000003F0   180095E5           LDR      R0,[R5, #+24]
+   \   000003F4   662F84E2           ADD      R2,R4,#+408
+   \   000003F8   0610A0E1           MOV      R1,R6
+   \   000003FC   240100EF           SWI      +292
+    138                  DrawString(mmws,1,offset3+(sdvig*1),W-1,offset3+(sdvig*1)+GetFontYSIZE(FONT_SM)+3,FONT_SM,TEXT_ALIGNMIDDLE,cl,NULL);
+   \                     ??DrawMenu_15:
+   \   00000400   0800A0E3           MOV      R0,#+8
+   \   00000404   C50100EF           SWI      +453
+   \   00000408   0010A0E3           MOV      R1,#+0
+   \   0000040C   02002DE9           PUSH     {R1}
+   \   00000410   082089E0           ADD      R2,R9,R8
+   \   00000414   020080E0           ADD      R0,R0,R2
+   \   00000418   030080E2           ADD      R0,R0,#+3
+   \   0000041C   04108DE2           ADD      R1,SP,#+4
+   \   00000420   02002DE9           PUSH     {R1}
+   \   00000424   EF30A0E3           MOV      R3,#+239
+   \   00000428   0210A0E3           MOV      R1,#+2
+   \   0000042C   02002DE9           PUSH     {R1}
+   \   00000430   0810A0E3           MOV      R1,#+8
+   \   00000434   02002DE9           PUSH     {R1}
+   \   00000438   01002DE9           PUSH     {R0}
+   \   0000043C   180095E5           LDR      R0,[R5, #+24]
+   \   00000440   0110A0E3           MOV      R1,#+1
+   \   00000444   4C0100EF           SWI      +332
+    139                  
+    140                  if(savedata.SoundsEnable==1) {wsprintf(mmws,perc_t,"музыка:включено");}
+   \   00000448   0300D7E5           LDRB     R0,[R7, #+3]
+   \   0000044C   14D08DE2           ADD      SP,SP,#+20
+   \   00000450   010050E3           CMP      R0,#+1
+   \   00000454   0300001A           BNE      ??DrawMenu_16
+   \   00000458   180095E5           LDR      R0,[R5, #+24]
+   \   0000045C   6E2F84E2           ADD      R2,R4,#+440
+   \   00000460   0610A0E1           MOV      R1,R6
+   \   00000464   240100EF           SWI      +292
+    141                  if(savedata.SoundsEnable==0) {wsprintf(mmws,perc_t,"музыка:выключено");}
+   \                     ??DrawMenu_16:
+   \   00000468   0300D7E5           LDRB     R0,[R7, #+3]
+   \   0000046C   000050E3           CMP      R0,#+0
+   \   00000470   0300001A           BNE      ??DrawMenu_17
+   \   00000474   180095E5           LDR      R0,[R5, #+24]
+   \   00000478   722F84E2           ADD      R2,R4,#+456
+   \   0000047C   0610A0E1           MOV      R1,R6
+   \   00000480   240100EF           SWI      +292
+    142                  DrawString(mmws,1,offset3+(sdvig*2),W-1,offset3+(sdvig*2)+GetFontYSIZE(FONT_SM)+3,FONT_SM,TEXT_ALIGNMIDDLE,cl,NULL);
+   \                     ??DrawMenu_17:
+   \   00000484   0800A0E3           MOV      R0,#+8
+   \   00000488   C50100EF           SWI      +453
+   \   0000048C   0010A0E3           MOV      R1,#+0
+   \   00000490   02002DE9           PUSH     {R1}
+   \   00000494   892088E0           ADD      R2,R8,R9, LSL #+1
+   \   00000498   020080E0           ADD      R0,R0,R2
+   \   0000049C   030080E2           ADD      R0,R0,#+3
+   \   000004A0   04108DE2           ADD      R1,SP,#+4
+   \   000004A4   02002DE9           PUSH     {R1}
+   \   000004A8   EF30A0E3           MOV      R3,#+239
+   \   000004AC   0210A0E3           MOV      R1,#+2
+   \   000004B0   02002DE9           PUSH     {R1}
+   \   000004B4   0810A0E3           MOV      R1,#+8
+   \   000004B8   02002DE9           PUSH     {R1}
+   \   000004BC   01002DE9           PUSH     {R0}
+   \   000004C0   180095E5           LDR      R0,[R5, #+24]
+   \   000004C4   0110A0E3           MOV      R1,#+1
+   \   000004C8   4C0100EF           SWI      +332
+    143                  
+    144                  if(savedata.VibraEnable==1) {wsprintf(mmws,perc_t,"вибра:включено");}
+   \   000004CC   0A00D7E5           LDRB     R0,[R7, #+10]
+   \   000004D0   14D08DE2           ADD      SP,SP,#+20
+   \   000004D4   010050E3           CMP      R0,#+1
+   \   000004D8   0300001A           BNE      ??DrawMenu_18
+   \   000004DC   180095E5           LDR      R0,[R5, #+24]
+   \   000004E0   772F84E2           ADD      R2,R4,#+476
+   \   000004E4   0610A0E1           MOV      R1,R6
+   \   000004E8   240100EF           SWI      +292
+    145                  if(savedata.VibraEnable==0) {wsprintf(mmws,perc_t,"вибра:выключено");}
+   \                     ??DrawMenu_18:
+   \   000004EC   0A00D7E5           LDRB     R0,[R7, #+10]
+   \   000004F0   000050E3           CMP      R0,#+0
+   \   000004F4   0300001A           BNE      ??DrawMenu_19
+   \   000004F8   180095E5           LDR      R0,[R5, #+24]
+   \   000004FC   7B2F84E2           ADD      R2,R4,#+492
+   \   00000500   0610A0E1           MOV      R1,R6
+   \   00000504   240100EF           SWI      +292
+    146                  DrawString(mmws,1,offset3+(sdvig*3),W-1,offset3+(sdvig*3)+GetFontYSIZE(FONT_SM)+3,FONT_SM,TEXT_ALIGNMIDDLE,cl,NULL);
+   \                     ??DrawMenu_19:
+   \   00000508   0800A0E3           MOV      R0,#+8
+   \   0000050C   C50100EF           SWI      +453
+   \   00000510   891089E0           ADD      R1,R9,R9, LSL #+1
+   \   00000514   082081E0           ADD      R2,R1,R8
+   \   00000518   0010A0E3           MOV      R1,#+0
+   \   0000051C   02002DE9           PUSH     {R1}
+   \   00000520   020080E0           ADD      R0,R0,R2
+   \   00000524   030080E2           ADD      R0,R0,#+3
+   \   00000528   EF30A0E3           MOV      R3,#+239
+   \   0000052C   04108DE2           ADD      R1,SP,#+4
+   \   00000530   02002DE9           PUSH     {R1}
+   \   00000534   0210A0E3           MOV      R1,#+2
+   \   00000538   02002DE9           PUSH     {R1}
+   \   0000053C   0810A0E3           MOV      R1,#+8
+   \   00000540   02002DE9           PUSH     {R1}
+   \   00000544   01002DE9           PUSH     {R0}
+   \   00000548   180095E5           LDR      R0,[R5, #+24]
+   \   0000054C   0110A0E3           MOV      R1,#+1
+   \   00000550   4C0100EF           SWI      +332
+    147                  
+    148                  wsprintf(mmws,"%t: %d","громкость музыки",savedata.SndVolume);
+   \   00000554   0B30D7E5           LDRB     R3,[R7, #+11]
+   \   00000558   180095E5           LDR      R0,[R5, #+24]
+   \   0000055C   0C2084E2           ADD      R2,R4,#+12
+   \   00000560   041084E2           ADD      R1,R4,#+4
+   \   00000564   240100EF           SWI      +292
+    149                  DrawString(mmws,1,offset3+(sdvig*4),W-1,offset3+(sdvig*4)+GetFontYSIZE(FONT_SM)+3,FONT_SM,TEXT_ALIGNMIDDLE,cl,NULL);
+   \   00000568   0800A0E3           MOV      R0,#+8
+   \   0000056C   C50100EF           SWI      +453
+   \   00000570   0010A0E3           MOV      R1,#+0
+   \   00000574   02002DE9           PUSH     {R1}
+   \   00000578   092188E0           ADD      R2,R8,R9, LSL #+2
+   \   0000057C   020080E0           ADD      R0,R0,R2
+   \   00000580   030080E2           ADD      R0,R0,#+3
+   \   00000584   18108DE2           ADD      R1,SP,#+24
+   \   00000588   02002DE9           PUSH     {R1}
+   \   0000058C   EF30A0E3           MOV      R3,#+239
+   \   00000590   0210A0E3           MOV      R1,#+2
+   \   00000594   02002DE9           PUSH     {R1}
+   \   00000598   0810A0E3           MOV      R1,#+8
+   \   0000059C   02002DE9           PUSH     {R1}
+   \   000005A0   01002DE9           PUSH     {R0}
+   \   000005A4   180095E5           LDR      R0,[R5, #+24]
+   \   000005A8   0110A0E3           MOV      R1,#+1
+   \   000005AC   4C0100EF           SWI      +332
+   \   000005B0   28D08DE2           ADD      SP,SP,#+40
+    150                  
+    151                  wsprintf(mmws,"%t: %d","сила вибрации",savedata.VibraVolume);
+   \   000005B4   0C30D7E5           LDRB     R3,[R7, #+12]
+   \   000005B8   180095E5           LDR      R0,[R5, #+24]
+   \   000005BC   202084E2           ADD      R2,R4,#+32
+   \   000005C0   041084E2           ADD      R1,R4,#+4
+   \   000005C4   240100EF           SWI      +292
+    152                  DrawString(mmws,1,offset3+(sdvig*5),W-1,offset3+(sdvig*5)+GetFontYSIZE(FONT_SM)+3,FONT_SM,TEXT_ALIGNMIDDLE,cl,NULL);
+   \   000005C8   0800A0E3           MOV      R0,#+8
+   \   000005CC   C50100EF           SWI      +453
+   \   000005D0   091189E0           ADD      R1,R9,R9, LSL #+2
+   \   000005D4   082081E0           ADD      R2,R1,R8
+   \   000005D8   0010A0E3           MOV      R1,#+0
+   \   000005DC   02002DE9           PUSH     {R1}
+   \   000005E0   020080E0           ADD      R0,R0,R2
+   \   000005E4   030080E2           ADD      R0,R0,#+3
+   \   000005E8   EF30A0E3           MOV      R3,#+239
+   \   000005EC   04108DE2           ADD      R1,SP,#+4
+   \   000005F0   02002DE9           PUSH     {R1}
+   \   000005F4   0210A0E3           MOV      R1,#+2
+   \   000005F8   02002DE9           PUSH     {R1}
+   \   000005FC   0810A0E3           MOV      R1,#+8
+   \   00000600   02002DE9           PUSH     {R1}
+   \   00000604   01002DE9           PUSH     {R0}
+   \   00000608   180095E5           LDR      R0,[R5, #+24]
+   \   0000060C   0110A0E3           MOV      R1,#+1
+   \   00000610   4C0100EF           SWI      +332
+    153                  
+    154                  wsprintf(mmws,"%t: %d","задержка вибрации",savedata.VibraCount);
+   \   00000614   FE30D7E1           LDRSH    R3,[R7, #+14]
+   \   00000618   180095E5           LDR      R0,[R5, #+24]
+   \   0000061C   302084E2           ADD      R2,R4,#+48
+   \   00000620   041084E2           ADD      R1,R4,#+4
+   \   00000624   240100EF           SWI      +292
+    155                  DrawString(mmws,1,offset3+(sdvig*6),W-1,offset3+(sdvig*6)+GetFontYSIZE(FONT_SM)+3,FONT_SM,TEXT_ALIGNMIDDLE,cl,NULL);
+   \   00000628   0800A0E3           MOV      R0,#+8
+   \   0000062C   C50100EF           SWI      +453
+   \   00000630   0610A0E3           MOV      R1,#+6
+   \   00000634   918922E0           MLA      R2,R1,R9,R8
+   \   00000638   0010A0E3           MOV      R1,#+0
+   \   0000063C   02002DE9           PUSH     {R1}
+   \   00000640   020080E0           ADD      R0,R0,R2
+   \   00000644   030080E2           ADD      R0,R0,#+3
+   \   00000648   EF30A0E3           MOV      R3,#+239
+   \   0000064C   18108DE2           ADD      R1,SP,#+24
+   \   00000650   02002DE9           PUSH     {R1}
+   \   00000654   0210A0E3           MOV      R1,#+2
+   \   00000658   02002DE9           PUSH     {R1}
+   \   0000065C   0810A0E3           MOV      R1,#+8
+   \   00000660   02002DE9           PUSH     {R1}
+   \   00000664   01002DE9           PUSH     {R0}
+   \   00000668   180095E5           LDR      R0,[R5, #+24]
+   \   0000066C   0110A0E3           MOV      R1,#+1
+   \   00000670   4C0100EF           SWI      +332
+   \   00000674   28D08DE2           ADD      SP,SP,#+40
+    156                  
+    157                  if(savedata.SndEnable==1) {wsprintf(mmws,perc_t,"звуки:включено");}
+   \   00000678   0400D7E5           LDRB     R0,[R7, #+4]
+   \   0000067C   010050E3           CMP      R0,#+1
+   \   00000680   0300001A           BNE      ??DrawMenu_20
+   \   00000684   180095E5           LDR      R0,[R5, #+24]
+   \   00000688   442084E2           ADD      R2,R4,#+68
+   \   0000068C   0610A0E1           MOV      R1,R6
+   \   00000690   240100EF           SWI      +292
+    158                  if(savedata.SndEnable==0) {wsprintf(mmws,perc_t,"звуки:выключено");}
+   \                     ??DrawMenu_20:
+   \   00000694   0400D7E5           LDRB     R0,[R7, #+4]
+   \   00000698   000050E3           CMP      R0,#+0
+   \   0000069C   0300001A           BNE      ??DrawMenu_21
+   \   000006A0   180095E5           LDR      R0,[R5, #+24]
+   \   000006A4   542084E2           ADD      R2,R4,#+84
+   \   000006A8   0610A0E1           MOV      R1,R6
+   \   000006AC   240100EF           SWI      +292
+    159                  DrawString(mmws,1,offset3+(sdvig*7),W-1,offset3+(sdvig*7)+GetFontYSIZE(FONT_SM)+3,FONT_SM,TEXT_ALIGNMIDDLE,cl,NULL);
+   \                     ??DrawMenu_21:
+   \   000006B0   0800A0E3           MOV      R0,#+8
+   \   000006B4   C50100EF           SWI      +453
+   \   000006B8   891169E0           RSB      R1,R9,R9, LSL #+3
+   \   000006BC   082081E0           ADD      R2,R1,R8
+   \   000006C0   0010A0E3           MOV      R1,#+0
+   \   000006C4   02002DE9           PUSH     {R1}
+   \   000006C8   020080E0           ADD      R0,R0,R2
+   \   000006CC   030080E2           ADD      R0,R0,#+3
+   \   000006D0   EF30A0E3           MOV      R3,#+239
+   \   000006D4   04108DE2           ADD      R1,SP,#+4
+   \   000006D8   02002DE9           PUSH     {R1}
+   \   000006DC   0210A0E3           MOV      R1,#+2
+   \   000006E0   02002DE9           PUSH     {R1}
+   \   000006E4   0810A0E3           MOV      R1,#+8
+   \   000006E8   02002DE9           PUSH     {R1}
+   \   000006EC   01002DE9           PUSH     {R0}
+   \   000006F0   180095E5           LDR      R0,[R5, #+24]
+   \   000006F4   0110A0E3           MOV      R1,#+1
+   \   000006F8   4C0100EF           SWI      +332
+    160                  
+    161          #ifdef STD_SND
+    162                  wsprintf(mmws,"%t: %d","номер звука ball+user",savedata.StdSnd_user);
+    163                  DrawString(mmws,1,offset3+(sdvig*8),W-1,offset3+(sdvig*8)+GetFontYSIZE(FONT_SM)+3,FONT_SM,TEXT_ALIGNMIDDLE,cl,NULL);
+    164                  
+    165                  wsprintf(mmws,"%t: %d","номер звука ball+brick",savedata.StdSnd_brick);
+    166                  DrawString(mmws,1,offset3+(sdvig*9),W-1,offset3+(sdvig*9)+GetFontYSIZE(FONT_SM)+3,FONT_SM,TEXT_ALIGNMIDDLE,cl,NULL);
+    167          #endif
+    168                  
+    169                  wsprintf(mmws,"%t: %d","задержка перерисовки",savedata.tmr_speed);
+   \   000006FC   1030D7E5           LDRB     R3,[R7, #+16]
+   \   00000700   180095E5           LDR      R0,[R5, #+24]
+   \   00000704   6C2084E2           ADD      R2,R4,#+108
+   \   00000708   041084E2           ADD      R1,R4,#+4
+   \   0000070C   240100EF           SWI      +292
+    170                  DrawString(mmws,1,offset3+(sdvig*10),W-1,offset3+(sdvig*10)+GetFontYSIZE(FONT_SM)+3,FONT_SM,TEXT_ALIGNMIDDLE,cl,NULL);
+   \   00000710   0800A0E3           MOV      R0,#+8
+   \   00000714   C50100EF           SWI      +453
+   \   00000718   0A10A0E3           MOV      R1,#+10
+   \   0000071C   918922E0           MLA      R2,R1,R9,R8
+   \   00000720   0010A0E3           MOV      R1,#+0
+   \   00000724   02002DE9           PUSH     {R1}
+   \   00000728   020080E0           ADD      R0,R0,R2
+   \   0000072C   030080E2           ADD      R0,R0,#+3
+   \   00000730   EF30A0E3           MOV      R3,#+239
+   \   00000734   18108DE2           ADD      R1,SP,#+24
+   \   00000738   02002DE9           PUSH     {R1}
+   \   0000073C   0210A0E3           MOV      R1,#+2
+   \   00000740   02002DE9           PUSH     {R1}
+   \   00000744   0810A0E3           MOV      R1,#+8
+   \   00000748   02002DE9           PUSH     {R1}
+   \   0000074C   01002DE9           PUSH     {R0}
+   \   00000750   0110A0E3           MOV      R1,#+1
+   \   00000754   D2FEFFEA           B        ??DrawMenu_8
+    171                  
+    172                  //wsprintf(mmws,"%s","back");
+    173                  //DrawString(mmws,ScreenW()-Get_WS_width(mmws,FONT_MD)-6,ScreenH()-GetFontYSIZE(FONT_MD)-6,ScreenW(),ScreenH(),FONT_MD,TEXT_ALIGNMIDDLE,cl,NULL);
+    174                  break;
+    175                }
+    176              case STATE_SLEVEL: //select level
+    177                {
+    178                  char *cl2;
+    179                  char un_color[4]={15,80,5,60};
+   \                     ??DrawMenu_22:
+   \   00000758   001094E5           LDR      R1,[R4, #0]
+   \   0000075C   0C008DE2           ADD      R0,SP,#+12
+   \   00000760   001080E5           STR      R1,[R0, #+0]
+    180                  //DrawRoundedFrame(0,0,ScreenW()-1,ScreenH()-1,0,0,0,menu_pointer_pen,menu_pointer_brush);
+    181                  list_drawoffset = offset1+1; //чуть ниже иконбара
+   \   00000764   0000D9E5           LDRB     R0,[R9, #+0]
+    182                  list_lineheight = GetFontYSIZE(FONT_LG)+2;
+    183                  char max_strings=(sh-1-list_drawoffset)/list_lineheight;
+    184                  if(total_levels>max_strings) list_drawcount=max_strings-1; //максимум 10 строк рисуем
+    185                  else list_drawcount=total_levels; //если строк меньше чем 10,то рисуем все
+    186                  
+    187                  for(int i=0;i<list_drawcount;i++)
+   \   00000768   0060A0E3           MOV      R6,#+0
+   \   0000076C   010080E2           ADD      R0,R0,#+1
+   \   00000770   2E00C5E5           STRB     R0,[R5, #+46]
+   \   00000774   0500A0E3           MOV      R0,#+5
+   \   00000778   C50100EF           SWI      +453
+   \   0000077C   2E10D5E5           LDRB     R1,[R5, #+46]
+   \   00000780   020080E2           ADD      R0,R0,#+2
+   \   00000784   2D00C5E5           STRB     R0,[R5, #+45]
+   \   00000788   F000DAE1           LDRSH    R0,[R10, #+0]
+   \   0000078C   010040E2           SUB      R0,R0,#+1
+   \   00000790   010040E0           SUB      R0,R0,R1
+   \   00000794   2D10D5E5           LDRB     R1,[R5, #+45]
+   \   00000798   ........           _BLF     ??div32_a,??rA??div32_a
+   \   0000079C   ........           LDR      R0,??DataTable9  ;; total_levels
+   \   000007A0   FF1001E2           AND      R1,R1,#0xFF
+   \   000007A4   0000D0E5           LDRB     R0,[R0, #+0]
+   \   000007A8   000051E1           CMP      R1,R0
+   \   000007AC   01004132           SUBCC    R0,R1,#+1
+   \   000007B0   280085E5           STR      R0,[R5, #+40]
+   \   000007B4   010050E3           CMP      R0,#+1
+   \   000007B8   310000AA           BGE      ??DrawMenu_23
+   \                     ??DrawMenu_9:
+   \   000007BC   18D08DE2           ADD      SP,SP,#+24
+   \   000007C0   F087BDE8           POP      {R4-R10,PC}
+    188                  {
+    189                    wsprintf(mmws,"%t %d","уровень",i+list_counter+1); 
+    190                    
+    191                    if(i+list_counter<savedata.opened_levels) cl2 = menu_text_brush;
+    192                    else cl2 = un_color;
+    193                    
+    194                    if(list_ypos==i) //под курсором
+   \                     ??DrawMenu_24:
+   \   000007C4   241095E5           LDR      R1,[R5, #+36]
+   \   000007C8   060051E1           CMP      R1,R6
+   \   000007CC   1500001A           BNE      ??DrawMenu_25
+   \   000007D0   2D20D5E5           LDRB     R2,[R5, #+45]
+   \   000007D4   08308DE2           ADD      R3,SP,#+8
+   \   000007D8   910200E0           MUL      R0,R1,R2
+   \   000007DC   2E10D5E5           LDRB     R1,[R5, #+46]
+   \   000007E0   08002DE9           PUSH     {R3}
+   \   000007E4   022081E0           ADD      R2,R1,R2
+   \   000007E8   022080E0           ADD      R2,R0,R2
+   \   000007EC   000081E0           ADD      R0,R1,R0
+   \   000007F0   08308DE2           ADD      R3,SP,#+8
+   \   000007F4   08002DE9           PUSH     {R3}
+   \   000007F8   031080E2           ADD      R1,R0,#+3
+   \   000007FC   0100A0E3           MOV      R0,#+1
+   \   00000800   0030A0E3           MOV      R3,#+0
+   \   00000804   08002DE9           PUSH     {R3}
+   \   00000808   0330A0E3           MOV      R3,#+3
+   \   0000080C   08002DE9           PUSH     {R3}
+   \   00000810   08002DE9           PUSH     {R3}
+   \   00000814   023082E2           ADD      R3,R2,#+2
+   \   00000818   F020D8E1           LDRSH    R2,[R8, #+0]
+   \   0000081C   022042E2           SUB      R2,R2,#+2
+    195                    {
+    196                      //cl2 = selcolor;
+    197                      DrawRoundedFrame(1,list_drawoffset+(list_lineheight*list_ypos)+3,sw-2,list_drawoffset+(list_lineheight*list_ypos)+list_lineheight+2,3,3,0,menu_pointer_pen,menu_pointer_brush);
+   \   00000820   500100EF           SWI      +336
+   \   00000824   14D08DE2           ADD      SP,SP,#+20
+   \                     ??DrawMenu_25:
+   \   00000828   2D20D5E5           LDRB     R2,[R5, #+45]
+   \   0000082C   2E10D5E5           LDRB     R1,[R5, #+46]
+   \   00000830   0030A0E3           MOV      R3,#+0
+   \   00000834   08002DE9           PUSH     {R3}
+   \   00000838   00022DE9           PUSH     {R9}
+   \   0000083C   0230A0E3           MOV      R3,#+2
+   \   00000840   08002DE9           PUSH     {R3}
+   \   00000844   960200E0           MUL      R0,R6,R2
+   \   00000848   022081E0           ADD      R2,R1,R2
+   \   0000084C   0530A0E3           MOV      R3,#+5
+   \   00000850   08002DE9           PUSH     {R3}
+   \   00000854   022080E0           ADD      R2,R0,R2
+   \   00000858   022082E2           ADD      R2,R2,#+2
+   \   0000085C   04002DE9           PUSH     {R2}
+   \   00000860   F020D8E1           LDRSH    R2,[R8, #+0]
+   \   00000864   000081E0           ADD      R0,R1,R0
+   \   00000868   0210A0E3           MOV      R1,#+2
+   \   0000086C   023042E2           SUB      R3,R2,#+2
+   \   00000870   022080E2           ADD      R2,R0,#+2
+   \   00000874   180095E5           LDR      R0,[R5, #+24]
+    198                    }
+   \   00000878   016086E2           ADD      R6,R6,#+1
+    199                    //else cl2 = menu_text_brush;
+    200                    
+    201                    DrawString(mmws,2,list_drawoffset+(list_lineheight*i)+2,sw-2,list_drawoffset+(list_lineheight*i)+list_lineheight+2,FONT_LG,TEXT_ALIGNMIDDLE,cl2,NULL);
+   \   0000087C   4C0100EF           SWI      +332
+   \   00000880   14D08DE2           ADD      SP,SP,#+20
+   \                     ??DrawMenu_23:
+   \   00000884   280095E5           LDR      R0,[R5, #+40]
+   \   00000888   000056E1           CMP      R6,R0
+   \   0000088C   300000AA           BGE      ??DrawMenu_2
+   \   00000890   200095E5           LDR      R0,[R5, #+32]
+   \   00000894   8C2084E2           ADD      R2,R4,#+140
+   \   00000898   000086E0           ADD      R0,R6,R0
+   \   0000089C   013080E2           ADD      R3,R0,#+1
+   \   000008A0   180095E5           LDR      R0,[R5, #+24]
+   \   000008A4   841084E2           ADD      R1,R4,#+132
+   \   000008A8   240100EF           SWI      +292
+   \   000008AC   0110D7E5           LDRB     R1,[R7, #+1]
+   \   000008B0   200095E5           LDR      R0,[R5, #+32]
+   \   000008B4   060080E0           ADD      R0,R0,R6
+   \   000008B8   010050E1           CMP      R0,R1
+   \   000008BC   0C908DA2           ADDGE    R9,SP,#+12
+   \   000008C0   0D90A0B1           MOVLT    R9,SP
+   \   000008C4   BEFFFFEA           B        ??DrawMenu_24
+    202                  }
+    203                   break;
+    204                }
+    205                case STATE_RECORDS: //records
+    206                {
+    207                  int lh = GetFontYSIZE(FONT_MD);
+   \                     ??DrawMenu_26:
+   \   000008C8   0700A0E3           MOV      R0,#+7
+   \   000008CC   C50100EF           SWI      +453
+   \   000008D0   0040A0E1           MOV      R4,R0
+    208                  //int offset = 40;
+    209                  for(int i=0;i<MAX_RECORDS;i++)
+   \   000008D4   00A0A0E3           MOV      R10,#+0
+    210                  {
+    211                    wsprintf(mmws,perc_t,savedata.recs[i].name);
+   \                     ??DrawMenu_27:
+   \   000008D8   8A028AE0           ADD      R0,R10,R10, LSL #+5
+   \   000008DC   070080E0           ADD      R0,R0,R7
+   \   000008E0   112080E2           ADD      R2,R0,#+17
+   \   000008E4   180095E5           LDR      R0,[R5, #+24]
+   \   000008E8   0610A0E1           MOV      R1,R6
+   \   000008EC   240100EF           SWI      +292
+    212                    DrawString(mmws,1,offset1+3+(lh*i)+2,sw-1,offset1+3+(lh*i)+lh+2,FONT_MD,TEXT_ALIGNMIDDLE,menu_text_brush,NULL);
+   \   000008F0   0010D9E5           LDRB     R1,[R9, #+0]
+   \   000008F4   0020A0E3           MOV      R2,#+0
+   \   000008F8   04002DE9           PUSH     {R2}
+   \   000008FC   9A0400E0           MUL      R0,R10,R4
+    213                  }
+   \   00000900   01A08AE2           ADD      R10,R10,#+1
+   \   00000904   04208DE2           ADD      R2,SP,#+4
+   \   00000908   04002DE9           PUSH     {R2}
+   \   0000090C   0220A0E3           MOV      R2,#+2
+   \   00000910   04002DE9           PUSH     {R2}
+   \   00000914   0720A0E3           MOV      R2,#+7
+   \   00000918   04002DE9           PUSH     {R2}
+   \   0000091C   012084E0           ADD      R2,R4,R1
+   \   00000920   022080E0           ADD      R2,R0,R2
+   \   00000924   000081E0           ADD      R0,R1,R0
+   \   00000928   052082E2           ADD      R2,R2,#+5
+   \   0000092C   04002DE9           PUSH     {R2}
+   \   00000930   F020D8E1           LDRSH    R2,[R8, #+0]
+   \   00000934   0110A0E3           MOV      R1,#+1
+   \   00000938   013042E2           SUB      R3,R2,#+1
+   \   0000093C   052080E2           ADD      R2,R0,#+5
+   \   00000940   180095E5           LDR      R0,[R5, #+24]
+   \   00000944   4C0100EF           SWI      +332
+   \   00000948   0A005AE3           CMP      R10,#+10
+   \   0000094C   14D08DE2           ADD      SP,SP,#+20
+   \   00000950   E0FFFFBA           BLT      ??DrawMenu_27
+    214                  //wsprintf(mmws,"%s","back");
+    215                  //DrawString(mmws,sw-Get_WS_width(mmws,FONT_MD)-6,sh-GetFontYSIZE(FONT_MD)-6,sw,sh,FONT_MD,TEXT_ALIGNMIDDLE,menu_text_brush,NULL);
+    216                  break;
+    217                }
+    218            }
+    219          }
+   \                     ??DrawMenu_2:
+   \   00000954   18D08DE2           ADD      SP,SP,#+24       ;; stack cleaning
+   \   00000958   F087BDE8           POP      {R4-R10,PC}      ;; return
+   \                     ??DrawMenu_1:
+   \   0000095C   ........           DC32     `?<Constant {50, 50, 50, 100}>`
+   \   00000960   ........           DC32     sw
+   \   00000964   ........           DC32     sh
+   \   00000968   ........           DC32     offset1
+   \   0000096C   ........           DC32     perc_t
+   \   00000970   ........           DC32     `?<Constant {90, 90, 90, 90}>`
+   \   00000974   ........           DC32     `?<Constant {25, 120, 5, 100}>`
+   \   00000978   ........           DC32     `?<Constant {5, 5, 5, 100}>`
+   \   0000097C   ........           DC32     `?<Constant {0, 0, 0, 100}>`
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     mmenu_items:
+   \   00000000                      DS8 24
+   \   00000018                      REQUIRE `?<Initializer for mmenu_items>`
+   \                     mmws:
+   \   00000018                      DS8 4
+   \   0000001C                      REQUIRE `?<Initializer for mmws>`
+   \                     cur_pos:
+   \   0000001C                      DS8 4
+   \   00000020                      REQUIRE `?<Initializer for cur_pos>`
+    220          
+    221          
+    222          
+    223          
+    224          
+    225          int list_counter;
+   \                     list_counter:
+   \   00000020                      DS8 4
+   \   00000024                      REQUIRE `?<Initializer for list_counter>`
+    226          int list_ypos;
+   \                     list_ypos:
+   \   00000024                      DS8 4
+   \   00000028                      REQUIRE `?<Initializer for list_ypos>`
+    227          int list_drawcount;
+   \                     list_drawcount:
+   \   00000028                      DS8 4
+   \   0000002C                      REQUIRE `?<Initializer for list_drawcount>`
+   \                     sets_cur:
+   \   0000002C                      DS8 1
+   \   0000002D                      REQUIRE `?<Initializer for sets_cur>`
+    228          char list_lineheight;
+   \                     list_lineheight:
+   \   0000002D                      DS8 1
+   \   0000002E                      REQUIRE `?<Initializer for list_lineheight>`
+    229          char list_drawoffset;
+   \                     list_drawoffset:
+   \   0000002E                      DS8 1
+   \   0000002F                      REQUIRE `?<Initializer for list_drawoffset>`
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     sell:
+   \   00000000                      DS8 8
+   \   00000008                      REQUIRE `?<Initializer for sell>`
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     sellcx:
+   \   00000000                      DS8 4
+   \   00000004                      REQUIRE `?<Initializer for sellcx>`
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     sellcy:
+   \   00000000                      DS8 4
+   \   00000004                      REQUIRE `?<Initializer for sellcy>`
+    230          #define Getcurpos() (list_counter+list_ypos)
+    231          
+    232          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    233          void ListDown() //вниз по списку
+    234          {
+   \                     ListDown:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+    235             if(Getcurpos()>=total_levels-1) {list_counter=0;list_ypos=0;} //возвращаемся на начало списка
+   \   00000004   ........           LDR      R4,??DataTable11  ;; mmenu_items
+   \   00000008   ........           LDR      R5,??DataTable9  ;; total_levels
+   \   0000000C   200094E5           LDR      R0,[R4, #+32]
+   \   00000010   241094E5           LDR      R1,[R4, #+36]
+   \   00000014   000081E0           ADD      R0,R1,R0
+   \   00000018   0010D5E5           LDRB     R1,[R5, #+0]
+   \   0000001C   011041E2           SUB      R1,R1,#+1
+   \   00000020   010050E1           CMP      R0,R1
+   \   00000024   0000A0A3           MOVGE    R0,#+0
+   \   00000028   200084A5           STRGE    R0,[R4, #+32]
+   \   0000002C   080000AA           BGE      ??ListDown_0
+    236             else
+    237             {
+    238               if(list_drawoffset+(list_lineheight*list_ypos)<ScreenH()/2) {list_ypos++;} //если курсор еще не дошел до середины экрана
+   \   00000030   898100EF           SWI      +33161
+   \   00000034   2D10D4E5           LDRB     R1,[R4, #+45]
+   \   00000038   2E20D4E5           LDRB     R2,[R4, #+46]
+   \   0000003C   243094E5           LDR      R3,[R4, #+36]
+   \   00000040   A00F80E0           ADD      R0,R0,R0, LSR #+31
+   \   00000044   93212CE0           MLA      R12,R3,R1,R2
+   \   00000048   C0005CE1           CMP      R12,R0, ASR #+1
+   \   0000004C   020000AA           BGE      ??ListDown_1
+   \   00000050   010083E2           ADD      R0,R3,#+1
+   \                     ??ListDown_0:
+   \   00000054   240084E5           STR      R0,[R4, #+36]
+   \   00000058   3080BDE8           POP      {R4,R5,PC}
+    239               else if(list_counter<total_levels-list_drawcount) {list_counter++;} //если дошел,то курсор далее двигаться не должен,а список должен двигаться вверх
+   \                     ??ListDown_1:
+   \   0000005C   0050D5E5           LDRB     R5,[R5, #+0]
+   \   00000060   280094E5           LDR      R0,[R4, #+40]
+   \   00000064   20E094E5           LDR      LR,[R4, #+32]
+   \   00000068   005045E0           SUB      R5,R5,R0
+   \   0000006C   05005EE1           CMP      LR,R5
+   \   00000070   01008EB2           ADDLT    R0,LR,#+1
+   \   00000074   200084B5           STRLT    R0,[R4, #+32]
+   \   00000078   3080BDB8           POPLT    {R4,R5,PC}
+    240               else if(list_drawoffset+(list_lineheight*list_ypos)+list_lineheight<list_drawoffset+(list_lineheight*list_drawcount)) {list_ypos++;} //зато он должен двигаться до конца списка,пока не дойдет до последнего элемента
+   \   0000007C   0C5081E0           ADD      R5,R1,R12
+   \   00000080   902121E0           MLA      R1,R0,R1,R2
+   \   00000084   010055E1           CMP      R5,R1
+   \   00000088   010083B2           ADDLT    R0,R3,#+1
+   \   0000008C   240084B5           STRLT    R0,[R4, #+36]
+    241             }
+    242          }
+   \   00000090   3080BDE8           POP      {R4,R5,PC}       ;; return
+
+   \                                 In segment CODE, align 4, keep-with-next
+    243          void ListUp() //вверх по списку
+    244          {
+   \                     ListUp:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+    245             if((list_lineheight*list_ypos)>(ScreenH()/3)) list_ypos--; //если курсор еще не дошел до середины экрана
+   \   00000004   898100EF           SWI      +33161
+   \   00000008   ........           LDR      R1,??DataTable11  ;; mmenu_items
+   \   0000000C   7CE09FE5           LDR      LR,??ListUp_0    ;; 0x55555556
+   \   00000010   2DC0D1E5           LDRB     R12,[R1, #+45]
+   \   00000014   243091E5           LDR      R3,[R1, #+36]
+   \   00000018   202091E5           LDR      R2,[R1, #+32]
+   \   0000001C   930C04E0           MUL      R4,R3,R12
+   \   00000020   9E50C6E0           SMULL    R5,R6,LR,R0
+   \   00000024   A00F86E0           ADD      R0,R6,R0, LSR #+31
+   \   00000028   040050E1           CMP      R0,R4
+   \   0000002C   030000AA           BGE      ??ListUp_1
+   \                     ??ListUp_2:
+   \   00000030   013043E2           SUB      R3,R3,#+1
+   \   00000034   202081E5           STR      R2,[R1, #+32]
+   \   00000038   243081E5           STR      R3,[R1, #+36]
+   \   0000003C   7080BDE8           POP      {R4-R6,PC}
+    246             else if(list_counter>0) {list_counter--;}
+   \                     ??ListUp_1:
+   \   00000040   010052E3           CMP      R2,#+1
+   \   00000044   012042A2           SUBGE    R2,R2,#+1
+   \   00000048   0D0000AA           BGE      ??ListUp_3
+   \   0000004C   2E00D1E5           LDRB     R0,[R1, #+46]
+   \   00000050   00508CE0           ADD      R5,R12,R0
+   \   00000054   000084E0           ADD      R0,R4,R0
+   \   00000058   00008CE0           ADD      R0,R12,R0
+   \   0000005C   000055E1           CMP      R5,R0
+   \   00000060   F2FFFFBA           BLT      ??ListUp_2
+    247             else if(list_drawoffset+(list_lineheight*list_ypos)+list_lineheight>list_drawoffset+list_lineheight) {list_ypos--;}
+    248             else if(Getcurpos()<=0) {list_counter=total_levels-list_drawcount;list_ypos=list_drawcount-1;} //если дошли до верха,спускаемся на самый конец списка
+   \   00000064   020083E0           ADD      R0,R3,R2
+   \   00000068   010050E3           CMP      R0,#+1
+   \   0000006C   040000AA           BGE      ??ListUp_3
+   \   00000070   ........           LDR      R2,??DataTable9  ;; total_levels
+   \   00000074   280091E5           LDR      R0,[R1, #+40]
+   \   00000078   0020D2E5           LDRB     R2,[R2, #+0]
+   \   0000007C   013040E2           SUB      R3,R0,#+1
+   \   00000080   002042E0           SUB      R2,R2,R0
+   \                     ??ListUp_3:
+   \   00000084   202081E5           STR      R2,[R1, #+32]
+   \   00000088   243081E5           STR      R3,[R1, #+36]
+    249          }
+   \   0000008C   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??ListUp_0:
+   \   00000090   56555555           DC32     0x55555556
+    250          
+    251          
+    252          
+    253          
+    254          
+    255          
+    256          
+    257          
+    258          
+    259          
+    260          
+    261          
+    262          
+    263          
+    264          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    265          int MenuNavigation(GUI_MSG *msg)
+    266          {
+   \                     MenuNavigation:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+    267            if(msg->gbsmsg->msg==KEY_DOWN)
+   \   00000004   041090E5           LDR      R1,[R0, #+4]
+   \   00000008   9320A0E3           MOV      R2,#+147
+   \   0000000C   040091E5           LDR      R0,[R1, #+4]
+   \   00000010   402F82E3           ORR      R2,R2,#0x100
+   \   00000014   020050E1           CMP      R0,R2
+   \   00000018   CF00001A           BNE      ??MenuNavigation_0
+    268            {
+    269              if(state==STATE_MENU)
+   \   0000001C   ........           LDR      R4,??DataTable10  ;; state
+   \   00000020   1C059FE5           LDR      R0,??MenuNavigation_1  ;; score
+   \   00000024   D080D4E1           LDRSB    R8,[R4, #+0]
+   \   00000028   18659FE5           LDR      R6,??MenuNavigation_1+0x4  ;; levelcounter
+   \   0000002C   ........           LDR      LR,??DataTable11  ;; mmenu_items
+   \   00000030   0030A0E3           MOV      R3,#+0
+   \   00000034   0350E0E1           MVN      R5,R3
+   \   00000038   01C0A0E3           MOV      R12,#+1
+   \   0000003C   000058E3           CMP      R8,#+0
+   \   00000040   4800001A           BNE      ??MenuNavigation_2
+    270              {
+    271                if((msg->gbsmsg->submess==DOWN_BUTTON || msg->gbsmsg->submess=='8') && cur_pos<6-1) {cur_pos++;TimerRedrawScreen();return 0;}
+   \   00000044   087091E5           LDR      R7,[R1, #+8]
+   \   00000048   1C209EE5           LDR      R2,[LR, #+28]
+   \   0000004C   3C0057E3           CMP      R7,#+60
+   \   00000050   38005713           CMPNE    R7,#+56
+   \   00000054   0300001A           BNE      ??MenuNavigation_3
+   \   00000058   050052E3           CMP      R2,#+5
+   \   0000005C   010082B2           ADDLT    R0,R2,#+1
+   \   00000060   1C008EB5           STRLT    R0,[LR, #+28]
+   \   00000064   BB0000BA           BLT      ??MenuNavigation_4
+    272                if((msg->gbsmsg->submess==UP_BUTTON || msg->gbsmsg->submess=='2') && cur_pos>0) {cur_pos--;TimerRedrawScreen();return 0;}
+   \                     ??MenuNavigation_3:
+   \   00000068   3B0057E3           CMP      R7,#+59
+   \   0000006C   32005713           CMPNE    R7,#+50
+   \   00000070   0300001A           BNE      ??MenuNavigation_5
+   \   00000074   010052E3           CMP      R2,#+1
+   \   00000078   010042A2           SUBGE    R0,R2,#+1
+   \   0000007C   1C008EA5           STRGE    R0,[LR, #+28]
+   \   00000080   B40000AA           BGE      ??MenuNavigation_4
+    273                
+    274                if((msg->gbsmsg->submess==ENTER_BUTTON || msg->gbsmsg->submess=='5' || msg->gbsmsg->submess==RIGHT_BUTTON) && cur_pos==5) {return 1;} //exit
+   \                     ??MenuNavigation_5:
+   \   00000084   1A0057E3           CMP      R7,#+26
+   \   00000088   35005713           CMPNE    R7,#+53
+   \   0000008C   3E005713           CMPNE    R7,#+62
+   \   00000090   05005203           CMPEQ    R2,#+5
+   \   00000094   0100A003           MOVEQ    R0,#+1
+   \   00000098   F081BD08           POPEQ    {R4-R8,PC}
+    275                if((msg->gbsmsg->submess==ENTER_BUTTON || msg->gbsmsg->submess=='5' || msg->gbsmsg->submess==RIGHT_BUTTON) && cur_pos==3) {state=STATE_RECORDS;TimerRedrawScreen();return 0;} //records
+   \   0000009C   1A0057E3           CMP      R7,#+26
+   \   000000A0   35005713           CMPNE    R7,#+53
+   \   000000A4   3E005713           CMPNE    R7,#+62
+   \   000000A8   03005203           CMPEQ    R2,#+3
+   \   000000AC   0300A003           MOVEQ    R0,#+3
+   \   000000B0   0000C405           STRBEQ   R0,[R4, #+0]
+   \   000000B4   A700000A           BEQ      ??MenuNavigation_4
+    276                if((msg->gbsmsg->submess==ENTER_BUTTON || msg->gbsmsg->submess=='5' || msg->gbsmsg->submess==RIGHT_BUTTON) && cur_pos==4) {state=STATE_ABOUT;TimerRedrawScreen();return 0;} //about
+   \   000000B8   1A0057E3           CMP      R7,#+26
+   \   000000BC   35005713           CMPNE    R7,#+53
+   \   000000C0   3E005713           CMPNE    R7,#+62
+   \   000000C4   04005203           CMPEQ    R2,#+4
+   \   000000C8   0400A003           MOVEQ    R0,#+4
+   \   000000CC   0000C405           STRBEQ   R0,[R4, #+0]
+   \   000000D0   A000000A           BEQ      ??MenuNavigation_4
+    277                if((msg->gbsmsg->submess==ENTER_BUTTON || msg->gbsmsg->submess=='5' || msg->gbsmsg->submess==RIGHT_BUTTON) && cur_pos==2) {state=STATE_SETTINGS;TimerRedrawScreen();return 0;} //settings
+   \   000000D4   1A0057E3           CMP      R7,#+26
+   \   000000D8   35005713           CMPNE    R7,#+53
+   \   000000DC   3E005713           CMPNE    R7,#+62
+   \   000000E0   02005203           CMPEQ    R2,#+2
+   \   000000E4   0200A003           MOVEQ    R0,#+2
+   \   000000E8   0000C405           STRBEQ   R0,[R4, #+0]
+   \   000000EC   9900000A           BEQ      ??MenuNavigation_4
+    278                if((msg->gbsmsg->submess==ENTER_BUTTON || msg->gbsmsg->submess=='5' || msg->gbsmsg->submess==RIGHT_BUTTON) && cur_pos==1) {state=STATE_SLEVEL;TimerRedrawScreen();return 0;} //select level
+   \   000000F0   1A0057E3           CMP      R7,#+26
+   \   000000F4   35005713           CMPNE    R7,#+53
+   \   000000F8   3E005713           CMPNE    R7,#+62
+   \   000000FC   01005203           CMPEQ    R2,#+1
+   \   00000100   00C0C405           STRBEQ   R12,[R4, #+0]
+   \   00000104   9300000A           BEQ      ??MenuNavigation_4
+    279                if((msg->gbsmsg->submess==ENTER_BUTTON || msg->gbsmsg->submess=='5' || msg->gbsmsg->submess==RIGHT_BUTTON) && cur_pos==0)
+   \   00000108   1A0057E3           CMP      R7,#+26
+   \   0000010C   35005713           CMPNE    R7,#+53
+   \   00000110   3E005713           CMPNE    R7,#+62
+   \   00000114   00005203           CMPEQ    R2,#+0
+   \   00000118   8F00001A           BNE      ??MenuNavigation_0
+    280                {
+    281                   
+    282                   state=STATE_GAME; //continue game
+    283                   if(cont==0) {score=0;SetDefaultGameParameters();PrepareLevel(1);} //новая игра
+   \   0000011C   ........           LDR      R1,??DataTable12  ;; cont
+   \   00000120   0050C4E5           STRB     R5,[R4, #+0]
+   \   00000124   0010D1E5           LDRB     R1,[R1, #+0]
+   \   00000128   000051E3           CMP      R1,#+0
+   \   0000012C   0400001A           BNE      ??MenuNavigation_6
+   \   00000130   B030C0E1           STRH     R3,[R0, #+0]
+   \   00000134   ........           _BLF     SetDefaultGameParameters,??SetDefaultGameParameters??rA
+   \   00000138   0100A0E3           MOV      R0,#+1
+   \   0000013C   ........           _BLF     PrepareLevel,??PrepareLevel??rA
+   \   00000140   060000EA           B        ??MenuNavigation_7
+    284                   else 
+    285                   {
+    286                     levelcounter=1;
+   \                     ??MenuNavigation_6:
+   \   00000144   00C0C6E5           STRB     R12,[R6, #+0]
+    287                     PlayMusic(GAME_MUSIC);
+   \   00000148   0100A0E3           MOV      R0,#+1
+   \   0000014C   ........           _BLF     PlayMusic,??PlayMusic??rA
+    288                     GBS_StartTimerProc(&gametimer,25,TimerRedrawScreen); //тупо продолжаем
+   \   00000150   ........           LDR      R2,??DataTable17  ;; TimerRedrawScreen
+   \   00000154   F0039FE5           LDR      R0,??MenuNavigation_1+0x8  ;; gametimer
+   \   00000158   1910A0E3           MOV      R1,#+25
+   \   0000015C   4D0000EF           SWI      +77
+    289                   }
+    290                   return 0;
+   \                     ??MenuNavigation_7:
+   \   00000160   0000A0E3           MOV      R0,#+0
+   \   00000164   F081BDE8           POP      {R4-R8,PC}
+    291                }
+    292              } //in main menu
+    293              
+    294              if(state==STATE_ABOUT) //если в about
+   \                     ??MenuNavigation_2:
+   \   00000168   040058E3           CMP      R8,#+4
+   \   0000016C   0600001A           BNE      ??MenuNavigation_8
+    295              {
+    296                if(msg->gbsmsg->submess==ENTER_BUTTON)
+   \   00000170   080091E5           LDR      R0,[R1, #+8]
+   \   00000174   1A0050E3           CMP      R0,#+26
+   \   00000178   7700000A           BEQ      ??MenuNavigation_0
+    297                {
+    298                  //LCD_DrawImage(press0,100,100);
+    299                  //LCD_Redraw();
+    300                  //sprintf(lgn,"%spics\\items\\boom.png",pwd);
+    301                  //IMGHDR **tt = LoadSprites(lgn,4,1);
+    302                  //for(int i=0;i<4;i++) DrwImg(tt[i],20+(i*tt[i]->w+5),50);
+    303                  
+    304                  return 0;
+    305                }
+    306               if(msg->gbsmsg->submess==RIGHT_SOFT)
+   \   0000017C   040050E3           CMP      R0,#+4
+   \   00000180   7500001A           BNE      ??MenuNavigation_0
+    307               {
+    308                 state=STATE_MENU; //переходим назад в меню
+   \                     ??MenuNavigation_9:
+   \   00000184   0030C4E5           STRB     R3,[R4, #+0]
+    309                 TimerRedrawScreen();
+   \   00000188   720000EA           B        ??MenuNavigation_4
+    310                 return 0;
+    311               }
+    312              }
+    313              
+    314              if(state==STATE_RECORDS) //если в records
+   \                     ??MenuNavigation_8:
+   \   0000018C   BC739FE5           LDR      R7,??MenuNavigation_1+0xC  ;; `?<Constant "\\363\\360\\356\\342\\345\\355\\374 \\345\\`
+   \   00000190   ........           LDR      R2,??DataTable14  ;; savedata
+   \   00000194   030058E3           CMP      R8,#+3
+   \   00000198   0C00001A           BNE      ??MenuNavigation_10
+    315              {
+    316               if(msg->gbsmsg->submess==RIGHT_SOFT)
+   \   0000019C   080091E5           LDR      R0,[R1, #+8]
+   \   000001A0   040050E3           CMP      R0,#+4
+   \   000001A4   F6FFFF0A           BEQ      ??MenuNavigation_9
+    317               {
+    318                 state=STATE_MENU; //переходим назад в меню
+    319                 TimerRedrawScreen();
+    320                 return 0;
+    321               }
+    322               if(msg->gbsmsg->submess=='#')
+   \   000001A8   230050E3           CMP      R0,#+35
+   \   000001AC   6A00001A           BNE      ??MenuNavigation_0
+    323               {
+    324                 zeromem(savedata.recs,sizeof(RECORDS)*MAX_RECORDS);
+   \   000001B0   4A10A0E3           MOV      R1,#+74
+   \   000001B4   401F81E3           ORR      R1,R1,#0x100
+   \   000001B8   110082E2           ADD      R0,R2,#+17
+   \   000001BC   1D0100EF           SWI      +285
+    325                 ShowMSG(1,(int)"рекорды сброшены");
+   \   000001C0   181087E2           ADD      R1,R7,#+24
+   \                     ??MenuNavigation_11:
+   \   000001C4   0100A0E3           MOV      R0,#+1
+   \   000001C8   480100EF           SWI      +328
+    326                 TimerRedrawScreen();
+   \   000001CC   610000EA           B        ??MenuNavigation_4
+    327                 return 0;
+    328               }
+    329              }
+    330              
+    331              
+    332              if(state==STATE_SETTINGS) //если в settings
+   \                     ??MenuNavigation_10:
+   \   000001D0   020058E3           CMP      R8,#+2
+   \   000001D4   B500001A           BNE      ??MenuNavigation_12
+    333              {
+    334               if(msg->gbsmsg->submess==RIGHT_SOFT)
+   \   000001D8   080091E5           LDR      R0,[R1, #+8]
+   \   000001DC   040050E3           CMP      R0,#+4
+   \   000001E0   E7FFFF0A           BEQ      ??MenuNavigation_9
+    335               {
+    336                 state=STATE_MENU; //переходим назад в меню
+    337                 TimerRedrawScreen();
+    338                 return 0;
+    339               }
+    340          #ifndef STD_SND
+    341               if((msg->gbsmsg->submess==DOWN_BUTTON || msg->gbsmsg->submess=='8') && sets_cur<7) {sets_cur++;TimerRedrawScreen();return 0;}
+   \   000001E4   2C40DEE5           LDRB     R4,[LR, #+44]
+   \   000001E8   3C0050E3           CMP      R0,#+60
+   \   000001EC   38005013           CMPNE    R0,#+56
+   \   000001F0   0300001A           BNE      ??MenuNavigation_13
+   \   000001F4   070054E3           CMP      R4,#+7
+   \   000001F8   01008432           ADDCC    R0,R4,#+1
+   \   000001FC   2C00CE35           STRBCC   R0,[LR, #+44]
+   \   00000200   5400003A           BCC      ??MenuNavigation_4
+    342          #else
+    343               if((msg->gbsmsg->submess==DOWN_BUTTON || msg->gbsmsg->submess=='8') && sets_cur<10) {sets_cur++;TimerRedrawScreen();return 0;}
+    344          #endif
+    345               if((msg->gbsmsg->submess==UP_BUTTON   || msg->gbsmsg->submess=='2') && sets_cur>0) {sets_cur--;TimerRedrawScreen();return 0;}
+   \                     ??MenuNavigation_13:
+   \   00000204   3B0050E3           CMP      R0,#+59
+   \   00000208   32005013           CMPNE    R0,#+50
+   \   0000020C   0300001A           BNE      ??MenuNavigation_14
+   \   00000210   000054E3           CMP      R4,#+0
+   \   00000214   01004412           SUBNE    R0,R4,#+1
+   \   00000218   2C00CE15           STRBNE   R0,[LR, #+44]
+   \   0000021C   4D00001A           BNE      ??MenuNavigation_4
+    346               
+    347               if(msg->gbsmsg->submess==RIGHT_BUTTON && sets_cur==0 && savedata.difficulty<2) {savedata.difficulty++;TimerRedrawScreen();return 0;}
+   \                     ??MenuNavigation_14:
+   \   00000220   085091E5           LDR      R5,[R1, #+8]
+   \   00000224   0000D2E5           LDRB     R0,[R2, #+0]
+   \   00000228   3E0055E3           CMP      R5,#+62
+   \   0000022C   00005403           CMPEQ    R4,#+0
+   \   00000230   0300001A           BNE      ??MenuNavigation_15
+   \   00000234   020050E3           CMP      R0,#+2
+   \   00000238   01008032           ADDCC    R0,R0,#+1
+   \   0000023C   0000C235           STRBCC   R0,[R2, #+0]
+   \   00000240   4400003A           BCC      ??MenuNavigation_4
+    348               if(msg->gbsmsg->submess==LEFT_BUTTON  && sets_cur==0 && savedata.difficulty>0) {savedata.difficulty--;TimerRedrawScreen();return 0;}
+   \                     ??MenuNavigation_15:
+   \   00000244   3D0055E3           CMP      R5,#+61
+   \   00000248   00005403           CMPEQ    R4,#+0
+   \   0000024C   0300001A           BNE      ??MenuNavigation_16
+   \   00000250   000050E3           CMP      R0,#+0
+   \   00000254   01004012           SUBNE    R0,R0,#+1
+   \   00000258   0000C215           STRBNE   R0,[R2, #+0]
+   \   0000025C   3D00001A           BNE      ??MenuNavigation_4
+    349               
+    350               if(msg->gbsmsg->submess==RIGHT_BUTTON && sets_cur==1 && savedata.recs_autosave==0) {savedata.recs_autosave=1;TimerRedrawScreen();return 0;}
+   \                     ??MenuNavigation_16:
+   \   00000260   0200D2E5           LDRB     R0,[R2, #+2]
+   \   00000264   3E0055E3           CMP      R5,#+62
+   \   00000268   01005403           CMPEQ    R4,#+1
+   \   0000026C   00005003           CMPEQ    R0,#+0
+   \   00000270   02C0C205           STRBEQ   R12,[R2, #+2]
+   \   00000274   3700000A           BEQ      ??MenuNavigation_4
+    351               if(msg->gbsmsg->submess==LEFT_BUTTON && sets_cur==1 && savedata.recs_autosave==1) {savedata.recs_autosave=0;TimerRedrawScreen();return 0;}
+   \   00000278   3D0055E3           CMP      R5,#+61
+   \   0000027C   01005403           CMPEQ    R4,#+1
+   \   00000280   01005003           CMPEQ    R0,#+1
+   \   00000284   0230C205           STRBEQ   R3,[R2, #+2]
+   \   00000288   3200000A           BEQ      ??MenuNavigation_4
+    352               
+    353               if(msg->gbsmsg->submess==RIGHT_BUTTON && sets_cur==2 && savedata.SoundsEnable==0) {savedata.SoundsEnable=1;PlayMusic(MENU_MUSIC);TimerRedrawScreen();return 0;}
+   \   0000028C   0300D2E5           LDRB     R0,[R2, #+3]
+   \   00000290   3E0055E3           CMP      R5,#+62
+   \   00000294   02005403           CMPEQ    R4,#+2
+   \   00000298   00005003           CMPEQ    R0,#+0
+   \   0000029C   0200001A           BNE      ??MenuNavigation_17
+   \   000002A0   03C0C2E5           STRB     R12,[R2, #+3]
+   \   000002A4   ........           _BLF     PlayMusic,??PlayMusic??rA
+   \   000002A8   2A0000EA           B        ??MenuNavigation_4
+    354               if(msg->gbsmsg->submess==LEFT_BUTTON && sets_cur==2 && savedata.SoundsEnable==1) {savedata.SoundsEnable=0;PlayMelody_StopPlayback(PLAY_ID);TimerRedrawScreen();return 0;}
+   \                     ??MenuNavigation_17:
+   \   000002AC   3D0055E3           CMP      R5,#+61
+   \   000002B0   02005403           CMPEQ    R4,#+2
+   \   000002B4   01005003           CMPEQ    R0,#+1
+   \   000002B8   0400001A           BNE      ??MenuNavigation_18
+   \   000002BC   90029FE5           LDR      R0,??MenuNavigation_1+0x10  ;; PLAY_ID
+   \   000002C0   0330C2E5           STRB     R3,[R2, #+3]
+   \   000002C4   000090E5           LDR      R0,[R0, #+0]
+   \   000002C8   260200EF           SWI      +550
+   \   000002CC   210000EA           B        ??MenuNavigation_4
+    355               
+    356               if(msg->gbsmsg->submess==RIGHT_BUTTON && sets_cur==3 && savedata.VibraEnable==0) {savedata.VibraEnable=1;StartVibra(savedata.VibraVolume,100);TimerRedrawScreen();return 0;}
+   \                     ??MenuNavigation_18:
+   \   000002D0   0A50D2E5           LDRB     R5,[R2, #+10]
+   \   000002D4   086091E5           LDR      R6,[R1, #+8]
+   \   000002D8   0C00D2E5           LDRB     R0,[R2, #+12]
+   \   000002DC   3E0056E3           CMP      R6,#+62
+   \   000002E0   03005403           CMPEQ    R4,#+3
+   \   000002E4   00005503           CMPEQ    R5,#+0
+   \   000002E8   0300001A           BNE      ??MenuNavigation_19
+   \   000002EC   0AC0C2E5           STRB     R12,[R2, #+10]
+   \   000002F0   6410A0E3           MOV      R1,#+100
+   \                     ??MenuNavigation_20:
+   \   000002F4   ........           _BLF     StartVibra,??StartVibra??rA
+   \   000002F8   160000EA           B        ??MenuNavigation_4
+    357               if(msg->gbsmsg->submess==LEFT_BUTTON && sets_cur==3 && savedata.VibraEnable==1) {savedata.VibraEnable=0;TimerRedrawScreen();return 0;}
+   \                     ??MenuNavigation_19:
+   \   000002FC   3D0056E3           CMP      R6,#+61
+   \   00000300   03005403           CMPEQ    R4,#+3
+   \   00000304   01005503           CMPEQ    R5,#+1
+   \   00000308   0A30C205           STRBEQ   R3,[R2, #+10]
+   \   0000030C   1100000A           BEQ      ??MenuNavigation_4
+    358               
+    359               if(msg->gbsmsg->submess==RIGHT_BUTTON && sets_cur==4 && savedata.SndVolume<15) {savedata.SndVolume++;PlayMelody_ChangeVolume(PLAY_ID,savedata.SndVolume);TimerRedrawScreen();return 0;}
+   \   00000310   0B50D2E5           LDRB     R5,[R2, #+11]
+   \   00000314   3E0056E3           CMP      R6,#+62
+   \   00000318   04005403           CMPEQ    R4,#+4
+   \   0000031C   0200001A           BNE      ??MenuNavigation_21
+   \   00000320   0F0055E3           CMP      R5,#+15
+   \   00000324   01108532           ADDCC    R1,R5,#+1
+   \   00000328   0500003A           BCC      ??MenuNavigation_22
+    360               if(msg->gbsmsg->submess==LEFT_BUTTON && sets_cur==4 && savedata.SndVolume>0) {savedata.SndVolume--;PlayMelody_ChangeVolume(PLAY_ID,savedata.SndVolume);TimerRedrawScreen();return 0;}
+   \                     ??MenuNavigation_21:
+   \   0000032C   3D0056E3           CMP      R6,#+61
+   \   00000330   04005403           CMPEQ    R4,#+4
+   \   00000334   0A00001A           BNE      ??MenuNavigation_23
+   \   00000338   000055E3           CMP      R5,#+0
+   \   0000033C   0800000A           BEQ      ??MenuNavigation_23
+   \   00000340   011045E2           SUB      R1,R5,#+1
+   \                     ??MenuNavigation_22:
+   \   00000344   08029FE5           LDR      R0,??MenuNavigation_1+0x10  ;; PLAY_ID
+   \   00000348   0B10C2E5           STRB     R1,[R2, #+11]
+   \   0000034C   000090E5           LDR      R0,[R0, #+0]
+   \   00000350   FF1001E2           AND      R1,R1,#0xFF
+   \   00000354   250200EF           SWI      +549
+   \                     ??MenuNavigation_4:
+   \   00000358   ........           _BLF     TimerRedrawScreen,??TimerRedrawScreen??rA
+   \                     ??MenuNavigation_0:
+   \   0000035C   0000A0E3           MOV      R0,#+0
+   \   00000360   F081BDE8           POP      {R4-R8,PC}
+    361               
+    362               if(msg->gbsmsg->submess==RIGHT_BUTTON && sets_cur==5 && savedata.VibraVolume<100) {savedata.VibraVolume+=10;StartVibra(savedata.VibraVolume,50);TimerRedrawScreen();return 0;}
+   \                     ??MenuNavigation_23:
+   \   00000364   3E0056E3           CMP      R6,#+62
+   \   00000368   05005403           CMPEQ    R4,#+5
+   \   0000036C   0600001A           BNE      ??MenuNavigation_24
+   \   00000370   640050E3           CMP      R0,#+100
+   \   00000374   0400002A           BCS      ??MenuNavigation_24
+   \   00000378   0A0080E2           ADD      R0,R0,#+10
+   \   0000037C   0C00C2E5           STRB     R0,[R2, #+12]
+   \   00000380   3210A0E3           MOV      R1,#+50
+   \   00000384   FF0000E2           AND      R0,R0,#0xFF
+   \   00000388   D9FFFFEA           B        ??MenuNavigation_20
+    363               if(msg->gbsmsg->submess==LEFT_BUTTON && sets_cur==5 && savedata.VibraVolume>10) {savedata.VibraVolume-=10;StartVibra(savedata.VibraVolume,50);TimerRedrawScreen();return 0;}
+   \                     ??MenuNavigation_24:
+   \   0000038C   3D0056E3           CMP      R6,#+61
+   \   00000390   05005403           CMPEQ    R4,#+5
+   \   00000394   0700001A           BNE      ??MenuNavigation_25
+   \   00000398   0B0050E3           CMP      R0,#+11
+   \   0000039C   0500003A           BCC      ??MenuNavigation_25
+   \   000003A0   F60080E2           ADD      R0,R0,#+246
+   \   000003A4   0C00C2E5           STRB     R0,[R2, #+12]
+   \   000003A8   3210A0E3           MOV      R1,#+50
+   \   000003AC   FF0000E2           AND      R0,R0,#0xFF
+   \                     ??MenuNavigation_26:
+   \   000003B0   ........           _BLF     StartVibra,??StartVibra??rA
+   \   000003B4   E7FFFFEA           B        ??MenuNavigation_4
+    364               
+    365               if(msg->gbsmsg->submess==RIGHT_BUTTON && sets_cur==6 && savedata.VibraCount<100) {savedata.VibraCount+=5;StartVibra(savedata.VibraVolume,savedata.VibraCount);TimerRedrawScreen();return 0;}
+   \                     ??MenuNavigation_25:
+   \   000003B8   FE50D2E1           LDRSH    R5,[R2, #+14]
+   \   000003BC   3E0056E3           CMP      R6,#+62
+   \   000003C0   06005403           CMPEQ    R4,#+6
+   \   000003C4   0500001A           BNE      ??MenuNavigation_27
+   \   000003C8   640055E3           CMP      R5,#+100
+   \   000003CC   030000AA           BGE      ??MenuNavigation_27
+   \   000003D0   051085E2           ADD      R1,R5,#+5
+   \   000003D4   BE10C2E1           STRH     R1,[R2, #+14]
+   \   000003D8   FF1001E2           AND      R1,R1,#0xFF
+   \   000003DC   C4FFFFEA           B        ??MenuNavigation_20
+    366               if(msg->gbsmsg->submess==LEFT_BUTTON && sets_cur==6 && savedata.VibraCount>10) {savedata.VibraCount-=5;StartVibra(savedata.VibraVolume,savedata.VibraCount);TimerRedrawScreen();return 0;}
+   \                     ??MenuNavigation_27:
+   \   000003E0   3D0056E3           CMP      R6,#+61
+   \   000003E4   06005403           CMPEQ    R4,#+6
+   \   000003E8   0500001A           BNE      ??MenuNavigation_28
+   \   000003EC   0B0055E3           CMP      R5,#+11
+   \   000003F0   030000BA           BLT      ??MenuNavigation_28
+   \   000003F4   051045E2           SUB      R1,R5,#+5
+   \   000003F8   BE10C2E1           STRH     R1,[R2, #+14]
+   \   000003FC   FF1001E2           AND      R1,R1,#0xFF
+   \   00000400   EAFFFFEA           B        ??MenuNavigation_26
+    367               
+    368               if(msg->gbsmsg->submess==RIGHT_BUTTON && sets_cur==7 && savedata.SndEnable==0) {savedata.SndEnable=1;PlaySound(1,0,0,5,0);TimerRedrawScreen();return 0;}
+   \                     ??MenuNavigation_28:
+   \   00000404   0400D2E5           LDRB     R0,[R2, #+4]
+   \   00000408   3E0056E3           CMP      R6,#+62
+   \   0000040C   07005403           CMPEQ    R4,#+7
+   \   00000410   00005003           CMPEQ    R0,#+0
+   \   00000414   0500001A           BNE      ??MenuNavigation_29
+   \   00000418   04C0C2E5           STRB     R12,[R2, #+4]
+   \   0000041C   01002DE9           PUSH     {R0}
+   \   00000420   0530A0E3           MOV      R3,#+5
+   \   00000424   0020A0E3           MOV      R2,#+0
+   \   00000428   0010A0E3           MOV      R1,#+0
+   \   0000042C   090000EA           B        ??MenuNavigation_30
+    369               if(msg->gbsmsg->submess==LEFT_BUTTON && sets_cur==7 && savedata.SndEnable==1) {savedata.SndEnable=0;PlaySound(1,0,0,5,0);TimerRedrawScreen();return 0;}
+   \                     ??MenuNavigation_29:
+   \   00000430   3D0056E3           CMP      R6,#+61
+   \   00000434   07005403           CMPEQ    R4,#+7
+   \   00000438   01005003           CMPEQ    R0,#+1
+   \   0000043C   0B00001A           BNE      ??MenuNavigation_31
+   \   00000440   0430C2E5           STRB     R3,[R2, #+4]
+   \   00000444   0000A0E3           MOV      R0,#+0
+   \   00000448   01002DE9           PUSH     {R0}
+   \   0000044C   0530A0E3           MOV      R3,#+5
+   \   00000450   0020A0E1           MOV      R2,R0
+   \   00000454   0010A0E1           MOV      R1,R0
+   \                     ??MenuNavigation_30:
+   \   00000458   0100A0E3           MOV      R0,#+1
+   \   0000045C   320000EF           SWI      +50
+   \   00000460   ........           _BLF     TimerRedrawScreen,??TimerRedrawScreen??rA
+   \   00000464   0000A0E3           MOV      R0,#+0
+   \   00000468   04D08DE2           ADD      SP,SP,#+4
+   \   0000046C   F081BDE8           POP      {R4-R8,PC}
+    370          #ifdef STD_SND
+    371               if(msg->gbsmsg->submess==RIGHT_BUTTON && sets_cur==8 && savedata.StdSnd_user<500) {savedata.StdSnd_user++;PlaySound(1,0,0,savedata.StdSnd_user,0);TimerRedrawScreen();return 0;}
+    372               if(msg->gbsmsg->submess==LEFT_BUTTON && sets_cur==8 && savedata.StdSnd_user>0) {savedata.StdSnd_user--;PlaySound(1,0,0,savedata.StdSnd_user,0);TimerRedrawScreen();return 0;}
+    373               
+    374               if(msg->gbsmsg->submess==RIGHT_BUTTON && sets_cur==9 && savedata.StdSnd_brick<500) {savedata.StdSnd_brick++;PlaySound(1,0,0,savedata.StdSnd_brick,0);TimerRedrawScreen();return 0;}
+    375               if(msg->gbsmsg->submess==LEFT_BUTTON && sets_cur==9 && savedata.StdSnd_brick>0) {savedata.StdSnd_brick--;PlaySound(1,0,0,savedata.StdSnd_brick,0);TimerRedrawScreen();return 0;}
+    376          #endif
+    377               
+    378               if(msg->gbsmsg->submess==RIGHT_BUTTON && sets_cur==10 && savedata.tmr_speed<50) {savedata.tmr_speed++;TimerRedrawScreen();return 0;}
+   \                     ??MenuNavigation_31:
+   \   00000470   1000D2E5           LDRB     R0,[R2, #+16]
+   \   00000474   3E0056E3           CMP      R6,#+62
+   \   00000478   0A005403           CMPEQ    R4,#+10
+   \   0000047C   0300001A           BNE      ??MenuNavigation_32
+   \   00000480   320050E3           CMP      R0,#+50
+   \   00000484   01008032           ADDCC    R0,R0,#+1
+   \   00000488   1000C235           STRBCC   R0,[R2, #+16]
+   \   0000048C   B1FFFF3A           BCC      ??MenuNavigation_4
+    379               if(msg->gbsmsg->submess==LEFT_BUTTON && sets_cur==10 && savedata.tmr_speed>2) {savedata.tmr_speed--;TimerRedrawScreen();return 0;}
+   \                     ??MenuNavigation_32:
+   \   00000490   3D0056E3           CMP      R6,#+61
+   \   00000494   0A005403           CMPEQ    R4,#+10
+   \   00000498   AFFFFF1A           BNE      ??MenuNavigation_0
+   \   0000049C   030050E3           CMP      R0,#+3
+   \   000004A0   ADFFFF3A           BCC      ??MenuNavigation_0
+   \   000004A4   010040E2           SUB      R0,R0,#+1
+   \   000004A8   1000C2E5           STRB     R0,[R2, #+16]
+   \   000004AC   A9FFFFEA           B        ??MenuNavigation_4
+    380               
+    381              }
+    382              
+    383              if(state==STATE_SLEVEL) //select level
+   \                     ??MenuNavigation_12:
+   \   000004B0   010058E3           CMP      R8,#+1
+   \   000004B4   A8FFFF1A           BNE      ??MenuNavigation_0
+    384              {
+    385               if(msg->gbsmsg->submess=='2' || msg->gbsmsg->submess==UP_BUTTON)
+   \   000004B8   088091E5           LDR      R8,[R1, #+8]
+   \   000004BC   320058E3           CMP      R8,#+50
+   \   000004C0   3B005813           CMPNE    R8,#+59
+   \   000004C4   0100001A           BNE      ??MenuNavigation_33
+    386               {
+    387                 ListUp();
+   \   000004C8   ........           BL       ListUp
+    388                 TimerRedrawScreen();return 0;
+   \   000004CC   A1FFFFEA           B        ??MenuNavigation_4
+    389                 //return 0;
+    390               }
+    391               if(msg->gbsmsg->submess=='8' || msg->gbsmsg->submess==DOWN_BUTTON)
+   \                     ??MenuNavigation_33:
+   \   000004D0   380058E3           CMP      R8,#+56
+   \   000004D4   3C005813           CMPNE    R8,#+60
+   \   000004D8   0100001A           BNE      ??MenuNavigation_34
+    392               {
+    393                 ListDown();
+   \   000004DC   ........           BL       ListDown
+    394                 TimerRedrawScreen();return 0;
+   \   000004E0   9CFFFFEA           B        ??MenuNavigation_4
+    395                 //return 0;
+    396               }
+    397               if(msg->gbsmsg->submess==ENTER_BUTTON || msg->gbsmsg->submess=='5') 
+   \                     ??MenuNavigation_34:
+   \   000004E4   1A0058E3           CMP      R8,#+26
+   \   000004E8   35005813           CMPNE    R8,#+53
+   \   000004EC   1100001A           BNE      ??MenuNavigation_35
+    398               {
+    399                   levelcounter = Getcurpos()+1; //высчитываем по позиции курсора номер левела
+    400                   if(levelcounter<=savedata.opened_levels)
+   \   000004F0   0120D2E5           LDRB     R2,[R2, #+1]
+   \   000004F4   20109EE5           LDR      R1,[LR, #+32]
+   \   000004F8   24809EE5           LDR      R8,[LR, #+36]
+   \   000004FC   011088E0           ADD      R1,R8,R1
+   \   00000500   011081E2           ADD      R1,R1,#+1
+   \   00000504   0010C6E5           STRB     R1,[R6, #+0]
+   \   00000508   011CA0E1           MOV      R1,R1, LSL #+24
+   \   0000050C   210C52E1           CMP      R2,R1, LSR #+24
+   \   00000510   0500003A           BCC      ??MenuNavigation_36
+    401                   {
+    402                     score=0;
+   \   00000514   B030C0E1           STRH     R3,[R0, #+0]
+    403                     SetDefaultGameParameters();
+   \   00000518   ........           _BLF     SetDefaultGameParameters,??SetDefaultGameParameters??rA
+    404                     state=STATE_GAME; //старт игры
+    405                     PrepareLevel(levelcounter);
+   \   0000051C   0000D6E5           LDRB     R0,[R6, #+0]
+   \   00000520   0050C4E5           STRB     R5,[R4, #+0]
+   \   00000524   ........           _BLF     PrepareLevel,??PrepareLevel??rA
+   \   00000528   8AFFFFEA           B        ??MenuNavigation_4
+    406                   }
+    407                   else {levelcounter=0;ShowMSG(1,(int)"уровень еще не открыт");}
+   \                     ??MenuNavigation_36:
+   \   0000052C   0030C6E5           STRB     R3,[R6, #+0]
+   \   00000530   0710A0E1           MOV      R1,R7
+   \   00000534   22FFFFEA           B        ??MenuNavigation_11
+    408                   TimerRedrawScreen();return 0;
+    409                 //return 0;
+    410               }
+    411               
+    412               if(msg->gbsmsg->submess==RIGHT_SOFT)  {state=STATE_MENU;TimerRedrawScreen();return 0;} //переходим назад в меню
+   \                     ??MenuNavigation_35:
+   \   00000538   040058E3           CMP      R8,#+4
+   \   0000053C   86FFFF1A           BNE      ??MenuNavigation_0
+   \   00000540   0FFFFFEA           B        ??MenuNavigation_9
+   \                     ??MenuNavigation_1:
+   \   00000544   ........           DC32     score
+   \   00000548   ........           DC32     levelcounter
+   \   0000054C   ........           DC32     gametimer
+   \   00000550   ........           DC32     `?<Constant "\\363\\360\\356\\342\\345\\355\\374 \\345\\`
+   \   00000554   ........           DC32     PLAY_ID
+    413             }
+    414             
+    415             
+    416             
+    417           }
+    418           
+    419           
+    420            return 0;
+    421          }
+    422          
+    423          
+    424          
+    425          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    426          void InitMenu()
+    427          {
+   \                     InitMenu:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    428            mmws=AllocWS(128);
+   \   00000004   ........           LDR      R4,??DataTable15  ;; mmenu_items
+   \   00000008   8000A0E3           MOV      R0,#+128
+   \   0000000C   250100EF           SWI      +293
+   \   00000010   180084E5           STR      R0,[R4, #+24]
+    429            mmenu_items[0]="новая игра";
+   \   00000014   ........           LDR      R0,??DataTable16  ;; `?<Constant {15, 80, 5, 60}>`
+   \   00000018   D41080E2           ADD      R1,R0,#+212
+   \   0000001C   001084E5           STR      R1,[R4, #+0]
+    430            mmenu_items[1]="выбрать уровень";
+   \   00000020   941080E2           ADD      R1,R0,#+148
+   \   00000024   041084E5           STR      R1,[R4, #+4]
+    431            mmenu_items[2]="настройки";
+   \   00000028   A41080E2           ADD      R1,R0,#+164
+   \   0000002C   081084E5           STR      R1,[R4, #+8]
+    432            mmenu_items[3]="рекорды";
+   \   00000030   B01080E2           ADD      R1,R0,#+176
+   \   00000034   0C1084E5           STR      R1,[R4, #+12]
+    433            mmenu_items[4]="об игре";
+   \   00000038   B81080E2           ADD      R1,R0,#+184
+   \   0000003C   101084E5           STR      R1,[R4, #+16]
+    434            mmenu_items[5]="выход";
+   \   00000040   C00080E2           ADD      R0,R0,#+192
+   \   00000044   140084E5           STR      R0,[R4, #+20]
+    435          }
+   \   00000048   1080BDE8           POP      {R4,PC}          ;; return
+    436          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    437          void DeinitMenu()
+    438          {
+    439            FreeWS(mmws);
+   \                     DeinitMenu:
+   \   00000000   0C009FE5           LDR      R0,??DeinitMenu_0  ;; mmenu_items + 24
+   \   00000004   00402DE9           PUSH     {LR}
+   \   00000008   000090E5           LDR      R0,[R0, #+0]
+   \   0000000C   290100EF           SWI      +297
+    440          }
+   \   00000010   0080BDE8           POP      {PC}             ;; return
+   \                     ??DeinitMenu_0:
+   \   00000014   ........           DC32     mmenu_items + 24
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable0:
+   \   00000000   ........           DC32     `?<Constant {15, 80, 5, 60}>`
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable1:
+   \   00000000   ........           DC32     mmenu_items
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable2:
+   \   00000000   ........           DC32     savedata
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable3:
+   \   00000000   ........           DC32     state
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable9:
+   \   00000000   ........           DC32     total_levels
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable10:
+   \   00000000   ........           DC32     state
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable11:
+   \   00000000   ........           DC32     mmenu_items
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable12:
+   \   00000000   ........           DC32     cont
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable14:
+   \   00000000   ........           DC32     savedata
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable15:
+   \   00000000   ........           DC32     mmenu_items
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable16:
+   \   00000000   ........           DC32     `?<Constant {15, 80, 5, 60}>`
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable17:
+   \   00000000   ........           DC32     TimerRedrawScreen
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for menu_px>`:
+   \   00000000   2D000000           DC32 45
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for menu_py>`:
+   \   00000000   64000000           DC32 100
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for mmenu_items>`:
+   \   00000000   ............       DC32 `?<Constant "">`, `?<Constant "">`, `?<Constant "">`
+   \              ............
+   \   0000000C   ............       DC32 `?<Constant "">`, `?<Constant "">`, `?<Constant "">`
+   \              ............
+   \                     `?<Initializer for mmws>`:
+   \   00000018   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for cur_pos>`:
+   \   0000001C   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for list_counter>`:
+   \   00000020   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for list_ypos>`:
+   \   00000024   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for list_drawcount>`:
+   \   00000028   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for sets_cur>`:
+   \   0000002C   00                 DC8 0
+   \                     `?<Initializer for list_lineheight>`:
+   \   0000002D   00                 DC8 0
+   \                     `?<Initializer for list_drawoffset>`:
+   \   0000002E   00                 DC8 0
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for sell>`:
+   \   00000000   1E003200BE00       DC16 30, 50, 190, 200
+   \              C800        
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for sellcx>`:
+   \   00000000   1C000000           DC32 28
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for sellcy>`:
+   \   00000000   34000000           DC32 52
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant {15, 80, 5, 60}>`:
+   \   00000000   0F50053C           DC8 15, 80, 5, 60
+   \   00000004   25743A202564       DC8 "%t: %d"
+   \              00          
+   \   0000000B   00                 DC8 0
+   \   0000000C   E3F0EEECEAEE       DC8 "\343\360\356\354\352\356\361\362\374 \354\363\347\373\352\350"
+   \              F1F2FC20ECF3
+   \              E7FBEAE800  
+   \   0000001D   000000             DC8 0, 0, 0
+   \   00000020   F1E8EBE020E2       DC8 "\361\350\353\340 \342\350\341\360\340\366\350\350"
+   \              E8E1F0E0F6E8
+   \              E800        
+   \   0000002E   0000               DC8 0, 0
+   \   00000030   E7E0E4E5F0E6       DC8 "\347\340\344\345\360\346\352\340 \342\350\341\360\340\366\350\350"
+   \              EAE020E2E8E1
+   \              F0E0F6E8E800
+   \   00000042   0000               DC8 0, 0
+   \   00000044   E7E2F3EAE83A       DC8 "\347\342\363\352\350:\342\352\353\376\367\345\355\356"
+   \              E2EAEBFEF7E5
+   \              EDEE00      
+   \   00000053   00                 DC8 0
+   \   00000054   E7E2F3EAE83A       DC8 "\347\342\363\352\350:\342\373\352\353\376\367\345\355\356"
+   \              E2FBEAEBFEF7
+   \              E5EDEE00    
+   \   00000064   6261636B00         DC8 "back"
+   \   00000069   000000             DC8 0, 0, 0
+   \   0000006C   E7E0E4E5F0E6       DC8 "\347\340\344\345\360\346\352\340 \357\345\360\345\360\350\361\356\342\352\350"
+   \              EAE020EFE5F0
+   \              E5F0E8F1EEE2
+   \              EAE800      
+   \   00000081   000000             DC8 0, 0, 0
+   \   00000084   257420256400       DC8 "%t %d"
+   \   0000008A   0000               DC8 0, 0
+   \   0000008C   F3F0EEE2E5ED       DC8 "\363\360\356\342\345\355\374"
+   \              FC00        
+   \   00000094   E2FBE1F0E0F2       DC8 "\342\373\341\360\340\362\374 \363\360\356\342\345\355\374"
+   \              FC20F3F0EEE2
+   \              E5EDFC00    
+   \   000000A4   EDE0F1F2F0EE       DC8 "\355\340\361\362\360\356\351\352\350"
+   \              E9EAE800    
+   \   000000AE   0000               DC8 0, 0
+   \   000000B0   F0E5EAEEF0E4       DC8 "\360\345\352\356\360\344\373"
+   \              FB00        
+   \   000000B8   EEE120E8E3F0       DC8 "\356\341 \350\343\360\345"
+   \              E500        
+   \   000000C0   E2FBF5EEE400       DC8 "\342\373\365\356\344"
+   \   000000C6   0000               DC8 0, 0
+   \   000000C8   EFF0EEE4EEEB       DC8 "\357\360\356\344\356\353\346\350\362\374"
+   \              E6E8F2FC00  
+   \   000000D3   00                 DC8 0
+   \   000000D4   EDEEE2E0FF20       DC8 "\355\356\342\340\377 \350\343\360\340"
+   \              E8E3F0E000  
+   \   000000DF   00                 DC8 0
+   \   000000E0   417263616E6F       DC8 41H, 72H, 63H, 61H, 6EH, 6FH, 69H, 64H
+   \              6964        
+   \   000000E8   53747564696F       DC8 53H, 74H, 75H, 64H, 69H, 6FH, 0AH, 66H
+   \              0A66        
+   \   000000F0   6F7220536965       DC8 6FH, 72H, 20H, 53H, 69H, 65H, 45H, 4CH
+   \              454C        
+   \   000000F8   46506C617466       DC8 46H, 50H, 6CH, 61H, 74H, 66H, 6FH, 72H
+   \              6F72        
+   \   00000100   6D0A20766572       DC8 6DH, 0AH, 20H, 76H, 65H, 72H, 73H, 69H
+   \              7369        
+   \   00000108   6F6E20312E33       DC8 6FH, 6EH, 20H, 31H, 2EH, 33H, 20H, 46H
+   \              2046        
+   \   00000110   726565776172       DC8 72H, 65H, 65H, 77H, 61H, 72H, 65H, 0AH
+   \              650A        
+   \   00000118   28632968616C       DC8 28H, 63H, 29H, 68H, 61H, 6CH, 66H, 36H
+   \              6636        
+   \   00000120   350A49435120       DC8 35H, 0AH, 49H, 43H, 51H, 20H, 2DH, 20H
+   \              2D20        
+   \   00000128   343034353538       DC8 34H, 30H, 34H, 35H, 35H, 38H, 31H, 30H
+   \              3130        
+   \   00000130   3700               DC8 37H, 0
+   \   00000132   0000               DC8 0, 0
+   \   00000134   F1EBEEE6EDEE       DC8 "\361\353\356\346\355\356\361\362\374: \353\345\343\352\356"
+   \              F1F2FC3A20EB
+   \              E5E3EAEE00  
+   \   00000145   000000             DC8 0, 0, 0
+   \   00000148   F1EBEEE6EDEE       DC8 "\361\353\356\346\355\356\361\362\374: \355\356\360\354\340"
+   \              F1F2FC3A20ED
+   \              EEF0ECE000  
+   \   00000159   000000             DC8 0, 0, 0
+   \   0000015C   F1EBEEE6EDEE       DC8 "\361\353\356\346\355\356\361\362\374: \356\367\345\355\355\355\356 \361\353\356\346\355\356"
+   \              F1F2FC3A20EE
+   \              F7E5EDEDEDEE
+   \              20F1EBEEE6ED
+   \              EE00        
+   \   00000176   0000               DC8 0, 0
+   \   00000178   E0E2F2EEF1EE       DC8 "\340\342\362\356\361\356\365\360\340\355\345\355\350\345 \360\345\352\356\360\344\356\342: \342\352\353"
+   \              F5F0E0EDE5ED
+   \              E8E520F0E5EA
+   \              EEF0E4EEE23A
+   \              20E2EAEB00  
+   \   00000195   000000             DC8 0, 0, 0
+   \   00000198   E0E2F2EEF1EE       DC8 "\340\342\362\356\361\356\365\360\340\355\345\355\350\345 \360\345\352\356\360\344\356\342: \342\373\352\353"
+   \              F5F0E0EDE5ED
+   \              E8E520F0E5EA
+   \              EEF0E4EEE23A
+   \              20E2FBEAEB00
+   \   000001B6   0000               DC8 0, 0
+   \   000001B8   ECF3E7FBEAE0       DC8 "\354\363\347\373\352\340:\342\352\353\376\367\345\355\356"
+   \              3AE2EAEBFEF7
+   \              E5EDEE00    
+   \   000001C8   ECF3E7FBEAE0       DC8 "\354\363\347\373\352\340:\342\373\352\353\376\367\345\355\356"
+   \              3AE2FBEAEBFE
+   \              F7E5EDEE00  
+   \   000001D9   000000             DC8 0, 0, 0
+   \   000001DC   E2E8E1F0E03A       DC8 "\342\350\341\360\340:\342\352\353\376\367\345\355\356"
+   \              E2EAEBFEF7E5
+   \              EDEE00      
+   \   000001EB   00                 DC8 0
+   \   000001EC   E2E8E1F0E03A       DC8 "\342\350\341\360\340:\342\373\352\353\376\367\345\355\356"
+   \              E2FBEAEBFEF7
+   \              E5EDEE00    
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\363\\360\\356\\342\\345\\355\\374 \\345\\`:
+   \   00000000   F3F0EEE2E5ED       DC8 "\363\360\356\342\345\355\374 \345\371\345 \355\345 \356\362\352\360\373\362"
+   \              FC20E5F9E520
+   \              EDE520EEF2EA
+   \              F0FBF200    
+   \   00000016   0000               DC8 0, 0
+   \   00000018   F0E5EAEEF0E4       DC8 "\360\345\352\356\360\344\373 \361\341\360\356\370\345\355\373"
+   \              FB20F1E1F0EE
+   \              F8E5EDFB00  
+   \   00000029   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \                     `?<Constant "">`:
+   \   00000000   00                 DC8 ""
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant {50, 50, 50, 100}>`:
+   \   00000000   32323264           DC8 50, 50, 50, 100
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant {90, 90, 90, 90}>`:
+   \   00000000   5A5A5A5A           DC8 90, 90, 90, 90
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant {25, 120, 5, 100}>`:
+   \   00000000   19780564           DC8 25, 120, 5, 100
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant {5, 5, 5, 100}>`:
+   \   00000000   05050564           DC8 5, 5, 5, 100
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant {0, 0, 0, 100}>`:
+   \   00000000   00000064           DC8 0, 0, 0, 100
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \   00000000   257300             DC8 "%s"
+    441          
+    442          
+
+   Maximum stack usage in bytes:
+
+     Function        CSTACK
+     --------        ------
+     DeinitMenu          4
+     DrawMenu           96
+     InitMenu            8
+     Krakozyabra_2ws    12
+     ListDown           12
+     ListUp             16
+     MenuNavigation     28
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     sellcpx                           4
+     sellcpy                           4
+     menu_px                           4
+     menu_py                           4
+     sellwsW                           4
+     Krakozyabra_2ws                 192
+     DrawMenu                       2432
+     mmenu_items                      47
+     sell                              8
+     sellcx                            4
+     sellcy                            4
+     ListDown                        148
+     ListUp                          148
+     MenuNavigation                 1368
+     InitMenu                         76
+     DeinitMenu                       24
+     ??DataTable0                      4
+     ??DataTable1                      4
+     ??DataTable2                      4
+     ??DataTable3                      4
+     ??DataTable9                      4
+     ??DataTable10                     4
+     ??DataTable11                     4
+     ??DataTable12                     4
+     ??DataTable14                     4
+     ??DataTable15                     4
+     ??DataTable16                     4
+     ??DataTable17                     4
+     ?<Initializer for menu_px>        4
+     ?<Initializer for menu_py>        4
+     ?<Initializer for mmenu_items>   47
+     ?<Initializer for sell>           8
+     ?<Initializer for sellcx>         4
+     ?<Initializer for sellcy>         4
+     ?<Constant {15, 80, 5, 60}>     508
+     ?<Constant "\363\360\356\342\345\355\374 \345\
+                                      44
+     ?<Constant "">                    1
+     ?<Constant {50, 50, 50, 100}>     4
+     ?<Constant {90, 90, 90, 90}>      4
+     ?<Constant {25, 120, 5, 100}>     4
+     ?<Constant {5, 5, 5, 100}>        4
+     ?<Constant {0, 0, 0, 100}>        4
+     ?<Constant "%s">                  3
+      Others                         120
+
+ 
+ 4 532 bytes in segment CODE
+   576 bytes in segment DATA_C
+    71 bytes in segment DATA_I
+    71 bytes in segment DATA_ID
+    12 bytes in segment DATA_Z
+    24 bytes in segment INITTAB
+ 
+ 4 436 bytes of CODE  memory (+ 120 bytes shared)
+   647 bytes of CONST memory
+    83 bytes of DATA  memory
+
+Errors: none
+Warnings: none

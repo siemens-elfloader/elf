@@ -1,0 +1,987 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.41A/W32 EVALUATION    11/Mar/2008  12:14:19 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\Pasha\elf\mod_src\natasha with id3                #
+#                       tag(20.02.08)\select_smile.c                         #
+#    Command line    =  "D:\Pasha\elf\mod_src\natasha with id3               #
+#                       tag(20.02.08)\select_smile.c" -D NEWSGOLD -D ELKA    #
+#                       -D UIN_WRITE --preprocess                            #
+#                       "D:\Pasha\elf\mod_src\natasha with id3               #
+#                       tag(20.02.08)\Release_ELKA\List\" -lC                #
+#                       "D:\Pasha\elf\mod_src\natasha with id3               #
+#                       tag(20.02.08)\Release_ELKA\List\" -o                 #
+#                       "D:\Pasha\elf\mod_src\natasha with id3               #
+#                       tag(20.02.08)\Release_ELKA\Obj\" -s9 --no_unroll     #
+#                       --cpu_mode arm --endian little --cpu ARM926EJ-S      #
+#                       --stack_align 4 --interwork -e --fpu None            #
+#                       --dlib_config "D:\Pasha\ARM_Embedded_Workbench\Embed #
+#                       ded Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h"  #
+#                       -I "D:\Pasha\ARM_Embedded_Workbench\Embedded         #
+#                       Workbench 4.0 Evaluation\ARM\INC\"                   #
+#                       --inline_threshold=2                                 #
+#    List file       =  D:\Pasha\elf\mod_src\natasha with id3                #
+#                       tag(20.02.08)\Release_ELKA\List\select_smile.lst     #
+#    Object file     =  D:\Pasha\elf\mod_src\natasha with id3                #
+#                       tag(20.02.08)\Release_ELKA\Obj\select_smile.r79      #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\Pasha\elf\mod_src\natasha with id3 tag(20.02.08)\select_smile.c
+      1          #include "../inc/swilib.h"
+      2          #include "../inc/pnglist.h"
+      3          #include "NatICQ.h"
+      4          #include "main.h"
+      5          #include "smiles.h"
+      6          #include "rect_patcher.h"
+      7          #include "select_smile.h"
+      8          #include "strings.h"
+      9          
+     10          #define MAX_ICON_IN_ROW 32
+     11          typedef struct
+     12          {
+     13            int icon_in_row;
+     14            struct
+     15            {
+     16              IMGHDR *img;
+     17              int wchar;
+     18            }w_chars[MAX_ICON_IN_ROW];
+     19          }IMGH_SMILE;
+     20          
+     21          typedef struct
+     22          {
+     23            GUI gui;
+     24            EDCHAT_STRUCT *ed_struct;
+     25            int view_line;
+     26            int cur_pos_x;
+     27            int cur_pos_y;
+     28            int total_lines;
+     29            IMGH_SMILE *icons;
+     30            WSHDR *ws;
+     31          }SMILE_GUI;
+     32          
+     33          extern S_SMILES *s_top;
+     34          extern DYNPNGICONLIST *SmilesImgList;
+     35          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     36          IMGHDR *FindSmileIMGHDR(int pic)
+     37          {
+     38            DYNPNGICONLIST *d=SmilesImgList;
+   \                     FindSmileIMGHDR:
+   \   00000000   2C109FE5           LDR      R1,??FindSmileIMGHDR_0  ;; SmilesImgList
+   \   00000004   002091E5           LDR      R2,[R1, #+0]
+     39            IMGHDR *img=NULL;
+   \   00000008   0010A0E3           MOV      R1,#+0
+   \   0000000C   000000EA           B        ??FindSmileIMGHDR_1
+     40            while(d)
+     41            {
+     42               if (d->icon==pic)
+     43               {
+     44                 img=d->img;
+     45                 break;      
+     46               }
+     47               d=d->next;    
+   \                     ??FindSmileIMGHDR_2:
+   \   00000010   002092E5           LDR      R2,[R2, #+0]
+   \                     ??FindSmileIMGHDR_1:
+   \   00000014   000052E3           CMP      R2,#+0
+   \   00000018   0300000A           BEQ      ??FindSmileIMGHDR_3
+   \   0000001C   043092E5           LDR      R3,[R2, #+4]
+   \   00000020   000053E1           CMP      R3,R0
+   \   00000024   F9FFFF1A           BNE      ??FindSmileIMGHDR_2
+   \   00000028   081092E5           LDR      R1,[R2, #+8]
+     48            }
+     49            return img;
+   \                     ??FindSmileIMGHDR_3:
+   \   0000002C   0100A0E1           MOV      R0,R1
+   \   00000030   1EFF2FE1           BX       LR               ;; return
+   \                     ??FindSmileIMGHDR_0:
+   \   00000034   ........           DC32     SmilesImgList
+     50          }
+     51          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     52          void DrwImg(IMGHDR *img, int x, int y)
+     53          {
+   \                     DrwImg:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   2CD04DE2           SUB      SP,SP,#+44
+   \   00000008   0040A0E1           MOV      R4,R0
+     54            RECT rc;
+     55            DRWOBJ drwobj;
+     56            StoreXYWHtoRECT(&rc,x,y,img->w,img->h);
+   \   0000000C   B200D4E1           LDRH     R0,[R4, #+2]
+   \   00000010   01002DE9           PUSH     {R0}
+   \   00000014   B030D4E1           LDRH     R3,[R4, #+0]
+   \   00000018   04008DE2           ADD      R0,SP,#+4
+   \   0000001C   330100EF           SWI      +307
+     57            SetPropTo_Obj5(&drwobj,&rc,0,img);
+   \   00000020   0430A0E1           MOV      R3,R4
+   \   00000024   0020A0E3           MOV      R2,#+0
+   \   00000028   04108DE2           ADD      R1,SP,#+4
+   \   0000002C   0C008DE2           ADD      R0,SP,#+12
+   \   00000030   510100EF           SWI      +337
+     58            SetColor(&drwobj,GetPaletteAdrByColorIndex(100),GetPaletteAdrByColorIndex(101));
+   \   00000034   6500A0E3           MOV      R0,#+101
+   \   00000038   2E0100EF           SWI      +302
+   \   0000003C   0040A0E1           MOV      R4,R0
+   \   00000040   6400A0E3           MOV      R0,#+100
+   \   00000044   2E0100EF           SWI      +302
+   \   00000048   0420A0E1           MOV      R2,R4
+   \   0000004C   0010A0E1           MOV      R1,R0
+   \   00000050   0C008DE2           ADD      R0,SP,#+12
+   \   00000054   4B0100EF           SWI      +331
+     59            DrawObject(&drwobj);
+   \   00000058   0C008DE2           ADD      R0,SP,#+12
+   \   0000005C   2A0100EF           SWI      +298
+     60          }
+   \   00000060   30D08DE2           ADD      SP,SP,#+48
+   \   00000064   1080BDE8           POP      {R4,PC}          ;; return
+     61          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     62          void PasteCharEditControl(EDCHAT_STRUCT *ed_struct, int wchar)
+     63          {
+   \                     PasteCharEditControl:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   2CD04DE2           SUB      SP,SP,#+44
+   \   00000008   0040A0E1           MOV      R4,R0
+     64            WSHDR *ed_ws;
+     65            EDITCONTROL ec;
+     66            int pos;
+     67            ExtractEditControl(ed_struct->ed_chatgui,ed_struct->ed_answer,&ec);
+   \   0000000C   040094E5           LDR      R0,[R4, #+4]
+   \   00000010   0150A0E1           MOV      R5,R1
+   \   00000014   081094E5           LDR      R1,[R4, #+8]
+   \   00000018   0D20A0E1           MOV      R2,SP
+   \   0000001C   690100EF           SWI      +361
+     68            ed_ws=AllocWS(ec.pWS->wsbody[0]+1);
+   \   00000020   28009DE5           LDR      R0,[SP, #+40]
+   \   00000024   000090E5           LDR      R0,[R0, #+0]
+   \   00000028   B000D0E1           LDRH     R0,[R0, #+0]
+   \   0000002C   010080E2           ADD      R0,R0,#+1
+   \   00000030   250100EF           SWI      +293
+     69            wstrcpy(ed_ws,ec.pWS);
+   \   00000034   28109DE5           LDR      R1,[SP, #+40]
+   \   00000038   0060A0E1           MOV      R6,R0
+   \   0000003C   1F0100EF           SWI      +287
+     70            pos=EDIT_GetCursorPos(ed_struct->ed_chatgui);
+   \   00000040   040094E5           LDR      R0,[R4, #+4]
+   \   00000044   D30100EF           SWI      +467
+   \   00000048   0070A0E1           MOV      R7,R0
+     71            wsInsertChar(ed_ws,wchar,pos);
+   \   0000004C   0720A0E1           MOV      R2,R7
+   \   00000050   0510A0E1           MOV      R1,R5
+   \   00000054   0600A0E1           MOV      R0,R6
+   \   00000058   1D0000EF           SWI      +29
+     72            EDIT_SetTextToEditControl(ed_struct->ed_chatgui,ed_struct->ed_answer,ed_ws);
+   \   0000005C   081094E5           LDR      R1,[R4, #+8]
+   \   00000060   040094E5           LDR      R0,[R4, #+4]
+   \   00000064   0620A0E1           MOV      R2,R6
+   \   00000068   DE0100EF           SWI      +478
+     73            EDIT_SetCursorPos(ed_struct->ed_chatgui,pos+1);
+   \   0000006C   040094E5           LDR      R0,[R4, #+4]
+   \   00000070   011087E2           ADD      R1,R7,#+1
+   \   00000074   D40100EF           SWI      +468
+     74            FreeWS(ed_ws);
+   \   00000078   0600A0E1           MOV      R0,R6
+   \   0000007C   290100EF           SWI      +297
+     75          }
+   \   00000080   2CD08DE2           ADD      SP,SP,#+44
+   \   00000084   F080BDE8           POP      {R4-R7,PC}       ;; return
+     76          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     77          int RenderPage(SMILE_GUI *data, int is_draw)   //¬озвращает номер последней нарисованной линии
+     78          {
+   \                     RenderPage:
+   \   00000000   F24F2DE9           PUSH     {R1,R4-R11,LR}
+   \   00000004   1CD04DE2           SUB      SP,SP,#+28
+   \   00000008   0040A0E1           MOV      R4,R0
+     79            int scr_w=ScreenW()-1;
+   \   0000000C   888100EF           SWI      +33160
+   \   00000010   010040E2           SUB      R0,R0,#+1
+   \   00000014   18008DE5           STR      R0,[SP, #+24]
+     80            int scr_h=ScreenH()-1;
+   \   00000018   898100EF           SWI      +33161
+   \   0000001C   010040E2           SUB      R0,R0,#+1
+   \   00000020   14008DE5           STR      R0,[SP, #+20]
+     81            int res=0;
+   \   00000024   0010A0E3           MOV      R1,#+0
+   \   00000028   10108DE5           STR      R1,[SP, #+16]
+     82            int font=FONT_SMALL;
+     83            int font_size=GetFontYSIZE(font);
+   \   0000002C   0800A0E3           MOV      R0,#+8
+   \   00000030   C50100EF           SWI      +453
+   \   00000034   0C008DE5           STR      R0,[SP, #+12]
+     84            int y=YDISP;
+     85            int y2=y+font_size+2;
+     86          #ifdef EVILFOX_2
+     87          #else
+     88            S_SMILES *sm;
+     89          #endif
+     90            for (int i=data->view_line, max=data->total_lines; i<max; i++)
+   \   00000038   386094E5           LDR      R6,[R4, #+56]
+   \   0000003C   441094E5           LDR      R1,[R4, #+68]
+   \   00000040   1A5080E2           ADD      R5,R0,#+26
+   \   00000044   08108DE5           STR      R1,[SP, #+8]
+   \   00000048   010056E1           CMP      R6,R1
+   \   0000004C   410000AA           BGE      ??RenderPage_0
+     91            {
+     92              int x=0;
+     93              int h_max=0;
+     94              for (int k=0, m=data->icons[i].icon_in_row; k<m; k++)
+   \                     ??RenderPage_1:
+   \   00000050   411FA0E3           MOV      R1,#+260
+   \   00000054   910602E0           MUL      R2,R1,R6
+   \   00000058   00208DE5           STR      R2,[SP, #+0]
+   \   0000005C   0210A0E1           MOV      R1,R2
+   \   00000060   482094E5           LDR      R2,[R4, #+72]
+   \   00000064   0090A0E3           MOV      R9,#+0
+   \   00000068   021091E7           LDR      R1,[R1, +R2]
+   \   0000006C   0070A0E3           MOV      R7,#+0
+   \   00000070   0780A0E1           MOV      R8,R7
+   \   00000074   04108DE5           STR      R1,[SP, #+4]
+   \   00000078   010051E3           CMP      R1,#+1
+   \   0000007C   2C0000BA           BLT      ??RenderPage_2
+     95              {
+     96                IMGHDR *img=data->icons[i].w_chars[k].img;
+   \                     ??RenderPage_3:
+   \   00000080   00009DE5           LDR      R0,[SP, #+0]
+   \   00000084   481094E5           LDR      R1,[R4, #+72]
+   \   00000088   010080E0           ADD      R0,R0,R1
+   \   0000008C   880180E0           ADD      R0,R0,R8, LSL #+3
+   \   00000090   04A090E5           LDR      R10,[R0, #+4]
+     97                if (is_draw)
+   \   00000094   1C009DE5           LDR      R0,[SP, #+28]
+   \   00000098   000050E3           CMP      R0,#+0
+   \   0000009C   1B00000A           BEQ      ??RenderPage_4
+     98                {
+     99                  if (i==data->cur_pos_y && k==data->cur_pos_x)
+   \   000000A0   400094E5           LDR      R0,[R4, #+64]
+   \   000000A4   000056E1           CMP      R6,R0
+   \   000000A8   3C009405           LDREQ    R0,[R4, #+60]
+   \   000000AC   00005801           CMPEQ    R8,R0
+   \   000000B0   1200001A           BNE      ??RenderPage_5
+    100                  {
+    101                    DrawRectangle(x,y2,x+img->w-1,y2+img->h-1,0,
+    102                                  GetPaletteAdrByColorIndex(2),
+    103                                  GetPaletteAdrByColorIndex(2));
+   \   000000B4   0200A0E3           MOV      R0,#+2
+   \   000000B8   2E0100EF           SWI      +302
+   \   000000BC   00B0A0E1           MOV      R11,R0
+   \   000000C0   0200A0E3           MOV      R0,#+2
+   \   000000C4   2E0100EF           SWI      +302
+   \   000000C8   00082DE9           PUSH     {R11}
+   \   000000CC   01002DE9           PUSH     {R0}
+   \   000000D0   0510A0E1           MOV      R1,R5
+   \   000000D4   0000A0E3           MOV      R0,#+0
+   \   000000D8   01002DE9           PUSH     {R0}
+   \   000000DC   B200DAE1           LDRH     R0,[R10, #+2]
+   \   000000E0   050080E0           ADD      R0,R0,R5
+   \   000000E4   013040E2           SUB      R3,R0,#+1
+   \   000000E8   B000DAE1           LDRH     R0,[R10, #+0]
+   \   000000EC   000089E0           ADD      R0,R9,R0
+   \   000000F0   012040E2           SUB      R2,R0,#+1
+   \   000000F4   0900A0E1           MOV      R0,R9
+   \   000000F8   B40100EF           SWI      +436
+   \   000000FC   0CD08DE2           ADD      SP,SP,#+12
+    104                  }
+    105                  DrwImg(img,x,y2);
+   \                     ??RenderPage_5:
+   \   00000100   0520A0E1           MOV      R2,R5
+   \   00000104   0910A0E1           MOV      R1,R9
+   \   00000108   0A00A0E1           MOV      R0,R10
+   \   0000010C   ........           BL       DrwImg
+    106                }
+    107                x+=img->w;
+   \                     ??RenderPage_4:
+   \   00000110   B000DAE1           LDRH     R0,[R10, #+0]
+    108                if (img->h>h_max) h_max=img->h;
+    109              }
+   \   00000114   018088E2           ADD      R8,R8,#+1
+   \   00000118   099080E0           ADD      R9,R0,R9
+   \   0000011C   B200DAE1           LDRH     R0,[R10, #+2]
+   \   00000120   000057E1           CMP      R7,R0
+   \   00000124   0070A0B1           MOVLT    R7,R0
+   \   00000128   04009DE5           LDR      R0,[SP, #+4]
+   \   0000012C   000058E1           CMP      R8,R0
+   \   00000130   D2FFFFBA           BLT      ??RenderPage_3
+    110              y2+=h_max;
+    111              if (y2>=scr_h) break;
+   \                     ??RenderPage_2:
+   \   00000134   14009DE5           LDR      R0,[SP, #+20]
+   \   00000138   055087E0           ADD      R5,R7,R5
+   \   0000013C   000055E1           CMP      R5,R0
+   \   00000140   040000AA           BGE      ??RenderPage_0
+    112              res=i;
+   \   00000144   10608DE5           STR      R6,[SP, #+16]
+    113            }
+   \   00000148   08009DE5           LDR      R0,[SP, #+8]
+   \   0000014C   016086E2           ADD      R6,R6,#+1
+   \   00000150   000056E1           CMP      R6,R0
+   \   00000154   BDFFFFBA           BLT      ??RenderPage_1
+    114          #ifdef EVILFOX_2
+    115          #else
+    116            if (is_draw)
+   \                     ??RenderPage_0:
+   \   00000158   1C009DE5           LDR      R0,[SP, #+28]
+   \   0000015C   000050E3           CMP      R0,#+0
+   \   00000160   2100000A           BEQ      ??RenderPage_6
+    117            {
+    118              sm=FindSmileByUni(data->icons[data->cur_pos_y].w_chars[data->cur_pos_x].wchar);
+   \   00000164   401094E5           LDR      R1,[R4, #+64]
+   \   00000168   3C0094E5           LDR      R0,[R4, #+60]
+   \   0000016C   483094E5           LDR      R3,[R4, #+72]
+   \   00000170   412FA0E3           MOV      R2,#+260
+   \   00000174   923121E0           MLA      R1,R2,R1,R3
+   \   00000178   800181E0           ADD      R0,R1,R0, LSL #+3
+   \   0000017C   080090E5           LDR      R0,[R0, #+8]
+   \   00000180   ........           _BLF     FindSmileByUni,??FindSmileByUni??rA
+    119              if (sm)
+   \   00000184   000050E3           CMP      R0,#+0
+   \   00000188   1700000A           BEQ      ??RenderPage_6
+    120              {
+    121                ascii2ws(data->ws,sm->lines->text);
+   \   0000018C   080090E5           LDR      R0,[R0, #+8]
+   \   00000190   0C1080E2           ADD      R1,R0,#+12
+   \   00000194   4C0094E5           LDR      R0,[R4, #+76]
+   \   00000198   ........           _BLF     ascii2ws,??ascii2ws??rA
+    122                DrawString(data->ws,1,y+1,scr_w,y+1+font_size,font,0,GetPaletteAdrByColorIndex(4),GetPaletteAdrByColorIndex(23));
+   \   0000019C   1700A0E3           MOV      R0,#+23
+   \   000001A0   2E0100EF           SWI      +302
+   \   000001A4   0050A0E1           MOV      R5,R0
+   \   000001A8   0400A0E3           MOV      R0,#+4
+   \   000001AC   2E0100EF           SWI      +302
+   \   000001B0   20002DE9           PUSH     {R5}
+   \   000001B4   01002DE9           PUSH     {R0}
+   \   000001B8   1920A0E3           MOV      R2,#+25
+   \   000001BC   0110A0E3           MOV      R1,#+1
+   \   000001C0   0000A0E3           MOV      R0,#+0
+   \   000001C4   01002DE9           PUSH     {R0}
+   \   000001C8   0800A0E3           MOV      R0,#+8
+   \   000001CC   01002DE9           PUSH     {R0}
+   \   000001D0   1C009DE5           LDR      R0,[SP, #+28]
+   \   000001D4   190080E2           ADD      R0,R0,#+25
+   \   000001D8   01002DE9           PUSH     {R0}
+   \   000001DC   2C309DE5           LDR      R3,[SP, #+44]
+   \   000001E0   4C0094E5           LDR      R0,[R4, #+76]
+   \   000001E4   4C0100EF           SWI      +332
+   \   000001E8   14D08DE2           ADD      SP,SP,#+20
+    123              }
+    124            }
+    125          #endif
+    126            return (res);  
+   \                     ??RenderPage_6:
+   \   000001EC   10009DE5           LDR      R0,[SP, #+16]
+   \   000001F0   20D08DE2           ADD      SP,SP,#+32
+   \   000001F4   F08FBDE8           POP      {R4-R11,PC}      ;; return
+    127          }
+    128          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    129          static void method0(SMILE_GUI *data)
+    130          {
+   \                     method0:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    131            int scr_w=ScreenW()-1;
+   \   00000008   888100EF           SWI      +33160
+   \   0000000C   015040E2           SUB      R5,R0,#+1
+    132            int scr_h=ScreenH()-1;
+   \   00000010   898100EF           SWI      +33161
+   \   00000014   016040E2           SUB      R6,R0,#+1
+    133            DrawRectangle(0,YDISP,scr_w,scr_h,0,
+    134                          GetPaletteAdrByColorIndex(1),
+    135                          GetPaletteAdrByColorIndex(1));
+   \   00000018   0100A0E3           MOV      R0,#+1
+   \   0000001C   2E0100EF           SWI      +302
+   \   00000020   0070A0E1           MOV      R7,R0
+   \   00000024   0100A0E3           MOV      R0,#+1
+   \   00000028   2E0100EF           SWI      +302
+   \   0000002C   80002DE9           PUSH     {R7}
+   \   00000030   01002DE9           PUSH     {R0}
+   \   00000034   0630A0E1           MOV      R3,R6
+   \   00000038   0520A0E1           MOV      R2,R5
+   \   0000003C   1810A0E3           MOV      R1,#+24
+   \   00000040   0000A0E3           MOV      R0,#+0
+   \   00000044   01002DE9           PUSH     {R0}
+   \   00000048   B40100EF           SWI      +436
+    136          #ifdef EVILFOX_2
+    137            DrawImg(15,290,(int)"4:\\zbin\\naticq\\img\\smiles_logo.png");
+    138            DrawImg(15,25,(int)"4:\\zbin\\naticq\\img\\choosesmile.png");
+    139          #endif
+    140            RenderPage(data,1);
+   \   0000004C   0110A0E3           MOV      R1,#+1
+   \   00000050   0400A0E1           MOV      R0,R4
+   \   00000054   ........           BL       RenderPage
+    141          }
+   \   00000058   F780BDE8           POP      {R0-R2,R4-R7,PC}  ;; return
+    142          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    143          static void method1(SMILE_GUI *data,void *(*malloc_adr)(int))
+    144          {
+   \                     method1:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    145            S_SMILES *sm=s_top;
+   \   00000008   D8009FE5           LDR      R0,??method1_0   ;; s_top
+   \   0000000C   006090E5           LDR      R6,[R0, #+0]
+    146            IMGHDR *img;
+    147            int pic;
+    148            int row_w=ScreenW();   // заведомо больша€ ширина чтобы начать с новой линии
+   \   00000010   888100EF           SWI      +33160
+   \   00000014   0080A0E1           MOV      R8,R0
+   \   00000018   000056E3           CMP      R6,#+0
+   \   0000001C   2B00000A           BEQ      ??method1_1
+    149            IMGH_SMILE *cur_img;
+    150            while(sm)
+    151            {
+    152              pic=GetPicNByUnicodeSymbol(sm->uni_smile);
+   \                     ??method1_2:
+   \   00000020   040096E5           LDR      R0,[R6, #+4]
+   \   00000024   E40100EF           SWI      +484
+    153              img=FindSmileIMGHDR(pic);
+   \   00000028   ........           BL       FindSmileIMGHDR
+   \   0000002C   0070B0E1           MOVS     R7,R0
+    154              if (img)
+   \   00000030   2300000A           BEQ      ??method1_3
+    155              {
+    156                row_w+=img->w;
+   \   00000034   B000D7E1           LDRH     R0,[R7, #+0]
+   \   00000038   088080E0           ADD      R8,R0,R8
+    157                if (row_w>(ScreenW()-1) || cur_img->icon_in_row>=MAX_ICON_IN_ROW)
+   \   0000003C   888100EF           SWI      +33160
+   \   00000040   010040E2           SUB      R0,R0,#+1
+   \   00000044   080050E1           CMP      R0,R8
+   \   00000048   020000BA           BLT      ??method1_4
+   \   0000004C   000095E5           LDR      R0,[R5, #+0]
+   \   00000050   200050E3           CMP      R0,#+32
+   \   00000054   100000BA           BLT      ??method1_5
+    158                {
+    159                  row_w=img->w;
+    160                  cur_img=data->icons=realloc(data->icons,(data->total_lines+1)*sizeof(IMGH_SMILE));
+   \                     ??method1_4:
+   \   00000058   440094E5           LDR      R0,[R4, #+68]
+   \   0000005C   B080D7E1           LDRH     R8,[R7, #+0]
+   \   00000060   010080E2           ADD      R0,R0,#+1
+   \   00000064   412FA0E3           MOV      R2,#+260
+   \   00000068   920001E0           MUL      R1,R2,R0
+   \   0000006C   480094E5           LDR      R0,[R4, #+72]
+   \   00000070   BA0000EF           SWI      +186
+   \   00000074   480084E5           STR      R0,[R4, #+72]
+    161                  cur_img+=data->total_lines;
+   \   00000078   440094E5           LDR      R0,[R4, #+68]
+   \   0000007C   482094E5           LDR      R2,[R4, #+72]
+   \   00000080   411FA0E3           MOV      R1,#+260
+   \   00000084   912025E0           MLA      R5,R1,R0,R2
+    162                  zeromem(cur_img,sizeof(IMGH_SMILE));
+   \   00000088   0500A0E1           MOV      R0,R5
+   \   0000008C   1D0100EF           SWI      +285
+    163                  data->total_lines++;
+   \   00000090   440094E5           LDR      R0,[R4, #+68]
+   \   00000094   010080E2           ADD      R0,R0,#+1
+   \   00000098   440084E5           STR      R0,[R4, #+68]
+    164                }
+    165                cur_img->w_chars[cur_img->icon_in_row].img=img;
+   \                     ??method1_5:
+   \   0000009C   000095E5           LDR      R0,[R5, #+0]
+   \   000000A0   800185E0           ADD      R0,R5,R0, LSL #+3
+   \   000000A4   047080E5           STR      R7,[R0, #+4]
+    166                cur_img->w_chars[cur_img->icon_in_row].wchar=sm->uni_smile;
+   \   000000A8   000095E5           LDR      R0,[R5, #+0]
+   \   000000AC   041096E5           LDR      R1,[R6, #+4]
+   \   000000B0   800185E0           ADD      R0,R5,R0, LSL #+3
+   \   000000B4   081080E5           STR      R1,[R0, #+8]
+    167                cur_img->icon_in_row++;
+   \   000000B8   000095E5           LDR      R0,[R5, #+0]
+   \   000000BC   010080E2           ADD      R0,R0,#+1
+   \   000000C0   000085E5           STR      R0,[R5, #+0]
+    168              }
+    169              sm=sm->next;
+   \                     ??method1_3:
+   \   000000C4   006096E5           LDR      R6,[R6, #+0]
+    170            }
+   \   000000C8   000056E3           CMP      R6,#+0
+   \   000000CC   D3FFFF1A           BNE      ??method1_2
+    171            data->ws=AllocWS(50);
+   \                     ??method1_1:
+   \   000000D0   3200A0E3           MOV      R0,#+50
+   \   000000D4   250100EF           SWI      +293
+   \   000000D8   4C0084E5           STR      R0,[R4, #+76]
+    172            data->gui.state=1;
+   \   000000DC   0100A0E3           MOV      R0,#+1
+   \   000000E0   0C00C4E5           STRB     R0,[R4, #+12]
+    173          }
+   \   000000E4   F081BDE8           POP      {R4-R8,PC}       ;; return
+   \                     ??method1_0:
+   \   000000E8   ........           DC32     s_top
+    174          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    175          static void method2(SMILE_GUI *data,void (*mfree_adr)(void *))
+    176          {
+   \                     method2:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    177            data->gui.state=0;
+   \   00000008   0000A0E3           MOV      R0,#+0
+   \   0000000C   0C00C4E5           STRB     R0,[R4, #+12]
+    178            mfree(data->icons);
+   \   00000010   480094E5           LDR      R0,[R4, #+72]
+   \   00000014   150000EF           SWI      +21
+    179            FreeWS(data->ws);
+   \   00000018   4C0094E5           LDR      R0,[R4, #+76]
+   \   0000001C   290100EF           SWI      +297
+    180          }
+   \   00000020   1080BDE8           POP      {R4,PC}          ;; return
+    181          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    182          static void method3(SMILE_GUI *data,void *(*malloc_adr)(int),void (*mfree_adr)(void *))
+    183          {
+   \                     method3:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    184            DisableIDLETMR();
+   \   00000008   7F0100EF           SWI      +383
+    185            data->gui.state=2;
+   \   0000000C   0200A0E3           MOV      R0,#+2
+   \   00000010   0C00C4E5           STRB     R0,[R4, #+12]
+    186          }
+   \   00000014   1080BDE8           POP      {R4,PC}          ;; return
+    187          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    188          static void method4(SMILE_GUI *data,void (*mfree_adr)(void *))
+    189          {
+    190            if (data->gui.state!=2)
+   \                     method4:
+   \   00000000   0C10D0E5           LDRB     R1,[R0, #+12]
+   \   00000004   020051E3           CMP      R1,#+2
+    191              return;
+    192            data->gui.state=1;
+   \   00000008   0110A003           MOVEQ    R1,#+1
+   \   0000000C   0C10C005           STRBEQ   R1,[R0, #+12]
+    193          }
+   \   00000010   1EFF2FE1           BX       LR               ;; return
+    194          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    195          static int method5(SMILE_GUI *data,GUI_MSG *msg)
+    196          {
+   \                     method5:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    197            int i;
+    198            int m=msg->gbsmsg->msg;
+   \   00000008   040091E5           LDR      R0,[R1, #+4]
+   \   0000000C   042090E5           LDR      R2,[R0, #+4]
+    199            int key=msg->gbsmsg->submess;
+   \   00000010   081090E5           LDR      R1,[R0, #+8]
+    200            if ((m==KEY_DOWN)||(m==LONG_PRESS))
+   \   00000014   9300A0E3           MOV      R0,#+147
+   \   00000018   400F80E3           ORR      R0,R0,#0x100
+   \   0000001C   000052E1           CMP      R2,R0
+   \   00000020   02008012           ADDNE    R0,R0,#+2
+   \   00000024   00005211           CMPNE    R2,R0
+   \   00000028   6700001A           BNE      ??method5_1
+    201            {
+    202              if (key==GREEN_BUTTON || (key>='0' && key<='9'))
+   \   0000002C   442094E5           LDR      R2,[R4, #+68]
+   \   00000030   340094E5           LDR      R0,[R4, #+52]
+   \   00000034   483094E5           LDR      R3,[R4, #+72]
+   \   00000038   0B0051E3           CMP      R1,#+11
+   \   0000003C   0300000A           BEQ      ??method5_2
+   \   00000040   300051E3           CMP      R1,#+48
+   \   00000044   210000BA           BLT      ??method5_3
+   \   00000048   3A0051E3           CMP      R1,#+58
+   \   0000004C   1F0000AA           BGE      ??method5_3
+    203              {
+    204                int c;
+    205                int n=0;
+   \                     ??method5_2:
+   \   00000050   0040A0E3           MOV      R4,#+0
+    206                int d;
+    207          //#ifdef EVILFOX_2
+    208                if (key=='1') c=1;
+   \   00000054   310051E3           CMP      R1,#+49
+   \   00000058   0110A003           MOVEQ    R1,#+1
+   \   0000005C   0E00000A           BEQ      ??method5_4
+    209                else if (key=='2') c=6;
+   \   00000060   320051E3           CMP      R1,#+50
+   \   00000064   0610A003           MOVEQ    R1,#+6
+   \   00000068   0B00000A           BEQ      ??method5_4
+    210                else if (key=='3') c=35;
+   \   0000006C   330051E3           CMP      R1,#+51
+   \   00000070   2310A003           MOVEQ    R1,#+35
+   \   00000074   0800000A           BEQ      ??method5_4
+    211                else if(key=='4') c=15;
+   \   00000078   340051E3           CMP      R1,#+52
+   \   0000007C   0F10A003           MOVEQ    R1,#+15
+   \   00000080   0500000A           BEQ      ??method5_4
+    212                else if(key=='5') c=32;
+   \   00000084   350051E3           CMP      R1,#+53
+   \   00000088   30104112           SUBNE    R1,R1,#+48
+   \   0000008C   2010A003           MOVEQ    R1,#+32
+   \   00000090   010000EA           B        ??method5_4
+    213                else c=key-'0';
+    214          /*#else
+    215          //      if (key==GREEN_BUTTON) c=0;
+    216                //else
+    217                if (key=='0') c=10;
+    218                else c=key-'0';
+    219          #endif*/
+    220                while(c>=(d=data->icons[n].icon_in_row) && n<data->total_lines)
+    221                {
+    222                  c-=d;
+   \                     ??method5_5:
+   \   00000094   0C1041E0           SUB      R1,R1,R12
+    223                  n++;
+   \   00000098   014084E2           ADD      R4,R4,#+1
+    224                }
+   \                     ??method5_4:
+   \   0000009C   415FA0E3           MOV      R5,#+260
+   \   000000A0   95342EE0           MLA      LR,R5,R4,R3
+   \   000000A4   00C09EE5           LDR      R12,[LR, #+0]
+   \   000000A8   0C0051E1           CMP      R1,R12
+   \   000000AC   010000BA           BLT      ??method5_6
+   \   000000B0   020054E1           CMP      R4,R2
+   \   000000B4   F6FFFFBA           BLT      ??method5_5
+    225                if (c>=0 && n<data->total_lines)
+   \                     ??method5_6:
+   \   000000B8   000051E3           CMP      R1,#+0
+   \   000000BC   4200004A           BMI      ??method5_1
+   \   000000C0   020054E1           CMP      R4,R2
+   \   000000C4   400000AA           BGE      ??method5_1
+    226                {
+    227                  PasteCharEditControl(data->ed_struct,data->icons[n].w_chars[c].wchar);
+   \   000000C8   81118EE0           ADD      R1,LR,R1, LSL #+3
+   \   000000CC   610000EA           B        ??method5_7
+    228                  return (1);
+    229                }
+    230              }
+    231              else
+    232              {
+    233                switch(key)
+   \                     ??method5_3:
+   \   000000D0   40C094E5           LDR      R12,[R4, #+64]
+   \   000000D4   3CE094E5           LDR      LR,[R4, #+60]
+   \   000000D8   415FA0E3           MOV      R5,#+260
+   \   000000DC   953C23E0           MLA      R3,R5,R12,R3
+   \   000000E0   012042E2           SUB      R2,R2,#+1
+   \   000000E4   0050A0E3           MOV      R5,#+0
+   \   000000E8   011041E2           SUB      R1,R1,#+1
+   \   000000EC   3D0051E3           CMP      R1,#+61
+   \   000000F0   3500008A           BHI      ??method5_1
+   \   000000F4   016F8FE2           ADR      R6,??method5_0
+   \   000000F8   0160D6E7           LDRB     R6,[R6, R1]
+   \   000000FC   06F18FE0           ADD      PC,PC,R6, LSL #+2
+   \                     ??method5_0:
+   \   00000100   54323259           DC8      +84,+50,+50,+89
+   \   00000104   32323232           DC8      +50,+50,+50,+50
+   \   00000108   32325459           DC8      +50,+50,+84,+89
+   \   0000010C   32323232           DC8      +50,+50,+50,+50
+   \   00000110   32323232           DC8      +50,+50,+50,+50
+   \   00000114   32323232           DC8      +50,+50,+50,+50
+   \   00000118   32543232           DC8      +50,+84,+50,+50
+   \   0000011C   32323232           DC8      +50,+50,+50,+50
+   \   00000120   32323232           DC8      +50,+50,+50,+50
+   \   00000124   32323232           DC8      +50,+50,+50,+50
+   \   00000128   32323232           DC8      +50,+50,+50,+50
+   \   0000012C   32323232           DC8      +50,+50,+50,+50
+   \   00000130   32323232           DC8      +50,+50,+50,+50
+   \   00000134   32323232           DC8      +50,+50,+50,+50
+   \   00000138   32320F35           DC8      +50,+50,+15,+53
+   \   0000013C   454B0000           DC8      +69,+75,+0,+0
+    234                {
+    235                case UP_BUTTON:
+    236                  if (data->cur_pos_y>0)
+   \                     ??method5_8:
+   \   00000140   01005CE3           CMP      R12,#+1
+   \   00000144   060000BA           BLT      ??method5_9
+    237                  {
+    238                    data->cur_pos_y--;
+   \   00000148   01004CE2           SUB      R0,R12,#+1
+   \   0000014C   400084E5           STR      R0,[R4, #+64]
+    239                    if (data->cur_pos_y<=data->view_line) data->view_line=data->cur_pos_y;
+   \   00000150   381094E5           LDR      R1,[R4, #+56]
+   \   00000154   000051E1           CMP      R1,R0
+   \   00000158   110000BA           BLT      ??method5_10
+   \                     ??method5_11:
+   \   0000015C   380084E5           STR      R0,[R4, #+56]
+   \   00000160   0F0000EA           B        ??method5_10
+    240                  }
+    241                  else
+    242                  {
+    243                    data->cur_pos_y=data->total_lines-1;
+   \                     ??method5_9:
+   \   00000164   402084E5           STR      R2,[R4, #+64]
+    244                    data->view_line=0;
+   \   00000168   385084E5           STR      R5,[R4, #+56]
+   \   0000016C   020000EA           B        ??method5_12
+    245                    while(data->view_line<data->total_lines)
+    246                    {
+    247                      if (data->cur_pos_y==RenderPage(data,0)) break;
+    248                      data->view_line++;
+   \                     ??method5_13:
+   \   00000170   380094E5           LDR      R0,[R4, #+56]
+   \   00000174   010080E2           ADD      R0,R0,#+1
+   \   00000178   380084E5           STR      R0,[R4, #+56]
+   \                     ??method5_12:
+   \   0000017C   380094E5           LDR      R0,[R4, #+56]
+   \   00000180   441094E5           LDR      R1,[R4, #+68]
+   \   00000184   010050E1           CMP      R0,R1
+   \   00000188   050000AA           BGE      ??method5_10
+   \   0000018C   0010A0E3           MOV      R1,#+0
+   \   00000190   0400A0E1           MOV      R0,R4
+   \   00000194   ........           BL       RenderPage
+   \   00000198   401094E5           LDR      R1,[R4, #+64]
+   \   0000019C   000051E1           CMP      R1,R0
+   \   000001A0   F2FFFF1A           BNE      ??method5_13
+    249                    }
+    250                  }
+    251                  if (data->cur_pos_x>=(i=data->icons[data->cur_pos_y].icon_in_row)) data->cur_pos_x=i-1;  // ѕровер€ем на выход за пределы
+   \                     ??method5_10:
+   \   000001A4   400094E5           LDR      R0,[R4, #+64]
+   \   000001A8   482094E5           LDR      R2,[R4, #+72]
+   \   000001AC   411FA0E3           MOV      R1,#+260
+   \   000001B0   912020E0           MLA      R0,R1,R0,R2
+   \   000001B4   3C1094E5           LDR      R1,[R4, #+60]
+   \   000001B8   000090E5           LDR      R0,[R0, #+0]
+   \   000001BC   000051E1           CMP      R1,R0
+   \   000001C0   010000BA           BLT      ??method5_1
+   \                     ??method5_14:
+   \   000001C4   010040E2           SUB      R0,R0,#+1
+   \   000001C8   3C0084E5           STR      R0,[R4, #+60]
+    252                  break;
+    253                  
+    254                case DOWN_BUTTON:
+    255                  if (data->cur_pos_y<data->total_lines-1)
+    256                  {
+    257                    data->cur_pos_y++;
+    258                    if (data->cur_pos_y>RenderPage(data,0)) data->view_line++;
+    259                  }
+    260                  else
+    261                  {
+    262                    data->cur_pos_y=data->view_line=0;
+    263                  }
+    264                  if (data->cur_pos_x>=(i=data->icons[data->cur_pos_y].icon_in_row)) data->cur_pos_x=i-1;  // ѕровер€ем на выход за пределы
+    265                  break;
+    266                  
+    267                case LEFT_BUTTON:
+    268                  if (data->cur_pos_x>0) data->cur_pos_x--;
+    269                  else data->cur_pos_x=data->icons[data->cur_pos_y].icon_in_row-1;
+    270                  break;
+    271                  
+    272                case RIGHT_BUTTON:
+    273                  data->cur_pos_x++;
+    274                  if (data->cur_pos_x>=(i=data->icons[data->cur_pos_y].icon_in_row)) data->cur_pos_x=0;  // ѕереходим на первый в р€ду
+    275                  break;
+    276                  
+    277                case LEFT_SOFT:
+    278                case ENTER_BUTTON:
+    279                case GREEN_BUTTON:
+    280                  PasteCharEditControl(data->ed_struct,data->icons[data->cur_pos_y].w_chars[data->cur_pos_x].wchar);
+    281                  return (1);
+    282                
+    283                case RIGHT_SOFT:
+    284                case RED_BUTTON:
+    285                  return (1);
+    286                }
+    287              }
+    288            }
+    289            DirectRedrawGUI();
+   \                     ??method5_1:
+   \   000001CC   3F0100EF           SWI      +319
+    290            return(0);
+   \   000001D0   0000A0E3           MOV      R0,#+0
+   \   000001D4   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??method5_15:
+   \   000001D8   02005CE1           CMP      R12,R2
+   \   000001DC   0A0000AA           BGE      ??method5_16
+   \   000001E0   01008CE2           ADD      R0,R12,#+1
+   \   000001E4   400084E5           STR      R0,[R4, #+64]
+   \   000001E8   0010A0E3           MOV      R1,#+0
+   \   000001EC   0400A0E1           MOV      R0,R4
+   \   000001F0   ........           BL       RenderPage
+   \   000001F4   401094E5           LDR      R1,[R4, #+64]
+   \   000001F8   010050E1           CMP      R0,R1
+   \   000001FC   E8FFFFAA           BGE      ??method5_10
+   \   00000200   380094E5           LDR      R0,[R4, #+56]
+   \   00000204   010080E2           ADD      R0,R0,#+1
+   \   00000208   D3FFFFEA           B        ??method5_11
+   \                     ??method5_16:
+   \   0000020C   385084E5           STR      R5,[R4, #+56]
+   \   00000210   405084E5           STR      R5,[R4, #+64]
+   \   00000214   E2FFFFEA           B        ??method5_10
+   \                     ??method5_17:
+   \   00000218   01005EE3           CMP      LR,#+1
+   \   0000021C   01004EA2           SUBGE    R0,LR,#+1
+   \   00000220   3C0084A5           STRGE    R0,[R4, #+60]
+   \   00000224   E8FFFFAA           BGE      ??method5_1
+   \   00000228   000093E5           LDR      R0,[R3, #+0]
+   \   0000022C   E4FFFFEA           B        ??method5_14
+   \                     ??method5_18:
+   \   00000230   01008EE2           ADD      R0,LR,#+1
+   \   00000234   3C0084E5           STR      R0,[R4, #+60]
+   \   00000238   001093E5           LDR      R1,[R3, #+0]
+   \   0000023C   010050E1           CMP      R0,R1
+   \   00000240   E1FFFFBA           BLT      ??method5_1
+   \   00000244   3C5084E5           STR      R5,[R4, #+60]
+   \   00000248   3F0100EF           SWI      +319
+   \   0000024C   0000A0E3           MOV      R0,#+0
+   \   00000250   7080BDE8           POP      {R4-R6,PC}
+   \                     ??method5_19:
+   \   00000254   8E1183E0           ADD      R1,R3,LR, LSL #+3
+   \                     ??method5_7:
+   \   00000258   081091E5           LDR      R1,[R1, #+8]
+   \   0000025C   ........           BL       PasteCharEditControl
+   \   00000260   0100A0E3           MOV      R0,#+1
+   \   00000264   7080BDE8           POP      {R4-R6,PC}
+   \                     ??method5_20:
+   \   00000268   0100A0E3           MOV      R0,#+1
+   \   0000026C   7080BDE8           POP      {R4-R6,PC}
+    291          }
+    292          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    293          static int method8(void){return(0);}
+   \                     method8:
+   \   00000000   0000A0E3           MOV      R0,#+0
+   \   00000004   1EFF2FE1           BX       LR               ;; return
+    294          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    295          static int method9(void){return(0);}
+   \                     method9:
+   \   00000000   0000A0E3           MOV      R0,#+0
+   \   00000004   1EFF2FE1           BX       LR               ;; return
+    296          
+    297          extern void kill_data(void *p, void (*func_p)(void *));
+    298          static const void * const gui_methods[11]={
+    299            (void *)method0,  //Redraw
+    300            (void *)method1,  //Create
+    301            (void *)method2,  //Close
+    302            (void *)method3,  //Focus
+    303            (void *)method4,  //Unfocus
+    304            (void *)method5,  //OnKey
+    305            0,
+    306            (void *)kill_data, //method7, //Destroy
+    307            (void *)method8,
+    308            (void *)method9,
+    309            0
+    310          };
+    311          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    312          int CreateSmileSelectGUI(EDCHAT_STRUCT *ed_struct)
+    313          {
+   \                     CreateSmileSelectGUI:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    314            static const RECT Canvas={0,0,0,0};
+    315            SMILE_GUI *smile_gui=malloc(sizeof(SMILE_GUI));
+   \   00000008   5000A0E3           MOV      R0,#+80
+   \   0000000C   140000EF           SWI      +20
+   \   00000010   0050A0E1           MOV      R5,R0
+    316            zeromem(smile_gui,sizeof(SMILE_GUI));
+   \   00000014   5010A0E3           MOV      R1,#+80
+   \   00000018   1D0100EF           SWI      +285
+    317            patch_rect((RECT*)&Canvas,0,0,ScreenW()-1,ScreenH()-1);
+   \   0000001C   898100EF           SWI      +33161
+   \   00000020   0060A0E1           MOV      R6,R0
+   \   00000024   888100EF           SWI      +33160
+   \   00000028   38209FE5           LDR      R2,??CreateSmileSelectGUI_0  ;; ??Canvas
+   \   0000002C   011046E2           SUB      R1,R6,#+1
+   \   00000030   010040E2           SUB      R0,R0,#+1
+   \   00000034   0030A0E3           MOV      R3,#+0
+   \   00000038   003082E5           STR      R3,[R2, #+0]
+   \   0000003C   B400C2E1           STRH     R0,[R2, #+4]
+   \   00000040   B610C2E1           STRH     R1,[R2, #+6]
+    318            smile_gui->gui.canvas=(void *)(&Canvas);
+   \   00000044   002085E5           STR      R2,[R5, #+0]
+    319            smile_gui->gui.methods=(void *)gui_methods;
+   \   00000048   080082E2           ADD      R0,R2,#+8
+   \   0000004C   040085E5           STR      R0,[R5, #+4]
+    320            smile_gui->gui.item_ll.data_mfree=(void (*)(void *))mfree_adr();
+   \   00000050   158000EF           SWI      +32789
+   \   00000054   200085E5           STR      R0,[R5, #+32]
+    321            smile_gui->ed_struct=ed_struct;
+   \   00000058   344085E5           STR      R4,[R5, #+52]
+    322            return CreateGUI(smile_gui);
+   \   0000005C   0500A0E1           MOV      R0,R5
+   \   00000060   370100EF           SWI      +311
+   \   00000064   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??CreateSmileSelectGUI_0:
+   \   00000068   ........           DC32     ??Canvas
+    323          }
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     ??Canvas:
+   \   00000000   000000000000       DC16 0, 0, 0, 0
+   \              0000        
+   \   00000008   ............       DC32 method0, method1, method2, method3, method4, method5, 0H
+   \              ............
+   \              ............
+   \              ............
+   \              00000000    
+   \   00000024   ............       DC32 kill_data, method8, method9, 0H
+   \              ............
+   \              00000000    
+
+   Maximum stack usage in bytes:
+
+     Function             CSTACK
+     --------             ------
+     CreateSmileSelectGUI    16
+     DrwImg                  56
+     FindSmileIMGHDR          0
+     PasteCharEditControl    64
+     RenderPage              88
+     method0                 32
+     method1                 24
+     method2                  8
+     method3                  8
+     method4                  0
+     method5                 16
+     method8                  0
+     method9                  0
+
+
+   Segment part sizes:
+
+     Function/Label       Bytes
+     --------------       -----
+     FindSmileIMGHDR        56
+     DrwImg                104
+     PasteCharEditControl  136
+     RenderPage            504
+     method0                92
+     method1               236
+     method2                36
+     method3                24
+     method4                20
+     method5               624
+     method8                 8
+     method9                 8
+     CreateSmileSelectGUI  108
+     Canvas                 52
+      Others                76
+
+ 
+ 2 032 bytes in segment CODE
+    52 bytes in segment DATA_C
+ 
+ 1 956 bytes of CODE  memory (+ 76 bytes shared)
+    52 bytes of CONST memory
+
+Errors: none
+Warnings: none

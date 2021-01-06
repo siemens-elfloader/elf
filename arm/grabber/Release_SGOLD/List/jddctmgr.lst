@@ -1,0 +1,2762 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    19/Jan/2011  13:21:02 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\grabber\jpeg-7\jddctmgr.c                     #
+#    Command line    =  C:\arm\grabber\jpeg-7\jddctmgr.c -lC                 #
+#                       C:\arm\grabber\Release_SGOLD\List\ -o                #
+#                       C:\arm\grabber\Release_SGOLD\Obj\ -s9 --no_unroll    #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\grabber\Release_SGOLD\List\jddctmgr.lst       #
+#    Object file     =  C:\arm\grabber\Release_SGOLD\Obj\jddctmgr.r79        #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\grabber\jpeg-7\jddctmgr.c
+      1          /*
+                  ^
+Warning[Pa050]: non-native end of line sequence detected (this diagnostic is
+          only issued once)
+      2           * jddctmgr.c
+      3           *
+      4           * Copyright (C) 1994-1996, Thomas G. Lane.
+      5           * This file is part of the Independent JPEG Group's software.
+      6           * For conditions of distribution and use, see the accompanying README file.
+      7           *
+      8           * This file contains the inverse-DCT management logic.
+      9           * This code selects a particular IDCT implementation to be used,
+     10           * and it performs related housekeeping chores.  No code in this file
+     11           * is executed per IDCT step, only during output pass setup.
+     12           *
+     13           * Note that the IDCT routines are responsible for performing coefficient
+     14           * dequantization as well as the IDCT proper.  This module sets up the
+     15           * dequantization multiplier table needed by the IDCT routine.
+     16           */
+     17          
+     18          #define JPEG_INTERNALS
+     19          #include "jinclude.h"
+     20          #include "jpeglib.h"
+     21          #include "jdct.h"		/* Private declarations for DCT subsystem */
+     22          
+     23          
+     24          /*
+     25           * The decompressor input side (jdinput.c) saves away the appropriate
+     26           * quantization table for each component at the start of the first scan
+     27           * involving that component.  (This is necessary in order to correctly
+     28           * decode files that reuse Q-table slots.)
+     29           * When we are ready to make an output pass, the saved Q-table is converted
+     30           * to a multiplier table that will actually be used by the IDCT routine.
+     31           * The multiplier table contents are IDCT-method-dependent.  To support
+     32           * application changes in IDCT method between scans, we can remake the
+     33           * multiplier tables if necessary.
+     34           * In buffered-image mode, the first output pass may occur before any data
+     35           * has been seen for some components, and thus before their Q-tables have
+     36           * been saved away.  To handle this case, multiplier tables are preset
+     37           * to zeroes; the result of the IDCT will be a neutral gray level.
+     38           */
+     39          
+     40          
+     41          /* Private subobject for this module */
+     42          
+     43          typedef struct {
+     44            struct jpeg_inverse_dct pub;	/* public fields */
+     45          
+     46            /* This array contains the IDCT method code that each multiplier table
+     47             * is currently set up for, or -1 if it's not yet set up.
+     48             * The actual multiplier tables are pointed to by dct_table in the
+     49             * per-component comp_info structures.
+     50             */
+     51            int cur_method[MAX_COMPONENTS];
+     52          } my_idct_controller;
+     53          
+     54          typedef my_idct_controller * my_idct_ptr;
+     55          
+     56          
+     57          /* Allocated multiplier tables: big enough for any supported variant */
+     58          
+     59          typedef union {
+     60            ISLOW_MULT_TYPE islow_array[DCTSIZE2];
+     61          #ifdef DCT_IFAST_SUPPORTED
+     62            IFAST_MULT_TYPE ifast_array[DCTSIZE2];
+     63          #endif
+     64          #ifdef DCT_FLOAT_SUPPORTED
+     65            FLOAT_MULT_TYPE float_array[DCTSIZE2];
+     66          #endif
+     67          } multiplier_table;
+     68          
+     69          
+     70          /* The current scaled-IDCT routines require ISLOW-style multiplier tables,
+     71           * so be sure to compile that code if either ISLOW or SCALING is requested.
+     72           */
+     73          #ifdef DCT_ISLOW_SUPPORTED
+     74          #define PROVIDE_ISLOW_TABLES
+     75          #else
+     76          #ifdef IDCT_SCALING_SUPPORTED
+     77          #define PROVIDE_ISLOW_TABLES
+     78          #endif
+     79          #endif
+     80          
+     81          
+     82          /*
+     83           * Prepare for an output pass.
+     84           * Here we select the proper IDCT routine for each component and build
+     85           * a matching multiplier table.
+     86           */
+     87          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     88          METHODDEF(void)
+     89          start_pass (j_decompress_ptr cinfo)
+     90          {
+   \                     start_pass:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+     91            my_idct_ptr idct = (my_idct_ptr) cinfo->idct;
+     92            int ci, i;
+     93            jpeg_component_info *compptr;
+     94            int method = 0;
+     95            inverse_DCT_method_ptr method_ptr = NULL;
+     96            JQUANT_TBL * qtbl;
+     97          
+     98            for (ci = 0, compptr = cinfo->comp_info; ci < cinfo->num_components;
+   \   00000004   30809FE5           LDR      R8,??start_pass_1  ;; ??aanscalefactor
+   \   00000008   10D04DE2           SUB      SP,SP,#+16
+   \   0000000C   00A0A0E1           MOV      R10,R0
+   \   00000010   C0119AE5           LDR      R1,[R10, #+448]
+   \   00000014   0040A0E3           MOV      R4,#+0
+   \   00000018   08108DE5           STR      R1,[SP, #+8]
+   \   0000001C   0410A0E1           MOV      R1,R4
+   \   00000020   00108DE5           STR      R1,[SP, #+0]
+   \   00000024   24009AE5           LDR      R0,[R10, #+36]
+   \   00000028   D4B09AE5           LDR      R11,[R10, #+212]
+   \   0000002C   0050A0E3           MOV      R5,#+0
+   \   00000030   010050E3           CMP      R0,#+1
+   \   00000034   0B0000AA           BGE      ??start_pass_2
+     99                 ci++, compptr++) {
+    100              /* Select the proper IDCT routine for this component's scaling */
+    101              switch ((compptr->DCT_h_scaled_size << 8) + compptr->DCT_v_scaled_size) {
+    102          #ifdef IDCT_SCALING_SUPPORTED
+    103              case ((1 << 8) + 1):
+    104                method_ptr = jpeg_idct_1x1;
+    105                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    106                break;
+    107              case ((2 << 8) + 2):
+    108                method_ptr = jpeg_idct_2x2;
+    109                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    110                break;
+    111              case ((3 << 8) + 3):
+    112                method_ptr = jpeg_idct_3x3;
+    113                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    114                break;
+    115              case ((4 << 8) + 4):
+    116                method_ptr = jpeg_idct_4x4;
+    117                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    118                break;
+    119              case ((5 << 8) + 5):
+    120                method_ptr = jpeg_idct_5x5;
+    121                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    122                break;
+    123              case ((6 << 8) + 6):
+    124                method_ptr = jpeg_idct_6x6;
+    125                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    126                break;
+    127              case ((7 << 8) + 7):
+    128                method_ptr = jpeg_idct_7x7;
+    129                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    130                break;
+    131              case ((9 << 8) + 9):
+    132                method_ptr = jpeg_idct_9x9;
+    133                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    134                break;
+    135              case ((10 << 8) + 10):
+    136                method_ptr = jpeg_idct_10x10;
+    137                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    138                break;
+    139              case ((11 << 8) + 11):
+    140                method_ptr = jpeg_idct_11x11;
+    141                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    142                break;
+    143              case ((12 << 8) + 12):
+    144                method_ptr = jpeg_idct_12x12;
+    145                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    146                break;
+    147              case ((13 << 8) + 13):
+    148                method_ptr = jpeg_idct_13x13;
+    149                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    150                break;
+    151              case ((14 << 8) + 14):
+    152                method_ptr = jpeg_idct_14x14;
+    153                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    154                break;
+    155              case ((15 << 8) + 15):
+    156                method_ptr = jpeg_idct_15x15;
+    157                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    158                break;
+    159              case ((16 << 8) + 16):
+    160                method_ptr = jpeg_idct_16x16;
+    161                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    162                break;
+    163              case ((16 << 8) + 8):
+    164                method_ptr = jpeg_idct_16x8;
+    165                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    166                break;
+    167              case ((14 << 8) + 7):
+    168                method_ptr = jpeg_idct_14x7;
+    169                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    170                break;
+    171              case ((12 << 8) + 6):
+    172                method_ptr = jpeg_idct_12x6;
+    173                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    174                break;
+    175              case ((10 << 8) + 5):
+    176                method_ptr = jpeg_idct_10x5;
+    177                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    178                break;
+    179              case ((8 << 8) + 4):
+    180                method_ptr = jpeg_idct_8x4;
+    181                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    182                break;
+    183              case ((6 << 8) + 3):
+    184                method_ptr = jpeg_idct_6x3;
+    185                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    186                break;
+    187              case ((4 << 8) + 2):
+    188                method_ptr = jpeg_idct_4x2;
+    189                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    190                break;
+    191              case ((2 << 8) + 1):
+    192                method_ptr = jpeg_idct_2x1;
+    193                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    194                break;
+    195              case ((8 << 8) + 16):
+    196                method_ptr = jpeg_idct_8x16;
+    197                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    198                break;
+    199              case ((7 << 8) + 14):
+    200                method_ptr = jpeg_idct_7x14;
+    201                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    202                break;
+    203              case ((6 << 8) + 12):
+    204                method_ptr = jpeg_idct_6x12;
+    205                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    206                break;
+    207              case ((5 << 8) + 10):
+    208                method_ptr = jpeg_idct_5x10;
+    209                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    210                break;
+    211              case ((4 << 8) + 8):
+    212                method_ptr = jpeg_idct_4x8;
+    213                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    214                break;
+    215              case ((3 << 8) + 6):
+    216                method_ptr = jpeg_idct_3x6;
+    217                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    218                break;
+    219              case ((2 << 8) + 4):
+    220                method_ptr = jpeg_idct_2x4;
+    221                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    222                break;
+    223              case ((1 << 8) + 2):
+    224                method_ptr = jpeg_idct_1x2;
+    225                method = JDCT_ISLOW;	/* jidctint uses islow-style table */
+    226                break;
+    227          #endif
+    228              case ((DCTSIZE << 8) + DCTSIZE):
+    229                switch (cinfo->dct_method) {
+    230          #ifdef DCT_ISLOW_SUPPORTED
+    231                case JDCT_ISLOW:
+    232          	method_ptr = jpeg_idct_islow;
+    233          	method = JDCT_ISLOW;
+    234          	break;
+    235          #endif
+    236          #ifdef DCT_IFAST_SUPPORTED
+    237                case JDCT_IFAST:
+    238          	method_ptr = jpeg_idct_ifast;
+    239          	method = JDCT_IFAST;
+    240          	break;
+    241          #endif
+    242          #ifdef DCT_FLOAT_SUPPORTED
+    243                case JDCT_FLOAT:
+    244          	method_ptr = jpeg_idct_float;
+    245          	method = JDCT_FLOAT;
+    246          	break;
+    247          #endif
+    248                default:
+    249          	ERREXIT(cinfo, JERR_NOT_COMPILED);
+    250          	break;
+    251                }
+    252                break;
+    253              default:
+    254                ERREXIT2(cinfo, JERR_BAD_DCTSIZE,
+    255          	       compptr->DCT_h_scaled_size, compptr->DCT_v_scaled_size);
+    256                break;
+    257              }
+    258              idct->pub.inverse_DCT[ci] = method_ptr;
+    259              /* Create multiplier table from quant table.
+    260               * However, we can skip this if the component is uninteresting
+    261               * or if we already built the table.  Also, if no quant table
+    262               * has yet been saved for the component, we leave the
+    263               * multiplier table all-zero; we'll be reading zeroes from the
+    264               * coefficient controller's buffer anyway.
+    265               */
+    266              if (! compptr->component_needed || idct->cur_method[ci] == method)
+    267                continue;
+    268              qtbl = compptr->quant_table;
+    269              if (qtbl == NULL)		/* happens if no data yet for component */
+    270                continue;
+    271              idct->cur_method[ci] = method;
+    272              switch (method) {
+    273          #ifdef PROVIDE_ISLOW_TABLES
+    274              case JDCT_ISLOW:
+    275                {
+    276          	/* For LL&M IDCT method, multipliers are equal to raw quantization
+    277          	 * coefficients, but are stored as ints to ensure access efficiency.
+    278          	 */
+    279          	ISLOW_MULT_TYPE * ismtbl = (ISLOW_MULT_TYPE *) compptr->dct_table;
+    280          	for (i = 0; i < DCTSIZE2; i++) {
+    281          	  ismtbl[i] = (ISLOW_MULT_TYPE) qtbl->quantval[i];
+    282          	}
+    283                }
+    284                break;
+    285          #endif
+    286          #ifdef DCT_IFAST_SUPPORTED
+    287              case JDCT_IFAST:
+    288                {
+    289          	/* For AA&N IDCT method, multipliers are equal to quantization
+    290          	 * coefficients scaled by scalefactor[row]*scalefactor[col], where
+    291          	 *   scalefactor[0] = 1
+    292          	 *   scalefactor[k] = cos(k*PI/16) * sqrt(2)    for k=1..7
+    293          	 * For integer operation, the multiplier table is to be scaled by
+    294          	 * IFAST_SCALE_BITS.
+    295          	 */
+    296          	IFAST_MULT_TYPE * ifmtbl = (IFAST_MULT_TYPE *) compptr->dct_table;
+    297          #define CONST_BITS 14
+    298          	static const INT16 aanscales[DCTSIZE2] = {
+    299          	  /* precomputed values scaled up by 14 bits */
+    300          	  16384, 22725, 21407, 19266, 16384, 12873,  8867,  4520,
+    301          	  22725, 31521, 29692, 26722, 22725, 17855, 12299,  6270,
+    302          	  21407, 29692, 27969, 25172, 21407, 16819, 11585,  5906,
+    303          	  19266, 26722, 25172, 22654, 19266, 15137, 10426,  5315,
+    304          	  16384, 22725, 21407, 19266, 16384, 12873,  8867,  4520,
+    305          	  12873, 17855, 16819, 15137, 12873, 10114,  6967,  3552,
+    306          	   8867, 12299, 11585, 10426,  8867,  6967,  4799,  2446,
+    307          	   4520,  6270,  5906,  5315,  4520,  3552,  2446,  1247
+    308          	};
+    309          	SHIFT_TEMPS
+    310          
+    311          	for (i = 0; i < DCTSIZE2; i++) {
+    312          	  ifmtbl[i] = (IFAST_MULT_TYPE)
+    313          	    DESCALE(MULTIPLY16V16((INT32) qtbl->quantval[i],
+    314          				  (INT32) aanscales[i]),
+    315          		    CONST_BITS-IFAST_SCALE_BITS);
+    316          	}
+    317                }
+    318                break;
+    319          #endif
+    320          #ifdef DCT_FLOAT_SUPPORTED
+    321              case JDCT_FLOAT:
+    322                {
+    323          	/* For float AA&N IDCT method, multipliers are equal to quantization
+    324          	 * coefficients scaled by scalefactor[row]*scalefactor[col], where
+    325          	 *   scalefactor[0] = 1
+    326          	 *   scalefactor[k] = cos(k*PI/16) * sqrt(2)    for k=1..7
+    327          	 */
+    328          	FLOAT_MULT_TYPE * fmtbl = (FLOAT_MULT_TYPE *) compptr->dct_table;
+    329          	int row, col;
+    330          	static const double aanscalefactor[DCTSIZE] = {
+    331          	  1.0, 1.387039845, 1.306562965, 1.175875602,
+    332          	  1.0, 0.785694958, 0.541196100, 0.275899379
+    333          	};
+    334          
+    335          	i = 0;
+    336          	for (row = 0; row < DCTSIZE; row++) {
+    337          	  for (col = 0; col < DCTSIZE; col++) {
+    338          	    fmtbl[i] = (FLOAT_MULT_TYPE)
+    339          	      ((double) qtbl->quantval[i] *
+    340          	       aanscalefactor[row] * aanscalefactor[col]);
+    341          	    i++;
+    342          	  }
+    343          	}
+    344                }
+    345                break;
+    346          #endif
+    347              default:
+    348                ERREXIT(cinfo, JERR_NOT_COMPILED);
+    349                break;
+    350              }
+    351            }
+    352          }
+   \   00000038   FF8FBDE8           POP      {R0-R11,PC}      ;; return
+   \                     ??start_pass_1:
+   \   0000003C   ........           DC32     ??aanscalefactor
+   \                     ??start_pass_3:
+   \   00000040   00009AE5           LDR      R0,[R10, #+0]
+   \   00000044   146080E5           STR      R6,[R0, #+20]
+   \   00000048   00109AE5           LDR      R1,[R10, #+0]
+   \   0000004C   0A00A0E1           MOV      R0,R10
+   \   00000050   001091E5           LDR      R1,[R1, #+0]
+   \   00000054   31FF2FE1           BLX      R1
+   \                     ??start_pass_4:
+   \   00000058   00109DE5           LDR      R1,[SP, #+0]
+   \   0000005C   58B08BE2           ADD      R11,R11,#+88
+   \   00000060   011081E2           ADD      R1,R1,#+1
+   \   00000064   00108DE5           STR      R1,[SP, #+0]
+   \                     ??start_pass_2:
+   \   00000068   00009DE5           LDR      R0,[SP, #+0]
+   \   0000006C   24109AE5           LDR      R1,[R10, #+36]
+   \   00000070   010050E1           CMP      R0,R1
+   \   00000074   FF8FBDA8           POPGE    {R0-R11,PC}
+   \   00000078   24109BE5           LDR      R1,[R11, #+36]
+   \   0000007C   28209BE5           LDR      R2,[R11, #+40]
+   \   00000080   00009AE5           LDR      R0,[R10, #+0]
+   \   00000084   3160A0E3           MOV      R6,#+49
+   \   00000088   011482E0           ADD      R1,R2,R1, LSL #+8
+   \   0000008C   011041E2           SUB      R1,R1,#+1
+   \   00000090   401F41E2           SUB      R1,R1,#+256
+   \   00000094   0F20A0E3           MOV      R2,#+15
+   \   00000098   F02E82E3           ORR      R2,R2,#0xF00
+   \   0000009C   020051E1           CMP      R1,R2
+   \   000000A0   DD07008A           BHI      ??start_pass_5
+   \   000000A4   022F8FE2           ADR      R2,??start_pass_0
+   \   000000A8   8110A0E1           MOV      R1,R1, LSL #+1
+   \   000000AC   B12092E1           LDRH     R2,[R2, R1]
+   \   000000B0   02F18FE0           ADD      PC,PC,R2, LSL #+2
+   \                     ??start_pass_0:
+   \   000000B4   8707C507D907       DC16     +1927,+1989,+2009,+2009
+   \              D907        
+   \   000000BC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000000C4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000000CC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000000D4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000000DC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000000E4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000000EC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000000F4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000000FC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000104   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000010C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000114   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000011C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000124   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000012C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000134   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000013C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000144   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000014C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000154   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000015C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000164   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000016C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000174   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000017C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000184   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000018C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000194   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000019C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000001A4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000001AC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000001B4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000001BC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000001C4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000001CC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000001D4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000001DC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000001E4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000001EC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000001F4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000001FC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000204   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000020C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000214   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000021C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000224   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000022C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000234   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000023C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000244   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000024C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000254   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000025C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000264   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000026C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000274   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000027C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000284   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000028C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000294   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000029C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000002A4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000002AC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000002B4   B5078A07D907       DC16     +1973,+1930,+2009,+1987
+   \              C307        
+   \   000002BC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000002C4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000002CC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000002D4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000002DC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000002E4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000002EC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000002F4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000002FC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000304   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000030C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000314   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000031C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000324   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000032C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000334   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000033C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000344   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000034C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000354   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000035C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000364   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000036C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000374   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000037C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000384   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000038C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000394   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000039C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000003A4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000003AC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000003B4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000003BC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000003C4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000003CC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000003D4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000003DC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000003E4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000003EC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000003F4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000003FC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000404   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000040C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000414   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000041C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000424   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000042C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000434   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000043C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000444   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000044C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000454   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000045C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000464   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000046C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000474   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000047C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000484   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000048C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000494   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000049C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000004A4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000004AC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000004B4   D907D9078C07       DC16     +2009,+2009,+1932,+2009
+   \              D907        
+   \   000004BC   D907C107D907       DC16     +2009,+1985,+2009,+2009
+   \              D907        
+   \   000004C4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000004CC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000004D4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000004DC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000004E4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000004EC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000004F4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000004FC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000504   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000050C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000514   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000051C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000524   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000052C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000534   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000053C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000544   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000054C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000554   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000055C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000564   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000056C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000574   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000057C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000584   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000058C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000594   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000059C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000005A4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000005AC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000005B4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000005BC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000005C4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000005CC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000005D4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000005DC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000005E4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000005EC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000005F4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000005FC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000604   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000060C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000614   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000061C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000624   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000062C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000634   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000063C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000644   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000064C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000654   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000065C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000664   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000066C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000674   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000067C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000684   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000068C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000694   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000069C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000006A4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000006AC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000006B4   D907B307D907       DC16     +2009,+1971,+2009,+1934
+   \              8E07        
+   \   000006BC   D907D907D907       DC16     +2009,+2009,+2009,+1983
+   \              BF07        
+   \   000006C4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000006CC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000006D4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000006DC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000006E4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000006EC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000006F4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000006FC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000704   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000070C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000714   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000071C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000724   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000072C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000734   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000073C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000744   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000074C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000754   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000075C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000764   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000076C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000774   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000077C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000784   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000078C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000794   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000079C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000007A4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000007AC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000007B4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000007BC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000007C4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000007CC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000007D4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000007DC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000007E4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000007EC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000007F4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000007FC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000804   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000080C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000814   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000081C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000824   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000082C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000834   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000083C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000844   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000084C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000854   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000085C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000864   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000086C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000874   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000087C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000884   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000088C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000894   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000089C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000008A4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000008AC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000008B4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000008BC   9007D907D907       DC16     +1936,+2009,+2009,+2009
+   \              D907        
+   \   000008C4   D907BD07D907       DC16     +2009,+1981,+2009,+2009
+   \              D907        
+   \   000008CC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000008D4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000008DC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000008E4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000008EC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000008F4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000008FC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000904   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000090C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000914   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000091C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000924   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000092C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000934   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000093C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000944   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000094C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000954   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000095C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000964   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000096C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000974   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000097C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000984   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000098C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000994   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000099C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000009A4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000009AC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000009B4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000009BC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000009C4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000009CC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000009D4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000009DC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000009E4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000009EC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000009F4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000009FC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000A04   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000A0C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000A14   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000A1C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000A24   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000A2C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000A34   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000A3C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000A44   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000A4C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000A54   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000A5C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000A64   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000A6C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000A74   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000A7C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000A84   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000A8C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000A94   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000A9C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000AA4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000AAC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000AB4   D907D907B107       DC16     +2009,+2009,+1969,+2009
+   \              D907        
+   \   00000ABC   D9079207D907       DC16     +2009,+1938,+2009,+2009
+   \              D907        
+   \   00000AC4   D907D907D907       DC16     +2009,+2009,+2009,+1979
+   \              BB07        
+   \   00000ACC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000AD4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000ADC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000AE4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000AEC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000AF4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000AFC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000B04   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000B0C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000B14   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000B1C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000B24   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000B2C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000B34   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000B3C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000B44   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000B4C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000B54   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000B5C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000B64   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000B6C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000B74   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000B7C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000B84   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000B8C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000B94   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000B9C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000BA4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000BAC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000BB4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000BBC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000BC4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000BCC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000BD4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000BDC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000BE4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000BEC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000BF4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000BFC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000C04   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000C0C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000C14   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000C1C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000C24   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000C2C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000C34   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000C3C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000C44   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000C4C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000C54   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000C5C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000C64   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000C6C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000C74   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000C7C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000C84   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000C8C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000C94   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000C9C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000CA4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000CAC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000CB4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000CBC   D907D9079407       DC16     +2009,+2009,+1940,+2009
+   \              D907        
+   \   00000CC4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000CCC   D907B907D907       DC16     +2009,+1977,+2009,+2009
+   \              D907        
+   \   00000CD4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000CDC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000CE4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000CEC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000CF4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000CFC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000D04   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000D0C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000D14   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000D1C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000D24   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000D2C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000D34   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000D3C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000D44   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000D4C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000D54   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000D5C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000D64   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000D6C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000D74   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000D7C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000D84   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000D8C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000D94   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000D9C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000DA4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000DAC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000DB4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000DBC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000DC4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000DCC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000DD4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000DDC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000DE4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000DEC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000DF4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000DFC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000E04   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000E0C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000E14   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000E1C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000E24   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000E2C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000E34   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000E3C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000E44   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000E4C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000E54   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000E5C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000E64   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000E6C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000E74   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000E7C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000E84   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000E8C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000E94   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000E9C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000EA4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000EAC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000EB4   D907D907D907       DC16     +2009,+2009,+2009,+1967
+   \              AF07        
+   \   00000EBC   D907D907D907       DC16     +2009,+2009,+2009,+1991
+   \              C707        
+   \   00000EC4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000ECC   D907D907D907       DC16     +2009,+2009,+2009,+1975
+   \              B707        
+   \   00000ED4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000EDC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000EE4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000EEC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000EF4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000EFC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000F04   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000F0C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000F14   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000F1C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000F24   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000F2C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000F34   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000F3C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000F44   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000F4C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000F54   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000F5C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000F64   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000F6C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000F74   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000F7C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000F84   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000F8C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000F94   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000F9C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000FA4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000FAC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000FB4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000FBC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000FC4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000FCC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000FD4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000FDC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000FE4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000FEC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000FF4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00000FFC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001004   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000100C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001014   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000101C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001024   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000102C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001034   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000103C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001044   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000104C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001054   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000105C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001064   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000106C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001074   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000107C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001084   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000108C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001094   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000109C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000010A4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000010AC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000010B4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000010BC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000010C4   9707D907D907       DC16     +1943,+2009,+2009,+2009
+   \              D907        
+   \   000010CC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000010D4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000010DC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000010E4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000010EC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000010F4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000010FC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001104   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000110C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001114   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000111C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001124   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000112C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001134   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000113C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001144   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000114C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001154   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000115C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001164   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000116C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001174   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000117C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001184   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000118C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001194   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000119C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000011A4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000011AC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000011B4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000011BC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000011C4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000011CC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000011D4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000011DC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000011E4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000011EC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000011F4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000011FC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001204   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000120C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001214   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000121C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001224   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000122C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001234   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000123C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001244   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000124C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001254   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000125C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001264   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000126C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001274   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000127C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001284   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000128C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001294   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000129C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000012A4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000012AC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000012B4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000012BC   AD07D907D907       DC16     +1965,+2009,+2009,+2009
+   \              D907        
+   \   000012C4   D9079907D907       DC16     +2009,+1945,+2009,+2009
+   \              D907        
+   \   000012CC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000012D4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000012DC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000012E4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000012EC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000012F4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000012FC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001304   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000130C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001314   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000131C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001324   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000132C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001334   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000133C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001344   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000134C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001354   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000135C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001364   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000136C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001374   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000137C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001384   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000138C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001394   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000139C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000013A4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000013AC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000013B4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000013BC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000013C4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000013CC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000013D4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000013DC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000013E4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000013EC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000013F4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000013FC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001404   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000140C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001414   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000141C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001424   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000142C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001434   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000143C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001444   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000144C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001454   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000145C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001464   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000146C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001474   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000147C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001484   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000148C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001494   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000149C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000014A4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000014AC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000014B4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000014BC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000014C4   D907D9079B07       DC16     +2009,+2009,+1947,+2009
+   \              D907        
+   \   000014CC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000014D4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000014DC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000014E4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000014EC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000014F4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000014FC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001504   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000150C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001514   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000151C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001524   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000152C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001534   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000153C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001544   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000154C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001554   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000155C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001564   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000156C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001574   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000157C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001584   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000158C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001594   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000159C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000015A4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000015AC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000015B4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000015BC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000015C4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000015CC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000015D4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000015DC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000015E4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000015EC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000015F4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000015FC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001604   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000160C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001614   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000161C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001624   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000162C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001634   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000163C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001644   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000164C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001654   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000165C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001664   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000166C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001674   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000167C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001684   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000168C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001694   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000169C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000016A4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000016AC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000016B4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000016BC   D907AB07D907       DC16     +2009,+1963,+2009,+2009
+   \              D907        
+   \   000016C4   D907D907D907       DC16     +2009,+2009,+2009,+1949
+   \              9D07        
+   \   000016CC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000016D4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000016DC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000016E4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000016EC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000016F4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000016FC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001704   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000170C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001714   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000171C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001724   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000172C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001734   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000173C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001744   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000174C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001754   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000175C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001764   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000176C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001774   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000177C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001784   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000178C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001794   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000179C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000017A4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000017AC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000017B4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000017BC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000017C4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000017CC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000017D4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000017DC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000017E4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000017EC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000017F4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000017FC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001804   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000180C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001814   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000181C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001824   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000182C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001834   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000183C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001844   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000184C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001854   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000185C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001864   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000186C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001874   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000187C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001884   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000188C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001894   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000189C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000018A4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000018AC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000018B4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000018BC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000018C4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000018CC   9F07D907D907       DC16     +1951,+2009,+2009,+2009
+   \              D907        
+   \   000018D4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000018DC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000018E4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000018EC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000018F4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000018FC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001904   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000190C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001914   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000191C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001924   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000192C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001934   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000193C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001944   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000194C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001954   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000195C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001964   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000196C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001974   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000197C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001984   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000198C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001994   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   0000199C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000019A4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000019AC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000019B4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000019BC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000019C4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000019CC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000019D4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000019DC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000019E4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000019EC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000019F4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   000019FC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001A04   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001A0C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001A14   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001A1C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001A24   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001A2C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001A34   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001A3C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001A44   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001A4C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001A54   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001A5C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001A64   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001A6C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001A74   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001A7C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001A84   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001A8C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001A94   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001A9C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001AA4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001AAC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001AB4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001ABC   D907D907A907       DC16     +2009,+2009,+1961,+2009
+   \              D907        
+   \   00001AC4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001ACC   D907A107D907       DC16     +2009,+1953,+2009,+2009
+   \              D907        
+   \   00001AD4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001ADC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001AE4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001AEC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001AF4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001AFC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001B04   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001B0C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001B14   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001B1C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001B24   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001B2C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001B34   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001B3C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001B44   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001B4C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001B54   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001B5C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001B64   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001B6C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001B74   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001B7C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001B84   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001B8C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001B94   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001B9C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001BA4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001BAC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001BB4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001BBC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001BC4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001BCC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001BD4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001BDC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001BE4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001BEC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001BF4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001BFC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001C04   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001C0C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001C14   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001C1C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001C24   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001C2C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001C34   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001C3C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001C44   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001C4C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001C54   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001C5C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001C64   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001C6C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001C74   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001C7C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001C84   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001C8C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001C94   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001C9C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001CA4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001CAC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001CB4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001CBC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001CC4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001CCC   D907D907A307       DC16     +2009,+2009,+1955,+2009
+   \              D907        
+   \   00001CD4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001CDC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001CE4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001CEC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001CF4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001CFC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001D04   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001D0C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001D14   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001D1C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001D24   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001D2C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001D34   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001D3C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001D44   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001D4C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001D54   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001D5C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001D64   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001D6C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001D74   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001D7C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001D84   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001D8C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001D94   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001D9C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001DA4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001DAC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001DB4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001DBC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001DC4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001DCC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001DD4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001DDC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001DE4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001DEC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001DF4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001DFC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001E04   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001E0C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001E14   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001E1C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001E24   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001E2C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001E34   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001E3C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001E44   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001E4C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001E54   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001E5C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001E64   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001E6C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001E74   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001E7C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001E84   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001E8C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001E94   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001E9C   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001EA4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001EAC   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001EB4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001EBC   D907D907D907       DC16     +2009,+2009,+2009,+1959
+   \              A707        
+   \   00001EC4   D907D907D907       DC16     +2009,+2009,+2009,+2009
+   \              D907        
+   \   00001ECC   D907D907D907       DC16     +2009,+2009,+2009,+1957
+   \              A507        
+   \                     ??start_pass_6:
+   \   00001ED4   AC429FE5           LDR      R4,??start_pass_7  ;; jpeg_idct_1x1
+   \                     ??start_pass_8:
+   \   00001ED8   0050A0E3           MOV      R5,#+0
+   \   00001EDC   5A0000EA           B        ??start_pass_9
+   \                     ??start_pass_10:
+   \   00001EE0   A4429FE5           LDR      R4,??start_pass_7+0x4  ;; jpeg_idct_2x2
+   \   00001EE4   FBFFFFEA           B        ??start_pass_8
+   \                     ??start_pass_11:
+   \   00001EE8   A0429FE5           LDR      R4,??start_pass_7+0x8  ;; jpeg_idct_3x3
+   \                     ??start_pass_12:
+   \   00001EEC   F9FFFFEA           B        ??start_pass_8
+   \                     ??start_pass_13:
+   \   00001EF0   9C429FE5           LDR      R4,??start_pass_7+0xC  ;; jpeg_idct_4x4
+   \   00001EF4   F7FFFFEA           B        ??start_pass_8
+   \                     ??start_pass_14:
+   \   00001EF8   98429FE5           LDR      R4,??start_pass_7+0x10  ;; jpeg_idct_5x5
+   \   00001EFC   F5FFFFEA           B        ??start_pass_8
+   \                     ??start_pass_15:
+   \   00001F00   94429FE5           LDR      R4,??start_pass_7+0x14  ;; jpeg_idct_6x6
+   \   00001F04   F3FFFFEA           B        ??start_pass_8
+   \                     ??start_pass_16:
+   \   00001F08   90429FE5           LDR      R4,??start_pass_7+0x18  ;; jpeg_idct_7x7
+   \                     ??start_pass_17:
+   \   00001F0C   0050A0E3           MOV      R5,#+0
+   \   00001F10   4D0000EA           B        ??start_pass_9
+   \                     ??start_pass_18:
+   \   00001F14   88429FE5           LDR      R4,??start_pass_7+0x1C  ;; jpeg_idct_9x9
+   \   00001F18   EEFFFFEA           B        ??start_pass_8
+   \                     ??start_pass_19:
+   \   00001F1C   84429FE5           LDR      R4,??start_pass_7+0x20  ;; jpeg_idct_10x10
+   \   00001F20   ECFFFFEA           B        ??start_pass_8
+   \                     ??start_pass_20:
+   \   00001F24   80429FE5           LDR      R4,??start_pass_7+0x24  ;; jpeg_idct_11x11
+   \   00001F28   EAFFFFEA           B        ??start_pass_8
+   \                     ??start_pass_21:
+   \   00001F2C   7C429FE5           LDR      R4,??start_pass_7+0x28  ;; jpeg_idct_12x12
+   \   00001F30   F5FFFFEA           B        ??start_pass_17
+   \                     ??start_pass_22:
+   \   00001F34   78429FE5           LDR      R4,??start_pass_7+0x2C  ;; jpeg_idct_13x13
+   \   00001F38   E6FFFFEA           B        ??start_pass_8
+   \                     ??start_pass_23:
+   \   00001F3C   74429FE5           LDR      R4,??start_pass_7+0x30  ;; jpeg_idct_14x14
+   \   00001F40   E4FFFFEA           B        ??start_pass_8
+   \                     ??start_pass_24:
+   \   00001F44   70429FE5           LDR      R4,??start_pass_7+0x34  ;; jpeg_idct_15x15
+   \   00001F48   E2FFFFEA           B        ??start_pass_8
+   \                     ??start_pass_25:
+   \   00001F4C   6C429FE5           LDR      R4,??start_pass_7+0x38  ;; jpeg_idct_16x16
+   \                     ??start_pass_26:
+   \   00001F50   E0FFFFEA           B        ??start_pass_8
+   \                     ??start_pass_27:
+   \   00001F54   68429FE5           LDR      R4,??start_pass_7+0x3C  ;; jpeg_idct_16x8
+   \   00001F58   DEFFFFEA           B        ??start_pass_8
+   \                     ??start_pass_28:
+   \   00001F5C   64429FE5           LDR      R4,??start_pass_7+0x40  ;; jpeg_idct_14x7
+   \   00001F60   DCFFFFEA           B        ??start_pass_8
+   \                     ??start_pass_29:
+   \   00001F64   60429FE5           LDR      R4,??start_pass_7+0x44  ;; jpeg_idct_12x6
+   \   00001F68   DAFFFFEA           B        ??start_pass_8
+   \                     ??start_pass_30:
+   \   00001F6C   5C429FE5           LDR      R4,??start_pass_7+0x48  ;; jpeg_idct_10x5
+   \   00001F70   E5FFFFEA           B        ??start_pass_17
+   \                     ??start_pass_31:
+   \   00001F74   58429FE5           LDR      R4,??start_pass_7+0x4C  ;; jpeg_idct_8x4
+   \   00001F78   D6FFFFEA           B        ??start_pass_8
+   \                     ??start_pass_32:
+   \   00001F7C   54429FE5           LDR      R4,??start_pass_7+0x50  ;; jpeg_idct_6x3
+   \   00001F80   D4FFFFEA           B        ??start_pass_8
+   \                     ??start_pass_33:
+   \   00001F84   50429FE5           LDR      R4,??start_pass_7+0x54  ;; jpeg_idct_4x2
+   \   00001F88   D2FFFFEA           B        ??start_pass_8
+   \                     ??start_pass_34:
+   \   00001F8C   4C429FE5           LDR      R4,??start_pass_7+0x58  ;; jpeg_idct_2x1
+   \   00001F90   D0FFFFEA           B        ??start_pass_8
+   \                     ??start_pass_35:
+   \   00001F94   48429FE5           LDR      R4,??start_pass_7+0x5C  ;; jpeg_idct_8x16
+   \   00001F98   CEFFFFEA           B        ??start_pass_8
+   \                     ??start_pass_36:
+   \   00001F9C   44429FE5           LDR      R4,??start_pass_7+0x60  ;; jpeg_idct_7x14
+   \   00001FA0   CCFFFFEA           B        ??start_pass_8
+   \                     ??start_pass_37:
+   \   00001FA4   40429FE5           LDR      R4,??start_pass_7+0x64  ;; jpeg_idct_6x12
+   \   00001FA8   CAFFFFEA           B        ??start_pass_8
+   \                     ??start_pass_38:
+   \   00001FAC   3C429FE5           LDR      R4,??start_pass_7+0x68  ;; jpeg_idct_5x10
+   \   00001FB0   D5FFFFEA           B        ??start_pass_17
+   \                     ??start_pass_39:
+   \   00001FB4   38429FE5           LDR      R4,??start_pass_7+0x6C  ;; jpeg_idct_4x8
+   \   00001FB8   C6FFFFEA           B        ??start_pass_8
+   \                     ??start_pass_40:
+   \   00001FBC   34429FE5           LDR      R4,??start_pass_7+0x70  ;; jpeg_idct_3x6
+   \   00001FC0   C4FFFFEA           B        ??start_pass_8
+   \                     ??start_pass_41:
+   \   00001FC4   30429FE5           LDR      R4,??start_pass_7+0x74  ;; jpeg_idct_2x4
+   \   00001FC8   C2FFFFEA           B        ??start_pass_8
+   \                     ??start_pass_42:
+   \   00001FCC   2C429FE5           LDR      R4,??start_pass_7+0x78  ;; jpeg_idct_1x2
+   \   00001FD0   CDFFFFEA           B        ??start_pass_17
+   \                     ??start_pass_43:
+   \   00001FD4   4410DAE5           LDRB     R1,[R10, #+68]
+   \   00001FD8   000051E3           CMP      R1,#+0
+   \   00001FDC   0400000A           BEQ      ??start_pass_44
+   \   00001FE0   011051E2           SUBS     R1,R1,#+1
+   \   00001FE4   0400000A           BEQ      ??start_pass_45
+   \   00001FE8   011051E2           SUBS     R1,R1,#+1
+   \   00001FEC   0500000A           BEQ      ??start_pass_46
+   \   00001FF0   070000EA           B        ??start_pass_47
+   \                     ??start_pass_44:
+   \   00001FF4   08429FE5           LDR      R4,??start_pass_7+0x7C  ;; jpeg_idct_islow
+   \   00001FF8   B6FFFFEA           B        ??start_pass_8
+   \                     ??start_pass_45:
+   \   00001FFC   04429FE5           LDR      R4,??start_pass_7+0x80  ;; jpeg_idct_ifast
+   \   00002000   0150A0E3           MOV      R5,#+1
+   \   00002004   100000EA           B        ??start_pass_9
+   \                     ??start_pass_46:
+   \   00002008   FC419FE5           LDR      R4,??start_pass_7+0x84  ;; jpeg_idct_float
+   \   0000200C   0250A0E3           MOV      R5,#+2
+   \   00002010   0D0000EA           B        ??start_pass_9
+   \                     ??start_pass_47:
+   \   00002014   146080E5           STR      R6,[R0, #+20]
+   \   00002018   070000EA           B        ??start_pass_48
+   \                     ??start_pass_5:
+   \   0000201C   0710A0E3           MOV      R1,#+7
+   \   00002020   141080E5           STR      R1,[R0, #+20]
+   \   00002024   00009AE5           LDR      R0,[R10, #+0]
+   \   00002028   24109BE5           LDR      R1,[R11, #+36]
+   \   0000202C   181080E5           STR      R1,[R0, #+24]
+   \   00002030   00009AE5           LDR      R0,[R10, #+0]
+   \   00002034   28109BE5           LDR      R1,[R11, #+40]
+   \   00002038   1C1080E5           STR      R1,[R0, #+28]
+   \                     ??start_pass_48:
+   \   0000203C   00109AE5           LDR      R1,[R10, #+0]
+   \   00002040   0A00A0E1           MOV      R0,R10
+   \   00002044   001091E5           LDR      R1,[R1, #+0]
+   \   00002048   31FF2FE1           BLX      R1
+   \                     ??start_pass_9:
+   \   0000204C   00009DE5           LDR      R0,[SP, #+0]
+   \   00002050   08109DE5           LDR      R1,[SP, #+8]
+   \   00002054   000181E0           ADD      R0,R1,R0, LSL #+2
+   \   00002058   044080E5           STR      R4,[R0, #+4]
+   \   0000205C   34109BE5           LDR      R1,[R11, #+52]
+   \   00002060   000051E3           CMP      R1,#+0
+   \   00002064   2C109015           LDRNE    R1,[R0, #+44]
+   \   00002068   05005111           CMPNE    R1,R5
+   \   0000206C   F9F7FF0A           BEQ      ??start_pass_4
+   \   00002070   50209BE5           LDR      R2,[R11, #+80]
+   \   00002074   04208DE5           STR      R2,[SP, #+4]
+   \   00002078   000052E3           CMP      R2,#+0
+   \   0000207C   F5F7FF0A           BEQ      ??start_pass_4
+   \   00002080   2C5080E5           STR      R5,[R0, #+44]
+   \   00002084   0500B0E1           MOVS     R0,R5
+   \   00002088   0400000A           BEQ      ??start_pass_49
+   \   0000208C   010055E2           SUBS     R0,R5,#+1
+   \   00002090   0C00000A           BEQ      ??start_pass_50
+   \   00002094   010050E2           SUBS     R0,R0,#+1
+   \   00002098   1A00000A           BEQ      ??start_pass_51
+   \   0000209C   E7F7FFEA           B        ??start_pass_3
+   \                     ??start_pass_49:
+   \   000020A0   54009BE5           LDR      R0,[R11, #+84]
+   \   000020A4   0060A0E3           MOV      R6,#+0
+   \                     ??start_pass_52:
+   \   000020A8   04109DE5           LDR      R1,[SP, #+4]
+   \   000020AC   861081E0           ADD      R1,R1,R6, LSL #+1
+   \   000020B0   B010D1E1           LDRH     R1,[R1, #+0]
+   \   000020B4   061180E7           STR      R1,[R0, +R6, LSL #+2]
+   \   000020B8   016086E2           ADD      R6,R6,#+1
+   \   000020BC   400056E3           CMP      R6,#+64
+   \   000020C0   E4F7FFAA           BGE      ??start_pass_4
+   \   000020C4   F7FFFFEA           B        ??start_pass_52
+   \                     ??start_pass_50:
+   \   000020C8   54009BE5           LDR      R0,[R11, #+84]
+   \   000020CC   0060A0E3           MOV      R6,#+0
+   \                     ??start_pass_53:
+   \   000020D0   04109DE5           LDR      R1,[SP, #+4]
+   \   000020D4   34219FE5           LDR      R2,??start_pass_7+0x88  ;; ??aanscales
+   \   000020D8   861081E0           ADD      R1,R1,R6, LSL #+1
+   \   000020DC   B010D1E1           LDRH     R1,[R1, #+0]
+   \   000020E0   862082E0           ADD      R2,R2,R6, LSL #+1
+   \   000020E4   F020D2E1           LDRSH    R2,[R2, #+0]
+   \   000020E8   920101E0           MUL      R1,R2,R1
+   \   000020EC   801E81E2           ADD      R1,R1,#+2048
+   \   000020F0   4116A0E1           ASR      R1,R1,#+12
+   \   000020F4   061180E7           STR      R1,[R0, +R6, LSL #+2]
+   \   000020F8   016086E2           ADD      R6,R6,#+1
+   \   000020FC   400056E3           CMP      R6,#+64
+   \   00002100   D4F7FFAA           BGE      ??start_pass_4
+   \   00002104   F1FFFFEA           B        ??start_pass_53
+   \                     ??start_pass_51:
+   \   00002108   54109BE5           LDR      R1,[R11, #+84]
+   \   0000210C   0060A0E3           MOV      R6,#+0
+   \   00002110   0C108DE5           STR      R1,[SP, #+12]
+   \   00002114   0090A0E3           MOV      R9,#+0
+   \                     ??start_pass_54:
+   \   00002118   0070A0E3           MOV      R7,#+0
+   \                     ??start_pass_55:
+   \   0000211C   0C009DE5           LDR      R0,[SP, #+12]
+   \   00002120   01002DE9           PUSH     {R0}
+   \   00002124   08009DE5           LDR      R0,[SP, #+8]
+   \   00002128   860080E0           ADD      R0,R0,R6, LSL #+1
+   \   0000212C   B000D0E1           LDRH     R0,[R0, #+0]
+   \   00002130   ........           _BLF     __ulongToDouble,??__ulongToDouble??rA
+   \   00002134   0020A0E1           MOV      R2,R0
+   \   00002138   0130A0E1           MOV      R3,R1
+   \   0000213C   890188E0           ADD      R0,R8,R9, LSL #+3
+   \   00002140   030090E8           LDM      R0,{R0,R1}
+   \   00002144   ........           _BLF     __dMul,??__dMul??rA
+   \   00002148   0020A0E1           MOV      R2,R0
+   \   0000214C   0130A0E1           MOV      R3,R1
+   \   00002150   870188E0           ADD      R0,R8,R7, LSL #+3
+   \   00002154   030090E8           LDM      R0,{R0,R1}
+   \   00002158   017087E2           ADD      R7,R7,#+1
+   \   0000215C   ........           _BLF     __dMul,??__dMul??rA
+   \   00002160   ........           _BLF     __doubleToFloat,??__doubleToFloat??rA
+   \   00002164   0200BDE8           POP      {R1}
+   \   00002168   080057E3           CMP      R7,#+8
+   \   0000216C   060181E7           STR      R0,[R1, +R6, LSL #+2]
+   \   00002170   016086E2           ADD      R6,R6,#+1
+   \   00002174   E8FFFFBA           BLT      ??start_pass_55
+   \   00002178   019089E2           ADD      R9,R9,#+1
+   \   0000217C   080059E3           CMP      R9,#+8
+   \   00002180   B4F7FFAA           BGE      ??start_pass_4
+   \   00002184   E3FFFFEA           B        ??start_pass_54
+   \                     ??start_pass_7:
+   \   00002188   ........           DC32     jpeg_idct_1x1
+   \   0000218C   ........           DC32     jpeg_idct_2x2
+   \   00002190   ........           DC32     jpeg_idct_3x3
+   \   00002194   ........           DC32     jpeg_idct_4x4
+   \   00002198   ........           DC32     jpeg_idct_5x5
+   \   0000219C   ........           DC32     jpeg_idct_6x6
+   \   000021A0   ........           DC32     jpeg_idct_7x7
+   \   000021A4   ........           DC32     jpeg_idct_9x9
+   \   000021A8   ........           DC32     jpeg_idct_10x10
+   \   000021AC   ........           DC32     jpeg_idct_11x11
+   \   000021B0   ........           DC32     jpeg_idct_12x12
+   \   000021B4   ........           DC32     jpeg_idct_13x13
+   \   000021B8   ........           DC32     jpeg_idct_14x14
+   \   000021BC   ........           DC32     jpeg_idct_15x15
+   \   000021C0   ........           DC32     jpeg_idct_16x16
+   \   000021C4   ........           DC32     jpeg_idct_16x8
+   \   000021C8   ........           DC32     jpeg_idct_14x7
+   \   000021CC   ........           DC32     jpeg_idct_12x6
+   \   000021D0   ........           DC32     jpeg_idct_10x5
+   \   000021D4   ........           DC32     jpeg_idct_8x4
+   \   000021D8   ........           DC32     jpeg_idct_6x3
+   \   000021DC   ........           DC32     jpeg_idct_4x2
+   \   000021E0   ........           DC32     jpeg_idct_2x1
+   \   000021E4   ........           DC32     jpeg_idct_8x16
+   \   000021E8   ........           DC32     jpeg_idct_7x14
+   \   000021EC   ........           DC32     jpeg_idct_6x12
+   \   000021F0   ........           DC32     jpeg_idct_5x10
+   \   000021F4   ........           DC32     jpeg_idct_4x8
+   \   000021F8   ........           DC32     jpeg_idct_3x6
+   \   000021FC   ........           DC32     jpeg_idct_2x4
+   \   00002200   ........           DC32     jpeg_idct_1x2
+   \   00002204   ........           DC32     jpeg_idct_islow
+   \   00002208   ........           DC32     jpeg_idct_ifast
+   \   0000220C   ........           DC32     jpeg_idct_float
+   \   00002210   ........           DC32     ??aanscales
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     ??aanscales:
+   \   00000000   0040C5589F53       DC16 16384, 22725, 21407, 19266, 16384, 12873, 8867, 4520, 22725, 31521
+   \              424B00404932
+   \              A322A811C558
+   \              217B        
+   \   00000014   FC736268C558       DC16 29692, 26722, 22725, 17855, 12299, 6270, 21407, 29692, 27969
+   \              BF450B307E18
+   \              9F53FC73416D
+   \   00000026   54629F53B341       DC16 25172, 21407, 16819, 11585, 5906, 19266, 26722, 25172, 22654
+   \              412D1217424B
+   \              626854627E58
+   \   00000038   424B213BBA28       DC16 19266, 15137, 10426, 5315, 16384, 22725, 21407, 19266, 16384
+   \              C3140040C558
+   \              9F53424B0040
+   \   0000004A   4932A322A811       DC16 12873, 8867, 4520, 12873, 17855, 16819, 15137, 12873, 10114, 6967
+   \              4932BF45B341
+   \              213B49328227
+   \              371B        
+   \   0000005E   E00DA3220B30       DC16 3552, 8867, 12299, 11585, 10426, 8867, 6967, 4799, 2446, 4520
+   \              412DBA28A322
+   \              371BBF128E09
+   \              A811        
+   \   00000072   7E181217C314       DC16 6270, 5906, 5315, 4520, 3552, 2446, 1247
+   \              A811E00D8E09
+   \              DF04        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     ??aanscalefactor:
+   \   00000000   000000000000       DC32 0H, 3FF00000H, 0B14861EFH, 3FF63150H, 914D6FCAH, 3FF4E7AEH
+   \              F03FEF6148B1
+   \              5031F63FCA6F
+   \              4D91AEE7F43F
+   \   00000018   AA116CEF62D0       DC32 0EF6C11AAH, 3FF2D062H, 0H, 3FF00000H, 0C0A7BF3BH, 3FE92469H
+   \              F23F00000000
+   \              0000F03F3BBF
+   \              A7C06924E93F
+   \   00000030   BB20C77B7A51       DC32 7BC720BBH, 3FE1517AH, 0DE72AB5DH, 3FD1A855H
+   \              E13F5DAB72DE
+   \              55A8D13F    
+    353          
+    354          
+    355          /*
+    356           * Initialize IDCT manager.
+    357           */
+    358          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    359          GLOBAL(void)
+    360          jinit_inverse_dct (j_decompress_ptr cinfo)
+    361          {
+   \                     jinit_inverse_dct:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    362            my_idct_ptr idct;
+    363            int ci;
+    364            jpeg_component_info *compptr;
+    365          
+    366            idct = (my_idct_ptr)
+    367              (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_IMAGE,
+    368          				SIZEOF(my_idct_controller));
+   \   00000008   043094E5           LDR      R3,[R4, #+4]
+   \   0000000C   5420A0E3           MOV      R2,#+84
+   \   00000010   003093E5           LDR      R3,[R3, #+0]
+   \   00000014   0110A0E3           MOV      R1,#+1
+   \   00000018   33FF2FE1           BLX      R3
+   \   0000001C   0050A0E1           MOV      R5,R0
+    369            cinfo->idct = (struct jpeg_inverse_dct *) idct;
+    370            idct->pub.start_pass = start_pass;
+   \   00000020   68009FE5           LDR      R0,??jinit_inverse_dct_0  ;; start_pass
+   \   00000024   C05184E5           STR      R5,[R4, #+448]
+   \   00000028   000085E5           STR      R0,[R5, #+0]
+    371          
+    372            for (ci = 0, compptr = cinfo->comp_info; ci < cinfo->num_components;
+   \   0000002C   240094E5           LDR      R0,[R4, #+36]
+   \   00000030   D47094E5           LDR      R7,[R4, #+212]
+   \   00000034   0060A0E3           MOV      R6,#+0
+   \   00000038   010050E3           CMP      R0,#+1
+   \   0000003C   0F0000AA           BGE      ??jinit_inverse_dct_1
+   \   00000040   F080BDE8           POP      {R4-R7,PC}
+    373                 ci++, compptr++) {
+    374              /* Allocate and pre-zero a multiplier table for each component */
+    375              compptr->dct_table =
+    376                (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_IMAGE,
+    377          				  SIZEOF(multiplier_table));
+   \                     ??jinit_inverse_dct_2:
+   \   00000044   043094E5           LDR      R3,[R4, #+4]
+   \   00000048   402FA0E3           MOV      R2,#+256
+   \   0000004C   003093E5           LDR      R3,[R3, #+0]
+   \   00000050   0110A0E3           MOV      R1,#+1
+   \   00000054   0400A0E1           MOV      R0,R4
+   \   00000058   33FF2FE1           BLX      R3
+   \   0000005C   540087E5           STR      R0,[R7, #+84]
+    378              MEMZERO(compptr->dct_table, SIZEOF(multiplier_table));
+   \   00000060   402FA0E3           MOV      R2,#+256
+   \   00000064   0010A0E3           MOV      R1,#+0
+   \   00000068   BB0000EF           SWI      +187
+    379              /* Mark multiplier table not yet set up for any method */
+    380              idct->cur_method[ci] = -1;
+   \   0000006C   060185E0           ADD      R0,R5,R6, LSL #+2
+   \   00000070   0010E0E3           MVN      R1,#+0
+   \   00000074   2C1080E5           STR      R1,[R0, #+44]
+    381            }
+   \   00000078   016086E2           ADD      R6,R6,#+1
+   \   0000007C   587087E2           ADD      R7,R7,#+88
+   \                     ??jinit_inverse_dct_1:
+   \   00000080   240094E5           LDR      R0,[R4, #+36]
+   \   00000084   000056E1           CMP      R6,R0
+   \   00000088   EDFFFFBA           BLT      ??jinit_inverse_dct_2
+    382          }
+   \   0000008C   F080BDE8           POP      {R4-R7,PC}       ;; return
+   \                     ??jinit_inverse_dct_0:
+   \   00000090   ........           DC32     start_pass
+
+   Maximum stack usage in bytes:
+
+     Function          CSTACK
+     --------          ------
+     jinit_inverse_dct    20
+     start_pass           56
+
+
+   Segment part sizes:
+
+     Function/Label    Bytes
+     --------------    -----
+     start_pass        8724
+     aanscales          128
+     aanscalefactor      64
+     jinit_inverse_dct  148
+      Others             44
+
+ 
+ 8 916 bytes in segment CODE
+   192 bytes in segment DATA_C
+ 
+ 8 872 bytes of CODE  memory (+ 44 bytes shared)
+   192 bytes of CONST memory
+
+Errors: none
+Warnings: 1

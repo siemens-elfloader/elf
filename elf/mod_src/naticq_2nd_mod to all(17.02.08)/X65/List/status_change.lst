@@ -1,0 +1,2142 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.41A/W32 EVALUATION    26/Feb/2008  18:29:06 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\Pasha\elf\mod_src\naticq_2nd_mod to               #
+#                       all(17.02.08)\status_change.c                        #
+#    Command line    =  "D:\Pasha\elf\mod_src\naticq_2nd_mod to              #
+#                       all(17.02.08)\status_change.c" -D EVILFOX            #
+#                       --preprocess "D:\Pasha\elf\mod_src\naticq_2nd_mod    #
+#                       to all(17.02.08)\X65\List\" -lC                      #
+#                       "D:\Pasha\elf\mod_src\naticq_2nd_mod to              #
+#                       all(17.02.08)\X65\List\" -o                          #
+#                       "D:\Pasha\elf\mod_src\naticq_2nd_mod to              #
+#                       all(17.02.08)\X65\Obj\" -s9 --no_unroll --cpu_mode   #
+#                       arm --endian little --cpu ARM926EJ-S --stack_align   #
+#                       4 --interwork -e --fpu None --dlib_config            #
+#                       "D:\Pasha\ARM_Embedded_Workbench\Embedded Workbench  #
+#                       4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I             #
+#                       "D:\Pasha\ARM_Embedded_Workbench\Embedded Workbench  #
+#                       4.0 Evaluation\ARM\INC\" --inline_threshold=2        #
+#    List file       =  D:\Pasha\elf\mod_src\naticq_2nd_mod to               #
+#                       all(17.02.08)\X65\List\status_change.lst             #
+#    Object file     =  D:\Pasha\elf\mod_src\naticq_2nd_mod to               #
+#                       all(17.02.08)\X65\Obj\status_change.r79              #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\Pasha\elf\mod_src\naticq_2nd_mod to all(17.02.08)\status_change.c
+      1          /*
+      2            Интерфейс и функции смены своего статуса
+      3          */
+      4          #include "../inc/swilib.h"
+      5          #include "../inc/cfg_items.h"
+      6          #include "../inc/pnglist.h"
+      7          #include "NatICQ.h"
+      8          #include "main.h"
+      9          #include "status_change.h"
+     10          #include "strings.h"
+     11          #include "language.h"
+     12          
+     13          //===============================================================================================
+     14          // ELKA Compatibility
+     15          #pragma inline
+     16          static void patch_header(const HEADER_DESC* head)
+     17          {
+     18            ((HEADER_DESC *)head)->rc.x=0;
+     19            ((HEADER_DESC *)head)->rc.y=YDISP;
+     20            ((HEADER_DESC *)head)->rc.x2=ScreenW()-1;
+     21            ((HEADER_DESC *)head)->rc.y2=HeaderH()-1+YDISP;
+     22          }
+     23          #pragma inline
+     24          void patch_input(const INPUTDIA_DESC* inp)
+     25          {
+     26            ((INPUTDIA_DESC *)inp)->rc.x = 0;
+     27            ((INPUTDIA_DESC *)inp)->rc.y = HeaderH() + 1 + YDISP;
+     28            ((INPUTDIA_DESC *)inp)->rc.x2=ScreenW() - 1;
+     29            ((INPUTDIA_DESC *)inp)->rc.y2=ScreenH() - SoftkeyH() - 1;
+     30          }
+     31          //===============================================================================================
+     32          
+     33          extern const char TEMPLATES_PATH[];
+
+   \                                 In segment DATA_C, align 4, align-sorted
+     34          static const char XS_FILE_NAME[]="\\XStatuses.txt";
+   \                     XS_FILE_NAME:
+   \   00000000   5C5853746174       DC8 "\\XStatuses.txt"
+   \              757365732E74
+   \              787400      
+   \   0000000F   00                 DC8 0
+     35          
+     36          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     37          char *XStatusText;
+   \                     XStatusText:
+   \   00000000                      DS8 4
+     38          
+     39          extern int CurrentStatus;
+     40          extern int CurrentXStatus;
+     41          extern  int S_ICONS[];
+     42          
+     43          #pragma inline
+     44          static void Change_Status(int status)
+     45          {
+     46            CurrentStatus=status;
+     47            set_my_status();
+     48            SUBPROC((void*)WriteDefSettings);
+     49          }
+     50          
+     51          #pragma inline
+     52          static void Change_XStatus(int xstatus)
+     53          {
+     54            CurrentXStatus=xstatus;
+     55            set_my_xstatus();
+     56            SUBPROC((void*)WriteDefSettings);
+     57          }
+     58          
+     59          ///////////////////////////////////////////////////////////////////////////////
+     60          #pragma inline
+     61          static unsigned int GetStatusIndexInMenu(unsigned int status)
+     62          {
+     63            switch(status)
+     64            {
+     65            case IS_ONLINE: {return 0;}
+     66            case IS_AWAY: {return 1;}
+     67            case IS_NA: {return 2;}
+     68            case IS_DND: {return 3;}
+     69            case IS_OCCUPIED: {return 4;}
+     70            case IS_FFC: {return 5;}
+     71            case IS_INVISIBLE: {return 6;}
+     72            case IS_DEPRESSION: return 7;
+     73            case IS_EVIL: return 8;
+     74            case IS_HOME: return 9;
+     75            case IS_LUNCH: return 10;
+     76            case IS_WORK: return 11;
+     77            }
+     78            return 0;
+     79          }
+     80          
+     81          #pragma inline 
+     82          static unsigned int GetStatusInMenuByPos(int pos)
+     83          {
+     84            switch(pos)
+     85            {
+     86            case 0:
+     87              return IS_ONLINE;
+     88            case 1:
+     89              return IS_AWAY;
+     90            case 2:
+     91              return IS_NA;
+     92            case 3:
+     93              return IS_DND;
+     94            case 4:
+     95              return IS_OCCUPIED;
+     96            case 5:
+     97              return IS_FFC;
+     98            case 6:
+     99              return IS_INVISIBLE;
+    100            case 7:
+    101              return IS_DEPRESSION;
+    102            case 8:
+    103              return IS_EVIL;
+    104            case 9:
+    105              return IS_HOME;
+    106            case 10:
+    107              return IS_LUNCH;
+    108            case 11:
+    109              return IS_WORK;
+    110            }
+    111            return IS_UNKNOWN;
+    112          }
+    113          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    114          static int st_onkey(void *data, GUI_MSG *msg)
+    115          {
+   \                     st_onkey:
+   \   00000000   00402DE9           PUSH     {LR}
+    116            int i;
+    117            if (msg->keys==0x18 || msg->keys==0x3D)
+   \   00000004   F210D1E1           LDRSH    R1,[R1, #+2]
+   \   00000008   180051E3           CMP      R1,#+24
+   \   0000000C   3D005113           CMPNE    R1,#+61
+   \   00000010   2800001A           BNE      ??st_onkey_1
+    118            {
+    119              i=GetCurMenuItem(data);
+    120              Change_Status(GetStatusInMenuByPos(i));
+   \   00000014   8F0100EF           SWI      +399
+   \   00000018   0B0050E3           CMP      R0,#+11
+   \   0000001C   1D00008A           BHI      ??st_onkey_2
+   \   00000020   011F8FE2           ADR      R1,??st_onkey_0
+   \   00000024   0010D1E7           LDRB     R1,[R1, R0]
+   \   00000028   01F18FE0           ADD      PC,PC,R1, LSL #+2
+   \                     ??st_onkey_0:
+   \   0000002C   02040608           DC8      +2,+4,+6,+8
+   \   00000030   0A0C0E10           DC8      +10,+12,+14,+16
+   \   00000034   12141618           DC8      +18,+20,+22,+24
+   \                     ??st_onkey_3:
+   \   00000038   0B00A0E3           MOV      R0,#+11
+   \   0000003C   160000EA           B        ??st_onkey_4
+   \                     ??st_onkey_5:
+   \   00000040   0200A0E3           MOV      R0,#+2
+   \   00000044   140000EA           B        ??st_onkey_4
+   \                     ??st_onkey_6:
+   \   00000048   0300A0E3           MOV      R0,#+3
+   \   0000004C   120000EA           B        ??st_onkey_4
+   \                     ??st_onkey_7:
+   \   00000050   0500A0E3           MOV      R0,#+5
+   \   00000054   100000EA           B        ??st_onkey_4
+   \                     ??st_onkey_8:
+   \   00000058   0400A0E3           MOV      R0,#+4
+   \   0000005C   0E0000EA           B        ??st_onkey_4
+   \                     ??st_onkey_9:
+   \   00000060   0C00A0E3           MOV      R0,#+12
+   \   00000064   0C0000EA           B        ??st_onkey_4
+   \                     ??st_onkey_10:
+   \   00000068   0100A0E3           MOV      R0,#+1
+   \   0000006C   0A0000EA           B        ??st_onkey_4
+   \                     ??st_onkey_11:
+   \   00000070   0600A0E3           MOV      R0,#+6
+   \   00000074   080000EA           B        ??st_onkey_4
+   \                     ??st_onkey_12:
+   \   00000078   0700A0E3           MOV      R0,#+7
+   \   0000007C   060000EA           B        ??st_onkey_4
+   \                     ??st_onkey_13:
+   \   00000080   0800A0E3           MOV      R0,#+8
+   \   00000084   040000EA           B        ??st_onkey_4
+   \                     ??st_onkey_14:
+   \   00000088   0900A0E3           MOV      R0,#+9
+   \   0000008C   020000EA           B        ??st_onkey_4
+   \                     ??st_onkey_15:
+   \   00000090   0A00A0E3           MOV      R0,#+10
+   \   00000094   000000EA           B        ??st_onkey_4
+   \                     ??st_onkey_2:
+   \   00000098   0E00A0E3           MOV      R0,#+14
+   \                     ??st_onkey_4:
+   \   0000009C   ........           LDR      R1,??DataTable5  ;; CurrentStatus
+   \   000000A0   000081E5           STR      R0,[R1, #+0]
+   \   000000A4   ........           _BLF     set_my_status,??set_my_status??rA
+   \   000000A8   ........           LDR      R0,??DataTable8  ;; WriteDefSettings
+   \   000000AC   710100EF           SWI      +369
+    121              return (1);
+   \   000000B0   0100A0E3           MOV      R0,#+1
+   \   000000B4   0080BDE8           POP      {PC}
+    122            }
+    123            return (0);
+   \                     ??st_onkey_1:
+   \   000000B8   0000A0E3           MOV      R0,#+0
+   \   000000BC   0080BDE8           POP      {PC}             ;; return
+    124          }
+    125              
+    126          ///////////////////////////////////////////////////////////////////////////////
+    127          
+    128          #define STATUSES_NUM 12
+    129          
+
+   \                                 In segment DATA_C, align 4, align-sorted
+    130          static const char * const menutexts[STATUSES_NUM]=
+   \                     menutexts:
+   \   00000000   ........           DC32 `?<Constant "\\302 \\361\\345\\362\\350">`
+   \   00000004   ........           DC32 `?<Constant "\\316\\362\\356\\370\\270\\353">`
+   \   00000008   ........           DC32 `?<Constant "\\315\\345\\344\\356\\361\\362\\363\\357\\3`
+   \   0000000C   ........           DC32 `?<Constant "\\315\\345 \\341\\345\\361\\357\\356\\352\\`
+   \   00000010   ........           DC32 `?<Constant "\\307\\340\\355\\377\\362">`
+   \   00000014   ........           DC32 `?<Constant "\\303\\356\\362\\356\\342 \\341\\356\\353\\`
+   \   00000018   ........           DC32 `?<Constant "\\315\\345\\342\\350\\344\\350\\354\\373\\3`
+   \   0000001C   ........           DC32 `?<Constant "\\304\\345\\357\\360\\345\\361\\361\\350\\3`
+   \   00000020   ........           DC32 `?<Constant "\\307\\353\\356\\351">`
+   \   00000024   ........           DC32 `?<Constant "\\304\\356\\354\\340">`
+   \   00000028   ........           DC32 `?<Constant "\\306\\360\\363">`
+   \   0000002C   ........           DC32 `?<Constant "\\315\\340 \\360\\340\\341\\356\\362\\345"`
+    131          {
+    132            LG_STONLINE,
+    133            LG_STAWAY,
+    134            LG_STNA,
+    135            LG_STDND,
+    136            LG_STOCCUP,
+    137            LG_STFFC,
+    138            LG_STINVIS,
+    139            LG_STDEPRESSION,
+    140            LG_STEVIL,
+    141            LG_STHOME,
+    142            LG_STLUNCH,
+    143            LG_STWORK
+    144          };
+    145          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    146          void st_icons_set(void *data, int curitem, void *unk)
+    147          {
+   \                     st_icons_set:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+    148            WSHDR *ws;
+    149            void *item=AllocMenuItem(data);
+   \   0000000C   970100EF           SWI      +407
+   \   00000010   0060A0E1           MOV      R6,R0
+   \   00000014   D8009FE5           LDR      R0,??st_icons_set_1  ;; menutexts
+   \   00000018   058190E7           LDR      R8,[R0, +R5, LSL #+2]
+   \   0000001C   0800A0E1           MOV      R0,R8
+    150            extern const char percent_t[];
+    151            ws=AllocMenuWS(data,strlen(menutexts[curitem]));
+   \   00000020   1B0000EF           SWI      +27
+   \   00000024   0010A0E1           MOV      R1,R0
+   \   00000028   0400A0E1           MOV      R0,R4
+   \   0000002C   980100EF           SWI      +408
+    152            wsprintf(ws,percent_t,menutexts[curitem]);
+   \   00000030   ........           LDR      R1,??DataTable9  ;; percent_t
+   \   00000034   0070A0E1           MOV      R7,R0
+   \   00000038   0820A0E1           MOV      R2,R8
+   \   0000003C   240100EF           SWI      +292
+    153            SetMenuItemIconArray(data,item,S_ICONS+GetStatusInMenuByPos(curitem));
+   \   00000040   0500A0E1           MOV      R0,R5
+   \   00000044   0B0050E3           CMP      R0,#+11
+   \   00000048   1D00008A           BHI      ??st_icons_set_2
+   \   0000004C   011F8FE2           ADR      R1,??st_icons_set_0
+   \   00000050   0010D1E7           LDRB     R1,[R1, R0]
+   \   00000054   01F18FE0           ADD      PC,PC,R1, LSL #+2
+   \                     ??st_icons_set_0:
+   \   00000058   02040608           DC8      +2,+4,+6,+8
+   \   0000005C   0A0C0E10           DC8      +10,+12,+14,+16
+   \   00000060   12141618           DC8      +18,+20,+22,+24
+   \                     ??st_icons_set_3:
+   \   00000064   0B00A0E3           MOV      R0,#+11
+   \   00000068   160000EA           B        ??st_icons_set_4
+   \                     ??st_icons_set_5:
+   \   0000006C   0200A0E3           MOV      R0,#+2
+   \   00000070   140000EA           B        ??st_icons_set_4
+   \                     ??st_icons_set_6:
+   \   00000074   0300A0E3           MOV      R0,#+3
+   \   00000078   120000EA           B        ??st_icons_set_4
+   \                     ??st_icons_set_7:
+   \   0000007C   0500A0E3           MOV      R0,#+5
+   \   00000080   100000EA           B        ??st_icons_set_4
+   \                     ??st_icons_set_8:
+   \   00000084   0400A0E3           MOV      R0,#+4
+   \   00000088   0E0000EA           B        ??st_icons_set_4
+   \                     ??st_icons_set_9:
+   \   0000008C   0C00A0E3           MOV      R0,#+12
+   \   00000090   0C0000EA           B        ??st_icons_set_4
+   \                     ??st_icons_set_10:
+   \   00000094   0100A0E3           MOV      R0,#+1
+   \   00000098   0A0000EA           B        ??st_icons_set_4
+   \                     ??st_icons_set_11:
+   \   0000009C   0600A0E3           MOV      R0,#+6
+   \   000000A0   080000EA           B        ??st_icons_set_4
+   \                     ??st_icons_set_12:
+   \   000000A4   0700A0E3           MOV      R0,#+7
+   \   000000A8   060000EA           B        ??st_icons_set_4
+   \                     ??st_icons_set_13:
+   \   000000AC   0800A0E3           MOV      R0,#+8
+   \   000000B0   040000EA           B        ??st_icons_set_4
+   \                     ??st_icons_set_14:
+   \   000000B4   0900A0E3           MOV      R0,#+9
+   \   000000B8   020000EA           B        ??st_icons_set_4
+   \                     ??st_icons_set_15:
+   \   000000BC   0A00A0E3           MOV      R0,#+10
+   \   000000C0   000000EA           B        ??st_icons_set_4
+   \                     ??st_icons_set_2:
+   \   000000C4   0E00A0E3           MOV      R0,#+14
+   \                     ??st_icons_set_4:
+   \   000000C8   ........           LDR      R1,??DataTable4  ;; S_ICONS
+   \   000000CC   002181E0           ADD      R2,R1,R0, LSL #+2
+   \   000000D0   0610A0E1           MOV      R1,R6
+   \   000000D4   0400A0E1           MOV      R0,R4
+   \   000000D8   990100EF           SWI      +409
+    154            SetMenuItemText(data, item, ws, curitem);
+   \   000000DC   0530A0E1           MOV      R3,R5
+   \   000000E0   0720A0E1           MOV      R2,R7
+   \   000000E4   0610A0E1           MOV      R1,R6
+   \   000000E8   0400A0E1           MOV      R0,R4
+   \   000000EC   9A0100EF           SWI      +410
+    155          }
+   \   000000F0   F081BDE8           POP      {R4-R8,PC}       ;; return
+   \                     ??st_icons_set_1:
+   \   000000F4   ........           DC32     menutexts
+    156          
+    157          static const HEADER_DESC st_menuhdr={0,0,0,0,NULL,(int)LG_CHGSTATUS,LGP_NULL};
+    158          
+    159          static const int st_menusoftkeys[]={0,1,2};
+    160          
+    161          static const SOFTKEY_DESC st_menu_sk[]=
+    162          {
+    163            {0x0018,0x0000,(int)LG_SELECT},
+    164            {0x0001,0x0000,(int)LG_BACK},
+    165            {0x003D,0x0000,(int)LGP_DOIT_PIC}
+    166          };
+    167          
+    168          static const SOFTKEYSTAB st_menu_skt=
+    169          {
+    170            st_menu_sk,0
+    171          };
+    172          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    173          static void stmenu_ghook(void *data, int cmd)
+    174          {
+   \                     stmenu_ghook:
+   \   00000000   00402DE9           PUSH     {LR}
+    175            if (cmd==0x0A)
+   \   00000004   0A0051E3           CMP      R1,#+10
+   \   00000008   0080BD18           POPNE    {PC}
+    176            {
+    177              DisableIDLETMR();
+   \   0000000C   7F0100EF           SWI      +383
+    178            }
+    179          }
+   \   00000010   0080BDE8           POP      {PC}             ;; return
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     st_menuhdr:
+   \   00000000   000000000000       DC16 0, 0, 0, 0
+   \              0000        
+   \   00000008   00000000....       DC32 0H, `?<Constant "\\321\\354\\345\\355\\350\\362\\374 \\361\\`
+   \              ....        
+   \   00000010   FF7F0000           DC32 32767
+   \   00000014   08000000....       DC32 8, st_onkey, stmenu_ghook, 0H, st_menusoftkeys, st_menu_skt, 17
+   \              ............
+   \              00000000....
+   \              ............
+   \              11000000    
+   \   00000030   ........0000       DC32 st_icons_set, 0H, 0H, 12
+   \              000000000000
+   \              0C000000    
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     st_menusoftkeys:
+   \   00000000   000000000100       DC32 0, 1, 2
+   \              000002000000
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     st_menu_sk:
+   \   00000000   18000000           DC16 24, 0
+   \   00000004   ........           DC32 `?<Constant "\\302\\373\\341\\356\\360">`
+   \   00000008   01000000           DC16 1, 0
+   \   0000000C   ........           DC32 `?<Constant "\\315\\340\\347\\340\\344">`
+   \   00000010   3D000000           DC16 61, 0
+   \   00000014   FBC0FF7F           DC32 2147467515
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     st_menu_skt:
+   \   00000000   ........0000       DC32 st_menu_sk, 0
+   \              0000        
+    180          
+    181          static const MENU_DESC st_tmenu=
+    182          {
+    183            8,st_onkey,stmenu_ghook,NULL,
+    184            st_menusoftkeys,
+    185            &st_menu_skt,
+    186            0x11,//MENU_FLAG,
+    187            st_icons_set,
+    188            NULL,//st_menuitems,
+    189            NULL,
+    190            STATUSES_NUM
+    191          };
+    192          
+    193          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    194          void DispStatusChangeMenu()
+    195          {
+    196            *((int **)(&st_menuhdr.icon))=S_ICONS+CurrentStatus;
+   \                     DispStatusChangeMenu:
+   \   00000000   ........           LDR      R1,??DataTable4  ;; S_ICONS
+   \   00000004   70402DE9           PUSH     {R4-R6,LR}
+   \   00000008   D8409FE5           LDR      R4,??DispStatusChangeMenu_1  ;; st_menuhdr
+   \   0000000C   ........           LDR      R6,??DataTable5  ;; CurrentStatus
+    197            patch_header(&st_menuhdr);
+   \   00000010   0050A0E3           MOV      R5,#+0
+   \   00000014   000096E5           LDR      R0,[R6, #+0]
+   \   00000018   005084E5           STR      R5,[R4, #+0]
+   \   0000001C   000181E0           ADD      R0,R1,R0, LSL #+2
+   \   00000020   080084E5           STR      R0,[R4, #+8]
+   \   00000024   888100EF           SWI      +33160
+   \   00000028   010040E2           SUB      R0,R0,#+1
+   \   0000002C   B400C4E1           STRH     R0,[R4, #+4]
+   \   00000030   8A8100EF           SWI      +33162
+   \   00000034   010040E2           SUB      R0,R0,#+1
+   \   00000038   B600C4E1           STRH     R0,[R4, #+6]
+    198            CreateMenu(0,0,&st_tmenu,&st_menuhdr,GetStatusIndexInMenu(CurrentStatus),STATUSES_NUM,0,0);
+   \   0000003C   000096E5           LDR      R0,[R6, #+0]
+   \   00000040   010040E2           SUB      R0,R0,#+1
+   \   00000044   0B0050E3           CMP      R0,#+11
+   \   00000048   1A00008A           BHI      ??DispStatusChangeMenu_2
+   \   0000004C   011F8FE2           ADR      R1,??DispStatusChangeMenu_0
+   \   00000050   0010D1E7           LDRB     R1,[R1, R0]
+   \   00000054   01F18FE0           ADD      PC,PC,R1, LSL #+2
+   \                     ??DispStatusChangeMenu_0:
+   \   00000058   0C020408           DC8      +12,+2,+4,+8
+   \   0000005C   060E1012           DC8      +6,+14,+16,+18
+   \   00000060   1416170A           DC8      +20,+22,+23,+10
+   \                     ??DispStatusChangeMenu_3:
+   \   00000064   0150A0E3           MOV      R5,#+1
+   \   00000068   120000EA           B        ??DispStatusChangeMenu_2
+   \                     ??DispStatusChangeMenu_4:
+   \   0000006C   0250A0E3           MOV      R5,#+2
+   \   00000070   100000EA           B        ??DispStatusChangeMenu_2
+   \                     ??DispStatusChangeMenu_5:
+   \   00000074   0350A0E3           MOV      R5,#+3
+   \   00000078   0E0000EA           B        ??DispStatusChangeMenu_2
+   \                     ??DispStatusChangeMenu_6:
+   \   0000007C   0450A0E3           MOV      R5,#+4
+   \   00000080   0C0000EA           B        ??DispStatusChangeMenu_2
+   \                     ??DispStatusChangeMenu_7:
+   \   00000084   0550A0E3           MOV      R5,#+5
+   \   00000088   0A0000EA           B        ??DispStatusChangeMenu_2
+   \                     ??DispStatusChangeMenu_8:
+   \   0000008C   0650A0E3           MOV      R5,#+6
+   \   00000090   080000EA           B        ??DispStatusChangeMenu_2
+   \                     ??DispStatusChangeMenu_9:
+   \   00000094   0750A0E3           MOV      R5,#+7
+   \   00000098   060000EA           B        ??DispStatusChangeMenu_2
+   \                     ??DispStatusChangeMenu_10:
+   \   0000009C   0850A0E3           MOV      R5,#+8
+   \   000000A0   040000EA           B        ??DispStatusChangeMenu_2
+   \                     ??DispStatusChangeMenu_11:
+   \   000000A4   0950A0E3           MOV      R5,#+9
+   \   000000A8   020000EA           B        ??DispStatusChangeMenu_2
+   \                     ??DispStatusChangeMenu_12:
+   \   000000AC   0A50A0E3           MOV      R5,#+10
+   \   000000B0   000000EA           B        ??DispStatusChangeMenu_2
+   \                     ??DispStatusChangeMenu_13:
+   \   000000B4   0B50A0E3           MOV      R5,#+11
+   \                     ??DispStatusChangeMenu_2:
+   \   000000B8   0000A0E3           MOV      R0,#+0
+   \   000000BC   01002DE9           PUSH     {R0}
+   \   000000C0   01002DE9           PUSH     {R0}
+   \   000000C4   0430A0E1           MOV      R3,R4
+   \   000000C8   142084E2           ADD      R2,R4,#+20
+   \   000000CC   0010A0E3           MOV      R1,#+0
+   \   000000D0   0C00A0E3           MOV      R0,#+12
+   \   000000D4   01002DE9           PUSH     {R0}
+   \   000000D8   20002DE9           PUSH     {R5}
+   \   000000DC   0000A0E3           MOV      R0,#+0
+   \   000000E0   520100EF           SWI      +338
+    199          }
+   \   000000E4   7F80BDE8           POP      {R0-R6,PC}       ;; return
+   \                     ??DispStatusChangeMenu_1:
+   \   000000E8   ........           DC32     st_menuhdr
+    200          
+    201          //--------------------------------
+    202          // XStatuses
+    203          //--------------------------------
+    204          extern DYNPNGICONLIST *XStatusesImgList;
+    205          extern int *XStatusesIconArray;
+    206          extern volatile int total_xstatuses;
+    207          
+
+   \                                 In segment DATA_I, align 4, align-sorted
+    208          SOFTKEY_DESC edit_x_sk[]=
+   \                     edit_x_sk:
+   \   00000000                      DS8 24
+   \   00000018                      REQUIRE `?<Initializer for edit_x_sk>`
+    209          {
+    210            {0x0018,0x0000,(int)"Save!"},
+    211            {0x0001,0x0000,(int)""},
+    212            {0x003D,0x0000,(int)LGP_DOIT_PIC}
+    213          };
+    214          
+
+   \                                 In segment DATA_I, align 4, align-sorted
+    215          SOFTKEYSTAB edit_x_skt=
+   \                     edit_x_skt:
+   \   00000000                      DS8 8
+   \   00000008                      REQUIRE `?<Initializer for edit_x_skt>`
+    216          {
+    217            edit_x_sk,0
+    218          };
+    219          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    220          void edit_xstatus_locret(void){}
+   \                     edit_xstatus_locret:
+   \   00000000   1EFF2FE1           BX       LR               ;; return
+    221          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    222          void ReplaceStr(char **str, int start_prev, int prev_len, char *next, int next_len)
+    223          {
+   \                     ReplaceStr:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+   \   00000004   24809DE5           LDR      R8,[SP, #+36]
+   \   00000008   0040A0E1           MOV      R4,R0
+    224            char *d, *buf;
+    225            char *s=*str;
+   \   0000000C   009094E5           LDR      R9,[R4, #+0]
+   \   00000010   0150A0E1           MOV      R5,R1
+   \   00000014   0260A0E1           MOV      R6,R2
+   \   00000018   0370A0E1           MOV      R7,R3
+    226            if (s)
+   \   0000001C   000059E3           CMP      R9,#+0
+   \   00000020   F08FBD08           POPEQ    {R4-R11,PC}
+    227            {
+    228              d=buf=malloc(strlen(s)+next_len-prev_len+1);
+   \   00000024   0900A0E1           MOV      R0,R9
+   \   00000028   1B0000EF           SWI      +27
+   \   0000002C   000088E0           ADD      R0,R8,R0
+   \   00000030   060040E0           SUB      R0,R0,R6
+   \   00000034   010080E2           ADD      R0,R0,#+1
+   \   00000038   140000EF           SWI      +20
+   \   0000003C   00B0A0E1           MOV      R11,R0
+   \   00000040   0BA0A0E1           MOV      R10,R11
+    229              if (start_prev)
+   \   00000044   000055E3           CMP      R5,#+0
+   \   00000048   0300000A           BEQ      ??ReplaceStr_0
+    230              {
+    231                memcpy(buf, s, start_prev);
+   \   0000004C   0520A0E1           MOV      R2,R5
+   \   00000050   0910A0E1           MOV      R1,R9
+   \   00000054   1E0100EF           SWI      +286
+    232                buf+=start_prev;
+   \   00000058   0BB085E0           ADD      R11,R5,R11
+    233              }
+    234              if (next_len)
+   \                     ??ReplaceStr_0:
+   \   0000005C   000058E3           CMP      R8,#+0
+   \   00000060   0400000A           BEQ      ??ReplaceStr_1
+    235              {
+    236                memcpy(buf,next,next_len);
+   \   00000064   0820A0E1           MOV      R2,R8
+   \   00000068   0710A0E1           MOV      R1,R7
+   \   0000006C   0B00A0E1           MOV      R0,R11
+   \   00000070   1E0100EF           SWI      +286
+    237                buf+=next_len;
+   \   00000074   0BB088E0           ADD      R11,R8,R11
+    238              }
+    239              strcpy(buf, s+start_prev+prev_len);
+   \                     ??ReplaceStr_1:
+   \   00000078   090085E0           ADD      R0,R5,R9
+   \   0000007C   001086E0           ADD      R1,R6,R0
+   \   00000080   0B00A0E1           MOV      R0,R11
+   \   00000084   1A0000EF           SWI      +26
+    240              mfree(s);
+   \   00000088   0900A0E1           MOV      R0,R9
+   \   0000008C   150000EF           SWI      +21
+    241              *str=d;
+   \   00000090   00A084E5           STR      R10,[R4, #+0]
+    242            }
+    243          }
+   \   00000094   F08FBDE8           POP      {R4-R11,PC}      ;; return
+    244          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    245          int edit_xstatus_onkey(GUI *data, GUI_MSG *msg)
+    246          {
+   \                     edit_xstatus_onkey:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+   \   00000004   B8D04DE2           SUB      SP,SP,#+184
+   \   00000008   0040A0E1           MOV      R4,R0
+    247            WSHDR *ws;
+    248            char *s, *d, tmp[132];
+    249            int cur_x_st;
+    250            int len, l;
+    251            int is_any_change=0;
+    252            if (msg->keys==0xFFF)
+   \   0000000C   F200D1E1           LDRSH    R0,[R1, #+2]
+   \   00000010   0060A0E3           MOV      R6,#+0
+   \   00000014   FF10A0E3           MOV      R1,#+255
+   \   00000018   F01E81E3           ORR      R1,R1,#0xF00
+   \   0000001C   010050E1           CMP      R0,R1
+   \   00000020   9100001A           BNE      ??edit_xstatus_onkey_0
+    253            {
+    254              cur_x_st=(int)EDIT_GetUserPointer(data);
+   \   00000024   0400A0E1           MOV      R0,R4
+   \   00000028   DF0100EF           SWI      +479
+   \   0000002C   0050A0E1           MOV      R5,R0
+    255              EDITCONTROL ec;
+    256              ExtractEditControl(data,2,&ec);   // Комментарий
+   \   00000030   08208DE2           ADD      R2,SP,#+8
+   \   00000034   0210A0E3           MOV      R1,#+2
+   \   00000038   0400A0E1           MOV      R0,R4
+   \   0000003C   690100EF           SWI      +361
+    257              ws=ec.pWS;
+   \   00000040   30809DE5           LDR      R8,[SP, #+48]
+    258              
+    259              s=GetXStatusStr(cur_x_st*3,&len);
+   \   00000044   851085E0           ADD      R1,R5,R5, LSL #+1
+    260              d=tmp;
+    261          
+    262              if (s)
+   \   00000048   ........           LDR      R5,??DataTable20  ;; XStatusText
+   \   0000004C   04108DE5           STR      R1,[SP, #+4]
+   \   00000050   04009DE5           LDR      R0,[SP, #+4]
+   \   00000054   0D10A0E1           MOV      R1,SP
+   \   00000058   ........           BL       GetXStatusStr
+   \   0000005C   0090B0E1           MOVS     R9,R0
+   \   00000060   34A08DE2           ADD      R10,SP,#+52
+   \   00000064   2000000A           BEQ      ??edit_xstatus_onkey_1
+    263              {
+    264                l=ws->wsbody[0];
+   \   00000068   000098E5           LDR      R0,[R8, #+0]
+    265                for (int i=0; i<l; i++) 
+   \   0000006C   00B0A0E3           MOV      R11,#+0
+   \   00000070   B070D0E1           LDRH     R7,[R0, #+0]
+   \   00000074   010057E3           CMP      R7,#+1
+   \   00000078   070000BA           BLT      ??edit_xstatus_onkey_2
+    266                {
+    267                  *d++=char16to8(ws->wsbody[i+1]);
+   \                     ??edit_xstatus_onkey_3:
+   \   0000007C   000098E5           LDR      R0,[R8, #+0]
+   \   00000080   8B0080E0           ADD      R0,R0,R11, LSL #+1
+   \   00000084   B200D0E1           LDRH     R0,[R0, #+2]
+    268                }
+   \   00000088   01B08BE2           ADD      R11,R11,#+1
+   \   0000008C   ........           _BLF     char16to8,??char16to8??rA
+   \   00000090   ........           STRB     R0,[R10], #+1
+   \   00000094   07005BE1           CMP      R11,R7
+   \   00000098   F7FFFFBA           BLT      ??edit_xstatus_onkey_3
+    269                *d=0;
+   \                     ??edit_xstatus_onkey_2:
+   \   0000009C   0000A0E3           MOV      R0,#+0
+   \   000000A0   0000CAE5           STRB     R0,[R10, #+0]
+    270                if (len!=l || strncmp(s,tmp,len))
+   \   000000A4   00009DE5           LDR      R0,[SP, #+0]
+   \   000000A8   070050E1           CMP      R0,R7
+   \   000000AC   0500001A           BNE      ??edit_xstatus_onkey_4
+   \   000000B0   0020A0E1           MOV      R2,R0
+   \   000000B4   34108DE2           ADD      R1,SP,#+52
+   \   000000B8   0900A0E1           MOV      R0,R9
+   \   000000BC   150100EF           SWI      +277
+   \   000000C0   000050E3           CMP      R0,#+0
+   \   000000C4   0800000A           BEQ      ??edit_xstatus_onkey_1
+    271                {
+    272                  ReplaceStr(&XStatusText,s-XStatusText,len,tmp,l);
+   \                     ??edit_xstatus_onkey_4:
+   \   000000C8   80002DE9           PUSH     {R7}
+   \   000000CC   000095E5           LDR      R0,[R5, #+0]
+   \   000000D0   04209DE5           LDR      R2,[SP, #+4]
+   \   000000D4   38308DE2           ADD      R3,SP,#+56
+   \   000000D8   001049E0           SUB      R1,R9,R0
+   \   000000DC   0500A0E1           MOV      R0,R5
+   \   000000E0   ........           BL       ReplaceStr
+    273                  is_any_change=1;
+   \   000000E4   0160A0E3           MOV      R6,#+1
+   \   000000E8   04D08DE2           ADD      SP,SP,#+4
+    274                }
+    275              }
+    276          
+    277              ExtractEditControl(data,4,&ec);   // Короткий икс статус
+   \                     ??edit_xstatus_onkey_1:
+   \   000000EC   08208DE2           ADD      R2,SP,#+8
+   \   000000F0   0410A0E3           MOV      R1,#+4
+   \   000000F4   0400A0E1           MOV      R0,R4
+   \   000000F8   690100EF           SWI      +361
+    278              ws=ec.pWS;
+    279              
+    280              s=GetXStatusStr(cur_x_st*3+1,&len);
+   \   000000FC   04009DE5           LDR      R0,[SP, #+4]
+   \   00000100   30809DE5           LDR      R8,[SP, #+48]
+   \   00000104   0D10A0E1           MOV      R1,SP
+   \   00000108   010080E2           ADD      R0,R0,#+1
+   \   0000010C   ........           BL       GetXStatusStr
+   \   00000110   0090B0E1           MOVS     R9,R0
+    281              d=tmp;
+   \   00000114   34A08DE2           ADD      R10,SP,#+52
+    282          
+    283              if (s)
+   \   00000118   2000000A           BEQ      ??edit_xstatus_onkey_5
+    284              {
+    285                l=ws->wsbody[0];
+   \   0000011C   000098E5           LDR      R0,[R8, #+0]
+    286                for (int i=0; i<l; i++) 
+   \   00000120   00B0A0E3           MOV      R11,#+0
+   \   00000124   B070D0E1           LDRH     R7,[R0, #+0]
+   \   00000128   010057E3           CMP      R7,#+1
+   \   0000012C   070000BA           BLT      ??edit_xstatus_onkey_6
+    287                {
+    288                  *d++=char16to8(ws->wsbody[i+1]);
+   \                     ??edit_xstatus_onkey_7:
+   \   00000130   000098E5           LDR      R0,[R8, #+0]
+   \   00000134   8B0080E0           ADD      R0,R0,R11, LSL #+1
+   \   00000138   B200D0E1           LDRH     R0,[R0, #+2]
+    289                }
+   \   0000013C   01B08BE2           ADD      R11,R11,#+1
+   \   00000140   ........           _BLF     char16to8,??char16to8??rA
+   \   00000144   ........           STRB     R0,[R10], #+1
+   \   00000148   07005BE1           CMP      R11,R7
+   \   0000014C   F7FFFFBA           BLT      ??edit_xstatus_onkey_7
+    290                *d=0;
+   \                     ??edit_xstatus_onkey_6:
+   \   00000150   0000A0E3           MOV      R0,#+0
+   \   00000154   0000CAE5           STRB     R0,[R10, #+0]
+    291                if (len!=l || strncmp(s,tmp,len))
+   \   00000158   00009DE5           LDR      R0,[SP, #+0]
+   \   0000015C   070050E1           CMP      R0,R7
+   \   00000160   0500001A           BNE      ??edit_xstatus_onkey_8
+   \   00000164   0020A0E1           MOV      R2,R0
+   \   00000168   34108DE2           ADD      R1,SP,#+52
+   \   0000016C   0900A0E1           MOV      R0,R9
+   \   00000170   150100EF           SWI      +277
+   \   00000174   000050E3           CMP      R0,#+0
+   \   00000178   0800000A           BEQ      ??edit_xstatus_onkey_5
+    292                {
+    293                  ReplaceStr(&XStatusText,s-XStatusText,len,tmp,l);
+   \                     ??edit_xstatus_onkey_8:
+   \   0000017C   80002DE9           PUSH     {R7}
+   \   00000180   000095E5           LDR      R0,[R5, #+0]
+   \   00000184   04209DE5           LDR      R2,[SP, #+4]
+   \   00000188   38308DE2           ADD      R3,SP,#+56
+   \   0000018C   001049E0           SUB      R1,R9,R0
+   \   00000190   0500A0E1           MOV      R0,R5
+   \   00000194   ........           BL       ReplaceStr
+    294                  is_any_change=1;
+   \   00000198   0160A0E3           MOV      R6,#+1
+   \   0000019C   04D08DE2           ADD      SP,SP,#+4
+    295                }
+    296              }
+    297              
+    298              ExtractEditControl(data,6,&ec);   // Длинный икс статус
+   \                     ??edit_xstatus_onkey_5:
+   \   000001A0   08208DE2           ADD      R2,SP,#+8
+   \   000001A4   0610A0E3           MOV      R1,#+6
+   \   000001A8   0400A0E1           MOV      R0,R4
+   \   000001AC   690100EF           SWI      +361
+    299              ws=ec.pWS;
+    300              
+    301              s=GetXStatusStr(cur_x_st*3+2,&len);
+   \   000001B0   04009DE5           LDR      R0,[SP, #+4]
+   \   000001B4   30409DE5           LDR      R4,[SP, #+48]
+   \   000001B8   0D10A0E1           MOV      R1,SP
+   \   000001BC   020080E2           ADD      R0,R0,#+2
+   \   000001C0   ........           BL       GetXStatusStr
+   \   000001C4   0080B0E1           MOVS     R8,R0
+    302              d=tmp;
+   \   000001C8   34908DE2           ADD      R9,SP,#+52
+    303          
+    304              if (s)
+   \   000001CC   2000000A           BEQ      ??edit_xstatus_onkey_9
+    305              {
+    306                l=ws->wsbody[0];
+   \   000001D0   000094E5           LDR      R0,[R4, #+0]
+    307                for (int i=0; i<l; i++) 
+   \   000001D4   00A0A0E3           MOV      R10,#+0
+   \   000001D8   B070D0E1           LDRH     R7,[R0, #+0]
+   \   000001DC   010057E3           CMP      R7,#+1
+   \   000001E0   070000BA           BLT      ??edit_xstatus_onkey_10
+    308                {
+    309                  *d++=char16to8(ws->wsbody[i+1]);
+   \                     ??edit_xstatus_onkey_11:
+   \   000001E4   000094E5           LDR      R0,[R4, #+0]
+   \   000001E8   8A0080E0           ADD      R0,R0,R10, LSL #+1
+   \   000001EC   B200D0E1           LDRH     R0,[R0, #+2]
+    310                }
+   \   000001F0   01A08AE2           ADD      R10,R10,#+1
+   \   000001F4   ........           _BLF     char16to8,??char16to8??rA
+   \   000001F8   ........           STRB     R0,[R9], #+1
+   \   000001FC   07005AE1           CMP      R10,R7
+   \   00000200   F7FFFFBA           BLT      ??edit_xstatus_onkey_11
+    311                *d=0;
+   \                     ??edit_xstatus_onkey_10:
+   \   00000204   0000A0E3           MOV      R0,#+0
+   \   00000208   0000C9E5           STRB     R0,[R9, #+0]
+    312                if (len!=l || strncmp(s,tmp,len))
+   \   0000020C   00009DE5           LDR      R0,[SP, #+0]
+   \   00000210   070050E1           CMP      R0,R7
+   \   00000214   0500001A           BNE      ??edit_xstatus_onkey_12
+   \   00000218   0020A0E1           MOV      R2,R0
+   \   0000021C   34108DE2           ADD      R1,SP,#+52
+   \   00000220   0800A0E1           MOV      R0,R8
+   \   00000224   150100EF           SWI      +277
+   \   00000228   000050E3           CMP      R0,#+0
+   \   0000022C   0800000A           BEQ      ??edit_xstatus_onkey_9
+    313                {
+    314                  ReplaceStr(&XStatusText,s-XStatusText,len,tmp,l);
+   \                     ??edit_xstatus_onkey_12:
+   \   00000230   80002DE9           PUSH     {R7}
+   \   00000234   000095E5           LDR      R0,[R5, #+0]
+   \   00000238   04209DE5           LDR      R2,[SP, #+4]
+   \   0000023C   38308DE2           ADD      R3,SP,#+56
+   \   00000240   001048E0           SUB      R1,R8,R0
+   \   00000244   0500A0E1           MOV      R0,R5
+   \   00000248   ........           BL       ReplaceStr
+    315                  is_any_change=1;
+   \   0000024C   04D08DE2           ADD      SP,SP,#+4
+   \   00000250   010000EA           B        ??edit_xstatus_onkey_13
+    316                }
+    317              }
+    318              
+    319              if (is_any_change)
+   \                     ??edit_xstatus_onkey_9:
+   \   00000254   000056E3           CMP      R6,#+0
+   \   00000258   0000000A           BEQ      ??edit_xstatus_onkey_14
+    320              {
+    321                SaveXStatusText();
+   \                     ??edit_xstatus_onkey_13:
+   \   0000025C   ........           BL       SaveXStatusText
+    322              }
+    323              return (1);
+   \                     ??edit_xstatus_onkey_14:
+   \   00000260   0100A0E3           MOV      R0,#+1
+   \   00000264   B8D08DE2           ADD      SP,SP,#+184
+   \   00000268   F08FBDE8           POP      {R4-R11,PC}
+    324            }
+    325            return (0);
+   \                     ??edit_xstatus_onkey_0:
+   \   0000026C   0000A0E3           MOV      R0,#+0
+   \   00000270   B8D08DE2           ADD      SP,SP,#+184
+   \   00000274   F08FBDE8           POP      {R4-R11,PC}      ;; return
+    326          }
+    327          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    328          void edit_xstatus_ghook(GUI *data, int cmd)
+    329          {
+   \                     edit_xstatus_ghook:
+   \   00000000   00402DE9           PUSH     {LR}
+    330            static SOFTKEY_DESC sk={0x0FFF,0x0000,(int)"Save!"};
+    331            if (cmd==0x0A)
+   \   00000004   0A0051E3           CMP      R1,#+10
+   \   00000008   0100001A           BNE      ??edit_xstatus_ghook_0
+    332            {
+    333              DisableIDLETMR();
+   \   0000000C   7F0100EF           SWI      +383
+   \   00000010   0080BDE8           POP      {PC}
+    334            }
+    335            if (cmd==7)
+   \                     ??edit_xstatus_ghook_0:
+   \   00000014   070051E3           CMP      R1,#+7
+   \   00000018   0080BD18           POPNE    {PC}
+    336            {
+    337              SetSoftKey(data,&sk,SET_SOFT_KEY_N);
+   \   0000001C   08109FE5           LDR      R1,??edit_xstatus_ghook_1  ;; ??sk
+   \   00000020   0120A0E3           MOV      R2,#+1
+   \   00000024   680100EF           SWI      +360
+    338            }
+    339          }
+   \   00000028   0080BDE8           POP      {PC}             ;; return
+   \                     ??edit_xstatus_ghook_1:
+   \   0000002C   ........           DC32     ??sk
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     ??sk:
+   \   00000000                      DS8 8
+   \   00000008                      REQUIRE `?<Initializer for sk>`
+    340          
+
+   \                                 In segment DATA_I, align 4, align-sorted
+    341          HEADER_DESC edit_xstatus_hdr={0,0,0,0,NULL,(int)"X-Статус",LGP_NULL};
+    342          
+    343          INPUTDIA_DESC edit_xstatus_desc =
+   \                     edit_xstatus_desc:
+   \   00000000                      DS8 56
+   \   00000038                      REQUIRE `?<Initializer for edit_xstatus_desc>`
+   \                     edit_xstatus_hdr:
+   \   00000038                      DS8 20
+   \   0000004C                      REQUIRE `?<Initializer for edit_xstatus_hdr>`
+    344          {
+    345            1,
+    346            edit_xstatus_onkey,
+    347            edit_xstatus_ghook,
+    348            (void *)edit_xstatus_locret,
+    349            0,
+    350            &edit_x_skt,
+    351            {0,0,0,0},
+    352            FONT_SMALL,
+    353            100,
+    354            101,
+    355            0,
+    356            //  0x00000001 - Выровнять по правому краю
+    357            //  0x00000002 - Выровнять по центру
+    358            //  0x00000004 - Инверсия знакомест
+    359            //  0x00000008 - UnderLine
+    360            //  0x00000020 - Не переносить слова
+    361            //  0x00000200 - bold
+    362            0,
+    363            //  0x00000002 - ReadOnly
+    364            //  0x00000004 - Не двигается курсор
+    365            //  0x40000000 - Поменять местами софт-кнопки
+    366            0x40000000
+    367          };
+    368          
+    369          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    370          static void EditXStatus(int xstatus)
+    371          {
+   \                     EditXStatus:
+   \   00000000   F0472DE9           PUSH     {R4-R10,LR}
+    372            void *ma=malloc_adr();
+    373            void *eq;
+    374            EDITCONTROL ec;
+    375            char *s;
+    376            int len;
+    377            int c;
+    378             
+    379            eq=AllocEQueue(ma,mfree_adr());    
+    380            WSHDR *ews=AllocWS(128);
+    381            ascii2ws(ews,"Комментарий:");   // Коментарий
+   \   00000004   1C839FE5           LDR      R8,??EditXStatus_0  ;; `?<Constant "\\312\\356\\354\\354\\345\\355\\362\\340\\3`
+   \   00000008   30D04DE2           SUB      SP,SP,#+48
+   \   0000000C   0040A0E1           MOV      R4,R0
+   \   00000010   148000EF           SWI      +32788
+   \   00000014   0050A0E1           MOV      R5,R0
+   \   00000018   158000EF           SWI      +32789
+   \   0000001C   0010A0E1           MOV      R1,R0
+   \   00000020   0500A0E1           MOV      R0,R5
+   \   00000024   630100EF           SWI      +355
+   \   00000028   0060A0E1           MOV      R6,R0
+   \   0000002C   8000A0E3           MOV      R0,#+128
+   \   00000030   250100EF           SWI      +293
+   \   00000034   0070A0E1           MOV      R7,R0
+   \   00000038   0810A0E1           MOV      R1,R8
+   \   0000003C   ........           _BLF     ascii2ws,??ascii2ws??rA
+    382            PrepareEditControl(&ec);
+   \   00000040   04008DE2           ADD      R0,SP,#+4
+   \   00000044   640100EF           SWI      +356
+    383            ConstructEditControl(&ec,ECT_HEADER,0x40,ews,ews->wsbody[0]);
+   \   00000048   000097E5           LDR      R0,[R7, #+0]
+   \   0000004C   0730A0E1           MOV      R3,R7
+   \   00000050   B000D0E1           LDRH     R0,[R0, #+0]
+   \   00000054   4020A0E3           MOV      R2,#+64
+   \   00000058   0110A0E3           MOV      R1,#+1
+   \   0000005C   01002DE9           PUSH     {R0}
+    384            AddEditControlToEditQend(eq,&ec,ma);    //1
+    385            
+    386            CutWSTR(ews,0);
+    387            s=GetXStatusStr(xstatus*3, &len);
+   \   00000060   849084E0           ADD      R9,R4,R4, LSL #+1
+   \   00000064   08008DE2           ADD      R0,SP,#+8
+   \   00000068   650100EF           SWI      +357
+   \   0000006C   0520A0E1           MOV      R2,R5
+   \   00000070   08108DE2           ADD      R1,SP,#+8
+   \   00000074   0600A0E1           MOV      R0,R6
+   \   00000078   660100EF           SWI      +358
+   \   0000007C   0010A0E3           MOV      R1,#+0
+   \   00000080   0700A0E1           MOV      R0,R7
+   \   00000084   260100EF           SWI      +294
+   \   00000088   04108DE2           ADD      R1,SP,#+4
+   \   0000008C   0900A0E1           MOV      R0,R9
+   \   00000090   ........           BL       GetXStatusStr
+   \   00000094   00A0B0E1           MOVS     R10,R0
+    388            if (s)
+   \   00000098   04D08DE2           ADD      SP,SP,#+4
+   \   0000009C   0C00000A           BEQ      ??EditXStatus_1
+   \   000000A0   060000EA           B        ??EditXStatus_2
+    389            {
+    390              while((c=*s++) && len)
+    391              {
+    392                wsAppendChar(ews,char8to16(c));
+   \                     ??EditXStatus_3:
+   \   000000A4   ........           _BLF     char8to16,??char8to16??rA
+   \   000000A8   0010A0E1           MOV      R1,R0
+   \   000000AC   0700A0E1           MOV      R0,R7
+   \   000000B0   1C0000EF           SWI      +28
+    393                len--;
+   \   000000B4   00109DE5           LDR      R1,[SP, #+0]
+   \   000000B8   011041E2           SUB      R1,R1,#+1
+   \   000000BC   00108DE5           STR      R1,[SP, #+0]
+    394              }
+   \                     ??EditXStatus_2:
+   \   000000C0   ........           LDRB     R0,[R10], #+1
+   \   000000C4   000050E3           CMP      R0,#+0
+   \   000000C8   00109D15           LDRNE    R1,[SP, #+0]
+   \   000000CC   00005113           CMPNE    R1,#+0
+   \   000000D0   F3FFFF1A           BNE      ??EditXStatus_3
+    395            }
+    396            PrepareEditControl(&ec);
+   \                     ??EditXStatus_1:
+   \   000000D4   04008DE2           ADD      R0,SP,#+4
+   \   000000D8   640100EF           SWI      +356
+    397            ConstructEditControl(&ec,ECT_NORMAL_TEXT,0x40,ews,20);
+   \   000000DC   1400A0E3           MOV      R0,#+20
+   \   000000E0   01002DE9           PUSH     {R0}
+   \   000000E4   0730A0E1           MOV      R3,R7
+   \   000000E8   4020A0E3           MOV      R2,#+64
+   \   000000EC   0310A0E3           MOV      R1,#+3
+   \   000000F0   08008DE2           ADD      R0,SP,#+8
+   \   000000F4   650100EF           SWI      +357
+    398            AddEditControlToEditQend(eq,&ec,ma);   //2
+   \   000000F8   0520A0E1           MOV      R2,R5
+   \   000000FC   08108DE2           ADD      R1,SP,#+8
+   \   00000100   0600A0E1           MOV      R0,R6
+   \   00000104   660100EF           SWI      +358
+    399            
+    400            ascii2ws(ews,"Short X:");      // Короткий Икс Статус
+   \   00000108   101088E2           ADD      R1,R8,#+16
+   \   0000010C   0700A0E1           MOV      R0,R7
+   \   00000110   ........           _BLF     ascii2ws,??ascii2ws??rA
+    401            PrepareEditControl(&ec);
+   \   00000114   08008DE2           ADD      R0,SP,#+8
+   \   00000118   640100EF           SWI      +356
+    402            ConstructEditControl(&ec,ECT_HEADER,0x40,ews,ews->wsbody[0]);
+   \   0000011C   000097E5           LDR      R0,[R7, #+0]
+   \   00000120   0730A0E1           MOV      R3,R7
+   \   00000124   B000D0E1           LDRH     R0,[R0, #+0]
+   \   00000128   4020A0E3           MOV      R2,#+64
+   \   0000012C   0110A0E3           MOV      R1,#+1
+   \   00000130   01002DE9           PUSH     {R0}
+   \   00000134   0C008DE2           ADD      R0,SP,#+12
+   \   00000138   650100EF           SWI      +357
+    403            AddEditControlToEditQend(eq,&ec,ma);   //3
+   \   0000013C   0520A0E1           MOV      R2,R5
+   \   00000140   0C108DE2           ADD      R1,SP,#+12
+   \   00000144   0600A0E1           MOV      R0,R6
+   \   00000148   660100EF           SWI      +358
+    404            
+    405            CutWSTR(ews,0);
+   \   0000014C   0010A0E3           MOV      R1,#+0
+   \   00000150   0700A0E1           MOV      R0,R7
+   \   00000154   260100EF           SWI      +294
+    406            s=GetXStatusStr(xstatus*3+1, &len);
+   \   00000158   08108DE2           ADD      R1,SP,#+8
+   \   0000015C   010089E2           ADD      R0,R9,#+1
+   \   00000160   ........           BL       GetXStatusStr
+   \   00000164   00A0B0E1           MOVS     R10,R0
+    407            if (s)
+   \   00000168   08D08DE2           ADD      SP,SP,#+8
+   \   0000016C   0C00000A           BEQ      ??EditXStatus_4
+   \   00000170   060000EA           B        ??EditXStatus_5
+    408            {
+    409              while((c=*s++) && len)
+    410              {
+    411                wsAppendChar(ews,char8to16(c));
+   \                     ??EditXStatus_6:
+   \   00000174   ........           _BLF     char8to16,??char8to16??rA
+   \   00000178   0010A0E1           MOV      R1,R0
+   \   0000017C   0700A0E1           MOV      R0,R7
+   \   00000180   1C0000EF           SWI      +28
+    412                len--;
+   \   00000184   00109DE5           LDR      R1,[SP, #+0]
+   \   00000188   011041E2           SUB      R1,R1,#+1
+   \   0000018C   00108DE5           STR      R1,[SP, #+0]
+    413              }
+   \                     ??EditXStatus_5:
+   \   00000190   ........           LDRB     R0,[R10], #+1
+   \   00000194   000050E3           CMP      R0,#+0
+   \   00000198   00109D15           LDRNE    R1,[SP, #+0]
+   \   0000019C   00005113           CMPNE    R1,#+0
+   \   000001A0   F3FFFF1A           BNE      ??EditXStatus_6
+    414            }
+    415            PrepareEditControl(&ec);
+   \                     ??EditXStatus_4:
+   \   000001A4   04008DE2           ADD      R0,SP,#+4
+   \   000001A8   640100EF           SWI      +356
+    416            ConstructEditControl(&ec,ECT_NORMAL_TEXT,0x40,ews,128);
+   \   000001AC   8000A0E3           MOV      R0,#+128
+   \   000001B0   01002DE9           PUSH     {R0}
+   \   000001B4   0730A0E1           MOV      R3,R7
+   \   000001B8   4020A0E3           MOV      R2,#+64
+   \   000001BC   0310A0E3           MOV      R1,#+3
+   \   000001C0   08008DE2           ADD      R0,SP,#+8
+   \   000001C4   650100EF           SWI      +357
+    417            AddEditControlToEditQend(eq,&ec,ma);   //4
+   \   000001C8   0520A0E1           MOV      R2,R5
+   \   000001CC   08108DE2           ADD      R1,SP,#+8
+   \   000001D0   0600A0E1           MOV      R0,R6
+   \   000001D4   660100EF           SWI      +358
+    418            
+    419            ascii2ws(ews,"Large X:");     // Длинный Икс Статус
+   \   000001D8   1C1088E2           ADD      R1,R8,#+28
+   \   000001DC   0700A0E1           MOV      R0,R7
+   \   000001E0   ........           _BLF     ascii2ws,??ascii2ws??rA
+    420            PrepareEditControl(&ec);
+   \   000001E4   08008DE2           ADD      R0,SP,#+8
+   \   000001E8   640100EF           SWI      +356
+    421            ConstructEditControl(&ec,ECT_HEADER,0x40,ews,ews->wsbody[0]);
+   \   000001EC   000097E5           LDR      R0,[R7, #+0]
+   \   000001F0   0730A0E1           MOV      R3,R7
+   \   000001F4   B000D0E1           LDRH     R0,[R0, #+0]
+   \   000001F8   4020A0E3           MOV      R2,#+64
+   \   000001FC   0110A0E3           MOV      R1,#+1
+   \   00000200   01002DE9           PUSH     {R0}
+   \   00000204   0C008DE2           ADD      R0,SP,#+12
+   \   00000208   650100EF           SWI      +357
+    422            AddEditControlToEditQend(eq,&ec,ma);   //5
+   \   0000020C   0520A0E1           MOV      R2,R5
+   \   00000210   0C108DE2           ADD      R1,SP,#+12
+   \   00000214   0600A0E1           MOV      R0,R6
+   \   00000218   660100EF           SWI      +358
+    423            
+    424            CutWSTR(ews,0);
+   \   0000021C   0010A0E3           MOV      R1,#+0
+   \   00000220   0700A0E1           MOV      R0,R7
+   \   00000224   260100EF           SWI      +294
+    425            s=GetXStatusStr(xstatus*3+2, &len);
+   \   00000228   08108DE2           ADD      R1,SP,#+8
+   \   0000022C   020089E2           ADD      R0,R9,#+2
+   \   00000230   ........           BL       GetXStatusStr
+   \   00000234   0080B0E1           MOVS     R8,R0
+    426            if (s)
+   \   00000238   08D08DE2           ADD      SP,SP,#+8
+   \   0000023C   0C00000A           BEQ      ??EditXStatus_7
+   \   00000240   060000EA           B        ??EditXStatus_8
+    427            {
+    428              while((c=*s++) && len)
+    429              {
+    430                wsAppendChar(ews,char8to16(c));
+   \                     ??EditXStatus_9:
+   \   00000244   ........           _BLF     char8to16,??char8to16??rA
+   \   00000248   0010A0E1           MOV      R1,R0
+   \   0000024C   0700A0E1           MOV      R0,R7
+   \   00000250   1C0000EF           SWI      +28
+    431                len--;
+   \   00000254   00109DE5           LDR      R1,[SP, #+0]
+   \   00000258   011041E2           SUB      R1,R1,#+1
+   \   0000025C   00108DE5           STR      R1,[SP, #+0]
+    432              }
+   \                     ??EditXStatus_8:
+   \   00000260   ........           LDRB     R0,[R8], #+1
+   \   00000264   000050E3           CMP      R0,#+0
+   \   00000268   00109D15           LDRNE    R1,[SP, #+0]
+   \   0000026C   00005113           CMPNE    R1,#+0
+   \   00000270   F3FFFF1A           BNE      ??EditXStatus_9
+    433            }
+    434            PrepareEditControl(&ec);
+   \                     ??EditXStatus_7:
+   \   00000274   04008DE2           ADD      R0,SP,#+4
+   \   00000278   640100EF           SWI      +356
+    435            ConstructEditControl(&ec,ECT_NORMAL_TEXT,0x40,ews,128);
+   \   0000027C   8000A0E3           MOV      R0,#+128
+   \   00000280   01002DE9           PUSH     {R0}
+   \   00000284   0730A0E1           MOV      R3,R7
+   \   00000288   4020A0E3           MOV      R2,#+64
+   \   0000028C   0310A0E3           MOV      R1,#+3
+   \   00000290   08008DE2           ADD      R0,SP,#+8
+   \   00000294   650100EF           SWI      +357
+    436            AddEditControlToEditQend(eq,&ec,ma);   //6
+   \   00000298   0520A0E1           MOV      R2,R5
+    437            
+    438            FreeWS(ews);
+    439            patch_header(&edit_xstatus_hdr);
+   \   0000029C   88509FE5           LDR      R5,??EditXStatus_0+0x4  ;; edit_xstatus_desc
+   \   000002A0   08108DE2           ADD      R1,SP,#+8
+   \   000002A4   0600A0E1           MOV      R0,R6
+   \   000002A8   660100EF           SWI      +358
+   \   000002AC   0700A0E1           MOV      R0,R7
+   \   000002B0   290100EF           SWI      +297
+   \   000002B4   0070A0E3           MOV      R7,#+0
+   \   000002B8   387085E5           STR      R7,[R5, #+56]
+   \   000002BC   888100EF           SWI      +33160
+   \   000002C0   010040E2           SUB      R0,R0,#+1
+   \   000002C4   BC03C5E1           STRH     R0,[R5, #+60]
+   \   000002C8   8A8100EF           SWI      +33162
+   \   000002CC   010040E2           SUB      R0,R0,#+1
+   \   000002D0   BE03C5E1           STRH     R0,[R5, #+62]
+    440            patch_input(&edit_xstatus_desc);
+   \   000002D4   B871C5E1           STRH     R7,[R5, #+24]
+   \   000002D8   8A8100EF           SWI      +33162
+   \   000002DC   010080E2           ADD      R0,R0,#+1
+   \   000002E0   BA01C5E1           STRH     R0,[R5, #+26]
+   \   000002E4   888100EF           SWI      +33160
+   \   000002E8   010040E2           SUB      R0,R0,#+1
+   \   000002EC   BC01C5E1           STRH     R0,[R5, #+28]
+   \   000002F0   898100EF           SWI      +33161
+   \   000002F4   0070A0E1           MOV      R7,R0
+   \   000002F8   8B8100EF           SWI      +33163
+   \   000002FC   000047E0           SUB      R0,R7,R0
+   \   00000300   010040E2           SUB      R0,R0,#+1
+   \   00000304   BE01C5E1           STRH     R0,[R5, #+30]
+    441            CreateInputTextDialog(&edit_xstatus_desc,&edit_xstatus_hdr,eq,1,(void *)xstatus);  
+   \   00000308   10002DE9           PUSH     {R4}
+   \   0000030C   0130A0E3           MOV      R3,#+1
+   \   00000310   0620A0E1           MOV      R2,R6
+   \   00000314   381085E2           ADD      R1,R5,#+56
+   \   00000318   0500A0E1           MOV      R0,R5
+   \   0000031C   670100EF           SWI      +359
+    442          }
+   \   00000320   38D08DE2           ADD      SP,SP,#+56
+   \   00000324   F087BDE8           POP      {R4-R10,PC}      ;; return
+   \                     ??EditXStatus_0:
+   \   00000328   ........           DC32     `?<Constant "\\312\\356\\354\\354\\345\\355\\362\\340\\3`
+   \   0000032C   ........           DC32     edit_xstatus_desc
+    443          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    444          static int xst_onkey(void *data, GUI_MSG *msg)
+    445          {
+   \                     xst_onkey:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0140A0E1           MOV      R4,R1
+    446            int i;
+    447            i=GetCurMenuItem(data);
+   \   00000008   8F0100EF           SWI      +399
+    448            if (msg->keys==0x18)
+   \   0000000C   F210D4E1           LDRSH    R1,[R4, #+2]
+   \   00000010   180051E3           CMP      R1,#+24
+   \   00000014   0200001A           BNE      ??xst_onkey_0
+    449            {
+    450              EditXStatus(i);
+   \   00000018   ........           BL       EditXStatus
+    451              return(0);
+   \   0000001C   0000A0E3           MOV      R0,#+0
+   \   00000020   1080BDE8           POP      {R4,PC}
+    452            }
+    453            if (msg->keys==0x3D)
+   \                     ??xst_onkey_0:
+   \   00000024   3D0051E3           CMP      R1,#+61
+   \   00000028   0600001A           BNE      ??xst_onkey_1
+    454            {
+    455              Change_XStatus(i);
+   \   0000002C   ........           LDR      R1,??DataTable12  ;; CurrentXStatus
+   \   00000030   000081E5           STR      R0,[R1, #+0]
+   \   00000034   ........           _BLF     set_my_xstatus,??set_my_xstatus??rA
+   \   00000038   ........           LDR      R0,??DataTable8  ;; WriteDefSettings
+   \   0000003C   710100EF           SWI      +369
+    456              return(1);
+   \   00000040   0100A0E3           MOV      R0,#+1
+   \   00000044   1080BDE8           POP      {R4,PC}
+    457            }
+    458            return (0);
+   \                     ??xst_onkey_1:
+   \   00000048   0000A0E3           MOV      R0,#+0
+   \   0000004C   1080BDE8           POP      {R4,PC}          ;; return
+    459          }
+    460          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    461          static void xst_ghook(void *data, int cmd)
+    462          {
+   \                     xst_ghook:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0140A0E1           MOV      R4,R1
+    463            PNGTOP_DESC *pltop=PNG_TOP();
+   \   00000008   B98100EF           SWI      +33209
+    464            if (cmd==9)
+   \   0000000C   090054E3           CMP      R4,#+9
+    465            {
+    466              pltop->dyn_pltop=NULL;
+   \   00000010   0010A003           MOVEQ    R1,#+0
+   \   00000014   08108005           STREQ    R1,[R0, #+8]
+   \   00000018   1080BD08           POPEQ    {R4,PC}
+    467            }
+    468            if (cmd==0x0A)
+   \   0000001C   0A0054E3           CMP      R4,#+10
+   \   00000020   1080BD18           POPNE    {R4,PC}
+    469            {
+    470              pltop->dyn_pltop=XStatusesImgList;
+   \   00000024   10109FE5           LDR      R1,??xst_ghook_0  ;; XStatusesImgList
+   \   00000028   001091E5           LDR      R1,[R1, #+0]
+   \   0000002C   081080E5           STR      R1,[R0, #+8]
+    471              DisableIDLETMR();
+   \   00000030   7F0100EF           SWI      +383
+    472              //Загрузка текста при фокусе
+    473              LoadXStatusText();
+   \   00000034   ........           BL       LoadXStatusText
+    474            }
+    475          }
+   \   00000038   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??xst_ghook_0:
+   \   0000003C   ........           DC32     XStatusesImgList
+    476          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    477          static void xst_itemh(void *data, int curitem, void *unk)
+    478          {
+   \                     xst_itemh:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+    479            void *item=AllocMLMenuItem(data);
+    480            WSHDR ws1loc, *ws1, *ws2;
+    481            unsigned short num[128];
+    482            WSHDR ws3loc, *ws3, *ws4;
+    483            unsigned short num3[128];
+    484            char ss[128];
+    485            char *s;
+    486            int l;
+    487            extern const char percent_t[];
+    488            
+    489            ws1=CreateLocalWS(&ws1loc,num,128);
+    490            ws3=CreateLocalWS(&ws3loc,num3,128);
+    491            
+    492            if (s=GetXStatusStr(curitem*3+1,&l))
+   \   00000004   ........           LDR      R9,??DataTable9  ;; percent_t
+   \   00000008   70A19FE5           LDR      R10,??xst_itemh_0  ;; `?<Constant "Short XS %d">`
+   \   0000000C   ACDF4DE2           SUB      SP,SP,#+688
+   \   00000010   0040A0E1           MOV      R4,R0
+   \   00000014   0150A0E1           MOV      R5,R1
+   \   00000018   190200EF           SWI      +537
+   \   0000001C   0060A0E1           MOV      R6,R0
+   \   00000020   8020A0E3           MOV      R2,#+128
+   \   00000024   08108DE2           ADD      R1,SP,#+8
+   \   00000028   A20F8DE2           ADD      R0,SP,#+648
+   \   0000002C   270100EF           SWI      +295
+   \   00000030   0070A0E1           MOV      R7,R0
+   \   00000034   8020A0E3           MOV      R2,#+128
+   \   00000038   421F8DE2           ADD      R1,SP,#+264
+   \   0000003C   A70F8DE2           ADD      R0,SP,#+668
+   \   00000040   270100EF           SWI      +295
+   \   00000044   0080A0E1           MOV      R8,R0
+   \   00000048   85B085E0           ADD      R11,R5,R5, LSL #+1
+   \   0000004C   0D10A0E1           MOV      R1,SP
+   \   00000050   01008BE2           ADD      R0,R11,#+1
+   \   00000054   ........           BL       GetXStatusStr
+   \   00000058   04008DE5           STR      R0,[SP, #+4]
+   \   0000005C   000050E3           CMP      R0,#+0
+   \   00000060   0E00000A           BEQ      ??xst_itemh_1
+    493            {
+    494              memset(ss,0,128);
+   \   00000064   8020A0E3           MOV      R2,#+128
+   \   00000068   0010A0E3           MOV      R1,#+0
+   \   0000006C   820F8DE2           ADD      R0,SP,#+520
+   \   00000070   BB0000EF           SWI      +187
+    495              if (l>127) l=127;
+   \   00000074   00009DE5           LDR      R0,[SP, #+0]
+   \   00000078   800050E3           CMP      R0,#+128
+   \   0000007C   7F10A0A3           MOVGE    R1,#+127
+   \   00000080   00108DA5           STRGE    R1,[SP, #+0]
+    496              strncpy(ss,s,l);
+   \   00000084   00209DE5           LDR      R2,[SP, #+0]
+   \   00000088   04109DE5           LDR      R1,[SP, #+4]
+   \   0000008C   820F8DE2           ADD      R0,SP,#+520
+   \   00000090   160100EF           SWI      +278
+    497              wsprintf(ws1,percent_t,ss);
+   \   00000094   822F8DE2           ADD      R2,SP,#+520
+   \   00000098   0910A0E1           MOV      R1,R9
+   \   0000009C   010000EA           B        ??xst_itemh_2
+    498            }
+    499            else
+    500            {
+    501              wsprintf(ws1,"Short XS %d",curitem);
+   \                     ??xst_itemh_1:
+   \   000000A0   0520A0E1           MOV      R2,R5
+   \   000000A4   0A10A0E1           MOV      R1,R10
+   \                     ??xst_itemh_2:
+   \   000000A8   0700A0E1           MOV      R0,R7
+   \   000000AC   240100EF           SWI      +292
+    502            }
+    503            if (s=GetXStatusStr(curitem*3+2,&l))
+   \   000000B0   0D10A0E1           MOV      R1,SP
+   \   000000B4   02008BE2           ADD      R0,R11,#+2
+   \   000000B8   ........           BL       GetXStatusStr
+   \   000000BC   00B0B0E1           MOVS     R11,R0
+   \   000000C0   0E00000A           BEQ      ??xst_itemh_3
+    504            {
+    505              memset(ss,0,128);
+   \   000000C4   8020A0E3           MOV      R2,#+128
+   \   000000C8   0010A0E3           MOV      R1,#+0
+   \   000000CC   820F8DE2           ADD      R0,SP,#+520
+   \   000000D0   BB0000EF           SWI      +187
+    506              if (l>127) l=127;
+   \   000000D4   00009DE5           LDR      R0,[SP, #+0]
+   \   000000D8   800050E3           CMP      R0,#+128
+   \   000000DC   7F10A0A3           MOVGE    R1,#+127
+   \   000000E0   00108DA5           STRGE    R1,[SP, #+0]
+    507              strncpy(ss,s,l);
+   \   000000E4   00209DE5           LDR      R2,[SP, #+0]
+   \   000000E8   0B10A0E1           MOV      R1,R11
+   \   000000EC   820F8DE2           ADD      R0,SP,#+520
+   \   000000F0   160100EF           SWI      +278
+    508              wsprintf(ws3,percent_t,ss);
+   \   000000F4   822F8DE2           ADD      R2,SP,#+520
+   \   000000F8   0910A0E1           MOV      R1,R9
+   \   000000FC   010000EA           B        ??xst_itemh_4
+    509            }
+    510            else
+    511            {
+    512              wsprintf(ws3,"Large XS %d",curitem);
+   \                     ??xst_itemh_3:
+   \   00000100   0520A0E1           MOV      R2,R5
+   \   00000104   0C108AE2           ADD      R1,R10,#+12
+   \                     ??xst_itemh_4:
+   \   00000108   0800A0E1           MOV      R0,R8
+   \   0000010C   240100EF           SWI      +292
+    513            }
+    514            ws2=AllocMenuWS(data,ws1->wsbody[0]);
+   \   00000110   000097E5           LDR      R0,[R7, #+0]
+   \   00000114   B010D0E1           LDRH     R1,[R0, #+0]
+   \   00000118   0400A0E1           MOV      R0,R4
+   \   0000011C   980100EF           SWI      +408
+   \   00000120   0090A0E1           MOV      R9,R0
+    515          
+    516            wstrcpy(ws2,ws1);
+   \   00000124   0710A0E1           MOV      R1,R7
+   \   00000128   1F0100EF           SWI      +287
+    517            ws4=AllocMenuWS(data,ws3->wsbody[0]);
+   \   0000012C   000098E5           LDR      R0,[R8, #+0]
+   \   00000130   B010D0E1           LDRH     R1,[R0, #+0]
+   \   00000134   0400A0E1           MOV      R0,R4
+   \   00000138   980100EF           SWI      +408
+   \   0000013C   0070A0E1           MOV      R7,R0
+    518            wstrcpy(ws4,ws3);
+   \   00000140   0810A0E1           MOV      R1,R8
+   \   00000144   1F0100EF           SWI      +287
+    519            SetMenuItemIconArray(data, item, XStatusesIconArray+curitem);
+   \   00000148   ........           LDR      R0,??DataTable11  ;; XStatusesIconArray
+   \   0000014C   0610A0E1           MOV      R1,R6
+   \   00000150   000090E5           LDR      R0,[R0, #+0]
+   \   00000154   052180E0           ADD      R2,R0,R5, LSL #+2
+   \   00000158   0400A0E1           MOV      R0,R4
+   \   0000015C   990100EF           SWI      +409
+    520            SetMLMenuItemText(data, item, ws2, ws4, curitem);
+   \   00000160   20002DE9           PUSH     {R5}
+   \   00000164   0730A0E1           MOV      R3,R7
+   \   00000168   0920A0E1           MOV      R2,R9
+   \   0000016C   0610A0E1           MOV      R1,R6
+   \   00000170   0400A0E1           MOV      R0,R4
+   \   00000174   180200EF           SWI      +536
+    521          }
+   \   00000178   ADDF8DE2           ADD      SP,SP,#+692
+   \   0000017C   F08FBDE8           POP      {R4-R11,PC}      ;; return
+   \                     ??xst_itemh_0:
+   \   00000180   ........           DC32     `?<Constant "Short XS %d">`
+    522          
+
+   \                                 In segment DATA_C, align 4, align-sorted
+    523          static const SOFTKEY_DESC xst_menu_sk[]=
+   \                     xst_menu_sk:
+   \   00000000   18000000           DC16 24, 0
+   \   00000004   ........           DC32 `?<Constant "\\322\\345\\352\\361\\362">`
+   \   00000008   01000000           DC16 1, 0
+   \   0000000C   ........           DC32 `?<Constant "\\315\\340\\347\\340\\344">`
+   \   00000010   3D000000           DC16 61, 0
+   \   00000014   FBC0FF7F           DC32 2147467515
+    524          {
+    525            {0x0018,0x0000,(int)LG_TEXT},
+    526            {0x0001,0x0000,(int)LG_BACK},
+    527            {0x003D,0x0000,(int)LGP_DOIT_PIC}
+    528          };
+    529          
+
+   \                                 In segment DATA_C, align 4, align-sorted
+    530          static const SOFTKEYSTAB xst_menu_skt=
+   \                     xst_menu_skt:
+   \   00000000   ........0000       DC32 xst_menu_sk, 0
+   \              0000        
+    531          {
+    532            xst_menu_sk,0
+    533          };
+    534          
+
+   \                                 In segment DATA_C, align 4, align-sorted
+    535          static const HEADER_DESC xst_menuhdr={0,0,0,0,NULL,(int)LG_CHGXSTATUS,LGP_NULL};
+   \                     xst_menuhdr:
+   \   00000000   000000000000       DC16 0, 0, 0, 0
+   \              0000        
+   \   00000008   00000000....       DC32 0H, `?<Constant "\\321\\354\\345\\355\\350\\362\\374 X-\\36`
+   \              ....        
+   \   00000010   FF7F0000           DC32 32767
+   \   00000014   08000000....       DC32 8, xst_onkey, xst_ghook, 0H, st_menusoftkeys, xst_menu_skt, 17
+   \              ............
+   \              00000000....
+   \              ............
+   \              11000000    
+   \   00000030   ........0000       DC32 xst_itemh, 0H, 0H, 0, 1
+   \              000000000000
+   \              000000000100
+   \              0000        
+    536          
+    537          static const ML_MENU_DESC xst_menu=
+    538          {
+    539            8,xst_onkey,xst_ghook,NULL,
+    540            st_menusoftkeys,
+    541            &xst_menu_skt,
+    542            0x11,
+    543            xst_itemh,
+    544            NULL,
+    545            NULL,
+    546            0,
+    547            1
+    548          };
+    549          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    550          void DispXStatusChangeMenu(void)
+    551          {
+   \                     DispXStatusChangeMenu:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    552            patch_header(&xst_menuhdr);
+   \   00000004   5C409FE5           LDR      R4,??DispXStatusChangeMenu_0  ;; xst_menuhdr
+   \   00000008   0000A0E3           MOV      R0,#+0
+   \   0000000C   000084E5           STR      R0,[R4, #+0]
+   \   00000010   888100EF           SWI      +33160
+   \   00000014   010040E2           SUB      R0,R0,#+1
+   \   00000018   B400C4E1           STRH     R0,[R4, #+4]
+   \   0000001C   8A8100EF           SWI      +33162
+    553            *((int **)(&xst_menuhdr.icon))=XStatusesIconArray+CurrentXStatus;
+   \   00000020   ........           LDR      R1,??DataTable11  ;; XStatusesIconArray
+   \   00000024   010040E2           SUB      R0,R0,#+1
+   \   00000028   001091E5           LDR      R1,[R1, #+0]
+   \   0000002C   B600C4E1           STRH     R0,[R4, #+6]
+   \   00000030   ........           LDR      R0,??DataTable12  ;; CurrentXStatus
+    554            CreateMultiLinesMenu(0,0,&xst_menu,&xst_menuhdr,CurrentXStatus,total_xstatuses);
+   \   00000034   0430A0E1           MOV      R3,R4
+   \   00000038   000090E5           LDR      R0,[R0, #+0]
+   \   0000003C   142084E2           ADD      R2,R4,#+20
+   \   00000040   001181E0           ADD      R1,R1,R0, LSL #+2
+   \   00000044   081084E5           STR      R1,[R4, #+8]
+   \   00000048   1C109FE5           LDR      R1,??DispXStatusChangeMenu_0+0x4  ;; total_xstatuses
+   \   0000004C   001091E5           LDR      R1,[R1, #+0]
+   \   00000050   02002DE9           PUSH     {R1}
+   \   00000054   01002DE9           PUSH     {R0}
+   \   00000058   0010A0E3           MOV      R1,#+0
+   \   0000005C   0000A0E3           MOV      R0,#+0
+   \   00000060   170200EF           SWI      +535
+    555          }
+   \   00000064   1380BDE8           POP      {R0,R1,R4,PC}    ;; return
+   \                     ??DispXStatusChangeMenu_0:
+   \   00000068   ........           DC32     xst_menuhdr
+   \   0000006C   ........           DC32     total_xstatuses
+    556          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    557          void LoadXStatusText(void)
+    558          {
+   \                     LoadXStatusText:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   4BDF4DE2           SUB      SP,SP,#+300
+    559            FSTATS stat;
+    560            char fn[256];
+    561            int f;
+    562            unsigned int ul;
+    563            int fsize;
+    564            char *p, *s;
+    565            int c;
+    566            FreeXStatusText();
+    567            strcpy(fn,TEMPLATES_PATH);
+    568            strcat(fn,XS_FILE_NAME);
+    569            if (GetFileStats(fn,&stat,&ul)==-1) return;
+   \   00000008   0040E0E3           MVN      R4,#+0
+   \   0000000C   ........           BL       FreeXStatusText
+   \   00000010   ........           LDR      R1,??DataTable17  ;; TEMPLATES_PATH
+   \   00000014   04008DE2           ADD      R0,SP,#+4
+   \   00000018   1A0000EF           SWI      +26
+   \   0000001C   ........           LDR      R1,??DataTable18  ;; XS_FILE_NAME
+   \   00000020   04008DE2           ADD      R0,SP,#+4
+   \   00000024   170000EF           SWI      +23
+   \   00000028   0D20A0E1           MOV      R2,SP
+   \   0000002C   411F8DE2           ADD      R1,SP,#+260
+   \   00000030   04008DE2           ADD      R0,SP,#+4
+   \   00000034   840000EF           SWI      +132
+   \   00000038   040050E1           CMP      R0,R4
+   \   0000003C   2A00000A           BEQ      ??LoadXStatusText_0
+    570            if ((fsize=stat.size)<=0) return;
+   \   00000040   08519DE5           LDR      R5,[SP, #+264]
+   \   00000044   010055E3           CMP      R5,#+1
+   \   00000048   270000BA           BLT      ??LoadXStatusText_0
+    571            if ((f=fopen(fn,A_ReadOnly+A_BIN,P_READ,&ul))==-1) return;
+   \   0000004C   0D30A0E1           MOV      R3,SP
+   \   00000050   8020A0E3           MOV      R2,#+128
+   \   00000054   801CA0E3           MOV      R1,#+32768
+   \   00000058   04008DE2           ADD      R0,SP,#+4
+   \   0000005C   0A0000EF           SWI      +10
+   \   00000060   0060A0E1           MOV      R6,R0
+   \   00000064   040056E1           CMP      R6,R4
+   \   00000068   1F00000A           BEQ      ??LoadXStatusText_0
+    572            p=XStatusText=malloc(fsize+2);
+   \   0000006C   ........           LDR      R4,??DataTable20  ;; XStatusText
+   \   00000070   020085E2           ADD      R0,R5,#+2
+   \   00000074   140000EF           SWI      +20
+   \   00000078   000084E5           STR      R0,[R4, #+0]
+   \   0000007C   0040A0E1           MOV      R4,R0
+    573            s=p+1;
+   \   00000080   017084E2           ADD      R7,R4,#+1
+    574            s[fread(f,s,fsize,&ul)]=0;
+   \   00000084   0080A0E3           MOV      R8,#+0
+   \   00000088   0D30A0E1           MOV      R3,SP
+   \   0000008C   0520A0E1           MOV      R2,R5
+   \   00000090   0710A0E1           MOV      R1,R7
+   \   00000094   0600A0E1           MOV      R0,R6
+   \   00000098   0B0000EF           SWI      +11
+   \   0000009C   0780C0E7           STRB     R8,[R0, +R7]
+    575            fclose(f,&ul);
+   \   000000A0   0D10A0E1           MOV      R1,SP
+   \   000000A4   0600A0E1           MOV      R0,R6
+   \   000000A8   0D0000EF           SWI      +13
+   \   000000AC   040000EA           B        ??LoadXStatusText_1
+    576            while((c=*s++)!=0)
+    577            {
+    578              if (c==10)
+    579              {
+    580                c=13;
+    581                if (*s==13) s++;   // пропускаем
+    582              }
+    583              else if (c==13)
+   \                     ??LoadXStatusText_2:
+   \   000000B0   0D0050E3           CMP      R0,#+13
+   \   000000B4   0100001A           BNE      ??LoadXStatusText_3
+    584              {
+    585                if (*s==10) s++;  // пропускаем
+   \   000000B8   0A0051E3           CMP      R1,#+10
+   \                     ??LoadXStatusText_4:
+   \   000000BC   01708702           ADDEQ    R7,R7,#+1
+    586              }
+    587              *p++=c;
+   \                     ??LoadXStatusText_3:
+   \   000000C0   ........           STRB     R0,[R4], #+1
+   \                     ??LoadXStatusText_1:
+   \   000000C4   ........           LDRB     R0,[R7], #+1
+   \   000000C8   000050E3           CMP      R0,#+0
+   \   000000CC   0500000A           BEQ      ??LoadXStatusText_5
+   \   000000D0   0010D7E5           LDRB     R1,[R7, #+0]
+   \   000000D4   0A0050E3           CMP      R0,#+10
+   \   000000D8   F4FFFF1A           BNE      ??LoadXStatusText_2
+   \   000000DC   0D00A0E3           MOV      R0,#+13
+   \   000000E0   0D0051E3           CMP      R1,#+13
+   \   000000E4   F4FFFFEA           B        ??LoadXStatusText_4
+    588            }
+    589            *p=0;
+   \                     ??LoadXStatusText_5:
+   \   000000E8   0080C4E5           STRB     R8,[R4, #+0]
+    590          }
+   \                     ??LoadXStatusText_0:
+   \   000000EC   4BDF8DE2           ADD      SP,SP,#+300      ;; stack cleaning
+   \   000000F0   F081BDE8           POP      {R4-R8,PC}       ;; return
+    591          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    592          void SaveXStatusText(void)
+    593          {
+   \                     SaveXStatusText:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+    594            int f;
+    595            char fn[256];
+    596            unsigned int ul;
+    597            if (!XStatusText) return;
+   \   00000004   ........           LDR      R4,??DataTable20  ;; XStatusText
+   \   00000008   41DF4DE2           SUB      SP,SP,#+260
+   \   0000000C   000094E5           LDR      R0,[R4, #+0]
+   \   00000010   000050E3           CMP      R0,#+0
+   \   00000014   1800000A           BEQ      ??SaveXStatusText_0
+    598            strcpy(fn,TEMPLATES_PATH);
+   \   00000018   ........           LDR      R1,??DataTable17  ;; TEMPLATES_PATH
+   \   0000001C   04008DE2           ADD      R0,SP,#+4
+   \   00000020   1A0000EF           SWI      +26
+    599            strcat(fn,XS_FILE_NAME);
+   \   00000024   ........           LDR      R1,??DataTable18  ;; XS_FILE_NAME
+   \   00000028   04008DE2           ADD      R0,SP,#+4
+   \   0000002C   170000EF           SWI      +23
+    600            if ((f=fopen(fn,A_ReadWrite+A_Create+A_Truncate+A_BIN,P_READ+P_WRITE,&ul))==-1) return;
+   \   00000030   0D30A0E1           MOV      R3,SP
+   \   00000034   602FA0E3           MOV      R2,#+384
+   \   00000038   0210A0E3           MOV      R1,#+2
+   \   0000003C   831C81E3           ORR      R1,R1,#0x8300
+   \   00000040   04008DE2           ADD      R0,SP,#+4
+   \   00000044   0A0000EF           SWI      +10
+   \   00000048   0050A0E1           MOV      R5,R0
+   \   0000004C   010075E3           CMN      R5,#+1
+   \   00000050   0900000A           BEQ      ??SaveXStatusText_0
+    601            fwrite(f,XStatusText,strlen(XStatusText),&ul);
+   \   00000054   000094E5           LDR      R0,[R4, #+0]
+   \   00000058   1B0000EF           SWI      +27
+   \   0000005C   001094E5           LDR      R1,[R4, #+0]
+   \   00000060   0D30A0E1           MOV      R3,SP
+   \   00000064   0020A0E1           MOV      R2,R0
+   \   00000068   0500A0E1           MOV      R0,R5
+   \   0000006C   0C0000EF           SWI      +12
+    602            fclose(f,&ul);
+   \   00000070   0D10A0E1           MOV      R1,SP
+   \   00000074   0500A0E1           MOV      R0,R5
+   \   00000078   0D0000EF           SWI      +13
+    603          }
+   \                     ??SaveXStatusText_0:
+   \   0000007C   41DF8DE2           ADD      SP,SP,#+260      ;; stack cleaning
+   \   00000080   3080BDE8           POP      {R4,R5,PC}       ;; return
+    604          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    605          void FreeXStatusText(void)
+    606          {
+   \                     FreeXStatusText:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    607            mfree(XStatusText);
+   \   00000004   ........           LDR      R4,??DataTable20  ;; XStatusText
+   \   00000008   000094E5           LDR      R0,[R4, #+0]
+   \   0000000C   150000EF           SWI      +21
+    608            XStatusText=NULL;
+   \   00000010   0000A0E3           MOV      R0,#+0
+   \   00000014   000084E5           STR      R0,[R4, #+0]
+    609          }
+   \   00000018   1080BDE8           POP      {R4,PC}          ;; return
+    610          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    611          char *GetXStatusStr(int n, int *len)
+    612          {
+    613            int l=0;
+    614            int c;
+    615            char *p=XStatusText;
+   \                     GetXStatusStr:
+   \   00000000   ........           LDR      R2,??DataTable20  ;; XStatusText
+   \   00000004   10002DE9           PUSH     {R4}
+   \   00000008   002092E5           LDR      R2,[R2, #+0]
+   \   0000000C   0030A0E3           MOV      R3,#+0
+    616            char *pp;
+    617            if (len) *len=0;
+   \   00000010   000051E3           CMP      R1,#+0
+   \   00000014   0040A013           MOVNE    R4,#+0
+   \   00000018   00408115           STRNE    R4,[R1, #+0]
+    618            if (!p) return p;
+   \   0000001C   000052E3           CMP      R2,#+0
+   \   00000020   0800001A           BNE      ??GetXStatusStr_0
+   \                     ??GetXStatusStr_1:
+   \   00000024   1000BDE8           POP      {R4}
+   \   00000028   0000A0E3           MOV      R0,#+0
+   \   0000002C   1EFF2FE1           BX       LR
+    619            while(n)
+    620            {
+    621              while((c=*p++)>=32);
+   \                     ??GetXStatusStr_2:
+   \   00000030   ........           LDRB     R12,[R2], #+1
+   \   00000034   20005CE3           CMP      R12,#+32
+   \   00000038   FCFFFFAA           BGE      ??GetXStatusStr_2
+    622              if (!c) return NULL;
+   \   0000003C   00005CE3           CMP      R12,#+0
+   \   00000040   F7FFFF0A           BEQ      ??GetXStatusStr_1
+    623              n--;
+   \   00000044   010040E2           SUB      R0,R0,#+1
+    624            }
+   \                     ??GetXStatusStr_0:
+   \   00000048   000050E3           CMP      R0,#+0
+   \   0000004C   F7FFFF1A           BNE      ??GetXStatusStr_2
+    625            pp=p;
+   \   00000050   0200A0E1           MOV      R0,R2
+   \   00000054   01C080E2           ADD      R12,R0,#+1
+   \   00000058   010000EA           B        ??GetXStatusStr_3
+    626            while((*pp++)>=32) l++;
+   \                     ??GetXStatusStr_4:
+   \   0000005C   013083E2           ADD      R3,R3,#+1
+   \   00000060   01C08CE2           ADD      R12,R12,#+1
+   \                     ??GetXStatusStr_3:
+   \   00000064   0040A0E1           MOV      R4,R0
+   \   00000068   0040D4E5           LDRB     R4,[R4, #+0]
+   \   0000006C   0C00A0E1           MOV      R0,R12
+   \   00000070   200054E3           CMP      R4,#+32
+   \   00000074   F8FFFF2A           BCS      ??GetXStatusStr_4
+    627            if (len) *len=l;
+   \   00000078   000051E3           CMP      R1,#+0
+   \   0000007C   00308115           STRNE    R3,[R1, #+0]
+    628            return p;
+   \   00000080   1000BDE8           POP      {R4}
+   \   00000084   0200A0E1           MOV      R0,R2
+   \   00000088   1EFF2FE1           BX       LR               ;; return
+    629          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable4:
+   \   00000000   ........           DC32     S_ICONS
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable5:
+   \   00000000   ........           DC32     CurrentStatus
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable8:
+   \   00000000   ........           DC32     WriteDefSettings
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable9:
+   \   00000000   ........           DC32     percent_t
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable11:
+   \   00000000   ........           DC32     XStatusesIconArray
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable12:
+   \   00000000   ........           DC32     CurrentXStatus
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable17:
+   \   00000000   ........           DC32     TEMPLATES_PATH
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable18:
+   \   00000000   ........           DC32     XS_FILE_NAME
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable20:
+   \   00000000   ........           DC32     XStatusText
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for edit_x_sk>`:
+   \   00000000   18000000           DC16 24, 0
+   \   00000004   ........           DC32 `?<Constant "Save!">`
+   \   00000008   01000000           DC16 1, 0
+   \   0000000C   ........           DC32 `?<Constant "">`
+   \   00000010   3D000000           DC16 61, 0
+   \   00000014   FBC0FF7F           DC32 2147467515
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for edit_x_skt>`:
+   \   00000000   ........0000       DC32 edit_x_sk, 0
+   \              0000        
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for sk>`:
+   \   00000000   FF0F0000           DC16 4095, 0
+   \   00000004   ........           DC32 `?<Constant "Save!">`
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for edit_xstatus_desc>`:
+   \   00000000   01000000....       DC32 1, edit_xstatus_onkey, edit_xstatus_ghook, edit_xstatus_locret, 0
+   \              ............
+   \              ........0000
+   \              0000        
+   \   00000014   ........           DC32 edit_x_skt
+   \   00000018   000000000000       DC16 0, 0, 0, 0
+   \              0000        
+   \   00000020   070000006400       DC32 7, 100, 101, 0, 0, 1073741824
+   \              000065000000
+   \              000000000000
+   \              000000000040
+   \                     `?<Initializer for edit_xstatus_hdr>`:
+   \   00000038   000000000000       DC16 0, 0, 0, 0
+   \              0000        
+   \   00000040   00000000....       DC32 0H, `?<Constant "X-\\321\\362\\340\\362\\363\\361">`, 32767
+   \              ....FF7F0000
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\304\\356\\354\\340">`:
+   \   00000000   C4EEECE000         DC8 "\304\356\354\340"
+   \   00000005   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\306\\360\\363">`:
+   \   00000000   C6F0F300           DC8 "\306\360\363"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\315\\340 \\360\\340\\341\\356\\362\\345"`:
+   \   00000000   CDE020F0E0E1       DC8 "\315\340 \360\340\341\356\362\345"
+   \              EEF2E500    
+   \   0000000A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\321\\354\\345\\355\\350\\362\\374 \\361\\`:
+   \   00000000   D1ECE5EDE8F2       DC8 "\321\354\345\355\350\362\374 \361\362\340\362\363\361"
+   \              FC20F1F2E0F2
+   \              F3F100      
+   \   0000000F   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\302\\373\\341\\356\\360">`:
+   \   00000000   C2FBE1EEF000       DC8 "\302\373\341\356\360"
+   \   00000006   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\303\\356\\362\\356\\342 \\341\\356\\353\\`:
+   \   00000000   C3EEF2EEE220       DC8 "\303\356\362\356\342 \341\356\353\362\340\362\374"
+   \              E1EEEBF2E0F2
+   \              FC00        
+   \   0000000E   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\315\\340\\347\\340\\344">`:
+   \   00000000   CDE0E7E0E400       DC8 "\315\340\347\340\344"
+   \   00000006   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Save!">`:
+   \   00000000   536176652100       DC8 "Save!"
+   \   00000006   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \                     `?<Constant "">`:
+   \   00000000   00                 DC8 ""
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "X-\\321\\362\\340\\362\\363\\361">`:
+   \   00000000   582DD1F2E0F2       DC8 "X-\321\362\340\362\363\361"
+   \              F3F100      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\322\\345\\352\\361\\362">`:
+   \   00000000   D2E5EAF1F200       DC8 "\322\345\352\361\362"
+   \   00000006   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\321\\354\\345\\355\\350\\362\\374 X-\\36`:
+   \   00000000   D1ECE5EDE8F2       DC8 "\321\354\345\355\350\362\374 X-\361\362\340\362\363\361"
+   \              FC20582DF1F2
+   \              E0F2F3F100  
+   \   00000011   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\312\\356\\354\\354\\345\\355\\362\\340\\3`:
+   \   00000000   CAEEECECE5ED       DC8 "\312\356\354\354\345\355\362\340\360\350\351:"
+   \              F2E0F0E8E93A
+   \              00          
+   \   0000000D   000000             DC8 0, 0, 0
+   \   00000010   53686F727420       DC8 "Short X:"
+   \              583A00      
+   \   00000019   000000             DC8 0, 0, 0
+   \   0000001C   4C6172676520       DC8 "Large X:"
+   \              583A00      
+   \   00000025   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Short XS %d">`:
+   \   00000000   53686F727420       DC8 "Short XS %d"
+   \              585320256400
+   \   0000000C   4C6172676520       DC8 "Large XS %d"
+   \              585320256400
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\302 \\361\\345\\362\\350">`:
+   \   00000000   C220F1E5F2E8       DC8 "\302 \361\345\362\350"
+   \              00          
+   \   00000007   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\316\\362\\356\\370\\270\\353">`:
+   \   00000000   CEF2EEF8B8EB       DC8 "\316\362\356\370\270\353"
+   \              00          
+   \   00000007   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\315\\345\\344\\356\\361\\362\\363\\357\\3`:
+   \   00000000   CDE5E4EEF1F2       DC8 "\315\345\344\356\361\362\363\357\345\355"
+   \              F3EFE5ED00  
+   \   0000000B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\315\\345 \\341\\345\\361\\357\\356\\352\\`:
+   \   00000000   CDE520E1E5F1       DC8 "\315\345 \341\345\361\357\356\352\356\350\362\374"
+   \              EFEEEAEEE8F2
+   \              FC00        
+   \   0000000E   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\307\\340\\355\\377\\362">`:
+   \   00000000   C7E0EDFFF200       DC8 "\307\340\355\377\362"
+   \   00000006   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\315\\345\\342\\350\\344\\350\\354\\373\\3`:
+   \   00000000   CDE5E2E8E4E8       DC8 "\315\345\342\350\344\350\354\373\351"
+   \              ECFBE900    
+   \   0000000A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\304\\345\\357\\360\\345\\361\\361\\350\\3`:
+   \   00000000   C4E5EFF0E5F1       DC8 "\304\345\357\360\345\361\361\350\377"
+   \              F1E8FF00    
+   \   0000000A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\307\\353\\356\\351">`:
+   \   00000000   C7EBEEE900         DC8 "\307\353\356\351"
+   \   00000005   000000             DC8 0, 0, 0
+
+   Maximum stack usage in bytes:
+
+     Function              CSTACK
+     --------              ------
+     DispStatusChangeMenu     32
+     DispXStatusChangeMenu    16
+     EditXStatus              88
+     FreeXStatusText           8
+     GetXStatusStr             4
+     LoadXStatusText         324
+     ReplaceStr               36
+     SaveXStatusText         272
+     edit_xstatus_ghook        4
+     edit_xstatus_locret       0
+     edit_xstatus_onkey      224
+     st_icons_set             24
+     st_onkey                  4
+     stmenu_ghook              4
+     xst_ghook                 8
+     xst_itemh               728
+     xst_onkey                 8
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     XS_FILE_NAME                     16
+     XStatusText                       4
+     st_onkey                        192
+     menutexts                        48
+     st_icons_set                    248
+     stmenu_ghook                     20
+     st_menuhdr                       64
+     st_menusoftkeys                  12
+     st_menu_sk                       24
+     st_menu_skt                       8
+     DispStatusChangeMenu            236
+     edit_x_sk                        24
+     edit_x_skt                        8
+     edit_xstatus_locret               4
+     ReplaceStr                      152
+     edit_xstatus_onkey              632
+     edit_xstatus_ghook               48
+     sk                                8
+     edit_xstatus_desc                76
+     EditXStatus                     816
+     xst_onkey                        80
+     xst_ghook                        64
+     xst_itemh                       388
+     xst_menu_sk                      24
+     xst_menu_skt                      8
+     xst_menuhdr                      68
+     DispXStatusChangeMenu           112
+     LoadXStatusText                 244
+     SaveXStatusText                 132
+     FreeXStatusText                  28
+     GetXStatusStr                   140
+     ??DataTable4                      4
+     ??DataTable5                      4
+     ??DataTable8                      4
+     ??DataTable9                      4
+     ??DataTable11                     4
+     ??DataTable12                     4
+     ??DataTable17                     4
+     ??DataTable18                     4
+     ??DataTable20                     4
+     ?<Initializer for edit_x_sk>     24
+     ?<Initializer for edit_x_skt>     8
+     ?<Initializer for sk>             8
+     ?<Initializer for edit_xstatus_desc>
+                                      76
+     ?<Constant "\304\356\354\340">    8
+     ?<Constant "\306\360\363">        4
+     ?<Constant "\315\340 \360\340\341\356\362\345"
+                                      12
+     ?<Constant "\321\354\345\355\350\362\374 \361\
+                                      16
+     ?<Constant "\302\373\341\356\360">
+                                       8
+     ?<Constant "\303\356\362\356\342 \341\356\353\
+                                      16
+     ?<Constant "\315\340\347\340\344">
+                                       8
+     ?<Constant "Save!">               8
+     ?<Constant "">                    1
+     ?<Constant "X-\321\362\340\362\363\361">
+                                      12
+     ?<Constant "\322\345\352\361\362">
+                                       8
+     ?<Constant "\321\354\345\355\350\362\374 X-\36
+                                      20
+     ?<Constant "\312\356\354\354\345\355\362\340\3
+                                      40
+     ?<Constant "Short XS %d">        24
+     ?<Constant "\302 \361\345\362\350">
+                                       8
+     ?<Constant "\316\362\356\370\270\353">
+                                       8
+     ?<Constant "\315\345\344\356\361\362\363\357\3
+                                      12
+     ?<Constant "\315\345 \341\345\361\357\356\352\
+                                      16
+     ?<Constant "\307\340\355\377\362">
+                                       8
+     ?<Constant "\315\345\342\350\344\350\354\373\3
+                                      12
+     ?<Constant "\304\345\357\360\345\361\361\350\3
+                                      12
+     ?<Constant "\307\353\356\351">    8
+      Others                         152
+
+ 
+ 3 700 bytes in segment CODE
+   541 bytes in segment DATA_C
+   116 bytes in segment DATA_I
+   116 bytes in segment DATA_ID
+     4 bytes in segment DATA_Z
+    24 bytes in segment INITTAB
+ 
+ 3 572 bytes of CODE  memory (+ 152 bytes shared)
+   657 bytes of CONST memory
+   120 bytes of DATA  memory
+
+Errors: none
+Warnings: none

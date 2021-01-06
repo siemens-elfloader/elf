@@ -1,0 +1,986 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    15/Feb/2011  01:38:47 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\SieJC_BR\bookmarks.c                          #
+#    Command line    =  C:\arm\SieJC_BR\bookmarks.c -D NEWSGOLD -D ELKA      #
+#                       --preprocess C:\arm\SieJC_BR\Release_ELKA\List\ -lC  #
+#                       C:\arm\SieJC_BR\Release_ELKA\List\ -o                #
+#                       C:\arm\SieJC_BR\Release_ELKA\Obj\ -s9 --no_unroll    #
+#                       --cpu_mode arm --endian little --cpu ARM926EJ-S      #
+#                       --stack_align 4 --interwork -e --fpu None            #
+#                       --dlib_config "C:\arm2\Embedded Workbench 4.0        #
+#                       Evaluation\ARM\LIB\dl5tpainl8n.h" -I                 #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\SieJC_BR\Release_ELKA\List\bookmarks.lst      #
+#    Object file     =  C:\arm\SieJC_BR\Release_ELKA\Obj\bookmarks.r79       #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\SieJC_BR\bookmarks.c
+      1          #include "../inc/swilib.h"
+      2          #include "main.h"
+      3          #include "jabber_util.h"
+      4          #include "bookmarks.h"
+      5          #include "MUC_Enter_UI.h"
+      6          #include "lang.h"
+      7          #include "rect_patcher.h"
+      8          
+      9          BM_ITEM *BM_ROOT  = NULL;
+     10          int reqbook = 0; //флаг запроса закладок
+     11          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     12          void KillBMList()
+     13          {
+   \                     KillBMList:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+     14            LockSched();
+     15            BM_ITEM* cl=BM_ROOT;
+   \   00000004   ........           LDR      R4,??DataTable7  ;; bm_menuhdr
+   \   00000008   460100EF           SWI      +326
+   \   0000000C   1C5094E5           LDR      R5,[R4, #+28]
+     16            BM_ROOT=NULL;
+   \   00000010   0060A0E3           MOV      R6,#+0
+   \   00000014   1C6084E5           STR      R6,[R4, #+28]
+   \   00000018   000055E3           CMP      R5,#+0
+   \   0000001C   1200000A           BEQ      ??KillBMList_0
+     17            while(cl)
+     18            {
+     19              BM_ITEM *p;
+     20              mfree(cl->bmname);
+   \                     ??KillBMList_1:
+   \   00000020   000095E5           LDR      R0,[R5, #+0]
+   \   00000024   150000EF           SWI      +21
+     21              if(cl->mucname)mfree(cl->mucname);
+   \   00000028   040095E5           LDR      R0,[R5, #+4]
+   \   0000002C   000050E3           CMP      R0,#+0
+   \   00000030   0000000A           BEQ      ??KillBMList_2
+   \   00000034   150000EF           SWI      +21
+     22              if(cl->nick)mfree(cl->nick);
+   \                     ??KillBMList_2:
+   \   00000038   080095E5           LDR      R0,[R5, #+8]
+   \   0000003C   000050E3           CMP      R0,#+0
+   \   00000040   0000000A           BEQ      ??KillBMList_3
+   \   00000044   150000EF           SWI      +21
+     23              if(cl->pass)mfree(cl->pass);
+   \                     ??KillBMList_3:
+   \   00000048   0C0095E5           LDR      R0,[R5, #+12]
+   \   0000004C   000050E3           CMP      R0,#+0
+   \   00000050   0000000A           BEQ      ??KillBMList_4
+   \   00000054   150000EF           SWI      +21
+     24              p=cl;
+   \                     ??KillBMList_4:
+   \   00000058   0500A0E1           MOV      R0,R5
+     25              cl=(BM_ITEM*)(cl->next);
+   \   0000005C   105095E5           LDR      R5,[R5, #+16]
+     26              mfree(p);
+   \   00000060   150000EF           SWI      +21
+     27              p=NULL;
+     28            }
+   \   00000064   000055E3           CMP      R5,#+0
+   \   00000068   ECFFFF1A           BNE      ??KillBMList_1
+     29            reqbook = 0;
+   \                     ??KillBMList_0:
+   \   0000006C   206084E5           STR      R6,[R4, #+32]
+     30            UnlockSched();
+   \   00000070   470100EF           SWI      +327
+     31          }
+   \   00000074   7080BDE8           POP      {R4-R6,PC}       ;; return
+     32          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     33          void Process_Bookmarks_Storage(XMLNode* nodeEx)
+     34          {
+     35            XMLNode *elem = nodeEx->subnode;
+   \                     Process_Bookmarks_Storage:
+   \   00000000   28129FE5           LDR      R1,??Process_Bookmarks_Storage_0+0x4  ;; `?<Constant "jid">`
+   \   00000004   F04F2DE9           PUSH     {R4-R11,LR}
+   \   00000008   08D04DE2           SUB      SP,SP,#+8
+   \   0000000C   002091E5           LDR      R2,[R1, #0]
+   \   00000010   045090E5           LDR      R5,[R0, #+4]
+   \   00000014   04008DE2           ADD      R0,SP,#+4
+   \   00000018   002080E5           STR      R2,[R0, #+0]
+     36            XMLNode *tmpnode;
+     37            extern const char conference_t[];
+     38            extern const int MUC_AUTOJOIN;
+     39            char jid[] = "jid";
+     40            char ajoin=0;
+   \   0000001C   0040A0E3           MOV      R4,#+0
+   \   00000020   0040CDE5           STRB     R4,[SP, #+0]
+     41            char *bm_name = NULL;
+     42            char *n_name = NULL;
+     43            char *c_name=NULL;
+     44            char *c_nick=NULL;
+     45            char *c_pass=NULL;
+     46            char *c_ajoin = NULL;
+   \   00000024   000000EA           B        ??Process_Bookmarks_Storage_1
+     47          
+     48            while(elem)
+     49            {
+     50              n_name = elem->name;
+     51              if(!n_name)return;
+     52               if(!strcmp(n_name, conference_t)) // Элемент конференции
+     53              {
+     54                c_name = XML_Get_Attr_Value(jid,elem->attr);
+     55                bm_name = XML_Get_Attr_Value("name",elem->attr);
+     56                c_ajoin = XML_Get_Attr_Value("autojoin",elem->attr);
+     57           
+     58                tmpnode = XML_Get_Child_Node_By_Name(elem, "nick");
+     59                if(tmpnode)
+     60                {
+     61                  c_nick = tmpnode->value;
+     62                }else c_nick=NULL;
+     63          
+     64                tmpnode = XML_Get_Child_Node_By_Name(elem, "password");
+     65                if(tmpnode)
+     66                {
+     67                  c_pass = tmpnode->value;
+     68                }else c_pass = NULL;
+     69          
+     70                BM_ITEM *bmitem = malloc(sizeof(BM_ITEM));
+     71                      if(!bm_name) strcpy(bm_name ,c_name); //если нет имени, имя=JID
+     72                bmitem->bmname = malloc(strlen(bm_name)+1);
+     73                strcpy(bmitem->bmname, bm_name);
+     74            
+     75                bmitem->mucname = malloc(strlen(c_name)+1);
+     76                strcpy(bmitem->mucname, c_name);
+     77                if(c_nick)
+     78                {
+     79                  bmitem->nick = malloc(strlen(c_nick)+1);
+     80                  strcpy(bmitem->nick, c_nick);
+     81                }
+     82                else bmitem->nick = NULL;
+     83                if(c_pass)
+     84                {
+     85                  bmitem->pass = malloc(strlen(c_pass)+1);
+     86                  strcpy(bmitem->pass, c_pass);
+     87                }
+     88                else bmitem->pass = NULL;
+     89          
+     90                // Создаём очередной элемент списка
+     91                //если нет имени конфы такая закладка нам ненужна
+     92                if(bmitem->mucname)
+     93                {
+     94                if(MUC_AUTOJOIN && c_ajoin && (bmitem->nick))
+     95                {
+     96                if((!strcmp(c_ajoin, "true"))||(!strcmp(c_ajoin, "1")))
+     97                  {
+     98                    ajoin=1;
+     99                    extern const unsigned int DEFAULT_MUC_MSGCOUNT;
+    100                    Enter_Conference(bmitem->mucname, bmitem->nick, bmitem->pass, DEFAULT_MUC_MSGCOUNT);
+    101                  }
+    102                }
+    103                bmitem->next = NULL;
+    104          
+    105                BM_ITEM *tmp=BM_ROOT;
+    106                if(tmp)
+    107                  while(tmp->next)tmp = tmp->next;
+    108                if(tmp)
+    109                {
+    110                  tmp->next = bmitem;
+    111                }
+    112                else BM_ROOT = bmitem;
+    113                }
+    114              }
+    115              elem = elem->next;
+   \                     ??Process_Bookmarks_Storage_2:
+   \   00000028   005095E5           LDR      R5,[R5, #+0]
+   \                     ??Process_Bookmarks_Storage_1:
+   \   0000002C   000055E3           CMP      R5,#+0
+   \   00000030   7500000A           BEQ      ??Process_Bookmarks_Storage_3
+   \   00000034   080095E5           LDR      R0,[R5, #+8]
+   \   00000038   000050E3           CMP      R0,#+0
+   \   0000003C   F38FBD08           POPEQ    {R0,R1,R4-R11,PC}
+   \   00000040   EC119FE5           LDR      R1,??Process_Bookmarks_Storage_0+0x8  ;; conference_t
+   \   00000044   190000EF           SWI      +25
+   \   00000048   000050E3           CMP      R0,#+0
+   \   0000004C   F5FFFF1A           BNE      ??Process_Bookmarks_Storage_2
+   \   00000050   0C1095E5           LDR      R1,[R5, #+12]
+   \   00000054   04008DE2           ADD      R0,SP,#+4
+   \   00000058   ........           _BLF     XML_Get_Attr_Value,??XML_Get_Attr_Value??rA
+   \   0000005C   0C1095E5           LDR      R1,[R5, #+12]
+   \   00000060   0060A0E1           MOV      R6,R0
+   \   00000064   CC019FE5           LDR      R0,??Process_Bookmarks_Storage_0+0xC  ;; `?<Constant "jid">` + 4
+   \   00000068   ........           _BLF     XML_Get_Attr_Value,??XML_Get_Attr_Value??rA
+   \   0000006C   0C1095E5           LDR      R1,[R5, #+12]
+   \   00000070   0070A0E1           MOV      R7,R0
+   \   00000074   C0019FE5           LDR      R0,??Process_Bookmarks_Storage_0+0x10  ;; `?<Constant "jid">` + 12
+   \   00000078   ........           _BLF     XML_Get_Attr_Value,??XML_Get_Attr_Value??rA
+   \   0000007C   BC119FE5           LDR      R1,??Process_Bookmarks_Storage_0+0x14  ;; `?<Constant "jid">` + 24
+   \   00000080   0080A0E1           MOV      R8,R0
+   \   00000084   0500A0E1           MOV      R0,R5
+   \   00000088   ........           _BLF     XML_Get_Child_Node_By_Name,??XML_Get_Child_Node_By_Name??rA
+   \   0000008C   B0119FE5           LDR      R1,??Process_Bookmarks_Storage_0+0x18  ;; `?<Constant "jid">` + 32
+   \   00000090   000050E3           CMP      R0,#+0
+   \   00000094   10909015           LDRNE    R9,[R0, #+16]
+   \   00000098   0500A0E1           MOV      R0,R5
+   \   0000009C   0090A003           MOVEQ    R9,#+0
+   \   000000A0   ........           _BLF     XML_Get_Child_Node_By_Name,??XML_Get_Child_Node_By_Name??rA
+   \   000000A4   000050E3           CMP      R0,#+0
+   \   000000A8   10A09015           LDRNE    R10,[R0, #+16]
+   \   000000AC   1400A0E3           MOV      R0,#+20
+   \   000000B0   00A0A003           MOVEQ    R10,#+0
+   \   000000B4   140000EF           SWI      +20
+   \   000000B8   00B0A0E1           MOV      R11,R0
+   \   000000BC   000057E3           CMP      R7,#+0
+   \   000000C0   0200001A           BNE      ??Process_Bookmarks_Storage_4
+   \   000000C4   0610A0E1           MOV      R1,R6
+   \   000000C8   0000A0E3           MOV      R0,#+0
+   \   000000CC   1A0000EF           SWI      +26
+   \                     ??Process_Bookmarks_Storage_4:
+   \   000000D0   0700A0E1           MOV      R0,R7
+   \   000000D4   1B0000EF           SWI      +27
+   \   000000D8   010080E2           ADD      R0,R0,#+1
+   \   000000DC   140000EF           SWI      +20
+   \   000000E0   00008BE5           STR      R0,[R11, #+0]
+   \   000000E4   0710A0E1           MOV      R1,R7
+   \   000000E8   1A0000EF           SWI      +26
+   \   000000EC   0600A0E1           MOV      R0,R6
+   \   000000F0   1B0000EF           SWI      +27
+   \   000000F4   010080E2           ADD      R0,R0,#+1
+   \   000000F8   140000EF           SWI      +20
+   \   000000FC   04008BE5           STR      R0,[R11, #+4]
+   \   00000100   0610A0E1           MOV      R1,R6
+   \   00000104   1A0000EF           SWI      +26
+   \   00000108   000059E3           CMP      R9,#+0
+   \   0000010C   0700000A           BEQ      ??Process_Bookmarks_Storage_5
+   \   00000110   0900A0E1           MOV      R0,R9
+   \   00000114   1B0000EF           SWI      +27
+   \   00000118   010080E2           ADD      R0,R0,#+1
+   \   0000011C   140000EF           SWI      +20
+   \   00000120   08008BE5           STR      R0,[R11, #+8]
+   \   00000124   0910A0E1           MOV      R1,R9
+   \   00000128   1A0000EF           SWI      +26
+   \   0000012C   000000EA           B        ??Process_Bookmarks_Storage_6
+   \                     ??Process_Bookmarks_Storage_5:
+   \   00000130   08408BE5           STR      R4,[R11, #+8]
+   \                     ??Process_Bookmarks_Storage_6:
+   \   00000134   00005AE3           CMP      R10,#+0
+   \   00000138   0700000A           BEQ      ??Process_Bookmarks_Storage_7
+   \   0000013C   0A00A0E1           MOV      R0,R10
+   \   00000140   1B0000EF           SWI      +27
+   \   00000144   010080E2           ADD      R0,R0,#+1
+   \   00000148   140000EF           SWI      +20
+   \   0000014C   0C008BE5           STR      R0,[R11, #+12]
+   \   00000150   0A10A0E1           MOV      R1,R10
+   \   00000154   1A0000EF           SWI      +26
+   \   00000158   000000EA           B        ??Process_Bookmarks_Storage_8
+   \                     ??Process_Bookmarks_Storage_7:
+   \   0000015C   0C408BE5           STR      R4,[R11, #+12]
+   \                     ??Process_Bookmarks_Storage_8:
+   \   00000160   04009BE5           LDR      R0,[R11, #+4]
+   \   00000164   000050E3           CMP      R0,#+0
+   \   00000168   AEFFFF0A           BEQ      ??Process_Bookmarks_Storage_2
+   \   0000016C   D4009FE5           LDR      R0,??Process_Bookmarks_Storage_0+0x1C  ;; MUC_AUTOJOIN
+   \   00000170   000090E5           LDR      R0,[R0, #+0]
+   \   00000174   000050E3           CMP      R0,#+0
+   \   00000178   00005813           CMPNE    R8,#+0
+   \   0000017C   08009B15           LDRNE    R0,[R11, #+8]
+   \   00000180   00005013           CMPNE    R0,#+0
+   \   00000184   1200000A           BEQ      ??Process_Bookmarks_Storage_9
+   \   00000188   BC109FE5           LDR      R1,??Process_Bookmarks_Storage_0+0x20  ;; `?<Constant "jid">` + 44
+   \   0000018C   0800A0E1           MOV      R0,R8
+   \   00000190   190000EF           SWI      +25
+   \   00000194   000050E3           CMP      R0,#+0
+   \   00000198   0400000A           BEQ      ??Process_Bookmarks_Storage_10
+   \   0000019C   221F8FE2           ADR      R1,??Process_Bookmarks_Storage_0  ;; "1"
+   \   000001A0   0800A0E1           MOV      R0,R8
+   \   000001A4   190000EF           SWI      +25
+   \   000001A8   000050E3           CMP      R0,#+0
+   \   000001AC   0800001A           BNE      ??Process_Bookmarks_Storage_9
+   \                     ??Process_Bookmarks_Storage_10:
+   \   000001B0   ........           LDR      R0,??DataTable5  ;; DEFAULT_MUC_MSGCOUNT
+   \   000001B4   0110A0E3           MOV      R1,#+1
+   \   000001B8   0010CDE5           STRB     R1,[SP, #+0]
+   \   000001BC   003090E5           LDR      R3,[R0, #+0]
+   \   000001C0   0C209BE5           LDR      R2,[R11, #+12]
+   \   000001C4   08109BE5           LDR      R1,[R11, #+8]
+   \   000001C8   04009BE5           LDR      R0,[R11, #+4]
+   \   000001CC   FF3003E2           AND      R3,R3,#0xFF
+   \   000001D0   ........           _BLF     Enter_Conference,??Enter_Conference??rA
+   \                     ??Process_Bookmarks_Storage_9:
+   \   000001D4   ........           LDR      R0,??DataTable7  ;; bm_menuhdr
+   \   000001D8   10408BE5           STR      R4,[R11, #+16]
+   \   000001DC   1C1090E5           LDR      R1,[R0, #+28]
+   \   000001E0   000051E3           CMP      R1,#+0
+   \   000001E4   0400000A           BEQ      ??Process_Bookmarks_Storage_11
+   \   000001E8   000000EA           B        ??Process_Bookmarks_Storage_12
+   \                     ??Process_Bookmarks_Storage_13:
+   \   000001EC   0210A0E1           MOV      R1,R2
+   \                     ??Process_Bookmarks_Storage_12:
+   \   000001F0   102091E5           LDR      R2,[R1, #+16]
+   \   000001F4   000052E3           CMP      R2,#+0
+   \   000001F8   FBFFFF1A           BNE      ??Process_Bookmarks_Storage_13
+   \                     ??Process_Bookmarks_Storage_11:
+   \   000001FC   000051E3           CMP      R1,#+0
+   \   00000200   1CB08005           STREQ    R11,[R0, #+28]
+   \   00000204   10B08115           STRNE    R11,[R1, #+16]
+   \   00000208   86FFFFEA           B        ??Process_Bookmarks_Storage_2
+    116            }
+    117            if (!(MUC_AUTOJOIN&&ajoin))Disp_BM_Menu();
+   \                     ??Process_Bookmarks_Storage_3:
+   \   0000020C   34009FE5           LDR      R0,??Process_Bookmarks_Storage_0+0x1C  ;; MUC_AUTOJOIN
+   \   00000210   000090E5           LDR      R0,[R0, #+0]
+   \   00000214   000050E3           CMP      R0,#+0
+   \   00000218   0000DD15           LDRBNE   R0,[SP, #+0]
+   \   0000021C   00005013           CMPNE    R0,#+0
+   \   00000220   F38FBD18           POPNE    {R0,R1,R4-R11,PC}
+   \   00000224   ........           BL       Disp_BM_Menu
+   \   00000228   F38FBDE8           POP      {R0,R1,R4-R11,PC}  ;; return
+   \                     ??Process_Bookmarks_Storage_0:
+   \   0000022C   31000000           DC8      "1",+0,+0
+   \   00000230   ........           DC32     `?<Constant "jid">`
+   \   00000234   ........           DC32     conference_t
+   \   00000238   ........           DC32     `?<Constant "jid">` + 4
+   \   0000023C   ........           DC32     `?<Constant "jid">` + 12
+   \   00000240   ........           DC32     `?<Constant "jid">` + 24
+   \   00000244   ........           DC32     `?<Constant "jid">` + 32
+   \   00000248   ........           DC32     MUC_AUTOJOIN
+   \   0000024C   ........           DC32     `?<Constant "jid">` + 44
+    118          }
+    119          
+    120          //Context:HELPER
+
+   \                                 In segment CODE, align 4, keep-with-next
+    121          void _getbookmarkslist()
+    122          {
+    123            static char priv_id[]="SieJC_priv_req";
+    124            static char bm[]="<storage xmlns='storage:bookmarks'/>";
+    125            char gget[]=IQTYPE_GET;
+   \                     _getbookmarkslist:
+   \   00000000   44109FE5           LDR      R1,??_getbookmarkslist_0  ;; `?<Constant "get">`
+   \   00000004   30402DE9           PUSH     {R4,R5,LR}
+   \   00000008   18D04DE2           SUB      SP,SP,#+24
+   \   0000000C   002091E5           LDR      R2,[R1, #0]
+    126            char iqv[]=IQ_PRIVATE;
+   \   00000010   38109FE5           LDR      R1,??_getbookmarkslist_0+0x4  ;; `?<Constant "jabber:iq:private">`
+   \   00000014   0D00A0E1           MOV      R0,SP
+   \   00000018   002080E5           STR      R2,[R0, #+0]
+   \   0000001C   3C1091E8           LDM      R1,{R2-R5,R12}
+   \   00000020   04008DE2           ADD      R0,SP,#+4
+   \   00000024   3C1080E8           STM      R0,{R2-R5,R12}
+    127            SendIq(NULL, gget, priv_id, iqv, bm);
+   \   00000028   24209FE5           LDR      R2,??_getbookmarkslist_0+0x8  ;; ??priv_id
+   \   0000002C   100082E2           ADD      R0,R2,#+16
+   \   00000030   01002DE9           PUSH     {R0}
+   \   00000034   08308DE2           ADD      R3,SP,#+8
+   \   00000038   04108DE2           ADD      R1,SP,#+4
+   \   0000003C   0000A0E3           MOV      R0,#+0
+   \   00000040   ........           _BLF     SendIq,??SendIq??rA
+    128          }
+   \   00000044   1CD08DE2           ADD      SP,SP,#+28
+   \   00000048   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??_getbookmarkslist_0:
+   \   0000004C   ........           DC32     `?<Constant "get">`
+   \   00000050   ........           DC32     `?<Constant "jabber:iq:private">`
+   \   00000054   ........           DC32     ??priv_id
+    129          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    130          void Get_Bookmarks_List()
+    131          {
+   \                     Get_Bookmarks_List:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    132            if((!BM_ROOT)&&(reqbook==0))
+   \   00000004   ........           LDR      R4,??DataTable7  ;; bm_menuhdr
+   \   00000008   1C0094E5           LDR      R0,[R4, #+28]
+   \   0000000C   000050E3           CMP      R0,#+0
+   \   00000010   0700001A           BNE      ??Get_Bookmarks_List_0
+   \   00000014   200094E5           LDR      R0,[R4, #+32]
+   \   00000018   000050E3           CMP      R0,#+0
+   \   0000001C   1080BD18           POPNE    {R4,PC}
+    133            {
+    134                SUBPROC((void*)_getbookmarkslist);
+   \   00000020   14009FE5           LDR      R0,??Get_Bookmarks_List_1  ;; _getbookmarkslist
+   \   00000024   710100EF           SWI      +369
+    135                reqbook=1;
+   \   00000028   0100A0E3           MOV      R0,#+1
+   \   0000002C   200084E5           STR      R0,[R4, #+32]
+   \   00000030   1080BDE8           POP      {R4,PC}
+    136            }
+    137            else 
+    138              if(BM_ROOT) Disp_BM_Menu();
+   \                     ??Get_Bookmarks_List_0:
+   \   00000034   ........           BL       Disp_BM_Menu
+    139          }
+   \   00000038   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??Get_Bookmarks_List_1:
+   \   0000003C   ........           DC32     _getbookmarkslist
+    140          
+    141          int BM_MenuID;
+    142          int Req_Close_BM_Menu=0;
+    143          extern BM_ITEM *BM_ROOT;
+    144          
+
+   \                                 In segment DATA_C, align 4, align-sorted
+    145          const char bmmenu_header[]=LG_MENUBOOKMARK;
+   \                     bmmenu_header:
+   \   00000000   CCE5EDFE20E7       DC8 "\314\345\355\376 \347\340\352\353\340\344\356\352"
+   \              E0EAEBE0E4EE
+   \              EA00        
+   \   0000000E   0000               DC8 0, 0
+    146          int bmmenusoftkeys[]={0,1,2};
+    147          HEADER_DESC bm_menuhdr={0,0,0,0,NULL,(int)bmmenu_header,LGP_NULL};
+    148          SOFTKEY_DESC bmmenu_sk[]=
+    149          {
+    150            {0x0018,0x0000,(int)LG_EDIT},
+    151            {0x0001,0x0000,(int)LG_BACK},
+    152            {0x003D,0x0000,(int)LGP_DOIT_PIC}
+    153          };
+    154          
+    155          SOFTKEYSTAB bmmenu_skt=
+    156          {
+    157            bmmenu_sk,0
+    158          };
+    159          
+    160          void bm_menu_ghook(void *data, int cmd);
+    161          int bm_menu_onkey(void *data, GUI_MSG *msg);
+    162          void bm_menu_iconhndl(void *data, int curitem, void *unk);
+    163          
+    164          MENU_DESC bm_menu=
+    165          {
+    166            8,bm_menu_onkey,bm_menu_ghook,NULL,
+    167            bmmenusoftkeys,
+    168            &bmmenu_skt,
+    169            0x11,
+    170            bm_menu_iconhndl,
+    171            NULL,   //Items
+    172            NULL,   //Procs
+    173            0   //n
+    174          };
+    175          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    176          void bm_menu_ghook(void *data, int cmd)
+    177          {
+   \                     bm_menu_ghook:
+   \   00000000   00402DE9           PUSH     {LR}
+    178            if (cmd==TI_CMD_FOCUS)  // onFocus
+   \   00000004   0A0051E3           CMP      R1,#+10
+   \   00000008   0080BD18           POPNE    {PC}
+    179            {
+    180              DisableIDLETMR();
+   \   0000000C   7F0100EF           SWI      +383
+    181              if(Req_Close_BM_Menu)
+   \   00000010   ........           LDR      R0,??DataTable7  ;; bm_menuhdr
+   \   00000014   281090E5           LDR      R1,[R0, #+40]
+   \   00000018   000051E3           CMP      R1,#+0
+   \   0000001C   0080BD08           POPEQ    {PC}
+    182              {
+    183                Req_Close_BM_Menu=0;
+   \   00000020   0010A0E3           MOV      R1,#+0
+   \   00000024   281080E5           STR      R1,[R0, #+40]
+    184                GeneralFunc_flag1(BM_MenuID,1);
+   \   00000028   240090E5           LDR      R0,[R0, #+36]
+   \   0000002C   0110A0E3           MOV      R1,#+1
+   \   00000030   3D0100EF           SWI      +317
+    185              }
+    186            }
+    187          }
+   \   00000034   0080BDE8           POP      {PC}             ;; return
+    188          
+    189          /*
+    190            Обработчик нажатий клавиш меню. Отсюда следует вызывать необходимые действия
+    191          
+    192          */
+
+   \                                 In segment CODE, align 4, keep-with-next
+    193          int bm_menu_onkey(void *data, GUI_MSG *msg)
+    194          {
+   \                     bm_menu_onkey:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0140A0E1           MOV      R4,R1
+    195            int i=GetCurMenuItem(data);
+   \   00000008   8F0100EF           SWI      +399
+    196            if(msg->keys==0x18 || msg->keys==0x3D)
+   \   0000000C   F230D4E1           LDRSH    R3,[R4, #+2]
+   \   00000010   180053E3           CMP      R3,#+24
+   \   00000014   3D005313           CMPNE    R3,#+61
+   \   00000018   1A00001A           BNE      ??bm_menu_onkey_0
+    197            {
+    198              char s=0;
+    199              BM_ITEM *it = BM_ROOT;
+   \   0000001C   6C209FE5           LDR      R2,??bm_menu_onkey_1  ;; bm_menuhdr + 28
+   \   00000020   0010A0E3           MOV      R1,#+0
+   \   00000024   004092E5           LDR      R4,[R2, #+0]
+   \   00000028   020000EA           B        ??bm_menu_onkey_2
+    200              while(s!=i && it)
+    201              {
+    202                s++;
+    203                it=it->next;
+   \                     ??bm_menu_onkey_3:
+   \   0000002C   104094E5           LDR      R4,[R4, #+16]
+   \   00000030   011081E2           ADD      R1,R1,#+1
+   \   00000034   FF1001E2           AND      R1,R1,#0xFF
+    204              };
+   \                     ??bm_menu_onkey_2:
+   \   00000038   000051E1           CMP      R1,R0
+   \   0000003C   00005413           CMPNE    R4,#+0
+   \   00000040   F9FFFF1A           BNE      ??bm_menu_onkey_3
+    205              if(it->mucname && it->nick && (msg->keys == 0x3D)) //Нажат центральный джой
+   \   00000044   081094E5           LDR      R1,[R4, #+8]
+   \   00000048   040094E5           LDR      R0,[R4, #+4]
+   \   0000004C   0C2094E5           LDR      R2,[R4, #+12]
+   \   00000050   000050E3           CMP      R0,#+0
+   \   00000054   00005113           CMPNE    R1,#+0
+   \   00000058   0700000A           BEQ      ??bm_menu_onkey_4
+   \   0000005C   3D0053E3           CMP      R3,#+61
+   \   00000060   0500001A           BNE      ??bm_menu_onkey_4
+    206              {
+    207                extern const unsigned int DEFAULT_MUC_MSGCOUNT;
+    208                Enter_Conference(it->mucname, it->nick, it->pass, DEFAULT_MUC_MSGCOUNT);
+   \   00000064   ........           LDR      R3,??DataTable5  ;; DEFAULT_MUC_MSGCOUNT
+   \   00000068   003093E5           LDR      R3,[R3, #+0]
+   \   0000006C   FF3003E2           AND      R3,R3,#0xFF
+   \   00000070   ........           _BLF     Enter_Conference,??Enter_Conference??rA
+   \   00000074   0100A0E3           MOV      R0,#+1
+   \   00000078   1080BDE8           POP      {R4,PC}
+    209              } else Disp_MUC_Enter_Dialog(it->mucname, it->nick, it->pass);
+   \                     ??bm_menu_onkey_4:
+   \   0000007C   ........           _BLF     Disp_MUC_Enter_Dialog,??Disp_MUC_Enter_Dialog??rA
+    210              return 1;
+   \   00000080   0100A0E3           MOV      R0,#+1
+   \   00000084   1080BDE8           POP      {R4,PC}
+    211            }
+    212          return 0;
+   \                     ??bm_menu_onkey_0:
+   \   00000088   0000A0E3           MOV      R0,#+0
+   \   0000008C   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??bm_menu_onkey_1:
+   \   00000090   ........           DC32     bm_menuhdr + 28
+    213          }
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     bm_menuhdr:
+   \   00000000                      DS8 20
+   \   00000014                      REQUIRE `?<Initializer for bm_menuhdr>`
+    214          
+    215          int BM_ICON[2];
+   \                     BM_ICON:
+   \   00000014                      DS8 8
+   \   0000001C                      REQUIRE `?<Initializer for BM_ICON>`
+   \                     BM_ROOT:
+   \   0000001C                      DS8 4
+   \   00000020                      REQUIRE `?<Initializer for BM_ROOT>`
+   \                     reqbook:
+   \   00000020                      DS8 4
+   \   00000024                      REQUIRE `?<Initializer for reqbook>`
+   \                     BM_MenuID:
+   \   00000024                      DS8 4
+   \   00000028                      REQUIRE `?<Initializer for BM_MenuID>`
+   \                     Req_Close_BM_Menu:
+   \   00000028                      DS8 4
+   \   0000002C                      REQUIRE `?<Initializer for Req_Close_BM_Menu>`
+   \                     bm_menu:
+   \   0000002C                      DS8 44
+   \   00000058                      REQUIRE `?<Initializer for bm_menu>`
+    216          char ICON_MUC[128];
+   \                     ICON_MUC:
+   \   00000058                      DS8 128
+   \   000000D8                      REQUIRE `?<Initializer for ICON_MUC>`
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     ??priv_id:
+   \   00000000                      DS8 16
+   \   00000010                      REQUIRE `?<Initializer for priv_id>`
+   \   00000010                      DS8 40
+   \   00000038                      REQUIRE `?<Initializer for bm>`
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     bmmenusoftkeys:
+   \   00000000                      DS8 12
+   \   0000000C                      REQUIRE `?<Initializer for bmmenusoftkeys>`
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     bmmenu_sk:
+   \   00000000                      DS8 24
+   \   00000018                      REQUIRE `?<Initializer for bmmenu_sk>`
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     bmmenu_skt:
+   \   00000000                      DS8 8
+   \   00000008                      REQUIRE `?<Initializer for bmmenu_skt>`
+    217          
+    218          /*
+    219            Обработчик появления пунктов динамического меню
+    220            Тут мы сами создаём каждый пункт, указывая для него иконку и текст.
+    221          */
+
+   \                                 In segment CODE, align 4, keep-with-next
+    222          void bm_menu_iconhndl(void *data, int curitem, void *unk)
+    223          {
+   \                     bm_menu_iconhndl:
+   \   00000000   F0432DE9           PUSH     {R4-R9,LR}
+    224            WSHDR *ws;
+    225            extern const char percent_t[], empty_t[];
+    226            char test_str[48];
+    227            void *item=AllocMenuItem(data);
+    228            strcpy(test_str,empty_t);
+    229            char s=0;
+    230            BM_ITEM *it = BM_ROOT;
+   \   00000004   ........           LDR      R7,??DataTable7  ;; bm_menuhdr
+   \   00000008   30D04DE2           SUB      SP,SP,#+48
+   \   0000000C   0040A0E1           MOV      R4,R0
+   \   00000010   0150A0E1           MOV      R5,R1
+   \   00000014   970100EF           SWI      +407
+   \   00000018   88109FE5           LDR      R1,??bm_menu_iconhndl_0  ;; empty_t
+   \   0000001C   0060A0E1           MOV      R6,R0
+   \   00000020   0D00A0E1           MOV      R0,SP
+   \   00000024   1A0000EF           SWI      +26
+   \   00000028   1C8097E5           LDR      R8,[R7, #+28]
+   \   0000002C   0000A0E3           MOV      R0,#+0
+   \   00000030   020000EA           B        ??bm_menu_iconhndl_1
+    231            while(s!=curitem && it)
+    232            {
+    233              s++;
+    234              it=it->next;    
+   \                     ??bm_menu_iconhndl_2:
+   \   00000034   108098E5           LDR      R8,[R8, #+16]
+   \   00000038   010080E2           ADD      R0,R0,#+1
+   \   0000003C   FF0000E2           AND      R0,R0,#0xFF
+    235            };
+   \                     ??bm_menu_iconhndl_1:
+   \   00000040   050050E1           CMP      R0,R5
+   \   00000044   00005813           CMPNE    R8,#+0
+   \   00000048   F9FFFF1A           BNE      ??bm_menu_iconhndl_2
+    236            
+    237            ws=AllocMenuWS(data,strlen(it->bmname));
+   \   0000004C   000098E5           LDR      R0,[R8, #+0]
+   \   00000050   1B0000EF           SWI      +27
+   \   00000054   0010A0E1           MOV      R1,R0
+   \   00000058   0400A0E1           MOV      R0,R4
+   \   0000005C   980100EF           SWI      +408
+   \   00000060   0090A0E1           MOV      R9,R0
+    238          //  wsprintf(ws,percent_t,it->bmname);
+    239            utf8_2ws(ws,it->bmname,strlen(it->bmname));
+   \   00000064   000098E5           LDR      R0,[R8, #+0]
+   \   00000068   1B0000EF           SWI      +27
+   \   0000006C   001098E5           LDR      R1,[R8, #+0]
+   \   00000070   0020A0E1           MOV      R2,R0
+   \   00000074   0900A0E1           MOV      R0,R9
+   \   00000078   E30100EF           SWI      +483
+    240            SetMenuItemIconArray(data,item,BM_ICON+1);
+   \   0000007C   182087E2           ADD      R2,R7,#+24
+   \   00000080   0610A0E1           MOV      R1,R6
+   \   00000084   0400A0E1           MOV      R0,R4
+   \   00000088   990100EF           SWI      +409
+    241            SetMenuItemText(data,item,ws,curitem);
+   \   0000008C   0530A0E1           MOV      R3,R5
+   \   00000090   0920A0E1           MOV      R2,R9
+   \   00000094   0610A0E1           MOV      R1,R6
+   \   00000098   0400A0E1           MOV      R0,R4
+   \   0000009C   9A0100EF           SWI      +410
+    242            //SetMenuItemIcon(data,curitem,1);  // 0 = индекс иконки
+    243          };
+   \   000000A0   30D08DE2           ADD      SP,SP,#+48
+   \   000000A4   F083BDE8           POP      {R4-R9,PC}       ;; return
+   \                     ??bm_menu_iconhndl_0:
+   \   000000A8   ........           DC32     empty_t
+    244          
+    245          extern const char PATH_TO_PIC[128];
+    246          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    247          void Init_bm_Icon_array()
+    248          {
+    249            strcpy(ICON_MUC, PATH_TO_PIC);strcat(ICON_MUC, "conference.png");
+   \                     Init_bm_Icon_array:
+   \   00000000   24109FE5           LDR      R1,??Init_bm_Icon_array_0  ;; PATH_TO_PIC
+   \   00000004   10402DE9           PUSH     {R4,LR}
+   \   00000008   ........           LDR      R4,??DataTable7  ;; bm_menuhdr
+   \   0000000C   580084E2           ADD      R0,R4,#+88
+   \   00000010   1A0000EF           SWI      +26
+   \   00000014   14109FE5           LDR      R1,??Init_bm_Icon_array_0+0x4  ;; `?<Constant "conference.png">`
+   \   00000018   580084E2           ADD      R0,R4,#+88
+   \   0000001C   170000EF           SWI      +23
+    250            BM_ICON[1]=(int)ICON_MUC;    
+   \   00000020   580084E2           ADD      R0,R4,#+88
+   \   00000024   180084E5           STR      R0,[R4, #+24]
+    251          }
+   \   00000028   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??Init_bm_Icon_array_0:
+   \   0000002C   ........           DC32     PATH_TO_PIC
+   \   00000030   ........           DC32     `?<Constant "conference.png">`
+    252          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    253          void Disp_BM_Menu()
+    254          {
+   \                     Disp_BM_Menu:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+    255            if(BM_ROOT)
+   \   00000004   90409FE5           LDR      R4,??Disp_BM_Menu_0  ;; bm_menuhdr
+   \   00000008   1C0094E5           LDR      R0,[R4, #+28]
+   \   0000000C   000050E3           CMP      R0,#+0
+   \   00000010   7080BD08           POPEQ    {R4-R6,PC}
+    256            {
+    257              Init_bm_Icon_array();
+   \   00000014   ........           BL       Init_bm_Icon_array
+    258              int n_items=0;
+    259              BM_ITEM *i = BM_ROOT;
+   \   00000018   1C0094E5           LDR      R0,[R4, #+28]
+    260              n_items=1;
+   \   0000001C   0150A0E3           MOV      R5,#+1
+   \   00000020   101090E5           LDR      R1,[R0, #+16]
+   \   00000024   000051E3           CMP      R1,#+0
+   \   00000028   0400000A           BEQ      ??Disp_BM_Menu_1
+    261              while(i->next)
+    262              {
+    263                n_items++;
+    264                i = i->next;
+   \                     ??Disp_BM_Menu_2:
+   \   0000002C   100090E5           LDR      R0,[R0, #+16]
+   \   00000030   015085E2           ADD      R5,R5,#+1
+    265              }
+   \   00000034   101090E5           LDR      R1,[R0, #+16]
+   \   00000038   000051E3           CMP      R1,#+0
+   \   0000003C   FAFFFF1A           BNE      ??Disp_BM_Menu_2
+    266              patch_rect(&bm_menuhdr.rc,0,YDISP,ScreenW()-1,HeaderH()+YDISP);
+   \                     ??Disp_BM_Menu_1:
+   \   00000040   8A8100EF           SWI      +33162
+   \   00000044   0060A0E1           MOV      R6,R0
+   \   00000048   888100EF           SWI      +33160
+   \   0000004C   181086E2           ADD      R1,R6,#+24
+   \   00000050   010040E2           SUB      R0,R0,#+1
+   \   00000054   0020A0E3           MOV      R2,#+0
+   \   00000058   B020C4E1           STRH     R2,[R4, #+0]
+   \   0000005C   1820A0E3           MOV      R2,#+24
+   \   00000060   B220C4E1           STRH     R2,[R4, #+2]
+   \   00000064   B400C4E1           STRH     R0,[R4, #+4]
+   \   00000068   B610C4E1           STRH     R1,[R4, #+6]
+    267              BM_MenuID=CreateMenu(0,0,&bm_menu,&bm_menuhdr,0,n_items,0,0);
+   \   0000006C   0000A0E3           MOV      R0,#+0
+   \   00000070   01002DE9           PUSH     {R0}
+   \   00000074   01002DE9           PUSH     {R0}
+   \   00000078   20002DE9           PUSH     {R5}
+   \   0000007C   01002DE9           PUSH     {R0}
+   \   00000080   0430A0E1           MOV      R3,R4
+   \   00000084   2C2084E2           ADD      R2,R4,#+44
+   \   00000088   0010A0E3           MOV      R1,#+0
+   \   0000008C   520100EF           SWI      +338
+   \   00000090   240084E5           STR      R0,[R4, #+36]
+   \   00000094   10D08DE2           ADD      SP,SP,#+16
+    268            }
+    269          }
+   \   00000098   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??Disp_BM_Menu_0:
+   \   0000009C   ........           DC32     bm_menuhdr
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable5:
+   \   00000000   ........           DC32     DEFAULT_MUC_MSGCOUNT
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable7:
+   \   00000000   ........           DC32     bm_menuhdr
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for bm_menuhdr>`:
+   \   00000000   000000000000       DC16 0, 0, 0, 0
+   \              0000        
+   \   00000008   00000000....       DC32 0H, bmmenu_header, 2147483647
+   \              ....FFFFFF7F
+   \                     `?<Initializer for BM_ICON>`:
+   \   00000014   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0
+   \              0000        
+   \                     `?<Initializer for BM_ROOT>`:
+   \   0000001C   00000000           DC32 0H
+   \                     `?<Initializer for reqbook>`:
+   \   00000020   00000000           DC32 0
+   \                     `?<Initializer for BM_MenuID>`:
+   \   00000024   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for Req_Close_BM_Menu>`:
+   \   00000028   00000000           DC32 0
+   \                     `?<Initializer for bm_menu>`:
+   \   0000002C   08000000....       DC32 8, bm_menu_onkey, bm_menu_ghook, 0H, bmmenusoftkeys, bmmenu_skt
+   \              ............
+   \              00000000....
+   \              ............
+   \   00000044   11000000....       DC32 17, bm_menu_iconhndl, 0H, 0H, 0
+   \              ....00000000
+   \              000000000000
+   \              0000        
+   \                     `?<Initializer for ICON_MUC>`:
+   \   00000058   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000068   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000078   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000088   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000098   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   000000A8   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   000000B8   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   000000C8   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for priv_id>`:
+   \   00000000   5369654A435F       DC8 "SieJC_priv_req"
+   \              707269765F72
+   \              657100      
+   \   0000000F   00                 DC8 0
+   \                     `?<Initializer for bm>`:
+   \   00000010   3C73746F7261       DC8 "<storage xmlns='storage:bookmarks'/>"
+   \              676520786D6C
+   \              6E733D277374
+   \              6F726167653A
+   \              626F6F6B6D61
+   \              726B73272F3E
+   \              00          
+   \   00000035   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for bmmenusoftkeys>`:
+   \   00000000   000000000100       DC32 0, 1, 2
+   \              000002000000
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for bmmenu_sk>`:
+   \   00000000   18000000           DC16 24, 0
+   \   00000004   ........           DC32 `?<Constant "\\310\\347\\354\\345\\355\\350\\362\\374">`
+   \   00000008   01000000           DC16 1, 0
+   \   0000000C   ........           DC32 `?<Constant "\\315\\340\\347\\340\\344">`
+   \   00000010   3D000000           DC16 61, 0
+   \   00000014   FBC0FF7F           DC32 2147467515
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for bmmenu_skt>`:
+   \   00000000   ........0000       DC32 bmmenu_sk, 0
+   \              0000        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\310\\347\\354\\345\\355\\350\\362\\374">`:
+   \   00000000   C8E7ECE5EDE8       DC8 "\310\347\354\345\355\350\362\374"
+   \              F2FC00      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\315\\340\\347\\340\\344">`:
+   \   00000000   CDE0E7E0E400       DC8 "\315\340\347\340\344"
+   \   00000006   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "jid">`:
+   \   00000000   6A696400           DC8 "jid"
+   \   00000004   6E616D6500         DC8 "name"
+   \   00000009   000000             DC8 0, 0, 0
+   \   0000000C   6175746F6A6F       DC8 "autojoin"
+   \              696E00      
+   \   00000015   000000             DC8 0, 0, 0
+   \   00000018   6E69636B00         DC8 "nick"
+   \   0000001D   000000             DC8 0, 0, 0
+   \   00000020   70617373776F       DC8 "password"
+   \              726400      
+   \   00000029   000000             DC8 0, 0, 0
+   \   0000002C   7472756500         DC8 "true"
+   \   00000031   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \   00000000   3100               DC8 "1"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "get">`:
+   \   00000000   67657400           DC8 "get"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "jabber:iq:private">`:
+   \   00000000   6A6162626572       DC8 "jabber:iq:private"
+   \              3A69713A7072
+   \              697661746500
+   \   00000012   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "conference.png">`:
+   \   00000000   636F6E666572       DC8 "conference.png"
+   \              656E63652E70
+   \              6E6700      
+   \   0000000F   00                 DC8 0
+    270          //EOL,EOF
+
+   Maximum stack usage in bytes:
+
+     Function                  CSTACK
+     --------                  ------
+     Disp_BM_Menu                 32
+     Get_Bookmarks_List            8
+     Init_bm_Icon_array            8
+     KillBMList                   16
+     Process_Bookmarks_Storage    44
+     _getbookmarkslist            40
+     bm_menu_ghook                 4
+     bm_menu_iconhndl             76
+     bm_menu_onkey                 8
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     KillBMList                      120
+     Process_Bookmarks_Storage       592
+     _getbookmarkslist                88
+     Get_Bookmarks_List               64
+     bmmenu_header                    16
+     bm_menu_ghook                    56
+     bm_menu_onkey                   148
+     bm_menuhdr                      216
+     priv_id                          56
+     bmmenusoftkeys                   12
+     bmmenu_sk                        24
+     bmmenu_skt                        8
+     bm_menu_iconhndl                172
+     Init_bm_Icon_array               52
+     Disp_BM_Menu                    160
+     ??DataTable5                      4
+     ??DataTable7                      4
+     ?<Initializer for bm_menuhdr>   216
+     ?<Initializer for priv_id>       56
+     ?<Initializer for bmmenusoftkeys>
+                                      12
+     ?<Initializer for bmmenu_sk>     24
+     ?<Initializer for bmmenu_skt>     8
+     ?<Constant "\310\347\354\345\355\350\362\374">
+                                      12
+     ?<Constant "\315\340\347\340\344">
+                                       8
+     ?<Constant "jid">                52
+     ?<Constant "1">                   2
+     ?<Constant "get">                 4
+     ?<Constant "jabber:iq:private">
+                                      20
+     ?<Constant "conference.png">     16
+      Others                         108
+
+ 
+ 1 556 bytes in segment CODE
+   130 bytes in segment DATA_C
+   316 bytes in segment DATA_I
+   316 bytes in segment DATA_ID
+    12 bytes in segment INITTAB
+ 
+ 1 460 bytes of CODE  memory (+ 108 bytes shared)
+   446 bytes of CONST memory
+   316 bytes of DATA  memory
+
+Errors: none
+Warnings: none

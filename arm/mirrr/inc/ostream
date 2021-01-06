@@ -1,0 +1,236 @@
+// ostream standard header
+#ifndef _OSTREAM_
+#define _OSTREAM_
+
+#ifndef _SYSTEM_BUILD
+#pragma system_include
+#endif
+
+#include <ios>
+_STD_BEGIN
+
+                // I/O EXCEPTION MACROS
+ #if _HAS_EXCEPTIONS
+ #define _TRY_IO_BEGIN  _TRY_BEGIN      /* begin try block */
+
+ #define _CATCH_IO_END  _CATCH_ALL      /* catch block for _Myios */ \
+        _Myios::setstate(ios_base::badbit, true);       /* set badbit and rethrow */ \
+        _CATCH_END
+
+ #define _CATCH_IO_(x)  _CATCH_ALL      /* catch block for ios x */ \
+        (x).setstate(ios_base::badbit, true);   /* set badbit and rethrow */ \
+        _CATCH_END
+ #else /* _HAS_EXCEPTIONS */
+ #define _TRY_IO_BEGIN  {       /* begin try block */
+
+ #define _CATCH_IO_END  }       /* catch block for _Myios */
+
+ #define _CATCH_IO_(x)  }       /* catch block for ios x */
+ #endif /* _HAS_EXCEPTIONS */
+
+                // CLASS ostream
+class ostream
+        : public ios
+        {       // control insertions into a stream buffer
+public:
+        typedef char _Elem;
+        typedef char_traits _Traits;
+        typedef ostream _Myt;
+        typedef ios _Myios;
+        typedef streambuf _Mysb;
+        typedef _Ostrit _Iter;
+        typedef num_put _Nput;
+
+        explicit ostream(streambuf *_Strbuf,
+                bool _Isstd = false)
+                {       // construct from stream buffer pointer
+                init(_Strbuf, _Isstd);
+                }
+
+        ostream(_Uninitialized)
+                {       // construct uninitialized
+                _Addstd();
+                }
+
+        virtual ~ostream()
+                {       // destroy the object
+                }
+
+        typedef _Traits::int_type int_type;
+        typedef _Traits::pos_type pos_type;
+        typedef _Traits::off_type off_type;
+
+        class _Sentry_base
+                {       // stores thread lock and reference to output stream
+        public:
+                _Sentry_base(_Myt& _Ostr)
+                        : _Myostr(_Ostr)
+                        {       // lock the stream buffer, if there
+                        if (_Myostr.rdbuf() != 0)
+                                _Myostr.rdbuf()->_Lock();
+                        }
+
+                ~_Sentry_base()
+                        {       // destroy after unlocking
+                        if (_Myostr.rdbuf() != 0)
+                                _Myostr.rdbuf()->_Unlock();
+                        }
+
+                _Myt& _Myostr;  // the output stream, for _Unlock call at destruction
+                };
+
+        class sentry
+                : public _Sentry_base
+                {       // stores thread lock and state of stream
+        public:
+                explicit sentry(_Myt& _Ostr)
+                        : _Sentry_base(_Ostr)
+                        {       // construct locking and testing stream
+                        if (_Ostr.good() && _Ostr.tie() != 0)
+                                _Ostr.tie()->flush();
+                        _Ok = _Ostr.good();     // store test only after flushing tie
+                        }
+
+                ~sentry()
+                        {       // destroy the object
+                        this->_Myostr._Osfx();
+                        }
+
+                operator bool() const
+                        {       // test if stream state okay
+                        return (_Ok);
+                        }
+
+        private:
+                sentry(const sentry&);  // not defined
+                sentry& operator=(const sentry&);       // not defined
+
+                bool _Ok;       // true if stream state okay at construction
+                };
+
+        bool opfx()
+                {       // test stream state and flush tie stream as needed (retained)
+                if (ios_base::good() && _Myios::tie() != 0)
+                        _Myios::tie()->flush();
+                return (ios_base::good());
+                }
+
+        void osfx()
+                {       // perform any wrapup (retained)
+                _Osfx();
+                }
+
+        void _Osfx()
+                {       // perform any wrapup
+                if (ios_base::flags() & ios_base::unitbuf)
+                        flush();        // flush stream as needed
+                }
+
+        _Myt& operator<<(_Myt& (*_Pfn)(_Myt&))
+                {       // call ostream manipulator
+                return ((*_Pfn)(*this));
+                }
+
+        _Myt& operator<<(_Myios& (*_Pfn)(_Myios&))
+                {       // call ios manipulator
+                (*_Pfn)(*(_Myios *)this);
+                return (*this);
+                }
+
+        _Myt& operator<<(ios_base& (*_Pfn)(ios_base&))
+                {       // call ios_base manipulator
+                (*_Pfn)(*(ios_base *)this);
+                return (*this);
+                }
+
+        _Myt& operator<<(_Bool _Val);
+        _Myt& operator<<(short _Val);
+        _Myt& operator<<(unsigned short _Val);
+        _Myt& operator<<(int _Val);
+        _Myt& operator<<(unsigned int _Val);
+        _Myt& operator<<(long _Val);
+        _Myt& operator<<(unsigned long _Val);
+ #ifdef _LONGLONG
+
+        _Myt& operator<<(_LONGLONG _Val);
+        _Myt& operator<<(_ULONGLONG _Val);
+ #endif /* _LONGLONG */
+
+        _Myt& operator<<(float _Val);
+        _Myt& operator<<(double _Val);
+        _Myt& operator<<(long double _Val);
+        _Myt& operator<<(const void *_Val);
+        // insert until end-of-file from a stream buffer
+        _Myt& operator<<(_Mysb *_Strbuf);
+        _Myt& put(_Elem _Ch);
+        // insert _Count characters from array _Str
+        _Myt& write(const _Elem *_Str, streamsize _Count);
+        _Myt& flush();
+        _Myt& seekp(pos_type _Pos);
+        _Myt& seekp(off_type _Off, ios_base::seekdir _Way);
+
+        pos_type tellp()
+                {       // return output stream position
+                if (!ios_base::fail())
+                        return (_Myios::rdbuf()->pubseekoff(0,
+                                ios_base::cur, ios_base::out));
+                else
+                        return (pos_type(_BADOFF));
+                }
+        };
+
+                // INSERTERS
+
+ostream& operator<<(ostream& _Ostr, const char *_Val);
+ostream& operator<<(ostream& _Ostr, char _Ch);
+
+inline ostream& operator<<(ostream& _Ostr,
+        const signed char *_Val)
+        {       // insert a signed char NTBS
+        return (_Ostr << (const char *)_Val);
+        }
+
+inline ostream& operator<<(ostream& _Ostr,
+        signed char _Ch)
+        {       // insert a signed char
+        return (_Ostr << (char)_Ch);
+        }
+
+inline ostream& operator<<(ostream& _Ostr,
+        const unsigned char *_Val)
+        {       // insert an unsigned char NTBS
+        return (_Ostr << (const char *)_Val);
+        }
+
+inline ostream& operator<<(ostream& _Ostr,
+        unsigned char _Ch)
+        {       // extract an unsigned char
+        return (_Ostr << (char)_Ch);
+        }
+
+                // MANIPULATORS
+inline ostream& endl(ostream& _Ostr)
+        {       // insert newline and flush stream
+        _Ostr.put('\n');
+        _Ostr.flush();
+        return (_Ostr);
+        }
+
+inline ostream& ends(ostream& _Ostr)
+        {       // insert null character
+        _Ostr.put(char('\0'));
+        return (_Ostr);
+        }
+
+inline ostream& flush(ostream& _Ostr)
+        {       // flush stream
+        _Ostr.flush();
+        return (_Ostr);
+        }
+_STD_END
+#endif /* _OSTREAM_ */
+
+/*
+ * Copyright (c) 1992-2002 by P.J. Plauger.  ALL RIGHTS RESERVED.
+ * Consult your license regarding permissions and restrictions.
+V3.12:0576 */

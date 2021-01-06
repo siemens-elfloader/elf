@@ -1,0 +1,1236 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    22/Dec/2008  22:28:35 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\создание эльфов\мои проекты\Gold Rush\main.c      #
+#    Command line    =  "D:\создание эльфов\мои проекты\Gold Rush\main.c"    #
+#                       -lC "D:\создание эльфов\мои проекты\Gold             #
+#                       Rush\Release_SGOLD\List\" -o "D:\создание            #
+#                       эльфов\мои проекты\Gold Rush\Release_SGOLD\Obj\"     #
+#                       -s9 --cpu_mode arm --endian little --cpu ARM926EJ-S  #
+#                       --stack_align 4 --interwork -e --fpu None            #
+#                       --dlib_config "D:\Embedded Workbench 4.0             #
+#                       Evaluation\ARM\LIB\dl5tpainl8n.h" -I "D:\Embedded    #
+#                       Workbench 4.0 Evaluation\ARM\INC\"                   #
+#                       --inline_threshold=2                                 #
+#    List file       =  D:\создание эльфов\мои проекты\Gold                  #
+#                       Rush\Release_SGOLD\List\main.lst                     #
+#    Object file     =  D:\создание эльфов\мои проекты\Gold                  #
+#                       Rush\Release_SGOLD\Obj\main.r79                      #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\создание эльфов\мои проекты\Gold Rush\main.c
+      1          #include "..\inc\swilib.h"
+      2          #include "rect_patcher.h"
+      3          #include "../inc/cfg_items.h"
+      4          #include "conf_loader.h"
+      5          #include "engine.h"
+      6          
+      7          #define RGB24(R, G, B) ((B<<16) | (G<<8) | (R))
+      8          #define RGB16(R, G, B) ((B>>3) | ((G>>2) << 5) | ((R>>3) << 11))
+      9          #define RGB8(R,G,B) ((R & 0xE0)|((G>>3)&0x1C)|((B>>6)&0x3))
+     10          
+     11          #define TRANSPARENT_8 (0xC0)
+     12          #define TRANSPARENT_16 (0xE000)
+     13          #define ImageNull ((int)0)
+     14          
+     15          #define IMAG_CB_BW 1
+     16          #define IMAG_CB_8bit 5
+     17          #define IMAG_CB_16bit 8
+     18          #define IMAG_CB_packed 0x80
+     19          
+     20          
+     21          
+     22          extern void log(char *string);
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     23          char *pwd;
+   \                     pwd:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     24          short scr_w,scr_h;
+   \                     scr_w:
+   \   00000000                      DS8 2
+   \                     scr_h:
+   \   00000002                      DS8 2
+     25          GBSTMR timer1,timer2,loadtimer;
+   \                     timer1:
+   \   00000004                      DS8 16
+   \                     timer2:
+   \   00000014                      DS8 16
+   \                     loadtimer:
+   \   00000024                      DS8 16
+
+   \                                 In segment DATA_I, align 4, align-sorted
+     26          int running=1;
+   \                     running:
+   \   00000000                      DS8 4
+   \   00000004                      REQUIRE `?<Initializer for running>`
+     27          
+     28          
+     29          typedef struct
+     30          {
+     31          short sign;
+     32          short unk1[8];
+     33          short w;
+     34          short zero1;
+     35          short h;
+     36          short zero2;
+     37          short numplanes;
+     38          short bpp;
+     39          short unk2[12];
+     40          }bmp_PICHDR;
+     41          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     42          int ImageCreateHdr16(unsigned short ** bm,int w,int h,int size)
+     43          {
+   \                     ImageCreateHdr16:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+   \   0000000C   0260A0E1           MOV      R6,R2
+     44          if(size==0) size=w*h*2;
+   \   00000010   000053E3           CMP      R3,#+0
+   \   00000014   96050000           MULEQ    R0,R6,R5
+   \   00000018   8030A001           LSLEQ    R3,R0,#+1
+     45          IMGHDR *img=malloc(sizeof(IMGHDR)+size+4);
+   \   0000001C   0C0083E2           ADD      R0,R3,#+12
+   \   00000020   140000EF           SWI      +20
+     46          *bm=(unsigned short *)((unsigned int)img+sizeof(IMGHDR));
+   \   00000024   081080E2           ADD      R1,R0,#+8
+   \   00000028   001084E5           STR      R1,[R4, #+0]
+     47          img->w=w;
+   \   0000002C   0050C0E5           STRB     R5,[R0, #+0]
+     48          img->h=h;
+   \   00000030   0160C0E5           STRB     R6,[R0, #+1]
+     49          img->bpnum=IMAG_CB_16bit; //For BW=1, 8bit=5, 16bit=8, 0x80 - packed
+   \   00000034   0810A0E3           MOV      R1,#+8
+   \   00000038   B210C0E1           STRH     R1,[R0, #+2]
+     50          img->bitmap=(char*)(*bm);
+   \   0000003C   001094E5           LDR      R1,[R4, #+0]
+   \   00000040   041080E5           STR      R1,[R0, #+4]
+     51          return (int)img;
+   \   00000044   7080BDE8           POP      {R4-R6,PC}       ;; return
+     52          };
+     53          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     54          int ImageCreateHdr8(unsigned char ** bm,int w,int h,int size)
+     55          {
+   \                     ImageCreateHdr8:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+     56            //log();
+     57            
+     58          if(size==0) size=w*h;
+   \   00000004   000053E3           CMP      R3,#+0
+   \   00000008   0150A0E1           MOV      R5,R1
+   \   0000000C   0260A0E1           MOV      R6,R2
+   \   00000010   96050300           MULEQ    R3,R6,R5
+   \   00000014   0040A0E1           MOV      R4,R0
+     59          IMGHDR *img=malloc(sizeof(IMGHDR)+size+4);
+   \   00000018   0C0083E2           ADD      R0,R3,#+12
+   \   0000001C   140000EF           SWI      +20
+     60          *bm=(unsigned char *)((unsigned int)img+sizeof(IMGHDR));
+   \   00000020   081080E2           ADD      R1,R0,#+8
+   \   00000024   001084E5           STR      R1,[R4, #+0]
+     61          img->w=w;
+   \   00000028   0050C0E5           STRB     R5,[R0, #+0]
+     62          img->h=h;
+   \   0000002C   0160C0E5           STRB     R6,[R0, #+1]
+     63          img->bpnum=IMAG_CB_8bit; //For BW=1, 8bit=5, 16bit=8, 0x80 - packed
+   \   00000030   0510A0E3           MOV      R1,#+5
+   \   00000034   B210C0E1           STRH     R1,[R0, #+2]
+     64          img->bitmap=(char*)(*bm);
+   \   00000038   001094E5           LDR      R1,[R4, #+0]
+   \   0000003C   041080E5           STR      R1,[R0, #+4]
+     65          //log("-ok-");
+     66          return (int)img;
+   \   00000040   7080BDE8           POP      {R4-R6,PC}       ;; return
+     67          };
+     68          
+     69          
+     70          
+     71          
+     72          
+     73          
+     74          
+     75          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     76          int _ReadBMP(char * data,int sz,int highquality)
+     77          {
+   \                     _ReadBMP:
+   \   00000000   F0472DE9           PUSH     {R4-R10,LR}
+   \   00000004   04D04DE2           SUB      SP,SP,#+4
+   \   00000008   0100A0E1           MOV      R0,R1
+   \   0000000C   0260A0E1           MOV      R6,R2
+     78            //log("called ReadBMP");
+     79          data=malloc(sz);
+   \   00000010   140000EF           SWI      +20
+   \   00000014   0050A0E1           MOV      R5,R0
+     80          bmp_PICHDR* g=(bmp_PICHDR*)data;
+     81          int res;
+     82          
+     83          if(g->bpp!=24)
+   \   00000018   FC01D5E1           LDRSH    R0,[R5, #+28]
+   \   0000001C   180050E3           CMP      R0,#+24
+   \   00000020   0300000A           BEQ      ??_ReadBMP_0
+     84          {
+     85          //log("bpp is no 24bpp!Returned");
+     86          mfree(data);
+   \   00000024   0500A0E1           MOV      R0,R5
+   \   00000028   150000EF           SWI      +21
+     87          return 0;
+   \   0000002C   0000A0E3           MOV      R0,#+0
+   \   00000030   F287BDE8           POP      {R1,R4-R10,PC}
+     88          }
+     89          
+     90          if(highquality)
+   \                     ??_ReadBMP_0:
+   \   00000034   F621D5E1           LDRSH    R2,[R5, #+22]
+   \   00000038   F211D5E1           LDRSH    R1,[R5, #+18]
+   \   0000003C   364085E2           ADD      R4,R5,#+54
+   \   00000040   000056E3           CMP      R6,#+0
+   \   00000044   0030A0E3           MOV      R3,#+0
+   \   00000048   0D00A0E1           MOV      R0,SP
+   \   0000004C   4000000A           BEQ      ??_ReadBMP_1
+     91          {
+     92            //log("ReadBMP-highquality");
+     93          unsigned short *bm;
+     94          res=ImageCreateHdr16(&bm,g->w,g->h,0);
+   \   00000050   ........           BL       ImageCreateHdr16
+     95          bm+=(g->w*(g->h-1));
+   \   00000054   F211D5E1           LDRSH    R1,[R5, #+18]
+   \   00000058   F621D5E1           LDRSH    R2,[R5, #+22]
+   \   0000005C   0060A0E1           MOV      R6,R0
+   \   00000060   012042E2           SUB      R2,R2,#+1
+   \   00000064   920101E0           MUL      R1,R2,R1
+   \   00000068   00209DE5           LDR      R2,[SP, #+0]
+   \   0000006C   811082E0           ADD      R1,R2,R1, LSL #+1
+   \   00000070   00108DE5           STR      R1,[SP, #+0]
+     96          char *p=data+sizeof(bmp_PICHDR);
+     97          int _transparent_color=RGB24(*p,*(p+1),*(p+2));
+   \   00000074   0200D4E5           LDRB     R0,[R4, #+2]
+   \   00000078   0110D4E5           LDRB     R1,[R4, #+1]
+     98          int df=(g->w)&3;
+     99          for(int i=0;i<g->h;i++)
+   \   0000007C   F631D5E1           LDRSH    R3,[R5, #+22]
+   \   00000080   0020A0E3           MOV      R2,#+0
+   \   00000084   0114A0E1           LSL      R1,R1,#+8
+   \   00000088   000881E1           ORR      R0,R1,R0, LSL #+16
+   \   0000008C   0010D4E5           LDRB     R1,[R4, #+0]
+   \   00000090   010053E3           CMP      R3,#+1
+   \   00000094   000081E1           ORR      R0,R1,R0
+   \   00000098   F211D5E1           LDRSH    R1,[R5, #+18]
+   \   0000009C   031001E2           AND      R1,R1,#0x3
+   \   000000A0   0B0000AA           BGE      ??_ReadBMP_2
+    100          {
+    101          for(int j=0;j<g->w;j++){
+    102          char r=*p++;
+    103          char g=*p++;
+    104          char b=*p++;
+    105          *bm++=(RGB24(r,g,b)==_transparent_color)?TRANSPARENT_16:RGB16(b,g,r);
+    106          };
+    107          p+=df;
+    108          bm-=2*g->w;
+    109          };
+    110          }
+    111          else
+    112          {
+    113            //log("ReadBMP-lowquality");
+    114          unsigned char *bm;
+    115          res=ImageCreateHdr8(&bm,g->w,g->h,0);
+    116          bm+=(g->w*(g->h-1));
+    117          char *p=data+sizeof(bmp_PICHDR);
+    118          int _transparent_color=RGB24(*p,*(p+1),*(p+2));
+    119          int df=(g->w)&3;
+    120          for(int i=0;i<g->h;i++)
+    121          {
+    122          for(int j=0;j<g->w;j++){
+    123          char r=*p++;
+    124          char g=*p++;
+    125          char b=*p++;
+    126          *bm++=(RGB24(r,g,b)==_transparent_color)?TRANSPARENT_8:RGB8(b,g,r);
+    127          };
+    128          p+=df;
+    129          bm-=2*g->w;
+    130          };
+    131          };
+    132          mfree(data);
+   \                     ??_ReadBMP_3:
+   \   000000A4   0500A0E1           MOV      R0,R5
+   \   000000A8   150000EF           SWI      +21
+    133          //log("-ok-");
+    134          
+    135           
+    136           //log("ReadBMP-returned 'res'");
+    137           //idle_bg=(IMGHDR*)res;
+    138           return res;
+   \   000000AC   0600A0E1           MOV      R0,R6
+   \   000000B0   F287BDE8           POP      {R1,R4-R10,PC}   ;; return
+   \                     ??_ReadBMP_4:
+   \   000000B4   F271D5E1           LDRSH    R7,[R5, #+18]
+   \   000000B8   00809DE5           LDR      R8,[SP, #+0]
+   \   000000BC   044081E0           ADD      R4,R1,R4
+   \   000000C0   0771A0E1           LSL      R7,R7,#+2
+   \   000000C4   007067E2           RSB      R7,R7,#+0
+   \   000000C8   087087E0           ADD      R7,R7,R8
+   \   000000CC   00708DE5           STR      R7,[SP, #+0]
+   \   000000D0   012082E2           ADD      R2,R2,#+1
+   \                     ??_ReadBMP_2:
+   \   000000D4   F631D5E1           LDRSH    R3,[R5, #+22]
+   \   000000D8   030052E1           CMP      R2,R3
+   \   000000DC   F0FFFFAA           BGE      ??_ReadBMP_3
+   \   000000E0   F271D5E1           LDRSH    R7,[R5, #+18]
+   \   000000E4   0030A0E3           MOV      R3,#+0
+   \   000000E8   010057E3           CMP      R7,#+1
+   \   000000EC   070000AA           BGE      ??_ReadBMP_5
+   \   000000F0   EFFFFFEA           B        ??_ReadBMP_4
+   \                     ??_ReadBMP_6:
+   \   000000F4   A881A0E1           LSR      R8,R8,#+3
+   \   000000F8   2771A0E1           LSR      R7,R7,#+2
+   \   000000FC   877288E1           ORR      R7,R8,R7, LSL #+5
+   \   00000100   AE81A0E1           LSR      R8,LR,#+3
+   \   00000104   887587E1           ORR      R7,R7,R8, LSL #+11
+   \                     ??_ReadBMP_7:
+   \   00000108   B070CCE1           STRH     R7,[R12, #+0]
+   \   0000010C   013083E2           ADD      R3,R3,#+1
+   \                     ??_ReadBMP_5:
+   \   00000110   F271D5E1           LDRSH    R7,[R5, #+18]
+   \   00000114   070053E1           CMP      R3,R7
+   \   00000118   E5FFFFAA           BGE      ??_ReadBMP_4
+   \   0000011C   ........           LDRB     R8,[R4], #+1
+   \   00000120   ........           LDRB     R7,[R4], #+1
+   \   00000124   ........           LDRB     LR,[R4], #+1
+   \   00000128   00C09DE5           LDR      R12,[SP, #+0]
+   \   0000012C   02A08CE2           ADD      R10,R12,#+2
+   \   00000130   00A08DE5           STR      R10,[SP, #+0]
+   \   00000134   07A0A0E1           MOV      R10,R7
+   \   00000138   0AA4A0E1           LSL      R10,R10,#+8
+   \   0000013C   0E988AE1           ORR      R9,R10,LR, LSL #+16
+   \   00000140   099088E1           ORR      R9,R8,R9
+   \   00000144   000059E1           CMP      R9,R0
+   \   00000148   E9FFFF1A           BNE      ??_ReadBMP_6
+   \   0000014C   E07CA0E3           MOV      R7,#+57344
+   \   00000150   ECFFFFEA           B        ??_ReadBMP_7
+   \                     ??_ReadBMP_1:
+   \   00000154   ........           BL       ImageCreateHdr8
+   \   00000158   F211D5E1           LDRSH    R1,[R5, #+18]
+   \   0000015C   F621D5E1           LDRSH    R2,[R5, #+22]
+   \   00000160   00309DE5           LDR      R3,[SP, #+0]
+   \   00000164   0060A0E1           MOV      R6,R0
+   \   00000168   012042E2           SUB      R2,R2,#+1
+   \   0000016C   923121E0           MLA      R1,R2,R1,R3
+   \   00000170   0020A0E3           MOV      R2,#+0
+   \   00000174   00108DE5           STR      R1,[SP, #+0]
+   \   00000178   0200D4E5           LDRB     R0,[R4, #+2]
+   \   0000017C   0110D4E5           LDRB     R1,[R4, #+1]
+   \   00000180   F631D5E1           LDRSH    R3,[R5, #+22]
+   \   00000184   0114A0E1           LSL      R1,R1,#+8
+   \   00000188   000881E1           ORR      R0,R1,R0, LSL #+16
+   \   0000018C   0010D4E5           LDRB     R1,[R4, #+0]
+   \   00000190   010053E3           CMP      R3,#+1
+   \   00000194   000081E1           ORR      R0,R1,R0
+   \   00000198   F211D5E1           LDRSH    R1,[R5, #+18]
+   \   0000019C   031001E2           AND      R1,R1,#0x3
+   \   000001A0   080000AA           BGE      ??_ReadBMP_8
+   \   000001A4   BEFFFFEA           B        ??_ReadBMP_3
+   \                     ??_ReadBMP_9:
+   \   000001A8   F271D5E1           LDRSH    R7,[R5, #+18]
+   \   000001AC   00809DE5           LDR      R8,[SP, #+0]
+   \   000001B0   044081E0           ADD      R4,R1,R4
+   \   000001B4   8770A0E1           LSL      R7,R7,#+1
+   \   000001B8   007067E2           RSB      R7,R7,#+0
+   \   000001BC   087087E0           ADD      R7,R7,R8
+   \   000001C0   00708DE5           STR      R7,[SP, #+0]
+   \   000001C4   012082E2           ADD      R2,R2,#+1
+   \                     ??_ReadBMP_8:
+   \   000001C8   F631D5E1           LDRSH    R3,[R5, #+22]
+   \   000001CC   030052E1           CMP      R2,R3
+   \   000001D0   B3FFFFAA           BGE      ??_ReadBMP_3
+   \   000001D4   F271D5E1           LDRSH    R7,[R5, #+18]
+   \   000001D8   0030A0E3           MOV      R3,#+0
+   \   000001DC   010057E3           CMP      R7,#+1
+   \   000001E0   070000AA           BGE      ??_ReadBMP_10
+   \   000001E4   EFFFFFEA           B        ??_ReadBMP_9
+   \                     ??_ReadBMP_11:
+   \   000001E8   E0900EE2           AND      R9,LR,#0xE0
+   \   000001EC   1CA0A0E3           MOV      R10,#+28
+   \   000001F0   ACA10AE0           AND      R10,R10,R12, LSR #+3
+   \   000001F4   09908AE1           ORR      R9,R10,R9
+   \   000001F8   288389E1           ORR      R8,R9,R8, LSR #+6
+   \                     ??_ReadBMP_12:
+   \   000001FC   0080C7E5           STRB     R8,[R7, #+0]
+   \   00000200   013083E2           ADD      R3,R3,#+1
+   \                     ??_ReadBMP_10:
+   \   00000204   F271D5E1           LDRSH    R7,[R5, #+18]
+   \   00000208   070053E1           CMP      R3,R7
+   \   0000020C   E5FFFFAA           BGE      ??_ReadBMP_9
+   \   00000210   ........           LDRB     R8,[R4], #+1
+   \   00000214   ........           LDRB     R12,[R4], #+1
+   \   00000218   ........           LDRB     LR,[R4], #+1
+   \   0000021C   00709DE5           LDR      R7,[SP, #+0]
+   \   00000220   01A087E2           ADD      R10,R7,#+1
+   \   00000224   00A08DE5           STR      R10,[SP, #+0]
+   \   00000228   0CA0A0E1           MOV      R10,R12
+   \   0000022C   0AA4A0E1           LSL      R10,R10,#+8
+   \   00000230   0E988AE1           ORR      R9,R10,LR, LSL #+16
+   \   00000234   099088E1           ORR      R9,R8,R9
+   \   00000238   000059E1           CMP      R9,R0
+   \   0000023C   E9FFFF1A           BNE      ??_ReadBMP_11
+   \   00000240   C080A0E3           MOV      R8,#+192
+   \   00000244   ECFFFFEA           B        ??_ReadBMP_12
+    139          };
+    140          
+    141          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    142          char *ReadFile(char *path)
+    143          {
+   \                     ReadFile:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    144            char *buf=malloc(230600); 
+   \   00000008   C800A0E3           MOV      R0,#+200
+   \   0000000C   E10B80E3           ORR      R0,R0,#0x38400
+   \   00000010   140000EF           SWI      +20
+   \   00000014   0050A0E1           MOV      R5,R0
+    145            int file=fopen(path,A_ReadOnly+A_BIN,P_READ,0);
+   \   00000018   0030A0E3           MOV      R3,#+0
+   \   0000001C   8020A0E3           MOV      R2,#+128
+   \   00000020   801CA0E3           MOV      R1,#+32768
+   \   00000024   0400A0E1           MOV      R0,R4
+   \   00000028   ........           _BLF     fopen,??fopen??rA
+   \   0000002C   0040A0E1           MOV      R4,R0
+    146            int count=fread(file,buf,230599,0);
+   \   00000030   0030A0E3           MOV      R3,#+0
+   \   00000034   C720A0E3           MOV      R2,#+199
+   \   00000038   E12B82E3           ORR      R2,R2,#0x38400
+   \   0000003C   0510A0E1           MOV      R1,R5
+   \   00000040   0B0000EF           SWI      +11
+    147            char* texbuf=buf;
+    148            mfree(buf);
+   \   00000044   0500A0E1           MOV      R0,R5
+   \   00000048   150000EF           SWI      +21
+    149            fclose(file,0);
+   \   0000004C   0010A0E3           MOV      R1,#+0
+   \   00000050   0400A0E1           MOV      R0,R4
+   \   00000054   0D0000EF           SWI      +13
+    150            
+    151            //log("-ok-");
+    152            return(texbuf);
+   \   00000058   0500A0E1           MOV      R0,R5
+   \   0000005C   3080BDE8           POP      {R4,R5,PC}       ;; return
+    153          }
+    154          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    155          int is0=0;
+   \                     is0:
+   \   00000000                      DS8 4
+
+   \                                 In segment CODE, align 4, keep-with-next
+    156          int ImageLoadFromFile(char *path,int highquality)
+    157          {
+   \                     ImageLoadFromFile:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+    158            char *str=malloc(128);
+   \   0000000C   8000A0E3           MOV      R0,#+128
+   \   00000010   140000EF           SWI      +20
+   \   00000014   0060A0E1           MOV      R6,R0
+    159            
+    160            is0++;
+   \   00000018   40009FE5           LDR      R0,??ImageLoadFromFile_0  ;; is0
+   \   0000001C   001090E5           LDR      R1,[R0, #+0]
+   \   00000020   012081E2           ADD      R2,R1,#+1
+    161            sprintf(str,"%d ImageLoadFromFile",is0);
+   \   00000024   38109FE5           LDR      R1,??ImageLoadFromFile_0+0x4  ;; `?<Constant "%d ImageLoadFromFile">`
+   \   00000028   002080E5           STR      R2,[R0, #+0]
+   \   0000002C   0600A0E1           MOV      R0,R6
+   \   00000030   160000EF           SWI      +22
+    162            //log(str);
+    163            //log("called ImageLoadFromFile");
+    164            //int highquality=0;
+    165            int sz=230600;
+    166            char * data=ReadFile(path);
+   \   00000034   0400A0E1           MOV      R0,R4
+   \   00000038   ........           BL       ReadFile
+   \   0000003C   0040A0E1           MOV      R4,R0
+    167            mfree(str);
+   \   00000040   0600A0E1           MOV      R0,R6
+   \   00000044   150000EF           SWI      +21
+    168            return _ReadBMP(data,sz,highquality);
+   \   00000048   0520A0E1           MOV      R2,R5
+   \   0000004C   C810A0E3           MOV      R1,#+200
+   \   00000050   E11B81E3           ORR      R1,R1,#0x38400
+   \   00000054   0400A0E1           MOV      R0,R4
+   \   00000058   7040BDE8           POP      {R4-R6,LR}       ;; Pop
+   \   0000005C   ........           B        _ReadBMP         ;; tailcall
+   \                     ??ImageLoadFromFile_0:
+   \   00000060   ........           DC32     is0
+   \   00000064   ........           DC32     `?<Constant "%d ImageLoadFromFile">`
+    169           
+    170          
+    171          };
+    172          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    173          void ImageFree(unsigned int a)
+    174          {
+    175            if(a==ImageNull) {log(" null");return;}
+   \                     ImageFree:
+   \   00000000   28109FE5           LDR      R1,??ImageFree_0  ;; `?<Constant " null">`
+   \   00000004   00402DE9           PUSH     {LR}
+   \   00000008   000050E3           CMP      R0,#+0
+   \   0000000C   0100A001           MOVEQ    R0,R1
+   \   00000010   0200000A           BEQ      ??ImageFree_1
+    176            if((a>>16)==0) {log(" >>16");return;}
+   \   00000014   2028B0E1           LSRS     R2,R0,#+16
+   \   00000018   0200001A           BNE      ??ImageFree_2
+   \   0000001C   080081E2           ADD      R0,R1,#+8
+   \                     ??ImageFree_1:
+   \   00000020   0040BDE8           POP      {LR}             ;; Pop
+   \   00000024   ........           _BF      log,??log??rA    ;; tailcall
+    177            mfree((void*)a); 
+   \                     ??ImageFree_2:
+   \   00000028   150000EF           SWI      +21
+    178          };
+   \   0000002C   0080BDE8           POP      {PC}             ;; return
+   \                     ??ImageFree_0:
+   \   00000030   ........           DC32     `?<Constant " null">`
+    179          
+    180          
+    181          //-----------------------------------------------------//
+    182          //Эт стремные переменные,но они нужны в любом проекте :)
+
+   \                                 In segment DATA_C, align 4, align-sorted
+    183          const int minus11=-11;
+   \                     minus11:
+   \   00000000   F5FFFFFF           DC32 -11
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    184          unsigned short maincsm_name_body[140];
+   \                     maincsm_name_body:
+   \   00000000                      DS8 280
+    185          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    186          unsigned int MAINCSM_ID = 0;
+   \                     MAINCSM_ID:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    187          unsigned int MAINGUI_ID = 0;
+   \                     MAINGUI_ID:
+   \   00000000                      DS8 4
+    188          typedef struct
+    189          {
+    190            CSM_RAM csm;
+    191            int gui_id;
+    192          }MAIN_CSM;
+    193          
+    194          typedef struct
+    195          {
+    196            GUI gui;
+    197            WSHDR *ws1;
+    198            WSHDR *ws2;
+    199            WSHDR *ws5;
+    200            int i1;
+    201          }MAIN_GUI;
+    202          
+    203          
+    204          //Объявляем переменные из конфига
+    205          extern void InitConfig();
+    206          
+    207          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    208          static void onCreate(MAIN_GUI *data, void *(*malloc_adr)(int))//Тут делаем что либо при создании гуи
+    209          { 
+    210            GBS_StartTimerProc(&timer1,100,Timer);
+   \                     onCreate:
+   \   00000000   ........           LDR      R2,??DataTable3  ;; Timer
+   \   00000004   30402DE9           PUSH     {R4,R5,LR}
+   \   00000008   30509FE5           LDR      R5,??onCreate_0  ;; scr_w
+   \   0000000C   0040A0E1           MOV      R4,R0
+   \   00000010   6410A0E3           MOV      R1,#+100
+   \   00000014   040085E2           ADD      R0,R5,#+4
+   \   00000018   4D0000EF           SWI      +77
+    211          #ifdef ELKA
+    212            DisableIconBar(1);
+    213          #endif
+    214            scr_w=ScreenW()-1;
+   \   0000001C   888100EF           SWI      +33160
+   \   00000020   010040E2           SUB      R0,R0,#+1
+   \   00000024   B000C5E1           STRH     R0,[R5, #+0]
+    215            scr_h=ScreenH()-1;
+   \   00000028   898100EF           SWI      +33161
+   \   0000002C   010040E2           SUB      R0,R0,#+1
+   \   00000030   B200C5E1           STRH     R0,[R5, #+2]
+    216            data->gui.state=1;
+   \   00000034   0100A0E3           MOV      R0,#+1
+   \   00000038   0C00C4E5           STRB     R0,[R4, #+12]
+    217          }
+   \   0000003C   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??onCreate_0:
+   \   00000040   ........           DC32     scr_w
+    218          
+    219          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    220          static void onClose(MAIN_GUI *data, void (*mfree_adr)(void *))//Сдесь делаем что нить при закрытии гуи:)
+    221          {
+   \                     onClose:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+    222            FreeMemory();
+    223            GBS_DelTimer(&timer1);
+   \   00000004   ........           LDR      R5,??DataTable4  ;; scr_w
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   ........           _BLF     FreeMemory,??FreeMemory??rA
+   \   00000010   040085E2           ADD      R0,R5,#+4
+   \   00000014   8C0100EF           SWI      +396
+    224            GBS_DelTimer(&timer2);
+   \   00000018   140085E2           ADD      R0,R5,#+20
+   \   0000001C   8C0100EF           SWI      +396
+    225            GBS_DelTimer(&loadtimer);
+   \   00000020   240085E2           ADD      R0,R5,#+36
+   \   00000024   8C0100EF           SWI      +396
+    226            data->gui.state=0;
+   \   00000028   0000A0E3           MOV      R0,#+0
+   \   0000002C   0C00C4E5           STRB     R0,[R4, #+12]
+    227          }
+   \   00000030   3080BDE8           POP      {R4,R5,PC}       ;; return
+    228          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    229          static void onFocus(MAIN_GUI *data, void *(*malloc_adr)(int), void (*mfree_adr)(void *))//Если гуи на верху то опять же делаем что нужно
+    230          {
+    231            #ifdef ELKA
+    232            DisableIconBar(1);
+    233            #endif
+    234            data->gui.state=2;
+    235            GBS_StartTimerProc(&timer1,100,TimerRedrawScreen);
+   \                     onFocus:
+   \   00000000   30209FE5           LDR      R2,??onFocus_0   ;; TimerRedrawScreen
+   \   00000004   10402DE9           PUSH     {R4,LR}
+   \   00000008   ........           LDR      R4,??DataTable4  ;; scr_w
+   \   0000000C   0210A0E3           MOV      R1,#+2
+   \   00000010   0C10C0E5           STRB     R1,[R0, #+12]
+   \   00000014   6410A0E3           MOV      R1,#+100
+   \   00000018   040084E2           ADD      R0,R4,#+4
+   \   0000001C   4D0000EF           SWI      +77
+    236            GBS_StartTimerProc(&timer2,100,Timer);
+   \   00000020   ........           LDR      R2,??DataTable3  ;; Timer
+   \   00000024   6410A0E3           MOV      R1,#+100
+   \   00000028   140084E2           ADD      R0,R4,#+20
+   \   0000002C   4D0000EF           SWI      +77
+    237            DisableIDLETMR();
+   \   00000030   7F0100EF           SWI      +383
+    238          }
+   \   00000034   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??onFocus_0:
+   \   00000038   ........           DC32     TimerRedrawScreen
+    239          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    240          static void onUnfocus(MAIN_GUI *data, void (*mfree_adr)(void *))//а если гуи не вверху,то можно закрыть эльф например:)
+    241          {
+   \                     onUnfocus:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    242            if (data->gui.state!=2) return;
+   \   00000004   0C10D0E5           LDRB     R1,[R0, #+12]
+   \   00000008   020051E3           CMP      R1,#+2
+   \   0000000C   1080BD18           POPNE    {R4,PC}
+    243            data->gui.state=1;
+    244            GBS_DelTimer(&timer1);
+   \   00000010   ........           LDR      R4,??DataTable4  ;; scr_w
+   \   00000014   0110A0E3           MOV      R1,#+1
+   \   00000018   0C10C0E5           STRB     R1,[R0, #+12]
+   \   0000001C   040084E2           ADD      R0,R4,#+4
+   \   00000020   8C0100EF           SWI      +396
+    245            GBS_DelTimer(&timer2);
+   \   00000024   140084E2           ADD      R0,R4,#+20
+   \   00000028   8C0100EF           SWI      +396
+    246          }
+   \   0000002C   1080BDE8           POP      {R4,PC}          ;; return
+    247          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    248          static int OnKey(MAIN_GUI *data, GUI_MSG *msg)
+    249          {
+   \                     OnKey:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0140A0E1           MOV      R4,R1
+    250           
+    251            if(Keyhook(msg)==1) return 1;
+   \   00000008   0400A0E1           MOV      R0,R4
+   \   0000000C   ........           _BLF     Keyhook,??Keyhook??rA
+   \   00000010   010050E3           CMP      R0,#+1
+   \   00000014   0100001A           BNE      ??OnKey_0
+   \                     ??OnKey_1:
+   \   00000018   0100A0E3           MOV      R0,#+1
+   \   0000001C   1080BDE8           POP      {R4,PC}
+    252            if((msg->gbsmsg->msg==KEY_DOWN) && (msg->gbsmsg->submess==RIGHT_SOFT)) return 1;
+   \                     ??OnKey_0:
+   \   00000020   040094E5           LDR      R0,[R4, #+4]
+   \   00000024   9320A0E3           MOV      R2,#+147
+   \   00000028   F210D0E1           LDRSH    R1,[R0, #+2]
+   \   0000002C   402F82E3           ORR      R2,R2,#0x100
+   \   00000030   020051E1           CMP      R1,R2
+   \   00000034   04009005           LDREQ    R0,[R0, #+4]
+   \   00000038   04005003           CMPEQ    R0,#+4
+   \   0000003C   F5FFFF0A           BEQ      ??OnKey_1
+    253            return(0);
+   \   00000040   0000A0E3           MOV      R0,#+0
+   \   00000044   1080BDE8           POP      {R4,PC}          ;; return
+    254          }
+    255          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    256          static void OnRedraw(MAIN_GUI *data)//эта функция нужна для перерисовки экрана,тут рисуем все что нам нужно
+    257          {
+    258            if(running)
+    259            {
+    260             if (data->gui.state==2) 
+    261              {
+    262               //TimerRedrawScreen();
+    263              }
+    264            }
+    265            
+    266          }
+   \                     OnRedraw:
+   \   00000000   1EFF2FE1           BX       LR               ;; return
+    267          
+    268          
+    269          
+    270          
+    271          
+    272          
+    273          extern void kill_data(void *p, void (*func_p)(void *));//Эта функция убивает эльф и освобождает память
+    274          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    275          int method8(void){return(0);}
+   \                     method8:
+   \   00000000   0000A0E3           MOV      R0,#+0
+   \   00000004   1EFF2FE1           BX       LR               ;; return
+
+   \                                 In segment CODE, align 4, keep-with-next
+    276          int method9(void){return(0);}
+   \                     method9:
+   \   00000000   0000A0E3           MOV      R0,#+0
+   \   00000004   1EFF2FE1           BX       LR               ;; return
+    277          
+    278          const void * const gui_methods[11]={
+    279            (void *)OnRedraw,
+    280            (void *)onCreate,
+    281            (void *)onClose,
+    282            (void *)onFocus,
+    283            (void *)onUnfocus,
+    284            (void *)OnKey,
+    285            0,
+    286            (void *)kill_data,
+    287            (void *)method8,
+    288            (void *)method9,
+    289            0
+    290          };
+    291          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    292          static void maincsm_oncreate(CSM_RAM *data)//Вызывается при открытии эльфа,делаем что нужно
+    293          {
+   \                     maincsm_oncreate:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+    294            //тут хитрые махинации для получения ид гуя чтобы мона было с ним манипулировать
+    295            static const RECT Canvas={0,0,0,0};
+    296            StoreXYXYtoRECT((RECT*)&Canvas,0,0,ScreenW()-1,ScreenH()-1);
+   \   00000004   74609FE5           LDR      R6,??maincsm_oncreate_0  ;; gui_methods
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   898100EF           SWI      +33161
+   \   00000010   0050A0E1           MOV      R5,R0
+   \   00000014   888100EF           SWI      +33160
+   \   00000018   011045E2           SUB      R1,R5,#+1
+   \   0000001C   02002DE9           PUSH     {R1}
+   \   00000020   013040E2           SUB      R3,R0,#+1
+   \   00000024   0020A0E3           MOV      R2,#+0
+   \   00000028   2C0086E2           ADD      R0,R6,#+44
+   \   0000002C   0010A0E3           MOV      R1,#+0
+   \   00000030   340100EF           SWI      +308
+    297            MAIN_GUI *main_gui=malloc(sizeof(MAIN_GUI));
+   \   00000034   4000A0E3           MOV      R0,#+64
+   \   00000038   140000EF           SWI      +20
+   \   0000003C   0050A0E1           MOV      R5,R0
+    298            MAIN_CSM*csm=(MAIN_CSM*)data;
+    299            zeromem(main_gui,sizeof(MAIN_GUI));
+   \   00000040   4010A0E3           MOV      R1,#+64
+   \   00000044   1D0100EF           SWI      +285
+    300            //patch_rect((RECT*)&Canvas,0,YDISP,ScreenW()-1,ScreenH()-1);
+    301            main_gui->gui.canvas=(void *)(&Canvas);
+   \   00000048   2C0086E2           ADD      R0,R6,#+44
+   \   0000004C   000085E5           STR      R0,[R5, #+0]
+    302            main_gui->gui.flag30=2;
+   \   00000050   0200A0E3           MOV      R0,#+2
+   \   00000054   2C0085E5           STR      R0,[R5, #+44]
+    303            main_gui->gui.methods=(void *)gui_methods;
+   \   00000058   046085E5           STR      R6,[R5, #+4]
+    304            main_gui->gui.item_ll.data_mfree=(void (*)(void *))mfree_adr();
+   \   0000005C   158000EF           SWI      +32789
+   \   00000060   1C0085E5           STR      R0,[R5, #+28]
+    305            csm->csm.state=0;
+   \   00000064   0000A0E3           MOV      R0,#+0
+   \   00000068   100084E5           STR      R0,[R4, #+16]
+    306            csm->csm.unk1=0;
+   \   0000006C   140084E5           STR      R0,[R4, #+20]
+    307            csm->gui_id=CreateGUI(main_gui);
+   \   00000070   0500A0E1           MOV      R0,R5
+   \   00000074   370100EF           SWI      +311
+   \   00000078   280084E5           STR      R0,[R4, #+40]
+    308            //MAINGUI_ID=CreateGUI(main_gui);
+    309          }
+   \   0000007C   7180BDE8           POP      {R0,R4-R6,PC}    ;; return
+   \                     ??maincsm_oncreate_0:
+   \   00000080   ........           DC32     gui_methods
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     gui_methods:
+   \   00000000   ............       DC32 OnRedraw, onCreate, onClose, onFocus, onUnfocus, OnKey, 0H
+   \              ............
+   \              ............
+   \              ............
+   \              00000000    
+   \   0000001C   ............       DC32 kill_data, method8, method9, 0H
+   \              ............
+   \              00000000    
+   \   0000002C   000000000000       DC16 0, 0, 0, 0
+   \              0000        
+    310          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    311          void ElfKiller(void)//освобождаем все занятое место эльфом в оперативе
+    312          {
+   \                     ElfKiller:
+   \   00000000   00402DE9           PUSH     {LR}
+    313            extern void *ELF_BEGIN;
+    314            kill_data(&ELF_BEGIN,(void (*)(void *))mfree_adr());
+   \   00000004   158000EF           SWI      +32789
+   \   00000008   0010A0E1           MOV      R1,R0
+   \   0000000C   04009FE5           LDR      R0,??ElfKiller_0  ;; ELF_BEGIN
+   \   00000010   0040BDE8           POP      {LR}             ;; Pop
+   \   00000014   ........           _BF      kill_data,??kill_data??rA  ;; tailcall
+   \                     ??ElfKiller_0:
+   \   00000018   ........           DC32     ELF_BEGIN
+    315          }
+    316          
+    317          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    318          static void maincsm_onclose(CSM_RAM *csm)//функция закрытия эльфа,тут освобождаем памчть если нужно и т.п.
+    319          {
+    320            SUBPROC((void *)ElfKiller);
+   \                     maincsm_onclose:
+   \   00000000   08009FE5           LDR      R0,??maincsm_onclose_0  ;; ElfKiller
+   \   00000004   00402DE9           PUSH     {LR}
+   \   00000008   710100EF           SWI      +369
+    321          }
+   \   0000000C   0080BDE8           POP      {PC}             ;; return
+   \                     ??maincsm_onclose_0:
+   \   00000010   ........           DC32     ElfKiller
+    322          
+    323          
+    324          #pragma inline=forced
+    325          int toupper(int c)
+    326          {
+    327            if ((c>='a')&&(c<='z')) c+='A'-'a';
+    328            return(c);
+    329          }
+    330          #pragma inline
+    331          int strcmp_nocase(const char *s1,const char *s2)
+    332          {
+    333            int i;
+    334            int c;
+    335            while(!(i=(c=toupper(*s1++))-toupper(*s2++))) if (!c) break;
+    336            return(i);
+    337          }
+    338          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    339          static int maincsm_onmessage(CSM_RAM *data, GBS_MSG *msg)//тут вообщем протекают все сообщения поступаемые из эльфа так сказать:)
+    340          {
+   \                     maincsm_onmessage:
+   \   00000000   00402DE9           PUSH     {LR}
+    341            
+    342            //сообщение о реконфигурации например,ипц и т.д. и т.п.
+    343            MAIN_CSM *csm=(MAIN_CSM*)data;
+    344            if ((msg->msg==MSG_GUI_DESTROYED)&&((int)msg->data0==csm->gui_id))
+   \   00000004   F220D1E1           LDRSH    R2,[R1, #+2]
+   \   00000008   980052E3           CMP      R2,#+152
+   \   0000000C   0500001A           BNE      ??maincsm_onmessage_0
+   \   00000010   082091E5           LDR      R2,[R1, #+8]
+   \   00000014   283090E5           LDR      R3,[R0, #+40]
+   \   00000018   030052E1           CMP      R2,R3
+   \   0000001C   1D00001A           BNE      ??maincsm_onmessage_1
+    345            {
+    346              csm->csm.state=-3;
+   \   00000020   0220E0E3           MVN      R2,#+2
+   \   00000024   102080E5           STR      R2,[R0, #+16]
+    347            }
+    348            if (msg->msg==MSG_RECONFIGURE_REQ)//Елси была реконфигурация,то обновляем настройки эльфа
+   \                     ??maincsm_onmessage_0:
+   \   00000028   F200D1E1           LDRSH    R0,[R1, #+2]
+   \   0000002C   F120A0E3           MOV      R2,#+241
+   \   00000030   C02F82E3           ORR      R2,R2,#0x300
+   \   00000034   020050E1           CMP      R0,R2
+   \   00000038   1600001A           BNE      ??maincsm_onmessage_1
+    349            {
+    350              extern const char *successed_config_filename;
+    351              if (strcmp_nocase(successed_config_filename,(char *)msg->data0)==0)
+   \   0000003C   080091E5           LDR      R0,[R1, #+8]
+   \   00000040   58109FE5           LDR      R1,??maincsm_onmessage_2  ;; successed_config_filename
+   \   00000044   001091E5           LDR      R1,[R1, #+0]
+   \                     ??maincsm_onmessage_3:
+   \   00000048   0020D1E5           LDRB     R2,[R1, #+0]
+   \   0000004C   610052E3           CMP      R2,#+97
+   \   00000050   010000BA           BLT      ??maincsm_onmessage_4
+   \   00000054   7B0052E3           CMP      R2,#+123
+   \   00000058   202042B2           SUBLT    R2,R2,#+32
+   \                     ??maincsm_onmessage_4:
+   \   0000005C   0030D0E5           LDRB     R3,[R0, #+0]
+   \   00000060   011081E2           ADD      R1,R1,#+1
+   \   00000064   610053E3           CMP      R3,#+97
+   \   00000068   010000BA           BLT      ??maincsm_onmessage_5
+   \   0000006C   7B0053E3           CMP      R3,#+123
+   \   00000070   203043B2           SUBLT    R3,R3,#+32
+   \                     ??maincsm_onmessage_5:
+   \   00000074   010080E2           ADD      R0,R0,#+1
+   \   00000078   033052E0           SUBS     R3,R2,R3
+   \   0000007C   0500001A           BNE      ??maincsm_onmessage_1
+   \   00000080   000052E3           CMP      R2,#+0
+   \   00000084   EFFFFF1A           BNE      ??maincsm_onmessage_3
+    352              {
+    353                ShowMSG(1,(int)"обновлен!");
+   \   00000088   14109FE5           LDR      R1,??maincsm_onmessage_2+0x4  ;; `?<Constant "\\356\\341\\355\\356\\342\\353\\345\\355!"`
+   \   0000008C   0100A0E3           MOV      R0,#+1
+   \   00000090   480100EF           SWI      +328
+    354                InitConfig();
+   \   00000094   ........           _BLF     InitConfig,??InitConfig??rA
+    355              }
+    356            }
+    357            return(1);
+   \                     ??maincsm_onmessage_1:
+   \   00000098   0100A0E3           MOV      R0,#+1
+   \   0000009C   0080BDE8           POP      {PC}             ;; return
+   \                     ??maincsm_onmessage_2:
+   \   000000A0   ........           DC32     successed_config_filename
+   \   000000A4   ........           DC32     `?<Constant "\\356\\341\\355\\356\\342\\353\\345\\355!"`
+    358          }
+    359          
+    360          
+    361          static const struct//это структура цсм,разбираться не надо:)
+    362          {
+    363            CSM_DESC maincsm;
+    364            WSHDR maincsm_name;
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Worms 0.1 (c)half65">`:
+   \   00000000   576F726D7320       DC8 "Worms 0.1 (c)half65"
+   \              302E31202863
+   \              2968616C6636
+   \              3500        
+   \   00000014   2D2D2D2D2D2D       DC8 2DH, 2DH, 2DH, 2DH, 2DH, 2DH, 2DH, 2DH
+   \              2D2D        
+   \   0000001C   2D2D2D2D2D2D       DC8 2DH, 2DH, 2DH, 2DH, 2DH, 2DH, 2DH, 2DH
+   \              2D2D        
+   \   00000024   2D2D2D2D2D2D       DC8 2DH, 2DH, 2DH, 2DH, 2DH, 2DH, 2DH, 2DH
+   \              2D2D        
+   \   0000002C   2D2D2D2D2D2D       DC8 2DH, 2DH, 2DH, 2DH, 2DH, 2DH, 2DH, 2DH
+   \              2D2D        
+   \   00000034   2D2D2D2D2D2D       DC8 2DH, 2DH, 2DH, 2DH, 2DH, 2DH, 2DH, 2DH
+   \              2D2D        
+   \   0000003C   2D2D2D2D2D2D       DC8 2DH, 2DH, 2DH, 2DH, 2DH, 2DH, 2DH, 2DH
+   \              2D2D        
+   \   00000044   2D2D2D2D2D2D       DC8 2DH, 2DH, 2DH, 2DH, 2DH, 2DH, 2DH, 2DH
+   \              2D2D        
+   \   0000004C   00                 DC8 0
+   \   0000004D   000000             DC8 0, 0, 0
+   \   00000050   4C6F67207374       DC8 "Log started by root, UID=0. starting elf..."
+   \              617274656420
+   \              627920726F6F
+   \              742C20554944
+   \              3D302E207374
+   \              617274696E67
+   \              20656C662E2E
+   \              2E00        
+   \   0000007C   456E7669726F       DC8 "Environment variable PWD = %s"
+   \              6E6D656E7420
+   \              766172696162
+   \              6C6520505744
+   \              203D20257300
+   \   0000009A   0000               DC8 0, 0
+   \   0000009C   416C6C207365       DC8 "All seems to be OK..."
+   \              656D7320746F
+   \              206265204F4B
+   \              2E2E2E00    
+   \   000000B2   0000               DC8 0, 0
+   \   000000B4   ............       DC32 maincsm_onmessage, maincsm_oncreate, maincsm_onclose, 44, 1
+   \              ............
+   \              2C0000000100
+   \              0000        
+   \   000000C8   ............       DC32 minus11, maincsm_name_body, 55AACCCCH, 3333AA55H, 0
+   \              ....CCCCAA55
+   \              55AA33330000
+   \              0000        
+   \   000000DC   8B00               DC16 139
+   \   000000DE   0000               DC8 0, 0
+    365          }MAINCSM =
+    366          {
+    367            {
+    368            maincsm_onmessage,
+    369            maincsm_oncreate,
+    370          #ifdef NEWSGOLD
+    371            0,
+    372            0,
+    373            0,
+    374            0,
+    375          #endif
+    376            maincsm_onclose,
+    377            sizeof(MAIN_CSM),
+    378            1,
+    379            &minus11
+    380            },
+    381            {
+    382              maincsm_name_body,
+    383              NAMECSM_MAGIC1,
+    384              NAMECSM_MAGIC2,
+    385              0x0,
+    386              139
+    387            }
+    388          };
+    389          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    390          void UpdateCSMname(void)//ну собственно имя эльфа передаваемое хтаску
+    391          {
+    392            wsprintf((WSHDR *)(&MAINCSM.maincsm_name),"Worms 0.1 (c)half65");
+   \                     UpdateCSMname:
+   \   00000000   ........           LDR      R0,??DataTable6  ;; `?<Constant "Worms 0.1 (c)half65">`
+   \   00000004   00402DE9           PUSH     {LR}
+   \   00000008   0010A0E1           MOV      R1,R0
+   \   0000000C   CC0080E2           ADD      R0,R0,#+204
+   \   00000010   240100EF           SWI      +292
+    393          }
+   \   00000014   0080BDE8           POP      {PC}             ;; return
+    394          
+    395          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    396          int main(char *exename, char *fname)
+    397          {
+   \                     main:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   ACD04DE2           SUB      SP,SP,#+172
+   \   00000008   0040A0E1           MOV      R4,R0
+    398               char s[128];
+    399               const char *p=strrchr(exename,'\\')+1;
+   \   0000000C   5C10A0E3           MOV      R1,#+92
+   \   00000010   170100EF           SWI      +279
+   \   00000014   010080E2           ADD      R0,R0,#+1
+    400               strncpy(s,exename,p-exename);
+   \   00000018   045040E0           SUB      R5,R0,R4
+   \   0000001C   0520A0E1           MOV      R2,R5
+   \   00000020   0410A0E1           MOV      R1,R4
+    401               s[p-exename]='\0';
+    402               pwd=malloc(128);
+   \   00000024   98409FE5           LDR      R4,??main_0      ;; pwd
+   \   00000028   0D00A0E1           MOV      R0,SP
+   \   0000002C   160100EF           SWI      +278
+   \   00000030   0D00A0E1           MOV      R0,SP
+   \   00000034   0010A0E3           MOV      R1,#+0
+   \   00000038   0010C5E7           STRB     R1,[R5, +R0]
+    403               sprintf(pwd,s);
+    404               log("--------------------------------------------------------");
+   \   0000003C   ........           LDR      R5,??DataTable6  ;; `?<Constant "Worms 0.1 (c)half65">`
+   \   00000040   8000A0E3           MOV      R0,#+128
+   \   00000044   140000EF           SWI      +20
+   \   00000048   000084E5           STR      R0,[R4, #+0]
+   \   0000004C   0D10A0E1           MOV      R1,SP
+   \   00000050   160000EF           SWI      +22
+   \   00000054   140085E2           ADD      R0,R5,#+20
+   \   00000058   ........           _BLF     log,??log??rA
+    405               log("Log started by root, UID=0. starting elf...");
+   \   0000005C   500085E2           ADD      R0,R5,#+80
+   \   00000060   ........           _BLF     log,??log??rA
+    406               char *tempstr = malloc(512);
+   \   00000064   800FA0E3           MOV      R0,#+512
+   \   00000068   140000EF           SWI      +20
+    407               sprintf(tempstr,"Environment variable PWD = %s",pwd);
+   \   0000006C   002094E5           LDR      R2,[R4, #+0]
+   \   00000070   0060A0E1           MOV      R6,R0
+   \   00000074   7C1085E2           ADD      R1,R5,#+124
+   \   00000078   160000EF           SWI      +22
+    408               log(tempstr);
+   \   0000007C   0600A0E1           MOV      R0,R6
+   \   00000080   ........           _BLF     log,??log??rA
+    409               log("All seems to be OK...");
+   \   00000084   9C0085E2           ADD      R0,R5,#+156
+   \   00000088   ........           _BLF     log,??log??rA
+    410               mfree(tempstr);
+   \   0000008C   0600A0E1           MOV      R0,R6
+   \   00000090   150000EF           SWI      +21
+    411                
+    412            MAIN_CSM main_csm;
+    413            InitConfig();
+   \   00000094   ........           _BLF     InitConfig,??InitConfig??rA
+    414            LockSched();
+   \   00000098   460100EF           SWI      +326
+    415            UpdateCSMname();
+   \   0000009C   ........           BL       UpdateCSMname
+    416            CreateCSM(&MAINCSM.maincsm,&main_csm,0);
+   \   000000A0   0020A0E3           MOV      R2,#+0
+   \   000000A4   80108DE2           ADD      R1,SP,#+128
+   \   000000A8   B40085E2           ADD      R0,R5,#+180
+   \   000000AC   070100EF           SWI      +263
+    417            UnlockSched();
+   \   000000B0   470100EF           SWI      +327
+    418            Init();
+   \   000000B4   ........           _BLF     Init,??Init??rA
+    419            return 0;
+   \   000000B8   0000A0E3           MOV      R0,#+0
+   \   000000BC   ACD08DE2           ADD      SP,SP,#+172
+   \   000000C0   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??main_0:
+   \   000000C4   ........           DC32     pwd
+    420          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable3:
+   \   00000000   ........           DC32     Timer
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable4:
+   \   00000000   ........           DC32     scr_w
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable6:
+   \   00000000   ........           DC32     `?<Constant "Worms 0.1 (c)half65">`
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for running>`:
+   \   00000000   01000000           DC32 1
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "%d ImageLoadFromFile">`:
+   \   00000000   256420496D61       DC8 "%d ImageLoadFromFile"
+   \              67654C6F6164
+   \              46726F6D4669
+   \              6C6500      
+   \   00000015   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant " null">`:
+   \   00000000   206E756C6C00       DC8 " null"
+   \   00000006   0000               DC8 0, 0
+   \   00000008   203E3E313600       DC8 " >>16"
+   \   0000000E   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\356\\341\\355\\356\\342\\353\\345\\355!"`:
+   \   00000000   EEE1EDEEE2EB       DC8 "\356\341\355\356\342\353\345\355!"
+   \              E5ED2100    
+   \   0000000A   0000               DC8 0, 0
+
+   Maximum stack usage in bytes:
+
+     Function          CSTACK
+     --------          ------
+     ElfKiller             4
+     ImageCreateHdr16     16
+     ImageCreateHdr8      16
+     ImageFree             4
+     ImageLoadFromFile    16
+     OnKey                 8
+     OnRedraw              0
+     ReadFile             12
+     UpdateCSMname         4
+     _ReadBMP             36
+     main                188
+     maincsm_onclose       4
+     maincsm_oncreate     20
+     maincsm_onmessage     4
+     method8               0
+     method9               0
+     onClose              12
+     onCreate             12
+     onFocus               8
+     onUnfocus             8
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     pwd                               4
+     scr_w                            52
+     running                           4
+     ImageCreateHdr16                 72
+     ImageCreateHdr8                  68
+     _ReadBMP                        584
+     ReadFile                         96
+     is0                               4
+     ImageLoadFromFile               104
+     ImageFree                        52
+     minus11                           4
+     maincsm_name_body               280
+     MAINCSM_ID                        4
+     MAINGUI_ID                        4
+     onCreate                         68
+     onClose                          52
+     onFocus                          60
+     onUnfocus                        48
+     OnKey                            72
+     OnRedraw                          4
+     method8                           8
+     method9                           8
+     maincsm_oncreate                132
+     gui_methods                      52
+     ElfKiller                        28
+     maincsm_onclose                  20
+     maincsm_onmessage               168
+     ?<Constant "Worms 0.1 (c)half65">
+                                     224
+     UpdateCSMname                    24
+     main                            200
+     ??DataTable3                      4
+     ??DataTable4                      4
+     ??DataTable6                      4
+     ?<Initializer for running>        4
+     ?<Constant "%d ImageLoadFromFile">
+                                      24
+     ?<Constant " null">              16
+     ?<Constant "\356\341\355\356\342\353\345\355!"
+                                      12
+      Others                         188
+
+ 
+ 2 044 bytes in segment CODE
+   332 bytes in segment DATA_C
+     4 bytes in segment DATA_I
+     4 bytes in segment DATA_ID
+   348 bytes in segment DATA_Z
+    24 bytes in segment INITTAB
+ 
+ 1 880 bytes of CODE  memory (+ 188 bytes shared)
+   336 bytes of CONST memory
+   352 bytes of DATA  memory
+
+Errors: none
+Warnings: none

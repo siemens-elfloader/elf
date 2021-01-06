@@ -1,0 +1,4708 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.41A/W32 EVALUATION    26/Feb/2008  13:48:07 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod           #
+#                       evilfox(19.02.08)\main.c                             #
+#    Command line    =  "D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod          #
+#                       evilfox(19.02.08)\main.c" -D NEWSGOLD -D ELKA -D     #
+#                       EVILFOX --preprocess "D:\Pasha\elf\mod_src\elfiki\na #
+#                       ticq_2nd_mod evilfox(19.02.08)\EVILFOX_ICQ\List\"    #
+#                       -lC "D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod      #
+#                       evilfox(19.02.08)\EVILFOX_ICQ\List\" -o              #
+#                       "D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod          #
+#                       evilfox(19.02.08)\EVILFOX_ICQ\Obj\" -s9 --no_unroll  #
+#                       --cpu_mode arm --endian little --cpu ARM926EJ-S      #
+#                       --stack_align 4 --interwork -e --fpu None            #
+#                       --dlib_config "D:\Pasha\ARM_Embedded_Workbench\Embed #
+#                       ded Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h"  #
+#                       -I "D:\Pasha\ARM_Embedded_Workbench\Embedded         #
+#                       Workbench 4.0 Evaluation\ARM\INC\"                   #
+#                       --inline_threshold=2                                 #
+#    List file       =  D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod           #
+#                       evilfox(19.02.08)\EVILFOX_ICQ\List\main.lst          #
+#    Object file     =  D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod           #
+#                       evilfox(19.02.08)\EVILFOX_ICQ\Obj\main.r79           #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod evilfox(19.02.08)\main.c
+      1          #include "../inc/swilib.h"
+      2          #include "../inc/cfg_items.h"
+      3          #include "../inc/pnglist.h"
+
+  void SendAnswer(int dummy, TPKT *p);
+                             ^
+"D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod evilfox(19.02.08)\main.h",5  Error[Pe020]: 
+          identifier "TPKT" is undefined
+
+  void CreateEditChat(CLIST *t);
+                      ^
+"D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod evilfox(19.02.08)\main.h",6  Error[Pe020]: 
+          identifier "CLIST" is undefined
+
+  int GetIconIndex(CLIST *t);
+                   ^
+"D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod evilfox(19.02.08)\main.h",19  Error[Pe020]: 
+          identifier "CLIST" is undefined
+
+  void FreeLOGQ(LOGQ **pp);
+                ^
+"D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod evilfox(19.02.08)\main.h",22  Error[Pe020]: 
+          identifier "LOGQ" is undefined
+
+    CLIST *ed_contact;
+    ^
+"D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod evilfox(19.02.08)\main.h",27  Error[Pe020]: 
+          identifier "CLIST" is undefined
+      4          #include "NatICQ.h"
+      5          #include "history.h"
+      6          #include "conf_loader.h"
+      7          #include "mainmenu.h"
+      8          #include "main.h"
+      9          #include "language.h"
+     10          #include "../inc/xtask_ipc.h"
+     11          #include "smiles.h"
+     12          #include "naticq_ipc.h"
+     13          #include "status_change.h"
+     14          #include "strings.h"
+     15          #include "manage_cl.h"
+     16          #include "cl_work.h"
+     17          #include "select_smile.h"
+     18          #include "revision.h"
+     19          #ifdef EVILFOX
+     20          #include "print.h"
+     21          #endif
+     22          
+     23          #ifndef NEWSGOLD
+     24          #define SEND_TIMER
+     25          #endif
+     26          
+     27          int total_unread;
+     28          #define EOP -10
+     29          int CurrentStatus;
+     30          int CurrentXStatus;
+     31          volatile CLIST *cltop;
+     32          
+     33          #ifdef EVILFOX
+     34          //=========================mod definitions
+     35          #pragma swi_number=54
+     36          __swi __arm void SLI_SetState(unsigned char state);  //for sli usage
+     37          #pragma swi_number=0x0C5
+     38          __swi __arm int IsIdleUiOnTop(); //for check if idlegui
+     39          char upcoming[64]; //for nick that comes online
+     40          int total_unread2; //for total unread mesages
+     41          int total_c_online; //for count of contacts who just came online
+     42          int Is_SLI_On; //for checking if is active sli
+     43          GBSTMR mytmr; //timer for sli
+     44          //extern const int SLI_TYPE; //for check where to activate sli
+     45          int Is_ILU_On; // for ilumination use
+     46          int seconds; //sekundes
+     47          int minutes; //minuutes
+     48          int hours; //hours
+     49          GBSTMR ctmr; //time counter
+     50          char online_txt[18]; //online txt
+     51          extern const unsigned int ONTIME_X; //cordinates for online time ms
+     52          extern const unsigned int ONTIME_Y; //cordinates for online time ms
+     53          extern const int Pause_Time; // for time refresher
+     54          int align=0; //align for png font
+     55          int fonto=1; // font number
+     56          int space=1; // space between letters in png font
+     57          char fontpath[]="2:\\font\\"; //font path for png
+     58          int time_draw; //refresh for mainscreen
+     59          void *canvasdata; //just canvasdata
+     60          int show_ping; //for autoping not show
+     61          int ping_sec; //for autoping engaging
+     62          extern const int Show_Ping; //do ping if 1
+     63          extern const unsigned int PING_X; //cordinates for ping ms
+     64          extern const unsigned int PING_Y; //cordinates for ping ms
+     65          char ping_txt[16]; // ping txt
+     66          extern const unsigned int UNREAD_X; //cordinates for unread ms
+     67          extern const unsigned int UNREAD_Y; //cordinates for unread ms
+     68          char unread_txt[16]; //unread msg txt
+     69          extern const int Is_Unread_On; //show/hide unread on ms
+     70          extern const int Is_Online_On; //show/hide online time on ms
+     71          int INC_show; //for popup sender counter
+     72          char show_nick[64]; //nick save for popup sender
+     73          int Is_INC_On; // show//hide popup sender
+     74          GBSTMR incs; // popup sendet timer
+     75          int font=9; // font for popup sender
+     76          //const char color[4]={255,255,255,100}; //  color for popup sender
+     77          int pp_color; //  color for popup sender
+     78          extern const int Is_DRAWMAIN_On; //show/hide main msg
+     79          int main_d; // refresher for main msg
+     80          extern const unsigned int MSG_Y; // cordinates for main msg
+     81          extern const unsigned int MSG_X; // cordinates for main msg
+     82          int paused_height; // vertical height of font
+     83          int in_count; // count incoming messages
+     84          int out_count; // count outgoing messages
+     85          char last_msg_buffer[3072]; // last message buffer
+     86          int comanda; //for check comand to add it to log
+     87          int msg_away_timer; // time for autostatus
+     88          extern const unsigned int AUTO_ENGADE; //time to start autostatus
+     89          int change_back_status; //to do changeback or not
+     90          int status_rem; //remember your status before change
+     91          char away_msg_time[64]; //away time char
+     92          char away_msg[256]; // away txt
+     93          int away_m; //use to check if auto time engaged
+     94          extern const int Auto_Status; //use autostatus or not to use
+     95          extern const char away_msg1[24]; //for hello msg in autostatus
+     96          extern const char away_msg2[64]; //for automsg txt
+     97          extern const int time_zone; //for time zone initialization
+     98          char tim_zone[24]; //timezone txt
+     99          int In_EXT_On; //to initialize extended sounds
+    100          char ext_sound[128]; //path to play or init ext sound
+    101          extern const char sndMsg2[64]; //path to extended sounds
+    102          int total_count; //counter for extender sound info display
+    103          int in_ext; //counter for extender sound info display
+    104          char LG_MENU2[32]; //moved menu name here for my needs
+    105          int total_c_all; // contact count
+    106          int total_c_on; // online contacts
+    107          int icon_change; //for icon change on ms
+    108          int icon_change2; //for icon change on ms
+    109          extern int *XStatusesIconArray; // strange need but ok
+    110          char mod_info[]="2nd generation mod based on revision 1848! mod date: 19.02.08 14:02!"; //just info for mod info
+    111          //=========================end
+    112          #endif
+    113          
+    114          #ifdef EVILFOX
+    115          //=========================modification functions
+    116          
+    117          void SLI_Off(void);
+    118          void SLI_On()
+    119          {
+    120            if (total_unread)
+    121            {
+    122            SLI_SetState(1);   
+    123            GBS_StartTimerProc(&mytmr, 21, SLI_Off);
+    124            }
+    125            else
+    126              SLI_SetState(0);
+    127          }
+    128          
+    129          void SLI_Off()
+    130          {
+    131            SLI_SetState(2);
+    132            if (total_unread)
+    133              GBS_StartTimerProc(&mytmr, 21, SLI_On); //26*SLI_time2
+    134            else
+    135              SLI_SetState(0);
+    136          }
+    137          
+    138          void SLI_Timer()
+    139          {
+    140            if(Is_SLI_On)
+    141            GBS_StartTimerProc(&mytmr, 262, SLI_On); //262*SLI_time
+    142          }
+    143          
+    144          //===============time count=========
+    145          void time_count()
+    146          {
+    147            seconds++;
+    148            if(seconds==60)
+    149            {
+    150              seconds=0;
+    151              minutes++;
+    152            }
+    153            if(minutes==60)
+    154            {
+    155              minutes=0;
+    156              hours++;
+    157            }
+    158          }
+    159          
+    160          void time_counter()
+    161          {
+    162            if(connect_state==3)
+    163            {
+    164            time_count();
+    165            GBS_StartTimerProc(&ctmr, 216, time_counter);
+    166            }
+    167            else
+    168            {
+    169              if(!Pause_Time)
+    170              {
+    171              seconds=0;
+    172              minutes=0;
+    173              hours=0;
+    174              }
+    175              GBS_StartTimerProc(&ctmr, 216, time_counter);
+    176            }
+    177            time_draw=1;
+    178          }
+    179          //=========================time count=====
+    180          //=========================mainscreen ping===============
+    181          static void PingToServer2(void)
+    182          {
+    183            TPKT *p;
+    184            p=malloc(sizeof(PKT)+sizeof(TTime));
+    185            GetDateTime(NULL,(TTime *)p->data);
+    186            p->pkt.uin=0;
+    187            p->pkt.type=T_ECHO;
+    188            p->pkt.data_len=sizeof(TTime);
+    189            SUBPROC((void *)SendAnswer,0,p);
+    190          }
+    191          //=========================mainscreen ping==============
+    192          
+    193          //=========================popup sender=========================
+    194          void show_pp_sender()
+    195          {
+    196            if(INC_show>0)
+    197            {
+    198              WSHDR *ws=AllocWS(64);
+    199              ascii2ws(ws,show_nick);
+    200              DrawRectangle(0,0,Get_WS_width(ws,font)+2,GetFontYSIZE(font)+2,0,GetPaletteAdrByColorIndex(1),GetPaletteAdrByColorIndex(1));
+    201              DrawString(ws,1,1,1+Get_WS_width(ws,font)+2,1+GetFontYSIZE(font),font,0,GetPaletteAdrByColorIndex(pp_color),GetPaletteAdrByColorIndex(23));
+    202              FreeWS(ws);
+    203              INC_show--;
+    204              GBS_StartTimerProc(&incs, 5, show_pp_sender);
+    205            }
+    206          }
+    207          //==================================popup sender===============
+    208          //===========================main msg add===================
+    209          char a_txt[64];
+    210          char s_txt[64];
+    211          char d_txt[64];
+    212          char f_txt[64];
+    213          char g_txt[64];
+    214                       
+    215          static AddToMain(const char *nameu,const char *si)
+    216          {
+    217            char de[64];
+    218            char du[64];
+    219            int text_l=0;
+    220            int iz=0;
+    221            int name_l=0;
+    222            name_l=strlen(nameu);
+    223            text_l=38-name_l;
+    224            
+    225            if(strlen(si)>text_l)
+    226            {
+    227              strncpy(du,si,text_l);
+    228              du[text_l]='\0';
+    229              sprintf(de,"%s%s",du,"...");
+    230            }
+    231            else
+    232              strcpy(de, si);
+    233            iz=0;
+    234            while(strlen(de)!=iz)
+    235            {
+    236              if((de[iz]==0x0D)||(de[iz]==0x0A)) de[iz]=0x20;
+    237              iz++;
+    238            }
+    239            de[iz]='\0';
+    240            strcpy(a_txt, s_txt);
+    241            strcpy(s_txt, d_txt);
+    242            strcpy(d_txt, f_txt);
+    243            strcpy(f_txt, g_txt);
+    244            sprintf(g_txt, "%s: %s", nameu,de);
+    245            main_d=1;
+    246          }  
+    247          //=================================main msg add============
+    248          //==================================autostatus=============
+    249          void away_engage()
+    250          {
+    251              TTime tt;
+    252              GetDateTime(NULL,&tt);
+    253              sprintf(away_msg_time, "(away since %02d : %02d ( %s ) )", tt.hour, tt.min, tim_zone);
+    254              away_m=1;
+    255              if(CurrentStatus!=2)
+    256              {
+    257                status_rem=CurrentStatus;
+    258                CurrentStatus=2;
+    259                set_my_status();
+    260                change_back_status=1;
+    261              }
+    262          }
+    263          
+    264          int my_keyhook(int key, int m)
+    265          {
+    266            if (m==KEY_DOWN)
+    267                 {
+    268                   if(change_back_status==1)
+    269                   {
+    270                     CurrentStatus=status_rem;
+    271                     set_my_status();
+    272                     change_back_status=0;
+    273                   }
+    274                   if ((key==VOL_DOWN_BUTTON)&&(IsIdleUiOnTop()))
+    275                   {
+    276                     msg_away_timer=AUTO_ENGADE;
+    277                     away_engage();
+    278                   }
+    279                   else
+    280                     msg_away_timer=away_m=0;
+    281                 }
+    282            return 0;
+    283          }
+    284          
+    285          void init_time_zone()
+    286          {
+    287            switch(time_zone)
+    288            {
+    289            case 0:
+    290              sprintf(tim_zone, "GMT -12:00");
+    291              break;
+    292            case 1:
+    293              sprintf(tim_zone, "GMT -11:00");
+    294              break;
+    295            case 2:
+    296              sprintf(tim_zone, "GMT -10:00");
+    297              break;
+    298            case 3:
+    299              sprintf(tim_zone, "GMT -09:00");
+    300              break;
+    301            case 4:
+    302              sprintf(tim_zone, "GMT -08:00");
+    303              break;
+    304            case 5:
+    305              sprintf(tim_zone, "GMT -07:00");
+    306              break;
+    307            case 6:
+    308              sprintf(tim_zone, "GMT -06:00");
+    309              break;
+    310            case 7:
+    311              sprintf(tim_zone, "GMT -05:00");
+    312              break;
+    313            case 8:
+    314              sprintf(tim_zone, "GMT -04:00");
+    315              break;
+    316            case 9:
+    317              sprintf(tim_zone, "GMT -03:30");
+    318              break;
+    319            case 10:
+    320              sprintf(tim_zone, "GMT -03:00");
+    321              break;
+    322            case 11:
+    323              sprintf(tim_zone, "GMT -02:00");
+    324              break;
+    325            case 12:
+    326              sprintf(tim_zone, "GMT -01:00");
+    327              break;
+    328            case 13:
+    329              sprintf(tim_zone, "GMT 00:00");
+    330              break;
+    331            case 14:
+    332              sprintf(tim_zone, "GMT +01:00");
+    333              break;
+    334            case 15:
+    335              sprintf(tim_zone, "GMT +02:00");
+    336              break;
+    337            case 16:
+    338              sprintf(tim_zone, "GMT +03:00");
+    339              break;
+    340            case 17:
+    341              sprintf(tim_zone, "GMT +03:30");
+    342              break;
+    343            case 18:
+    344              sprintf(tim_zone, "GMT +04:00");
+    345              break;
+    346            case 19:
+    347              sprintf(tim_zone, "GMT +04:30");
+    348              break;
+    349            case 20:
+    350              sprintf(tim_zone, "GMT +05:00");
+    351              break;
+    352            case 21:
+    353              sprintf(tim_zone, "GMT +05:30");
+    354              break;
+    355            case 22:
+    356              sprintf(tim_zone, "GMT +05:45");
+    357              break;
+    358            case 23:
+    359              sprintf(tim_zone, "GMT +06:00");
+    360              break;
+    361            case 24:
+    362              sprintf(tim_zone, "GMT +06:30");
+    363              break;
+    364            case 25:
+    365              sprintf(tim_zone, "GMT +07:00");
+    366              break;
+    367            case 26:
+    368              sprintf(tim_zone, "GMT +08:00");
+    369              break;
+    370            case 27:
+    371              sprintf(tim_zone, "GMT +09:00");
+    372              break;
+    373            case 28:
+    374              sprintf(tim_zone, "GMT +09:30");
+    375              break;
+    376            case 29:
+    377              sprintf(tim_zone, "GMT +10:00");
+    378              break;
+    379            case 30:
+    380              sprintf(tim_zone, "GMT +11:00");
+    381              break;
+    382            case 31:
+    383              sprintf(tim_zone, "GMT +12:00");
+    384              break;
+    385            case 32:
+    386              sprintf(tim_zone, "GMT +13:00");
+    387              break;
+    388            }
+    389          }
+    390          //==================================autostatus=============
+    391          //============================init extended sounds=============
+    392          void Init_Ext_Sounds(void)
+    393          {
+    394            total_count=0;
+    395            in_ext=0;
+    396            char msgboxer[64];
+    397            CLIST *t;
+    398            t=(CLIST *)(&cltop);
+    399            while(t=(CLIST *)(t->next))
+    400            {
+    401              if(!t->isgroup)
+    402              {
+    403                total_count++;
+    404                volatile int hFile_ex;
+    405                unsigned int io_error_ex = 0;
+    406                sprintf(ext_sound, "%s%d.wav", sndMsg2, t->uin);
+    407                hFile_ex = fopen(ext_sound,A_ReadOnly + A_BIN,P_READ, &io_error_ex);
+    408                if(hFile_ex!=-1)
+    409                {
+    410                  in_ext++;
+    411                  t->ext_snd=1;
+    412                  fclose(hFile_ex, &io_error_ex);
+    413                }
+    414                else
+    415                  t->ext_snd=0;
+    416              }
+    417            }
+    418            sprintf(msgboxer, "Complete!\n"
+    419                    "Enabled for:\n"
+    420                      "%d / %d contacts",
+    421                      in_ext, total_count);
+    422            sprintf(LG_MENU2, "Menu <Ext:%d/%d>", in_ext, total_count);
+    423            ShowMSG(1,(int)msgboxer);
+    424          }
+    425          //============================init extended sounds=============
+    426          //============================save contact list to file==============
+    427          char contact_infoz[128];
+    428          
+    429          void Save_Contacts_file(void)
+    430          {
+    431            CLIST *t;
+    432            t=(CLIST *)(&cltop);
+    433            while(t=(CLIST *)(t->next))
+    434            {
+    435              if((!t->isgroup)&&(!t->ext_snd))
+    436              {
+    437                volatile int hFile_cl;
+    438                unsigned int io_error_cl = 0;
+    439                sprintf(contact_infoz, "name:%s(%d) ", t->name, t->uin);
+    440                hFile_cl = fopen("4:\\CL.txt",A_ReadWrite + A_Create + A_Append + A_BIN,P_READ+P_WRITE, &io_error_cl);
+    441                if(hFile_cl!=-1)
+    442                {
+    443                  fwrite(hFile_cl, contact_infoz, strlen(contact_infoz), &io_error_cl);
+    444                  fclose(hFile_cl, &io_error_cl);
+    445                }
+    446              }
+    447            }
+    448            ShowMSG(1,(int)"Saved CL.txt");
+    449          }
+    450          //============================save contact list to file==============
+    451          //=========================end of modification functions
+    452          #endif
+    453          
+    454          char hostname[128];
+    455          extern volatile int total_smiles;
+    456          extern volatile int total_xstatuses;
+    457          extern volatile int xstatuses_load;
+    458          
+    459          #define USE_MLMENU
+    460          
+    461          #define TMR_SECOND 216
+    462          
+    463          //IPC
+    464          const char ipc_my_name[32]=IPC_NATICQ_NAME;
+    465          const char ipc_xtask_name[]=IPC_XTASK_NAME;
+    466          IPC_REQ gipc;
+    467          
+    468          
+    469          char elf_path[256];
+    470          int maincsm_id;
+    471          int maingui_id;
+    472          
+    473          void SMART_REDRAW(void)
+    474          {
+    475            int f;
+    476            LockSched();
+    477            f=IsGuiOnTop(maingui_id);
+    478            UnlockSched();
+    479            if (f) REDRAW();
+    480          }
+    481          
+    482          //По 10 секунд
+    483          #ifdef EVILFOX
+    484          #define ACTIVE_TIME 30
+    485          #else
+    486          #define ACTIVE_TIME 360
+    487          #endif
+    488          
+    489          //Максимальное количество сообщений в логе
+    490          #define MAXLOGMSG (10)
+    491          
+    492          // Строковые описания статусов
+    493          
+    494          const char S_OFFLINE[]="Offline";
+    495          const char S_INVISIBLE[]="Invisible";
+    496          const char S_AWAY[]="Away";
+    497          const char S_NA[]="N/A";
+    498          const char S_OCCUPIED[]="Occupied";
+    499          const char S_DND[]="DND";
+    500          const char S_ONLINE[]="Online";
+    501          const char S_FFC[]="FFC";
+    502          
+    503          volatile int SENDMSGCOUNT;
+    504          
+    505          int IsActiveUp=0;
+    506          
+    507          int Is_Vibra_Enabled;
+    508          unsigned int Is_Sounds_Enabled;
+    509          int Is_Show_Offline;
+    510          int Is_Show_Groups;
+    511          
+    512          int S_ICONS[TOTAL_ICONS+1];
+    513          
+    514          
+    515          
+    516          WSHDR *ews;
+    517          
+    518          extern const unsigned int UIN;
+    519          extern const char PASS[];
+    520          
+    521          static const char * const icons_names[TOTAL_ICONS]=
+    522          {
+    523            "offline.png",
+    524            "invisible.png",
+    525            "away.png",
+    526            "na.png",
+    527            "occupied.png",
+    528            "dnd.png",
+    529            "depression.png",
+    530            "evil.png",
+    531            "home.png",
+    532            "lunch.png",
+    533            "work.png",
+    534            "online.png",
+    535            "ffc.png",
+    536            "message.png",
+    537            "unknown.png",
+    538            "groupon.png",
+    539            "groupoff.png",
+    540            "null.png",
+    541            "addcont.png",
+    542            "head.png",
+    543            "logo.png",
+    544            "ping.png",
+    545            "settings.png",
+    546            "vis1.png",
+    547            "vis2.png",
+    548            "vis3.png",
+    549            "vis4.png",
+    550            "vis5.png"
+    551          };
+    552          
+    553          extern const char ICON_PATH[];
+    554          
+    555          void setup_ICONS(void)
+    556          {
+    557            int i=0;
+    558            do
+    559            {
+    560              if (!S_ICONS[i]) S_ICONS[i]=(int)MakeGlobalString(ICON_PATH,'\\',icons_names[i]);
+    561              i++;
+    562            }
+    563            while(i<TOTAL_ICONS);
+    564            return;
+    565          }
+    566          
+    567          void free_ICONS(void)
+    568          {
+    569            int i=0;
+    570            do
+    571            {
+    572              mfree((void*)S_ICONS[i]);
+    573              S_ICONS[i]=0;
+    574              i++;
+    575            }
+    576            while(i<TOTAL_ICONS);
+    577            return;
+    578          }
+    579          
+    580          extern const unsigned int IDLEICON_X;
+    581          extern const unsigned int IDLEICON_Y;
+    582          
+    583          extern const unsigned int I_COLOR;
+    584          extern const unsigned int TO_COLOR;
+    585          extern const unsigned int X_COLOR;
+    586          extern const unsigned int O_I_COLOR;
+    587          extern const unsigned int O_TO_COLOR;
+    588          extern const unsigned int O_X_COLOR;
+    589          
+    590          extern const unsigned int ED_FONT_SIZE;
+    591          extern const unsigned int ED_H_FONT_SIZE;
+    592          extern const unsigned int ED_X_FONT_SIZE;
+    593          extern const unsigned int O_ED_FONT_SIZE;
+    594          extern const unsigned int O_ED_H_FONT_SIZE;
+    595          extern const unsigned int O_ED_X_FONT_SIZE;
+    596          
+    597          extern const unsigned int ACK_COLOR;
+    598          extern const unsigned int UNACK_COLOR;
+    599          
+    600          extern const int ENA_AUTO_XTXT;
+    601          extern const int NOT_LOG_SAME_XTXT;
+    602          extern const int LOG_XTXT;
+    603          
+    604          extern const int HISTORY_BUFFER;
+    605          
+    606          const char percent_t[]="%t";
+    607          const char percent_d[]="%d";
+    608          const char empty_str[]="";
+    609          const char I_str[]="I";
+    610          const char x_status_change[]="X-Status change";
+    611          
+    612          char logmsg[256];
+    613          
+    614          //Illumination by BoBa 19.04.2007
+    615          ///////////
+    616          extern const unsigned int ILL_DISP_RECV;
+    617          extern const unsigned int ILL_KEYS_RECV;
+    618          extern const unsigned int ILL_DISP_SEND;
+    619          extern const unsigned int ILL_KEYS_SEND;
+    620          extern const unsigned int ILL_SEND_TMR;
+    621          extern const unsigned int ILL_SEND_FADE;
+    622          extern const unsigned int ILL_RECV_TMR;
+    623          extern const unsigned int ILL_RECV_FADE;
+    624          extern const unsigned int ILL_OFF_FADE;
+    625          
+    626          GBSTMR tmr_illumination;
+    627          
+    628          void IlluminationOff(){
+    629            SetIllumination(0,1,0,ILL_OFF_FADE);
+    630            SetIllumination(1,1,0,ILL_OFF_FADE);
+    631          }
+    632          
+    633          void IlluminationOn(const int disp, const int key, const int tmr, const int fade){
+    634            if(!tmr) return;
+    635            GBS_DelTimer(&tmr_illumination);
+    636            SetIllumination(0,1,disp,fade);
+    637            SetIllumination(1,1,key,fade);
+    638            GBS_StartTimerProc(&tmr_illumination,tmr*216,IlluminationOff);
+    639          }
+    640          
+    641          volatile int silenthide;    //by BoBa 25.06.07
+    642          volatile int disautorecconect;	//by BoBa 10.07
+    643          ///////////
+    644          int Is_Vibra_Enabled;
+    645          unsigned int Is_Sounds_Enabled;
+    646          int Is_Show_Offline;
+    647          int Is_Show_Groups;
+    648          int CurrentStatus;
+    649          int CurrentXStatus;
+    650          int CurrentPrivateStatus;
+    651          
+    652          //===================================================================
+    653          const char def_setting[]="%sdef_settings_%d";
+    654          
+    655          void ReadDefSettings(void)
+    656          {
+    657            DEF_SETTINGS def_set;
+    658            int f;
+    659            unsigned int err;
+    660            char str[128];
+    661            snprintf(str,127,def_setting,elf_path,UIN);
+    662            if ((f=fopen(str,A_ReadOnly+A_BIN,P_READ,&err))!=-1)
+    663            {
+    664              fread(f,&def_set,sizeof(DEF_SETTINGS),&err);
+    665              fclose(f,&err);
+    666              Is_Vibra_Enabled=def_set.vibra_status;
+    667              Is_Sounds_Enabled=def_set.sound_status;
+    668              Is_Show_Offline=def_set.off_contacts;
+    669              Is_Show_Groups=def_set.show_groups;
+    670              CurrentStatus=def_set.def_status+1;
+    671              CurrentXStatus=def_set.def_xstatus;
+    672          #ifdef EVILFOX
+    673              Is_SLI_On=def_set.sli_state;
+    674              Is_ILU_On=def_set.ilu_state;
+    675              Is_INC_On=def_set.inc_state;
+    676          #endif
+    677            }
+    678            else
+    679            {
+    680              Is_Vibra_Enabled=0;
+    681              Is_Sounds_Enabled=0;
+    682              Is_Show_Offline=0;
+    683              Is_Show_Groups=1;
+    684              CurrentStatus=IS_ONLINE;
+    685              CurrentXStatus=0;
+    686              Is_SLI_On=1;
+    687              Is_ILU_On=0;
+    688              Is_INC_On=1;
+    689            }
+    690          }
+    691          
+    692          void WriteDefSettings(void)
+    693          {
+    694            DEF_SETTINGS def_set;
+    695            int f;
+    696            unsigned int err;
+    697            char str[128];
+    698            snprintf(str,127,def_setting,elf_path,UIN);
+    699            if ((f=fopen(str,A_WriteOnly+A_BIN+A_Create+A_Truncate,P_WRITE,&err))!=-1)
+    700            {
+    701              def_set.vibra_status=Is_Vibra_Enabled;
+    702              def_set.sound_status=Is_Sounds_Enabled;
+    703              def_set.off_contacts=Is_Show_Offline;
+    704              def_set.show_groups=Is_Show_Groups;
+    705              def_set.def_status=CurrentStatus-1;
+    706              def_set.def_xstatus=CurrentXStatus;
+    707          #ifdef EVILFOX
+    708              def_set.sli_state=Is_SLI_On;
+    709              def_set.ilu_state=Is_ILU_On;
+    710              def_set.inc_state=Is_INC_On;
+    711          #endif
+    712              fwrite(f,&def_set,sizeof(DEF_SETTINGS),&err);
+    713              fclose(f,&err);
+    714            }
+    715          }
+    716          //by KreN 27.09.2007
+    717          //===================================================================
+    718          extern S_SMILES *s_top;
+    719          extern DYNPNGICONLIST *SmilesImgList;
+    720          extern DYNPNGICONLIST *XStatusesImgList;
+    721          
+    722          //=============================Проигрывание звука=======================
+    723          extern const char sndStartup[];
+    724          extern const char sndSrvMsg[];
+    725          extern const char sndGlobal[];
+    726          extern const char sndMsg[];
+    727          extern const char sndMsgSent[];
+    728          extern const unsigned int sndVolume;
+    729          
+    730          
+    731          void Play(const char *fname)
+    732          {
+    733            if ((!IsCalling())&&Is_Sounds_Enabled)
+    734            {
+    735              FSTATS fstats;
+    736              unsigned int err;
+    737              if (GetFileStats(fname,&fstats,&err)!=-1)
+    738              {
+    739                PLAYFILE_OPT _sfo1;
+    740                WSHDR* sndPath=AllocWS(128);
+    741                WSHDR* sndFName=AllocWS(128);
+    742                char s[128];
+    743                const char *p=strrchr(fname,'\\')+1;
+    744                str_2ws(sndFName,p,128);
+    745                strncpy(s,fname,p-fname);
+    746                s[p-fname]='\0';
+    747                str_2ws(sndPath,s,128);
+    748          
+    749                zeromem(&_sfo1,sizeof(PLAYFILE_OPT));
+    750                _sfo1.repeat_num=1;
+    751                _sfo1.time_between_play=0;
+    752                _sfo1.play_first=0;
+    753                _sfo1.volume=sndVolume;
+    754          #ifdef NEWSGOLD
+    755                _sfo1.unk6=1;
+    756                _sfo1.unk7=1;
+    757                _sfo1.unk9=2;
+    758                PlayFile(0x10, sndPath, sndFName, GBS_GetCurCepid(), MSG_PLAYFILE_REPORT, &_sfo1);
+    759          #else
+    760          #ifdef X75
+    761                _sfo1.unk4=0x80000000;
+    762                _sfo1.unk5=1;
+    763                PlayFile(0xC, sndPath, sndFName, 0,GBS_GetCurCepid(), MSG_PLAYFILE_REPORT, &_sfo1);
+    764          #else
+    765                _sfo1.unk5=1;
+    766                PlayFile(0xC, sndPath, sndFName, GBS_GetCurCepid(), MSG_PLAYFILE_REPORT, &_sfo1);
+    767          #endif
+    768          #endif
+    769                FreeWS(sndPath);
+    770                FreeWS(sndFName);
+    771              }
+    772            }
+    773          }
+    774          
+    775          GBSTMR tmr_vibra;
+    776          volatile int vibra_count;
+    777          
+    778          void start_vibra(void)
+    779          {
+    780            extern const int VIBR_TYPE;
+    781            void stop_vibra(void);
+    782            if((Is_Vibra_Enabled)&&(!IsCalling()))
+    783            {
+    784              extern const unsigned int vibraPower;
+    785              SetVibration(vibraPower);
+    786              if(VIBR_TYPE)
+    787                GBS_StartTimerProc(&tmr_vibra,TMR_SECOND>>2,stop_vibra);
+    788              else
+    789                GBS_StartTimerProc(&tmr_vibra,TMR_SECOND>>1,stop_vibra);
+    790            }
+    791          }
+    792          
+    793          void stop_vibra(void)
+    794          {
+    795            extern const int VIBR_TYPE;
+    796            SetVibration(0);
+    797            if (--vibra_count)
+    798            {
+    799              if(VIBR_TYPE)
+    800                GBS_StartTimerProc(&tmr_vibra,TMR_SECOND>>5,start_vibra);
+    801              else
+    802                GBS_StartTimerProc(&tmr_vibra,TMR_SECOND>>1,start_vibra);
+    803            }
+    804          }
+    805          
+    806          void ChangeVibra(void)
+    807          {
+    808            if (!(Is_Vibra_Enabled=!(Is_Vibra_Enabled)))
+    809              ShowMSG(1,(int)LG_MSGVIBRADIS);
+    810            else
+    811              ShowMSG(1,(int)LG_MSGVIBRAENA);
+    812          }
+    813          
+    814          void ChangeSound(void)
+    815          {
+    816            if (!(Is_Sounds_Enabled=!(Is_Sounds_Enabled)))
+    817              ShowMSG(1,(int)LG_MSGSNDDIS);
+    818            else
+    819              ShowMSG(1,(int)LG_MSGSNDENA);
+    820          }
+    821          
+    822          //===================================================================
+    823          //Templates
+    824          char *templates_chars; //Собственно файл
+    825          char **templates_lines; //Массив указателей на строки
+    826          
+    827          void FreeTemplates(void)
+    828          {
+    829            if (templates_lines) mfree(templates_lines);
+    830            if (templates_chars) mfree(templates_chars);
+    831            templates_lines=NULL;
+    832            templates_chars=NULL;
+    833          }
+    834          
+    835          extern const char TEMPLATES_PATH[];
+    836          
+    837          int LoadTemplates(unsigned int uin)
+    838          {
+    839            FSTATS stat;
+    840            char fn[256];
+    841            int f;
+    842            unsigned int ul;
+    843            int i;
+    844            int fsize;
+    845            char *p;
+    846            char *pp;
+    847            int c;
+    848            FreeTemplates();
+    849            strcpy(fn,TEMPLATES_PATH);
+    850            i=strlen(fn);
+    851            sprintf(fn+i,"\\%d.txt",uin);
+    852            if (GetFileStats(fn,&stat,&ul)==-1) goto L1;
+    853            if ((fsize=stat.size)<=0) goto L1;
+    854            if ((f=fopen(fn,A_ReadOnly+A_BIN,P_READ,&ul))==-1)
+    855            {
+    856            L1:
+    857              strcpy(fn+i,"\\0.txt");
+    858              if (GetFileStats(fn,&stat,&ul)==-1) return 0;
+    859              if ((fsize=stat.size)<=0) return 0;
+    860              f=fopen(fn,A_ReadOnly+A_BIN,P_READ,&ul);
+    861            }
+    862            if (f==-1) return 0;
+    863            p=templates_chars=malloc(fsize+1);
+    864            p[fread(f,p,fsize,&ul)]=0;
+    865            fclose(f,&ul);
+    866            i=0;
+    867            pp=p;
+    868            for(;;)
+    869            {
+    870              c=*p;
+    871              if (c<32)
+    872              {
+    873                if (pp&&(pp!=p))
+    874                {
+    875          	templates_lines=realloc(templates_lines,(i+1)*sizeof(char *));
+    876          	templates_lines[i++]=pp;
+    877                }
+    878                pp=NULL;
+    879                if (!c) break;
+    880                *p=0;
+    881              }
+    882              else
+    883              {
+    884                if (pp==NULL) pp=p;
+    885              }
+    886              p++;
+    887            }
+    888            return i;
+    889          }
+    890          
+    891          
+    892          //===================================================================
+    893          
+    894          typedef struct
+    895          {
+    896            CSM_RAM csm;
+    897            int gui_id;
+    898          }MAIN_CSM;
+    899          
+    900          typedef struct
+    901          {
+    902            GUI gui;
+    903            WSHDR *ws1;
+    904            WSHDR *ws2;
+    905            int i1;
+    906          }MAIN_GUI;
+    907          
+    908          
+    909          
+    910          int RXstate=EOP; //-sizeof(RXpkt)..-1 - receive header, 0..RXpkt.data_len - receive data
+    911          
+    912          TPKT RXbuf;
+    913          TPKT TXbuf;
+    914          
+    915          int connect_state=0;
+    916          
+    917          int sock=-1;
+    918          
+    919          volatile unsigned long TOTALRECEIVED;
+    920          volatile unsigned long TOTALSENDED;
+    921          volatile unsigned long ALLTOTALRECEIVED;	//by BoBa 10.07
+    922          volatile unsigned long ALLTOTALSENDED;
+    923          
+    924          volatile int sendq_l=0; //Длинна очереди для send
+    925          volatile void *sendq_p=NULL; //указатель очереди
+    926          
+    927          volatile int is_gprs_online=1;
+    928          
+    929          GBSTMR reconnect_tmr;
+    930          
+    931          extern void kill_data(void *p,void (*func_p)(void *));
+    932          
+    933          void ElfKiller(void)
+    934          {
+    935            extern void *ELF_BEGIN;
+    936            kill_data(&ELF_BEGIN,(void (*)(void *))mfree_adr());
+    937          }
+    938          
+    939          
+    940          
+    941          //===============================================================================================
+    942          #pragma inline
+    943          void patch_rect(RECT*rc,int x,int y, int x2, int y2)
+    944          {
+    945            rc->x=x;
+    946            rc->y=y;
+    947            rc->x2=x2;
+    948            rc->y2=y2;
+    949          }
+    950          
+    951          #pragma inline
+    952          void patch_header(const HEADER_DESC* head)
+    953          {
+    954            ((HEADER_DESC*)head)->rc.x=0;
+    955            ((HEADER_DESC*)head)->rc.y=YDISP;
+    956            ((HEADER_DESC*)head)->rc.x2=ScreenW()-1;
+    957            ((HEADER_DESC*)head)->rc.y2=HeaderH()+YDISP-1;
+    958          }
+    959          #pragma inline
+    960          void patch_input(const INPUTDIA_DESC* inp)
+    961          {
+    962            ((INPUTDIA_DESC*)inp)->rc.x=0;
+    963            ((INPUTDIA_DESC*)inp)->rc.y=HeaderH()+1+YDISP;
+    964            ((INPUTDIA_DESC*)inp)->rc.x2=ScreenW()-1;
+    965            ((INPUTDIA_DESC*)inp)->rc.y2=ScreenH()-SoftkeyH()-1;
+    966          }
+    967          //===============================================================================================
+    968          
+    969          
+    970          volatile unsigned int GROUP_CACHE; //Текущая группа для добавления
+    971          
+    972          volatile int contactlist_menu_id;
+    973          
+    974          GBSTMR tmr_active;
+    975          
+    976          volatile int edchat_id;
+    977          
+    978          //Применяется для добавления сообщений
+    979          //CLIST *edcontact;
+    980          //void *edgui_data;
+    981          
+    982          static int prev_clmenu_itemcount;
+    983          
+    984          char clm_hdr_text[48];
+    985          static const char def_clm_hdr_text[] = LG_CLTITLE;
+    986          static const char key_clm_hdr_text[] = LG_CLT9INP;
+    987          
+    988          static const HEADER_DESC contactlist_menuhdr = {0, 0, 0, 0, S_ICONS+ICON_HEAD, (int)clm_hdr_text, LGP_NULL};
+    989          static const int menusoftkeys[] = {0,1,2};
+    990          static const SOFTKEY_DESC menu_sk[] =
+    991          {
+    992            {0x0018, 0x0000, (int)LG_SELECT},
+    993            {0x0001, 0x0000, (int)LG_CLOSE},
+    994            {0x003D, 0x0000, (int)LGP_DOIT_PIC}
+    995          };
+    996          
+    997          char clmenu_sk_r[16];
+    998          static const char def_clmenu_sk_r[] = LG_CLOSE;
+    999          static const char key_clmenu_sk_r[] = LG_CLEAR;
+   1000          
+   1001          static const SOFTKEY_DESC clmenu_sk[]=
+   1002          {
+   1003            {0x0018, 0x0000, (int)LG_OPTIONS},
+   1004            {0x0001, 0x0000, (int)clmenu_sk_r},
+   1005            {0x003D, 0x0000, (int)LGP_DOIT_PIC}
+   1006          };
+   1007          
+   1008          const SOFTKEYSTAB menu_skt =
+   1009          {
+   1010            menu_sk, 0
+   1011          };
+   1012          
+   1013          static const SOFTKEYSTAB clmenu_skt =
+   1014          {
+   1015            clmenu_sk, 0
+   1016          };
+   1017          
+   1018          void contactlist_menu_ghook(void *data, int cmd);
+   1019          int contactlist_menu_onkey(void *data, GUI_MSG *msg);
+   1020          void contactlist_menu_iconhndl(void *data, int curitem, void *unk);
+   1021          
+   1022          #ifdef USE_MLMENU
+   1023          static const ML_MENU_DESC contactlist_menu=
+   1024          {
+   1025            8,contactlist_menu_onkey,contactlist_menu_ghook,NULL,
+   1026            menusoftkeys,
+   1027            &clmenu_skt,
+   1028            0x11, //+0x400
+   1029            contactlist_menu_iconhndl,
+   1030            NULL,   //Items
+   1031            NULL,   //Procs
+   1032            0,   //n
+   1033            1 //Добавочных строк
+   1034          };
+   1035          #else
+   1036          static const MENU_DESC contactlist_menu=
+   1037          {
+   1038            8,contactlist_menu_onkey,contactlist_menu_ghook,NULL,
+   1039            menusoftkeys,
+   1040            &clmenu_skt,
+   1041            0x11, //+0x400
+   1042            contactlist_menu_iconhndl,
+   1043            NULL,   //Items
+   1044            NULL,   //Procs
+   1045            0   //n
+   1046          };
+   1047          #endif
+   1048          
+   1049          //GBSTMR tmr_ping;
+   1050          int tenseconds_to_ping;
+   1051          
+   1052          LOGQ *NewLOGQ(const char *s)
+   1053          {
+   1054            LOGQ *p=malloc(sizeof(LOGQ)+1+strlen(s));
+   1055            zeromem(p,sizeof(LOGQ));
+   1056            strcpy(p->text,s);
+   1057            return p;
+   1058          }
+   1059          
+   1060          LOGQ *LastLOGQ(LOGQ **pp)
+   1061          {
+   1062            LOGQ *q=*pp;
+   1063            if (q)
+   1064            {
+   1065              while(q->next) q=q->next;
+   1066            }
+   1067            return(q);
+   1068          }
+   1069          
+   1070          //Уничтожить лог
+   1071          void FreeLOGQ(LOGQ **pp)
+   1072          {
+   1073            LOGQ *p=*pp;
+   1074            *pp=NULL; //Сразу обрежем
+   1075            while(p)
+   1076            {
+   1077              LOGQ *np=p->next;
+   1078              mfree(p);
+   1079              p=np;
+   1080            }
+   1081          }
+   1082          
+   1083          //Удалить элемент из лога
+   1084          void RemoveLOGQ(LOGQ **queue, LOGQ *p)
+   1085          {
+   1086            LOGQ *q=(LOGQ *)queue;
+   1087            LOGQ *qp;
+   1088            while(qp=q->next)
+   1089            {
+   1090              if (qp==p)
+   1091              {
+   1092                q->next=p->next;
+   1093                break;
+   1094              }
+   1095              q=qp;
+   1096            }
+   1097            mfree(p); //Если элемент вообще не в логе
+   1098          }
+   1099          
+   1100          //Добавить элемент в лог
+   1101          int AddLOGQ(LOGQ **queue, LOGQ *p)
+   1102          {
+   1103            LOGQ *q=(LOGQ *)queue;
+   1104            LOGQ *qp;
+   1105            int i=0;
+   1106            while(qp=q->next) {q=qp;i++;}
+   1107            p->next=NULL;
+   1108            q->next=p;
+   1109            return(i+1); //Теперь всего в логе элементов
+   1110          }
+   1111          
+   1112          //Получаем последний полученный X-статус
+   1113          char *GetLastXTextLOGQ(CLIST *t)
+   1114          {
+   1115            LOGQ *p = t->log;
+   1116            char *s = 0;
+   1117            if(!p) return 0;
+   1118            while(p->next)
+   1119            {
+   1120              if((p->type&0x0F)==3)
+   1121                s = p->text;
+   1122              p = p->next;
+   1123            }
+   1124            if((p->type&0x0F)==3)
+   1125              s = p->text;
+   1126            return s;
+   1127          }
+   1128          
+   1129          int GetIconIndex(CLIST *t)
+   1130          {
+   1131            unsigned short s;
+   1132            if (t)
+   1133            {
+   1134              s=t->state;
+   1135              if (t->isgroup) return(IS_GROUP);
+   1136              if (t->isunread)
+   1137                return(IS_MSG);
+   1138              else
+   1139              {
+   1140                if (s==0xFFFF) return(IS_OFFLINE);
+   1141                if ((s&0xF000)==0x2000) return (IS_LUNCH);
+   1142                if ((s&0xF000)==0x3000) return (IS_EVIL);
+   1143                if ((s&0xF000)==0x4000) return (IS_DEPRESSION);
+   1144                if ((s&0xF000)==0x5000) return (IS_HOME);
+   1145                if ((s&0xF000)==0x6000) return (IS_WORK);
+   1146                if (s & 0x0020) return(IS_FFC);
+   1147                if (s & 0x0001) return(IS_AWAY);
+   1148                if (s & 0x0005) return(IS_NA);
+   1149                if (s & 0x0011) return(IS_OCCUPIED);
+   1150                if (s & 0x0013) return(IS_DND);
+   1151                if (s & 0x0002) return(IS_FFC);
+   1152                if (s & 0x0100) return(IS_INVISIBLE);
+   1153              }
+   1154            }
+   1155            else
+   1156            {
+   1157              return(IS_UNKNOWN);
+   1158            }
+   1159            return(IS_ONLINE);
+   1160          }
+   1161          
+   1162          LOGQ *FindContactLOGQByAck(TPKT *p)
+   1163          {
+   1164            CLIST *t;
+   1165            LockSched();
+   1166            t=FindContactByUin(p->pkt.uin);
+   1167            UnlockSched();
+   1168            unsigned int id=*((unsigned short*)(p->data));
+   1169            LOGQ *q;
+   1170            if (!t) return NULL;
+   1171            LockSched();
+   1172            q=t->log;
+   1173            while(q)
+   1174            {
+   1175              if (q->ID==id) break;
+   1176              q=q->next;
+   1177            }
+   1178            UnlockSched();
+   1179            return q;
+   1180          }
+   1181          
+   1182          
+   1183          char ContactT9Key[32];
+   1184          
+   1185          void UpdateCLheader(void)
+   1186          {
+   1187            if (strlen(ContactT9Key))
+   1188            {
+   1189              strcpy(clm_hdr_text,key_clm_hdr_text);
+   1190              strcat(clm_hdr_text,ContactT9Key);
+   1191              strcpy(clmenu_sk_r,key_clmenu_sk_r);
+   1192            }
+   1193            else
+   1194            {
+   1195          #ifdef EVILFOX
+   1196              if(total_c_online>0)
+   1197                sprintf(clm_hdr_text, "%s(%d/%d/%d) On:%d",def_clm_hdr_text,total_unread,total_unread2, total_c_on, total_c_online);
+   1198              else
+   1199              sprintf(clm_hdr_text, "%s(%d/%d/%d)",def_clm_hdr_text,total_unread,total_unread2,total_c_on);
+   1200          #else
+   1201              strcpy(clm_hdr_text,def_clm_hdr_text);
+   1202          #endif
+   1203              strcpy(clmenu_sk_r,def_clmenu_sk_r);
+   1204            }
+   1205          }
+   1206          
+   1207          void ClearContactT9Key(void)
+   1208          {
+   1209            zeromem(ContactT9Key,sizeof(ContactT9Key));
+   1210          }
+   1211          
+   1212          void AddContactT9Key(int chr)
+   1213          {
+   1214            int l=strlen(ContactT9Key);
+   1215            if (l<(sizeof(ContactT9Key)-1))
+   1216            {
+   1217              ContactT9Key[l]=chr;
+   1218            }
+   1219          }
+   1220          
+   1221          void BackSpaceContactT9(void)
+   1222          {
+   1223            int l=strlen(ContactT9Key);
+   1224            if (l)
+   1225            {
+   1226              l--;
+   1227              ContactT9Key[l]=0;
+   1228            }
+   1229          }
+   1230          
+   1231          void create_contactlist_menu(void)
+   1232          {
+   1233            int i;
+   1234            i=CountContacts();
+   1235            prev_clmenu_itemcount=i;
+   1236            UpdateCLheader();
+   1237            patch_header(&contactlist_menuhdr);
+   1238          #ifdef USE_MLMENU
+   1239            contactlist_menu_id=CreateMultiLinesMenu(0,0,&contactlist_menu,&contactlist_menuhdr,0,i);
+   1240          #else
+   1241            contactlist_menu_id=CreateMenu(0,0,&contactlist_menu,&contactlist_menuhdr,0,i,0,0);
+   1242          #endif
+   1243          }
+   1244          
+   1245          void contactlist_menu_ghook(void *data, int cmd)
+   1246          {
+   1247            PNGTOP_DESC *pltop=PNG_TOP();
+   1248            if (cmd==9)
+   1249            {
+   1250              pltop->dyn_pltop=NULL;
+   1251            }
+   1252            if (cmd==0x0A)
+   1253            {
+   1254              silenthide=0;
+   1255              pltop->dyn_pltop=XStatusesImgList;
+   1256              DisableIDLETMR();
+   1257            }
+   1258          }
+   1259          
+   1260          void RecountMenu(CLIST *req, int needfocus)
+   1261          {
+   1262            int i;
+   1263            int j;
+   1264            void *data;
+   1265            UpdateCLheader();
+   1266            if (!contactlist_menu_id) return; //Нечего считать
+   1267            data=FindGUIbyId(contactlist_menu_id,NULL);
+   1268            if (req==NULL)
+   1269            {
+   1270              j=0;
+   1271            }
+   1272            else
+   1273            {
+   1274              j=FindContactByContact(req);
+   1275            }
+   1276            i=CountContacts();
+   1277            if (j>=i) j=i-1;
+   1278            if (j<0) j=0;
+   1279            if (i!=prev_clmenu_itemcount)
+   1280            {
+   1281              prev_clmenu_itemcount=i;
+   1282              Menu_SetItemCountDyn(data,i);
+   1283            }
+   1284            if(needfocus) SetCursorToMenuItem(data,j);
+   1285            if (IsGuiOnTop(contactlist_menu_id)) RefreshGUI();
+   1286          }
+   1287          
+   1288          int contactlist_menu_onkey(void *data, GUI_MSG *msg)
+   1289          {
+   1290            CLIST *t;
+   1291            int i;
+   1292            i=GetCurMenuItem(data);
+   1293            t=FindContactByN(i);
+   1294            if (msg->keys==0x18)
+   1295            {
+   1296              ShowMainMenu();
+   1297              return(-1);
+   1298            }
+   1299            if (msg->keys==0x3D)
+   1300            {
+   1301              if (t)
+   1302              {
+   1303                if (t->isgroup)
+   1304                {
+   1305          	t->state^=0xFFFF;
+   1306          	RecountMenu(t, 1);
+   1307          	return(-1);
+   1308                }
+   1309                if (strlen(ContactT9Key))
+   1310                {
+   1311          	ClearContactT9Key();
+   1312          	RecountMenu(NULL, 1);
+   1313                }
+   1314                if(!t->isactive && HISTORY_BUFFER) GetHistory(t, 64<<HISTORY_BUFFER);
+   1315                CreateEditChat(t);
+   1316              }
+   1317              return(-1);
+   1318            }
+   1319            if (msg->keys==1)
+   1320            {
+   1321              if (strlen(ContactT9Key))
+   1322              {
+   1323                BackSpaceContactT9();
+   1324                RecountMenu(NULL, 1);
+   1325                return(-1);
+   1326              }
+   1327            }
+   1328            if (msg->gbsmsg->msg==KEY_DOWN)
+   1329            {
+   1330              int key=msg->gbsmsg->submess;
+   1331          #ifdef EVILFOX
+   1332              if ((key>='0')&&(key<='9'))
+   1333          #else
+   1334              if (((key>='0')&&(key<='9'))||(key=='#')||(key=='*'))
+   1335          #endif
+   1336              {
+   1337                AddContactT9Key(key);
+   1338                RecountMenu(NULL, 1);
+   1339                return(-1);
+   1340              }
+   1341              if (key==VOL_UP_BUTTON)
+   1342              {
+   1343                char *small_info=malloc(256);
+   1344                sprintf(small_info, "Online time:\n"
+   1345                        "%02d:%02d:%02d\n"
+   1346                          "Server:\n"
+   1347                            "%s"
+   1348                          , hours, minutes, seconds, hostname);
+   1349                ShowMSG(1,(int)small_info);
+   1350                mfree(small_info);
+   1351              }
+   1352              if (key==GREEN_BUTTON)
+   1353              {
+   1354          #ifdef EVILFOX
+   1355                while(t=(CLIST *)(t->next))
+   1356                 {
+   1357                   if (t->isunread) goto doit;
+   1358                 }
+   1359                t=(CLIST *)(&cltop);
+   1360                while(t=(CLIST *)(t->next))
+   1361                {
+   1362                  if (t->isunread) goto doit;
+   1363                }
+   1364                t=(CLIST *)(&cltop);
+   1365                while(t=(CLIST *)(t->next))
+   1366                {
+   1367                  if (t->isgroup)
+   1368                  {
+   1369                    if(!t->state)
+   1370          	  t->state^=0xFFFF;
+   1371                  }
+   1372                }
+   1373                goto doit2;
+   1374              doit:
+   1375                {
+   1376                CLIST *g=FindGroupByID(t->group);
+   1377                if (g)
+   1378                {
+   1379          	if (g->state)
+   1380          	{
+   1381          	  g->state=0;
+   1382          	}
+   1383                }
+   1384                }
+   1385              doit2:
+   1386                RecountMenu(t, 1);
+   1387          #else
+   1388                IsActiveUp=!IsActiveUp;
+   1389                RecountMenu(NULL, 1);
+   1390          #endif
+   1391                return(-1);
+   1392              }
+   1393          #ifdef EVILFOX
+   1394              if (key=='*')
+   1395              {
+   1396                while(t=(CLIST *)(t->next))
+   1397                 {
+   1398                   if (t->just_now) goto doit3;
+   1399                 }
+   1400                t=(CLIST *)(&cltop);
+   1401                while(t=(CLIST *)(t->next))
+   1402                {
+   1403                  if (t->just_now) goto doit3;
+   1404                }
+   1405                return(-1);
+   1406              doit3:
+   1407                {
+   1408                CLIST *g=FindGroupByID(t->group);
+   1409                if (g)
+   1410                {
+   1411          	if (g->state)
+   1412          	{
+   1413          	  g->state=0;
+   1414          	}
+   1415                }
+   1416                }
+   1417                RecountMenu(t, 1);
+   1418                return(-1);
+   1419              }
+   1420              if (key=='#')
+   1421              {
+   1422                while(t=(CLIST *)(t->next))
+   1423                 {
+   1424                   if (t->isactive) goto doit4;
+   1425                 }
+   1426                t=(CLIST *)(&cltop);
+   1427                while(t=(CLIST *)(t->next))
+   1428                {
+   1429                  if (t->isactive) goto doit4;
+   1430                }
+   1431                return(-1);
+   1432              doit4:
+   1433                {
+   1434                CLIST *g=FindGroupByID(t->group);
+   1435                if (g)
+   1436                {
+   1437          	if (g->state)
+   1438          	{
+   1439          	  g->state=0;
+   1440          	}
+   1441                }
+   1442                }
+   1443                RecountMenu(t, 1);
+   1444                return(-1);
+   1445              }
+   1446          #endif
+   1447              if (key==RIGHT_BUTTON)
+   1448              {
+   1449                //Послать запрос текста XStatus
+   1450                if (t)
+   1451                {
+   1452          	if (!t->isgroup)
+   1453          	{
+   1454          	  FreeXText(t);
+   1455                    t->req_xtext=0;
+   1456                    RequestXText(t->uin);
+   1457          	  RefreshGUI();
+   1458          	  return(-1);
+   1459          	}
+   1460                }
+   1461              }
+   1462              if (key==LEFT_BUTTON)
+   1463              {
+   1464          #ifdef EVILFOX
+   1465                IsActiveUp=!IsActiveUp;
+   1466                RecountMenu(NULL, 1);
+   1467          #else
+   1468                if (t && Is_Show_Groups) {//есть контакт и показываем группы?
+   1469                 if (!t->isgroup)
+   1470                  t=FindGroupByID(t->group);
+   1471                 if (t && !t->state) {//группа нашлась и она открыта?
+   1472                  t->state^=0xFFFF;
+   1473                  RecountMenu(t, 1);
+   1474                 }
+   1475                }
+   1476          #endif
+   1477                return(-1);
+   1478              }
+   1479            }
+   1480            if (msg->gbsmsg->msg==LONG_PRESS)
+   1481            {
+   1482              if (msg->gbsmsg->submess=='#')
+   1483              {
+   1484                ClearContactT9Key();
+   1485                RecountMenu(NULL, 1);
+   1486                gipc.name_to=ipc_xtask_name;
+   1487                gipc.name_from=ipc_my_name;
+   1488                gipc.data=0;
+   1489                GBS_SendMessage(MMI_CEPID,MSG_IPC,IPC_XTASK_IDLE,&gipc);
+   1490                if (IsUnlocked())
+   1491                {
+   1492                  KbdLock();
+   1493                }
+   1494                return(-1);
+   1495              }
+   1496              if (msg->gbsmsg->submess=='*'){
+   1497                ClearContactT9Key();
+   1498                RecountMenu(NULL, 1);
+   1499                silenthide=1;
+   1500                gipc.name_to=ipc_xtask_name;
+   1501                gipc.name_from=ipc_my_name;
+   1502                gipc.data=0;
+   1503                GBS_SendMessage(MMI_CEPID,MSG_IPC,IPC_XTASK_IDLE,&gipc);
+   1504              }
+   1505            }
+   1506            return(0);
+   1507          }
+   1508          
+   1509          void GetOnTotalContact(int group_id,int *_onlinetotal)
+   1510          {
+   1511            CLIST *t;
+   1512            t=(CLIST *)&cltop;
+   1513            int online=0,total=0;
+   1514            while((t=t->next))
+   1515            {
+   1516              if(t->group==group_id && !t->isgroup)
+   1517              {
+   1518                total++;
+   1519                if (t->state!=0xFFFF) online++;
+   1520              }
+   1521            }
+   1522            _onlinetotal[0]=online;
+   1523            _onlinetotal[1]=total;
+   1524          }
+   1525          
+   1526          
+   1527          void contactlist_menu_iconhndl(void *data, int curitem, void *unk)
+   1528          {
+   1529            CLIST *t;
+   1530          #ifdef USE_MLMENU
+   1531            void *item=AllocMLMenuItem(data);
+   1532          #else
+   1533            void *item=AllocMenuItem(data);
+   1534          #endif
+   1535            int icon;
+   1536          
+   1537            WSHDR *ws2;
+   1538          #ifdef USE_MLMENU
+   1539            WSHDR *ws4;
+   1540          #endif
+   1541            WSHDR ws1loc, *ws1;
+   1542            unsigned short num[128];
+   1543            ws1=CreateLocalWS(&ws1loc,num,128);
+   1544          #ifdef USE_MLMENU
+   1545            WSHDR ws3loc, *ws3;
+   1546            unsigned short num3[128];
+   1547            ws3=CreateLocalWS(&ws3loc,num3,128);
+   1548            char s[64];
+   1549          #endif
+   1550            t=FindContactByN(curitem);
+   1551            if (t)
+   1552            {
+   1553              icon=GetIconIndex(t);
+   1554              if (icon!=IS_GROUP)
+   1555              {
+   1556          #ifdef EVILFOX
+   1557                if(t->just_now)
+   1558                {
+   1559          //        char *test=malloc(64);
+   1560                  sprintf(upcoming, ">> %s <<", t->name);
+   1561                  wsprintf(ws1,percent_t,upcoming);
+   1562          //        mfree(test);
+   1563                }
+   1564                else
+   1565                wsprintf(ws1,percent_t,t->name);
+   1566                if (t->just_now)
+   1567                {
+   1568                  wsInsertChar(ws1,0x0009,1);
+   1569                  wsInsertChar(ws1,0xE008,1);
+   1570                }
+   1571                else
+   1572          #else
+   1573                wsprintf(ws1,percent_t,t->name);
+   1574          #endif
+   1575                if (t->isactive)
+   1576                {
+   1577                  wsInsertChar(ws1,0x0002,1);
+   1578                  wsInsertChar(ws1,0xE008,1);
+   1579                }
+   1580          #ifdef USE_MLMENU
+   1581                if (t->xtext && t->xtext[0]!=0)
+   1582                {
+   1583          	int i;
+   1584          	zeromem(s,64);
+   1585          	i=t->xtext[0];
+   1586          	if (i>63) i=63;
+   1587          	strncpy(s,t->xtext+1,i);
+   1588          	wsprintf(ws3,"%c%t",0xE012,s);
+   1589                }
+   1590                else
+   1591          	wsprintf(ws3,percent_d,t->uin);
+   1592                if ((t->xstate<total_xstatuses)&&(t->xstate))
+   1593                {
+   1594          	wsInsertChar(ws3,FIRST_UCS2_BITMAP+t->xstate,1);
+   1595                }
+   1596          #endif
+   1597              }
+   1598              else
+   1599              {
+   1600                int onlinetotal[2];
+   1601                GetOnTotalContact(t->group,onlinetotal);
+   1602          #ifdef USE_MLMENU
+   1603                wsprintf(ws1,percent_t,t->name);
+   1604                wsprintf(ws3,"(%d/%d)",onlinetotal[0],onlinetotal[1]);
+   1605          #else
+   1606                wsprintf(ws1,"%t%c%c(%d/%d)",t->name,0xE01D,0xE012,onlinetotal[0],onlinetotal[1]);
+   1607          #endif
+   1608                if (t->state) icon++; //Модификация иконки группы
+   1609              }
+   1610            }
+   1611            else
+   1612            {
+   1613              wsprintf(ws1, LG_CLERROR);
+   1614            }
+   1615            ws2=AllocMenuWS(data,ws1->wsbody[0]);
+   1616            wstrcpy(ws2,ws1);
+   1617          
+   1618            SetMenuItemIconArray(data, item, S_ICONS+icon);
+   1619          #ifdef USE_MLMENU
+   1620            ws4=AllocMenuWS(data,ws3->wsbody[0]);
+   1621            wstrcpy(ws4,ws3);
+   1622            SetMLMenuItemText(data, item, ws2, ws4, curitem);
+   1623          #else
+   1624            SetMenuItemText(data, item, ws2, curitem);
+   1625          #endif
+   1626          }
+   1627          
+   1628          //===============================================================================================
+   1629          int DNR_ID=0;
+   1630          int DNR_TRIES=3;
+   1631          
+   1632          extern const char NATICQ_HOST[];
+   1633          extern const unsigned int NATICQ_PORT;
+   1634          
+   1635          int host_counter = 0;
+   1636          
+   1637          //---------------------------------------------------------------------------
+   1638          const char *GetHost(int cnt, const char *str, char *buf)
+   1639          {
+   1640            const char *tmp = str, *begin, *end;
+   1641            if(cnt)
+   1642            {
+   1643              for(;cnt;cnt--)
+   1644              {
+   1645                for(;*str!=';' && *str!=' ' && *str!='\x0D' && *str!='\x0A' && *str; str++);
+   1646                if(!*str) str = tmp;
+   1647                for(;(*str==';' || *str==' ' || *str=='\x0D' || *str=='\x0A') && *str; str++);
+   1648                if(!*str) str = tmp;
+   1649              }
+   1650            }
+   1651            tmp = buf;
+   1652            begin = str;
+   1653            for(;*str!=';' && *str!=':' && *str!=' ' && *str!='\x0D' && *str!='\x0A' && *str; str++);
+   1654            end = str;
+   1655            for(;begin<end; *buf = *begin, begin++, buf++);
+   1656            *buf = 0;
+   1657            return tmp;
+   1658          }
+   1659          //---------------------------------------------------------------------------
+   1660          int atoi(char *attr)
+   1661          {
+   1662            int ret=0;
+   1663            int neg=1;
+   1664            for (int k=0; ; k++)
+   1665            {
+   1666              if ( attr[k]>0x2F && attr[k]<0x3A) {ret=ret*10+attr[k]-0x30;} else { if ( attr[k]=='-') {neg=-1;} else {return(ret*neg);}}
+   1667            }
+   1668          }
+   1669          //---------------------------------------------------------------------------
+   1670          int GetPort(int cnt, const char *str)
+   1671          {
+   1672            const char *tmp = str;
+   1673            char numbuf[6], numcnt = 0;
+   1674            if(cnt)
+   1675            {
+   1676              for(;cnt;cnt--)
+   1677              {
+   1678                for(;*str!=';' && *str!=' ' && *str!='\x0D' && *str!='\x0A' && *str; str++);
+   1679                if(!*str) str = tmp;
+   1680                for(;(*str==';' || *str==' ' || *str=='\x0D' || *str=='\x0A') && *str; str++);
+   1681                if(!*str) str = tmp;
+   1682              }
+   1683            }
+   1684            for(;*str!=';' && *str!=':' && *str!=' ' && *str!='\x0D' && *str!='\x0A' && *str; str++);
+   1685            if(*str!=':') return NATICQ_PORT;
+   1686            str++;
+   1687            numbuf[5] = 0;
+   1688            for(;*str!=';' && *str!=' ' && *str!='\x0D' && *str!='\x0A' && *str && numcnt<5; numbuf[numcnt] = *str, str++, numcnt++);
+   1689            numbuf[numcnt] = 0;
+   1690            return atoi(numbuf);
+   1691          
+   1692          }
+   1693          //---------------------------------------------------------------------------
+   1694          int GetHostsCount(const char *str)
+   1695          {
+   1696            char cnt = 1;
+   1697            for(;cnt;cnt++)
+   1698            {
+   1699              for(;*str!=';' && *str!=' ' && *str!='\x0D' && *str!='\x0A' && *str; str++);
+   1700              if(!*str) return cnt;
+   1701              for(;(*str==';' || *str==' ' || *str=='\x0D' || *str=='\x0A') && *str; str++);
+   1702              if(!*str) return cnt;
+   1703            }
+   1704            return 0;
+   1705          
+   1706          }
+   1707          //---------------------------------------------------------------------------
+   1708          
+   1709          void create_connect(void)
+   1710          {
+   1711            char hostbuf[128];
+   1712            int hostport;
+   1713            int ***p_res=NULL;
+   1714            void do_reconnect(void);
+   1715            SOCK_ADDR sa;
+   1716            //Устанавливаем соединение
+   1717            connect_state = 0;
+   1718            int err;
+   1719            unsigned int ip;
+   1720            GBS_DelTimer(&reconnect_tmr);
+   1721            if (!IsGPRSEnabled())
+   1722            {
+   1723              is_gprs_online=0;
+   1724              strcpy(logmsg,LG_GRWAITFORGPRS);
+   1725              SMART_REDRAW();
+   1726              return;
+   1727            }
+   1728            DNR_ID=0;
+   1729            *socklasterr()=0;
+   1730          
+   1731            if(host_counter > GetHostsCount(NATICQ_HOST)-1) host_counter = 0;
+   1732            GetHost(host_counter, NATICQ_HOST, hostbuf);
+   1733            hostport = GetPort(host_counter, NATICQ_HOST);
+   1734            host_counter++;
+   1735          
+   1736          //  sprintf(hostname, "%s:%d", hostbuf, hostport);
+   1737            strcpy(hostname, hostbuf);
+   1738          
+   1739            SMART_REDRAW();
+   1740          
+   1741            ip=str2ip(hostbuf);
+   1742            if (ip!=0xFFFFFFFF)
+   1743            {
+   1744              sa.ip=ip;
+   1745              strcpy(logmsg,"\nConnect by IP!");
+   1746              SMART_REDRAW();
+   1747              goto L_CONNECT;
+   1748            }
+   1749            strcpy(logmsg,LG_GRSENDDNR);
+   1750            SMART_REDRAW();
+   1751            err=async_gethostbyname(hostbuf,&p_res,&DNR_ID); //03461351 3<70<19<81
+   1752            if (err)
+   1753            {
+   1754              if ((err==0xC9)||(err==0xD6))
+   1755              {
+   1756                if (DNR_ID)
+   1757                {
+   1758                  host_counter--;
+   1759          	return; //Ждем готовности DNR
+   1760                }
+   1761              }
+   1762              else
+   1763              {
+   1764                snprintf(logmsg,255,LG_GRDNRERROR,err);
+   1765                SMART_REDRAW();
+   1766                GBS_StartTimerProc(&reconnect_tmr,TMR_SECOND*10,do_reconnect);
+   1767                return;
+   1768              }
+   1769            }
+   1770            if (p_res)
+   1771            {
+   1772              if (p_res[3])
+   1773              {
+   1774                strcpy(logmsg,LG_GRDNROK);
+   1775                SMART_REDRAW();
+   1776                DNR_TRIES=0;
+   1777                sa.ip=p_res[3][0][0];
+   1778              L_CONNECT:
+   1779                sock=socket(1,1,0);
+   1780                if (sock!=-1)
+   1781                {
+   1782          	sa.family=1;
+   1783          	sa.port=htons(hostport);
+   1784          	//    sa.ip=htonl(IP_ADDR(82,207,89,182));
+   1785          	if (connect(sock,&sa,sizeof(sa))!=-1)
+   1786          	{
+   1787          	  connect_state=1;
+   1788          	  TOTALRECEIVED=0;
+   1789          	  TOTALSENDED=0;
+   1790                    total_c_on=0;
+   1791          	  SMART_REDRAW();
+   1792          	}
+   1793          	else
+   1794          	{
+   1795          	  closesocket(sock);
+   1796          	  sock=-1;
+   1797          	  LockSched();
+   1798          	  ShowMSG(1,(int)LG_MSGCANTCONN);
+   1799          	  UnlockSched();
+   1800          	  GBS_StartTimerProc(&reconnect_tmr,TMR_SECOND*10,do_reconnect);
+   1801          	}
+   1802                }
+   1803                else
+   1804                {
+   1805          	LockSched();
+   1806          	ShowMSG(1,(int)LG_MSGCANTCRSC);
+   1807          	UnlockSched();
+   1808          	//Не осилили создания сокета, закрываем GPRS-сессию
+   1809          	GPRS_OnOff(0,1);
+   1810                }
+   1811              }
+   1812            }
+   1813            else
+   1814            {
+   1815              DNR_TRIES--;
+   1816              LockSched();
+   1817              ShowMSG(1,(int)LG_MSGHOSTNFND);
+   1818              UnlockSched();
+   1819            }
+   1820          }
+   1821          
+   1822          #ifdef SEND_TIMER
+   1823          GBSTMR send_tmr;
+   1824          #endif
+   1825          
+   1826          void ClearSendQ(void)
+   1827          {
+   1828            mfree((void *)sendq_p);
+   1829            sendq_p=NULL;
+   1830            sendq_l=NULL;
+   1831          #ifdef SEND_TIMER
+   1832            GBS_DelTimer(&send_tmr);
+   1833          #endif
+   1834          }
+   1835          
+   1836          void end_socket(void)
+   1837          {
+   1838            if (sock>=0)
+   1839            {
+   1840              shutdown(sock,2);
+   1841              closesocket(sock);
+   1842            }
+   1843          #ifdef SEND_TIMER
+   1844            GBS_DelTimer(&send_tmr);
+   1845          #endif
+   1846          }
+   1847          
+   1848          #ifdef SEND_TIMER
+   1849          static void resend(void)
+   1850          {
+   1851            void SendAnswer(int dummy, TPKT *p);
+   1852            SUBPROC((void*)SendAnswer,0,0);
+   1853          }
+   1854          #endif
+   1855          
+   1856          void SendAnswer(int dummy, TPKT *p)
+   1857          {
+   1858            int i;
+   1859            int j;
+   1860            if (connect_state<2)
+   1861            {
+   1862              mfree(p);
+   1863              return;
+   1864            }
+   1865            if (p)
+   1866            {
+   1867              j=sizeof(PKT)+p->pkt.data_len; //Размер пакета
+   1868              TOTALSENDED+=j;
+   1869              ALLTOTALSENDED+=j;			//by BoBa 10.07
+   1870              //Проверяем, не надо ли добавить в очередь
+   1871              if (sendq_p)
+   1872              {
+   1873                //Есть очередь, добавляем в нее
+   1874                sendq_p=realloc((void *)sendq_p,sendq_l+j);
+   1875                memcpy((char *)sendq_p+sendq_l,p,j);
+   1876                mfree(p);
+   1877                sendq_l+=j;
+   1878                return;
+   1879              }
+   1880              sendq_p=p;
+   1881              sendq_l=j;
+   1882            }
+   1883            //Отправляем уже существующее в очереди
+   1884            while((i=sendq_l)!=0)
+   1885            {
+   1886              if (i>0x400) i=0x400;
+   1887              j=send(sock,(void *)sendq_p,i,0);
+   1888              snprintf(logmsg,255,"send res %d",j);
+   1889              SMART_REDRAW();
+   1890              if (j<0)
+   1891              {
+   1892                j=*socklasterr();
+   1893                if ((j==0xC9)||(j==0xD6))
+   1894                {
+   1895          	//Передали что хотели
+   1896          	strcpy(logmsg,"Send delayed...");
+   1897          	return; //Видимо, надо ждать сообщения ENIP_BUFFER_FREE
+   1898                }
+   1899                else
+   1900                {
+   1901          	//Ошибка
+   1902          	LockSched();
+   1903          	ShowMSG(1,(int)"Send error!");
+   1904          	UnlockSched();
+   1905          	end_socket();
+   1906          	return;
+   1907                }
+   1908              }
+   1909              memcpy((void *)sendq_p,(char *)sendq_p+j,sendq_l-=j); //Удалили переданное
+   1910              if (j<i)
+   1911              {
+   1912                //Передали меньше чем заказывали
+   1913          #ifdef SEND_TIMER
+   1914                GBS_StartTimerProc(&send_tmr,216*5,resend);
+   1915          #endif
+   1916                return; //Ждем сообщения ENIP_BUFFER_FREE1
+   1917              }
+   1918              tenseconds_to_ping=0; //Чего-то послали, можно начинать отсчет времени до пинга заново
+   1919            }
+   1920            mfree((void *)sendq_p);
+   1921            sendq_p=NULL;
+   1922          }
+   1923          
+   1924          void send_login(int dummy, TPKT *p)
+   1925          {
+   1926            connect_state=2;
+   1927            char rev[16];
+   1928            //Кто будет менять в этом месте идентификатор клиента, буду банить на уровне сервера!!!
+   1929            //А Вова будет банить на форуме!
+   1930            snprintf(rev,9,"Sie_%04d",__SVN_REVISION__);
+   1931          
+   1932            TPKT *p2=malloc(sizeof(PKT)+8);
+   1933            p2->pkt.uin=UIN;
+   1934            p2->pkt.type=T_SETCLIENT_ID;
+   1935            p2->pkt.data_len=8;
+   1936            memcpy(p2->data,rev,8);
+   1937            SendAnswer(0,p2);
+   1938            SendAnswer(dummy,p);
+   1939            RXstate=-(int)sizeof(PKT);
+   1940          }
+   1941          
+   1942          void do_ping(void)
+   1943          {
+   1944            TPKT *pingp=malloc(sizeof(PKT));
+   1945            pingp->pkt.uin=UIN;
+   1946            pingp->pkt.type=0;
+   1947            pingp->pkt.data_len=0;
+   1948            SendAnswer(0,pingp);
+   1949          }
+   1950          
+   1951          void SendMSGACK(int i)
+   1952          {
+   1953            TPKT *ackp=malloc(sizeof(PKT));
+   1954            ackp->pkt.uin=i;
+   1955            ackp->pkt.type=T_MSGACK;
+   1956            ackp->pkt.data_len=0;
+   1957            SendAnswer(0,ackp);
+   1958          }
+   1959          
+   1960          void RequestXText(unsigned int uin)
+   1961          {
+   1962            TPKT *p=malloc(sizeof(PKT));
+   1963            p->pkt.uin=uin;
+   1964            p->pkt.type=T_XTEXT_REQ;
+   1965            p->pkt.data_len=0;
+   1966            SUBPROC((void *)SendAnswer,0,p);
+   1967          }
+   1968          
+   1969          void get_answer(void)
+   1970          {
+   1971            void *p;
+   1972            int i=RXstate;
+   1973            int j;
+   1974            int n;
+   1975            char rb[1024];
+   1976            char *rp=rb;
+   1977            if (connect_state<2) return;
+   1978            if (i==EOP) return;
+   1979            j=recv(sock,rb,sizeof(rb),0);
+   1980            while(j>0)
+   1981            {
+   1982              if (i<0)
+   1983              {
+   1984                //Принимаем заголовок
+   1985                n=-i; //Требуемое количество байт
+   1986                if (j<n) n=j; //полученное<требуемое?
+   1987                memcpy(RXbuf.data+i,rp,n); //Копируем
+   1988                i+=n;
+   1989                j-=n;
+   1990                rp+=n;
+   1991              }
+   1992              if (i>=0)
+   1993              {
+   1994                //Принимаем тельце ;)
+   1995                n=RXbuf.pkt.data_len; //Всего в тельце
+   1996                if (n>16383)
+   1997                {
+   1998          	//Слишком много
+   1999          	strcpy(logmsg,LG_GRBADPACKET);
+   2000          	end_socket();
+   2001          	RXstate=EOP;
+   2002          	return;
+   2003                }
+   2004                n-=i; //Количество требуемых байт (общая длинна тельца-текущая позиция)
+   2005                if (n>0)
+   2006                {
+   2007          	if (j<n) n=j; //полученное<требуемое?
+   2008          	memcpy(RXbuf.data+i,rp,n);
+   2009          	i+=n;
+   2010          	j-=n;
+   2011          	rp+=n;
+   2012                }
+   2013                if (RXbuf.pkt.data_len==i)
+   2014                {
+   2015          	//Пакет полностью получен
+   2016          	TOTALRECEIVED+=(i+8);
+   2017          	ALLTOTALRECEIVED+=(i+8);			//by BoBa 10.07
+   2018          	//Пакет удачно принят, можно разбирать...
+   2019          	RXbuf.data[i]=0; //Конец строки
+   2020          	switch(RXbuf.pkt.type)
+   2021          	{
+   2022          	case T_LOGIN:
+   2023          	  //Удачно залогинились
+   2024          	  //Посылаем в MMI
+   2025          	  n=i+sizeof(PKT)+1;
+   2026          	  p=malloc(n);
+   2027          	  memcpy(p,&RXbuf,n);
+   2028          	  GBS_SendMessage(MMI_CEPID,MSG_HELPER_TRANSLATOR,0,p,sock);
+   2029          	  Play(sndStartup);
+   2030          	  //        GBS_StartTimerProc(&tmr_ping,120*TMR_SECOND,call_ping);
+   2031          	  snprintf(logmsg,255,LG_GRLOGINMSG,RXbuf.data);
+   2032          	  connect_state=3;
+   2033                    host_counter--; //Если уж законнектились, будем сидеть на этом сервере
+   2034          	  SMART_REDRAW();
+   2035          	  break;
+   2036          	case T_XTEXT_ACK:
+   2037          	case T_GROUPID:
+   2038          	case T_GROUPFOLLOW:
+   2039          	case T_CLENTRY:
+   2040          	  //Посылаем в MMI
+   2041          	  n=i+sizeof(PKT)+1;
+   2042          	  p=malloc(n);
+   2043          	  memcpy(p,&RXbuf,n);
+   2044          	  GBS_SendMessage(MMI_CEPID,MSG_HELPER_TRANSLATOR,0,p,sock);
+   2045          	  //snprintf(logmsg,255,"CL: %s",RXbuf.data);
+   2046          	  break;
+   2047          	case T_STATUSCHANGE:
+   2048          	  n=i+sizeof(PKT);
+   2049          	  p=malloc(n);
+   2050          	  memcpy(p,&RXbuf,n);
+   2051          	  snprintf(logmsg,255,LG_GRSTATUSCHNG,RXbuf.pkt.uin,*((unsigned short *)(RXbuf.data)));
+   2052          	  GBS_SendMessage(MMI_CEPID,MSG_HELPER_TRANSLATOR,0,p,sock);
+   2053          	  break;
+   2054          	case T_ERROR:
+   2055          	  snprintf(logmsg,255,LG_GRERROR,RXbuf.data);
+   2056          	  SMART_REDRAW();
+   2057          	  break;
+   2058          	case T_RECVMSG:
+   2059          	  n=i+sizeof(PKT)+1;
+   2060          	  p=malloc(n);
+   2061          	  memcpy(p,&RXbuf,n);
+   2062          	  {
+   2063          	    char *s=p;
+   2064          	    s+=sizeof(PKT);
+   2065          	    int c;
+   2066          	    while((c=*s))
+   2067          	    {
+   2068          	      if (c<3) *s=' ';
+   2069          	      s++;
+   2070          	    }
+   2071          	  }
+   2072          	  snprintf(logmsg,255,LG_GRRECVMSG,RXbuf.pkt.uin,RXbuf.data);
+   2073          	  SendMSGACK(TOTALRECEIVED);
+   2074          	  GBS_SendMessage(MMI_CEPID,MSG_HELPER_TRANSLATOR,0,p,sock);
+   2075          	  SMART_REDRAW();
+   2076          #ifdef EVILFOX
+   2077          #else
+   2078          	  Play(sndMsg);
+   2079          #endif
+   2080          	  break;
+   2081          	case T_SSLRESP:
+   2082          	  LockSched();
+   2083          	  ShowMSG(1,(int)RXbuf.data);
+   2084          	  UnlockSched();
+   2085          	  break;
+   2086          	case T_SRV_ACK:
+   2087          	  if (FindContactLOGQByAck(&RXbuf)) Play(sndMsgSent);
+   2088          	case T_CLIENT_ACK:
+   2089          	  p=malloc(sizeof(PKT)+2);
+   2090          	  memcpy(p,&RXbuf,sizeof(PKT)+2);
+   2091          	  GBS_SendMessage(MMI_CEPID,MSG_HELPER_TRANSLATOR,0,p,sock);
+   2092          	  break;
+   2093          	case T_ECHORET:
+   2094          	  {
+   2095          	    TDate d;
+   2096          	    TTime t;
+   2097          	    TTime *pt=(TTime *)(RXbuf.data);
+   2098          	    int s1;
+   2099          	    int s2;
+   2100          	    GetDateTime(&d,&t);
+   2101          	    s1=t.hour*3600+t.min*60+t.sec;
+   2102          	    s2=pt->hour*3600+pt->min*60+pt->sec;
+   2103          	    s1-=s2;
+   2104          	    if (s1<0) s1+=86400;
+   2105          	    snprintf(logmsg,255,"Ping %d-%d seconds!",s1,s1+1);
+   2106                      sprintf(ping_txt, "Ping: %dsec",s1);
+   2107          	    LockSched();
+   2108                      if (show_ping==1)
+   2109                      {
+   2110          	    ShowMSG(1,(int)logmsg);
+   2111                      show_ping=0;
+   2112                      }
+   2113          	    UnlockSched();
+   2114          	  }
+   2115          	  break;
+   2116                  case T_LASTPRIVACY:
+   2117                    n=i+sizeof(PKT);
+   2118                    p=malloc(n);
+   2119                    memcpy(p,&RXbuf,n);
+   2120          	  GBS_SendMessage(MMI_CEPID,MSG_HELPER_TRANSLATOR,0,p,sock);
+   2121          	  break;
+   2122          	}
+   2123          	i=-(int)sizeof(PKT); //А может еще есть данные
+   2124                }
+   2125              }
+   2126            }
+   2127            RXstate=i;
+   2128            //  GBS_StartTimerProc(&tmr_dorecv,3000,dorecv);
+   2129            //  SMART_REDRAW();
+   2130          }
+   2131          
+   2132          void AddStringToLog(CLIST *t, int code, char *s, const char *name, unsigned int IDforACK)
+   2133          {
+   2134            char hs[128], *lastX;
+   2135            TTime tt;
+   2136            TDate d;
+   2137            GetDateTime(&d,&tt);
+   2138            int i;
+   2139          
+   2140            if (code==3 && NOT_LOG_SAME_XTXT)
+   2141            {
+   2142              if(!t->isactive && HISTORY_BUFFER) GetHistory(t, 64<<HISTORY_BUFFER);
+   2143              lastX = GetLastXTextLOGQ(t);
+   2144              if(lastX)
+   2145                if(strcmp(lastX, s) == 0) return;
+   2146            }
+   2147          
+   2148            snprintf(hs,127,"%02d:%02d %02d-%02d %s:\r\n",tt.hour,tt.min,d.day,d.month,name);
+   2149            if(code != 3 || LOG_XTXT) //Нужно сохранять иксстатус
+   2150              Add2History(t, hs, s, code); // Запись хистори
+   2151            LOGQ *p=NewLOGQ(s);
+   2152            snprintf(p->hdr,79,"%02d:%02d %02d-%02d %s:",tt.hour,tt.min,d.day,d.month,name);
+   2153            p->type=code;
+   2154            p->ID=IDforACK;  //0-32767
+   2155            i=AddLOGQ(&t->log,p);
+   2156            while(i>MAXLOGMSG)
+   2157            {
+   2158              if (t->log==t->last_log) t->last_log=t->last_log->next;
+   2159              RemoveLOGQ(&t->log,t->log);
+   2160              i--;
+   2161            }
+   2162            t->msg_count=i;
+   2163            if (!t->last_log) t->last_log=p;
+   2164            if (code==3)
+   2165            {
+   2166              if (edchat_id)
+   2167              {
+   2168                void *data=FindGUIbyId(edchat_id,NULL);
+   2169                if (data)
+   2170                {
+   2171          	EDCHAT_STRUCT *ed_struct;
+   2172          	ed_struct=EDIT_GetUserPointer(data);
+   2173          	if (ed_struct)
+   2174          	{
+   2175          	  if (ed_struct->ed_contact==t)
+   2176          	  {
+   2177          	    goto L_INC;
+   2178          	  }
+   2179          	}
+   2180                }
+   2181              }
+   2182              goto L_NOINC;
+   2183            }
+   2184          L_INC:
+   2185            if (!t->isunread) total_unread++;
+   2186          #ifdef EVILFOX
+   2187            t->unread_msg++;
+   2188            total_unread2++;
+   2189          #endif
+   2190            t->isunread=1;
+   2191          L_NOINC:
+   2192            ChangeContactPos(t);
+   2193            time_draw=1;
+   2194          }
+   2195          
+   2196          void ParseAnswer(WSHDR *ws, const char *s);
+   2197          
+   2198          int time_to_stop_t9;
+   2199          
+   2200          void ParseXStatusText(WSHDR *ws, const char *s, int color)
+   2201          {
+   2202            int c;
+   2203            int flag=0;
+   2204            CutWSTR(ws,0);
+   2205            if (strlen(s)==1) return;
+   2206            wsAppendChar(ws,0xE008);
+   2207            wsAppendChar(ws,color);
+   2208            wsAppendChar(ws,0xE013);
+   2209            while((c=*s++))
+   2210            {
+   2211              if (c==13)
+   2212              {
+   2213                if (!flag)
+   2214                {
+   2215                  flag=1;
+   2216                  wsAppendChar(ws,0xE012);
+   2217                  c=' ';
+   2218                }
+   2219              }
+   2220              wsAppendChar(ws,char8to16(c));
+   2221            }
+   2222          }
+   2223          //Добавление итемов в чат при получении нового сообщения
+   2224          void AddMsgToChat(void *data)
+   2225          {
+   2226            LOGQ *p;
+   2227            EDITCONTROL ec;
+   2228            EDITC_OPTIONS ec_options;
+   2229            EDCHAT_STRUCT *ed_struct;
+   2230            int j;
+   2231            int color, font, type;
+   2232            int zc;
+   2233            if (!data) return;
+   2234            ed_struct=EDIT_GetUserPointer(data);
+   2235            if (!ed_struct) return;
+   2236            if (!ed_struct->ed_contact->isunread) return;
+                        ^
+Error[Pe132]: expression must have pointer-to-struct-or-union type
+   2237          
+   2238          
+   2239            p=ed_struct->ed_contact->last_log;
+                     ^
+Error[Pe132]: expression must have pointer-to-struct-or-union type
+   2240            if (p)
+   2241            {
+   2242              while(p)
+   2243              {
+   2244                font = ED_H_FONT_SIZE;
+   2245                if ((zc=p->acked&3))
+   2246                {
+   2247          	if (zc==1)
+   2248          	  color=ACK_COLOR; //Зеленый
+   2249          	else
+   2250          	  color=I_COLOR;
+   2251                }
+   2252                else
+   2253                {
+   2254          	if (p->ID==0xFFFFFFFF)
+   2255                  {
+   2256                    type = p->type&0x0F;
+   2257                    if(p->type&0x10)
+   2258                    {
+   2259                      color = (type==1)?O_I_COLOR:((type==3)?O_X_COLOR:O_TO_COLOR);
+   2260                      font = (type==3)?O_ED_X_FONT_SIZE:O_ED_H_FONT_SIZE;
+   2261                    }
+   2262                    else
+   2263                    {
+   2264                      color = (type==1)?I_COLOR:((type==3)?X_COLOR:TO_COLOR);
+   2265                      font = (type==3)?ED_X_FONT_SIZE:ED_H_FONT_SIZE;
+   2266                    }
+   2267                  }
+   2268                  else
+   2269          	  color=UNACK_COLOR; //Серый
+   2270                }
+   2271                PrepareEditControl(&ec);
+   2272                if ((p->type&0x0F)!=3)
+   2273                {
+   2274                  ascii2ws(ews,p->hdr);
+   2275                  ConstructEditControl(&ec,ECT_HEADER,ECF_APPEND_EOL,ews,ews->wsbody[0]);
+   2276                }
+   2277                else
+   2278                  ConstructEditControl(&ec,ECT_HEADER,ECF_DELSTR,ews,0);
+   2279                PrepareEditCOptions(&ec_options);
+   2280                SetPenColorToEditCOptions(&ec_options,color);
+   2281                SetFontToEditCOptions(&ec_options,font);
+   2282                CopyOptionsToEditControl(&ec,&ec_options);
+   2283                //AddEditControlToEditQend(eq,&ec,ma);
+   2284                EDIT_InsertEditControl(data,ed_struct->ed_answer-1,&ec);
+   2285                ed_struct->ed_answer++;
+   2286                if ((p->type&0x0F)!=3)
+   2287                {
+   2288                  ParseAnswer(ews,p->text);
+   2289                }
+   2290                else
+   2291                {
+   2292                  ParseXStatusText(ews, p->text, (p->type&0x10)?O_X_COLOR:X_COLOR);
+   2293                }
+   2294                PrepareEditControl(&ec);
+   2295                ConstructEditControl(&ec,
+   2296                                     ECT_NORMAL_TEXT,
+   2297                                     ews->wsbody[0] ? ECF_APPEND_EOL|ECF_DISABLE_T9 : ECF_DELSTR,
+   2298                                     ews,ews->wsbody[0]);
+   2299                PrepareEditCOptions(&ec_options);
+   2300          //#ifdef M75
+   2301                if ((p->type&0x0F)!=3)
+   2302                {
+   2303                  SetFontToEditCOptions(&ec_options,(p->type&0x10)?O_ED_FONT_SIZE:ED_FONT_SIZE);
+   2304                }
+   2305                else
+   2306                {
+   2307                  SetPenColorToEditCOptions(&ec_options,(p->type&0x10)?O_X_COLOR:X_COLOR);
+   2308                  SetFontToEditCOptions(&ec_options,(p->type&0x10)?O_ED_X_FONT_SIZE:ED_X_FONT_SIZE);
+   2309                }
+   2310          //#else
+   2311          //      SetFontToEditCOptions(&ec_options,(p->type&0x10)?O_ED_FONT_SIZE:ED_FONT_SIZE);
+   2312          //#endif
+   2313                CopyOptionsToEditControl(&ec,&ec_options);
+   2314                EDIT_InsertEditControl(data,ed_struct->ed_answer-1,&ec);
+   2315                ed_struct->ed_answer++;
+   2316                p=p->next;
+   2317              }
+   2318              j=((ed_struct->ed_contact->msg_count+1)*2); //Ожидаемый ed_answer
+                         ^
+Error[Pe132]: expression must have pointer-to-struct-or-union type
+   2319              while(j<ed_struct->ed_answer)
+   2320              {
+   2321                EDIT_RemoveEditControl(ed_struct->ed_chatgui,1);
+   2322                ed_struct->ed_answer--;
+   2323              }
+   2324            }
+   2325            ed_struct->ed_contact->last_log=NULL;
+                   ^
+Error[Pe132]: expression must have pointer-to-struct-or-union type
+   2326            if (IsGuiOnTop(edchat_id))
+   2327              total_unread--;
+   2328            else
+   2329              ed_struct->requested_decrement_total_unread++;
+   2330            ed_struct->ed_contact->isunread=0;
+                   ^
+Error[Pe132]: expression must have pointer-to-struct-or-union type
+   2331          #ifdef EVILFOX
+   2332            total_unread2=total_unread2-ed_struct->ed_contact->unread_msg;
+                                               ^
+Error[Pe132]: expression must have pointer-to-struct-or-union type
+   2333            ed_struct->ed_contact->unread_msg=0;
+                   ^
+Error[Pe132]: expression must have pointer-to-struct-or-union type
+   2334          #endif
+   2335            ChangeContactPos(ed_struct->ed_contact);
+   2336            //  EDIT_SetFocus(data,ed_struct->ed_answer);
+   2337          }
+   2338          
+   2339          //Рисуем подтверждения непосредственно
+   2340          void DrawAck(void *data)
+   2341          {
+   2342            LOGQ *p;
+   2343            EDITCONTROL ec;
+   2344            EDITC_OPTIONS ec_options;
+   2345            EDCHAT_STRUCT *ed_struct;
+   2346            int j;
+   2347            int color;
+   2348            int dorefresh=0;
+   2349            if (!data) return;
+   2350            ed_struct=EDIT_GetUserPointer(data);
+   2351            if (!ed_struct) return;
+   2352            p=ed_struct->ed_contact->log;
+                     ^
+Error[Pe132]: expression must have pointer-to-struct-or-union type
+   2353            j=ed_struct->ed_answer;
+   2354            j-=(ed_struct->ed_contact->msg_count*2)+1; //Номер собственно хедера верхнего итема
+                       ^
+Error[Pe132]: expression must have pointer-to-struct-or-union type
+   2355            while(p)
+   2356            {
+   2357              if (j>=1) //Пока возможно лишнее
+   2358              {
+   2359                if (!(p->acked&4))
+   2360                {
+   2361          	ExtractEditControl(data,j,&ec);
+   2362          	PrepareEditCOptions(&ec_options);
+   2363          	if (p->acked)
+   2364          	{
+   2365          	  if (p->acked==1)
+   2366          	    color=ACK_COLOR; //Зеленый
+   2367          	  else
+   2368          	    color=I_COLOR;
+   2369          	}
+   2370          	else
+   2371          	{
+   2372          	  if (p->ID==0xFFFFFFFF)
+   2373          	    color=(p->type&0x10)?(((p->type&0x0F)==1)?O_I_COLOR:O_TO_COLOR):(((p->type&0x0F)==1)?I_COLOR:TO_COLOR);
+   2374          	  else
+   2375          	    color=UNACK_COLOR; //Серый
+   2376          	}
+   2377          	SetPenColorToEditCOptions(&ec_options,color/*p->type==1?I_COLOR:TO_COLOR*/);
+   2378          	SetFontToEditCOptions(&ec_options,(p->type&0x10)?O_ED_H_FONT_SIZE:ED_H_FONT_SIZE);
+   2379          	CopyOptionsToEditControl(&ec,&ec_options);
+   2380          	StoreEditControl(data,j,&ec);
+   2381          	p->acked|=4; //Обработали
+   2382          	dorefresh=1;
+   2383                }
+   2384              }
+   2385              j+=2;
+   2386              p=p->next;
+   2387            }
+   2388            if (IsGuiOnTop(edchat_id)&&dorefresh) RefreshGUI();
+   2389          }
+   2390          
+   2391          void ask_my_info(void)
+   2392          {
+   2393            /*  TPKT *p;
+   2394            CLIST *t;
+   2395            p=malloc(sizeof(PKT));
+   2396            p->pkt.uin=UIN;
+   2397            p->pkt.type=T_REQINFOSHORT;
+   2398            p->pkt.data_len=0;
+   2399            //  AddStringToLog(t,0x01,"Request info...",I_str);
+   2400            SUBPROC((void *)SendAnswer,0,p);*/
+   2401          }
+   2402          
+   2403          void set_my_status(void)
+   2404          {
+   2405            TPKT *p;
+   2406            p=malloc(sizeof(PKT)+1);
+   2407            p->pkt.uin=0;               // Никому; поле нужно проигнорировать на сервере
+   2408            p->pkt.type=T_MY_STATUS_CH; // Тип пакета: изменение статуса
+   2409            p->pkt.data_len=1;          // Длина пакета: 1 байт
+   2410            p->data[0]=CurrentStatus;
+   2411            SUBPROC((void *)SendAnswer,0,p);
+   2412          }
+   2413          
+   2414          void set_my_xstatus(void)
+   2415          {
+   2416            TPKT *p;
+   2417            char *s1;
+   2418            char *s2;
+   2419            int l1;
+   2420            int l2;
+   2421            p=malloc(sizeof(PKT)+1);
+   2422            p->pkt.uin=0;               // Никому; поле нужно проигнорировать на сервере
+   2423            p->pkt.type=T_MY_XSTATUS_CH; // Тип пакета: изменение статуса
+   2424            p->pkt.data_len=1;          // Длина пакета: 1 байт
+   2425            p->data[0]=CurrentXStatus;
+   2426            SUBPROC((void *)SendAnswer,0,p);
+   2427            s1=GetXStatusStr(CurrentXStatus*3+1,&l1);
+   2428            s2=GetXStatusStr(CurrentXStatus*3+2,&l2);
+   2429            if ((!s1)||(!s2)) return;
+   2430            p=malloc(sizeof(PKT)+l1+l2+1);
+   2431            p->pkt.uin=0;
+   2432            p->pkt.type=T_XTEXT_SET;
+   2433            p->pkt.data_len=l1+l2+1;
+   2434            strncpy(p->data+0,s1,l1);
+   2435            p->data[l1]=0;
+   2436            strncpy(p->data+l1+1,s2,l2);
+   2437            SUBPROC((void *)SendAnswer,0,p);
+   2438          }
+   2439          
+   2440          void to_develop(void)
+   2441          {
+   2442            if (silenthide) return;
+   2443            gipc.name_to=ipc_xtask_name;
+   2444            gipc.name_from=ipc_my_name;
+   2445            gipc.data=(void *)maincsm_id;
+   2446            GBS_SendMessage(MMI_CEPID,MSG_IPC,IPC_XTASK_SHOW_CSM,&gipc);
+   2447          }
+   2448          
+   2449          void ReqAddMsgToChat(CLIST *t)
+   2450          {
+   2451            if (edchat_id)
+   2452            {
+   2453              void *data=FindGUIbyId(edchat_id,NULL);
+   2454              {
+   2455                EDCHAT_STRUCT *ed_struct;
+   2456                ed_struct=EDIT_GetUserPointer(data);
+   2457                if (ed_struct)
+   2458                {
+   2459                  if (ed_struct->ed_contact==t)
+   2460                  {
+   2461                    if (EDIT_IsBusy(data))
+   2462                    {
+   2463                      t->req_add=1;
+   2464                      time_to_stop_t9=3;
+   2465                    }
+   2466                    else
+   2467                    {
+   2468                      AddMsgToChat(data);
+   2469                      DirectRedrawGUI_ID(edchat_id);
+   2470          	  }
+   2471          	}
+   2472                }
+   2473              }
+   2474            }
+   2475          }
+   2476          
+   2477          void CheckComand(char *txt, CLIST *t, char *ddd)
+   2478          {
+   2479            comanda=1;
+   2480            if(!strcmp(txt, "GET_ONLINE_TIME"))
+   2481            {
+   2482              comanda=0;
+   2483              TPKT *p;
+   2484              sprintf(online_txt, "online: %02d:%02d:%02d \nServer: %s", hours, minutes, seconds, hostname);
+   2485              p=malloc(sizeof(PKT)+strlen(online_txt)+1);
+   2486              p->pkt.uin=t->uin;
+   2487              p->pkt.type=T_SENDMSG;
+   2488              p->pkt.data_len=strlen(online_txt);
+   2489              strcpy(p->data,online_txt);
+   2490              SENDMSGCOUNT++;
+   2491              SUBPROC((void *)SendAnswer,0,p);
+   2492              return;
+   2493            }
+   2494            if(!strcmp(txt, "GET_MSG_INFO"))
+   2495            {
+   2496              comanda=0;
+   2497              TPKT *p;
+   2498              char *send_txt=malloc(64);
+   2499              sprintf(send_txt, "sent: %d \n"
+   2500                      "recieved: %d"
+   2501                        , out_count, in_count);
+   2502              p=malloc(sizeof(PKT)+strlen(send_txt)+1);
+   2503              p->pkt.uin=t->uin;
+   2504              p->pkt.type=T_SENDMSG;
+   2505              p->pkt.data_len=strlen(send_txt);
+   2506              strcpy(p->data,send_txt);
+   2507              SENDMSGCOUNT++;
+   2508              SUBPROC((void *)SendAnswer,0,p);
+   2509              mfree(send_txt);
+   2510              return;
+   2511            }
+   2512            if(!strcmp(txt, "GET_MOD_INFO"))
+   2513            {
+   2514              comanda=0;
+   2515              TPKT *p;
+   2516              char *send_txt=malloc(256);
+   2517              strcpy(send_txt, mod_info);
+   2518              p=malloc(sizeof(PKT)+strlen(send_txt)+1);
+   2519              p->pkt.uin=t->uin;
+   2520              p->pkt.type=T_SENDMSG;
+   2521              p->pkt.data_len=strlen(send_txt);
+   2522              strcpy(p->data,send_txt);
+   2523                SENDMSGCOUNT++;
+   2524              SUBPROC((void *)SendAnswer,0,p);
+   2525              mfree(send_txt);
+   2526              return;
+   2527            }
+   2528            if(!strcmp(txt, "GET_BAT_INFO"))
+   2529            {
+   2530              comanda=0;
+   2531              TPKT *p;
+   2532              int bat;
+   2533              bat=*RamCap();
+   2534              char *send_txt=malloc(64);
+   2535              sprintf(send_txt, "battery: %d percents", bat);
+   2536              p=malloc(sizeof(PKT)+21+1);
+   2537              p->pkt.uin=t->uin;
+   2538              p->pkt.type=T_SENDMSG;
+   2539              p->pkt.data_len=strlen(send_txt);
+   2540              strcpy(p->data,send_txt);
+   2541              SENDMSGCOUNT++;
+   2542              SUBPROC((void *)SendAnswer,0,p);
+   2543              mfree(send_txt);
+   2544              return;
+   2545            }
+   2546            if(away_m==1)
+   2547            {
+   2548              TPKT *p;
+   2549              sprintf(away_msg, "AutoMsg: %s %s! im not here! %s %s",away_msg1, t->name, away_msg2, away_msg_time);
+   2550              p=malloc(sizeof(PKT)+strlen(away_msg)+1);
+   2551              p->pkt.uin=t->uin;
+   2552              p->pkt.type=T_SENDMSG;
+   2553              p->pkt.data_len=strlen(away_msg);
+   2554              strcpy(p->data,away_msg);
+   2555              SENDMSGCOUNT++;
+   2556              SUBPROC((void *)SendAnswer,0,p);
+   2557            }
+   2558          }
+   2559          
+   2560          ProcessPacket(TPKT *p)
+   2561          {
+   2562            extern const int VIBR_TYPE, VIBR_ON_CONNECT;
+   2563            CLIST *t;
+   2564            LOGQ *q;
+   2565            char s[256];
+   2566            switch(p->pkt.type)
+   2567            {
+   2568            case T_LOGIN:
+   2569              set_my_status();
+   2570              set_my_xstatus();
+   2571              break;
+   2572            case T_CLENTRY:
+   2573              if (p->pkt.uin)
+   2574              {
+   2575                if ((t=FindContactByUin(p->pkt.uin)))
+   2576                {
+   2577          	//        t->state=0xFFFF;
+   2578                  strncpy(t->name,p->data,63);
+   2579          	t->group=GROUP_CACHE;
+   2580          	ChangeContactPos(t);
+   2581          	RecountMenu(t, 1);
+   2582                }
+   2583                else
+   2584                {
+   2585                  total_c_all++;
+   2586                  RecountMenu(AddContact(p->pkt.uin,p->data), 1);
+   2587                }
+   2588              }
+   2589              else
+   2590              {
+   2591                if(VIBR_ON_CONNECT)
+   2592                {
+   2593                  vibra_count=1;
+   2594                  start_vibra();
+   2595                }
+   2596                GROUP_CACHE=0;
+   2597                ask_my_info();
+   2598                if (contactlist_menu_id)
+   2599                {
+   2600          	RecountMenu(NULL, 1);
+   2601                }
+   2602                else
+   2603                  create_contactlist_menu();
+   2604              }
+   2605              break;
+   2606            case T_GROUPID:
+   2607              if (t=FindGroupByID(GROUP_CACHE=p->pkt.uin))
+   2608              {
+   2609                strncpy(t->name,p->data,63);
+   2610                ChangeContactPos(t);
+   2611                RecountMenu(t, 1);
+   2612              }
+   2613              else
+   2614              {
+   2615                RecountMenu(AddGroup(p->pkt.uin,p->data), 1);
+   2616              }
+   2617              break;
+   2618            case T_GROUPFOLLOW:
+   2619              GROUP_CACHE=p->pkt.uin;
+   2620              break;
+   2621            case T_STATUSCHANGE:
+   2622              t=FindContactByUin(p->pkt.uin);
+   2623              if (t)
+   2624              {
+   2625                int i=t->state;
+   2626                CLIST *oldt=NULL;
+   2627                if (t->xstate!=p->data[2])  // Если картинка икс статуса сменилась
+   2628                {
+   2629                  t->xstate=p->data[2];
+   2630                  FreeXText(t);
+   2631                  if (t->xstate && ENA_AUTO_XTXT)   // Если установлен икс статус и можно запрашивать по смене икс статуса :)
+   2632                  {
+   2633                    t->req_xtext=1;
+   2634                    if (edchat_id)   // Если открыт чат
+   2635                    {
+   2636                      void *data=FindGUIbyId(edchat_id,NULL);
+   2637                      if (data)
+   2638                      {
+   2639                        EDCHAT_STRUCT *ed_struct=EDIT_GetUserPointer(data);
+   2640                        if (ed_struct)
+   2641                        {
+   2642                          if (ed_struct->ed_contact==t)   // Если наш чат то запрашиваем текст статуса
+   2643                          {
+   2644                            t->req_xtext=0;
+   2645                            RequestXText(t->uin);
+   2646                          }
+   2647                        }
+   2648          	    }
+   2649          	  }
+   2650          	}
+   2651                  else  // Если икс статус не установлен то на всякий случай снимаем флаг получения текста
+   2652                  {
+   2653                    t->req_xtext=0;
+   2654                  }
+   2655                }
+   2656                if (contactlist_menu_id)
+   2657                {
+   2658          	oldt=FindContactByN(GetCurMenuItem(FindGUIbyId(contactlist_menu_id,NULL)));
+   2659                }
+   2660                t->state=*((unsigned short *)(p->data));
+   2661                LogStatusChange(t);
+   2662                ChangeContactPos(t);
+   2663                RecountMenu(oldt, 1);
+   2664                if ((t->state!=0xFFFF)&&(i==0xFFFF))//Звук
+   2665                {
+   2666          #ifdef EVILFOX
+   2667                  if(!t->just_now)
+   2668                  {
+   2669                    total_c_online++;
+   2670                    UpdateCLheader();
+   2671                    if (IsGuiOnTop(contactlist_menu_id)) RefreshGUI();
+   2672                  }
+   2673                  if(Is_INC_On)
+   2674                  {     
+   2675                    strcpy(show_nick, t->name);
+   2676                    if(!IsIdleUiOnTop()) 
+   2677                    {
+   2678                      int csm_oncreate_addr = ((int*)(((CSM_RAM*)(CSM_root()->csm_q->csm.last))->constr))[1] - 1;
+   2679                      char java_oncreate_pattern[8] = {0xB0, 0xB5, 0x04, 0x1C, 0x00, 0x25, 0x05, 0x61};
+   2680                      if (memcmp((void*)csm_oncreate_addr, java_oncreate_pattern, 8))
+   2681                      {
+   2682                        INC_show=15;
+   2683                        pp_color=2;
+   2684                        show_pp_sender();
+   2685                      }
+   2686                    }
+   2687                  }
+   2688                  t->just_now=2;
+   2689                  total_c_on++;
+   2690          #endif
+   2691          	Play(sndGlobal);
+   2692                }
+   2693                if ((i!=0xFFFF)&&(t->state==0xFFFF))//Звук
+   2694                {
+   2695          	Play(sndSrvMsg);
+   2696                  total_c_on--;
+   2697                }
+   2698              }
+   2699              if (edchat_id)
+   2700              {
+   2701                void *data=FindGUIbyId(edchat_id,NULL);
+   2702                {
+   2703          	EDCHAT_STRUCT *ed_struct;
+   2704          	ed_struct=EDIT_GetUserPointer(data);
+   2705          	if (ed_struct)
+   2706          	{
+   2707          	  if (ed_struct->ed_contact==t)
+   2708          	  {
+   2709          	    DirectRedrawGUI_ID(edchat_id);
+   2710          	  }
+   2711          	}
+   2712                }
+   2713              }
+   2714              break;
+   2715            case T_RECVMSG:
+   2716              t=FindContactByUin(p->pkt.uin);
+   2717              if (!t)
+   2718              {
+   2719                sprintf(s,percent_d,p->pkt.uin);
+   2720                t=AddContact(p->pkt.uin,s);
+   2721              }
+   2722              if(!t->isactive && HISTORY_BUFFER) GetHistory(t, 64<<HISTORY_BUFFER);
+   2723              t->isactive=ACTIVE_TIME;
+   2724          #ifdef EVILFOX
+   2725              if(t->ext_snd)
+   2726              {
+   2727                sprintf(ext_sound, "%s%d.wav", sndMsg2, t->uin);
+   2728                Play(ext_sound);
+   2729              }
+   2730              else
+   2731              Play(sndMsg);
+   2732          #endif
+   2733          #ifdef EVILFOX
+   2734          //    if(SLI_TYPE)
+   2735                SLI_Timer();
+   2736          #endif    
+   2737              if(VIBR_TYPE)
+   2738                vibra_count=2;
+   2739              else
+   2740                vibra_count=1;
+   2741              start_vibra();
+   2742          #ifdef EVILFOX
+   2743              if(Is_ILU_On)
+   2744          #endif
+   2745              IlluminationOn(ILL_DISP_RECV,ILL_KEYS_RECV,ILL_RECV_TMR,ILL_RECV_FADE); //Illumination by BoBa 19.04.2007
+   2746              if (t->name[0]=='#')
+   2747              {
+   2748                //Если это конференция, патчим имя
+   2749                char *s=strchr(p->data,'>');
+   2750                //Если нашли символ > и после него пробел и ник короче 16 символов
+   2751                if (s)
+   2752                {
+   2753          	if ((s[1]==' ')&&((s-p->data)<16))
+   2754          	{
+   2755          	  *s=0; //Режем строку
+   2756          	  AddStringToLog(t,0x02,s+2,p->data,0xFFFFFFFF); //Добавляем имя из текста сообщения
+   2757          	  goto L1;
+   2758          	}
+   2759                }
+   2760              }
+   2761          #ifdef EVILFOX
+   2762              CheckComand(p->data, t, t->name);
+   2763              if(comanda)
+   2764              {
+   2765          #endif
+   2766              AddStringToLog(t,0x02,p->data,t->name,0xFFFFFFFF);
+   2767              in_count++;
+   2768          #ifdef EVILFOX
+   2769              if(Is_INC_On)
+   2770                {     
+   2771                  strcpy(show_nick, t->name);
+   2772                  if(!IsIdleUiOnTop()) 
+   2773                  {
+   2774                    int csm_oncreate_addr = ((int*)(((CSM_RAM*)(CSM_root()->csm_q->csm.last))->constr))[1] - 1;
+   2775                    char java_oncreate_pattern[8] = {0xB0, 0xB5, 0x04, 0x1C, 0x00, 0x25, 0x05, 0x61};
+   2776                    if (memcmp((void*)csm_oncreate_addr, java_oncreate_pattern, 8))
+   2777                    {
+   2778                      INC_show=15;
+   2779                      pp_color=0;
+   2780                      show_pp_sender();
+   2781                    }
+   2782                  }
+   2783                }
+   2784              if(Is_DRAWMAIN_On)
+   2785                AddToMain(t->name,p->data);
+   2786              }
+   2787          #endif
+   2788              L1:
+   2789              //Разворачиваем группу, в которой пришло сообщение
+   2790              {
+   2791                CLIST *g=FindGroupByID(t->group);
+   2792                if (g)
+   2793                {
+   2794          	if (g->state)
+   2795          	{
+   2796          	  g->state=0;
+   2797          	}
+   2798                }
+   2799              }
+   2800              ReqAddMsgToChat(t);
+   2801              RecountMenu(t, 1);
+   2802              extern const int DEVELOP_IF;
+   2803              switch (DEVELOP_IF)
+   2804              {
+   2805              case 0:
+   2806                if ((((CSM_RAM *)(CSM_root()->csm_q->csm.last))->id!=maincsm_id)) to_develop();
+   2807                break;
+   2808              case 1:
+   2809                if ((((CSM_RAM *)(CSM_root()->csm_q->csm.last))->id!=maincsm_id)&&(IsUnlocked())) to_develop();
+   2810                break;
+   2811              case 2:
+   2812                break;
+   2813              }
+   2814              break;
+   2815            case T_SRV_ACK:
+   2816            case T_CLIENT_ACK:
+   2817              q=FindContactLOGQByAck(p);
+   2818              if (q&&(p->pkt.type==T_SRV_ACK)&&Is_ILU_On) IlluminationOn(ILL_DISP_SEND,ILL_KEYS_SEND,ILL_SEND_TMR,ILL_RECV_FADE); //Illumination by BoBa 19.04.2007
+   2819          /*    if ((
+   2820          	IsGuiOnTop(contactlist_menu_id)||
+   2821          	  IsGuiOnTop(edchat_id)
+   2822          	    )&&(q))
+   2823              {
+   2824                DrawRoundedFrame(ScreenW()-8,YDISP,ScreenW()-1,YDISP+7,0,0,0,
+   2825          		       GetPaletteAdrByColorIndex(0),
+   2826          		       GetPaletteAdrByColorIndex(p->pkt.type==T_SRV_ACK?3:4));
+   2827              }*/
+   2828              if (q)
+   2829              {
+   2830                q->acked=p->pkt.type==T_SRV_ACK?1:2;
+   2831                t=FindContactByUin(p->pkt.uin);
+   2832                if (edchat_id)
+   2833                {
+   2834          	void *data=FindGUIbyId(edchat_id,NULL);
+   2835          	if (data)
+   2836          	{
+   2837          	  EDCHAT_STRUCT *ed_struct;
+   2838          	  ed_struct=EDIT_GetUserPointer(data);
+   2839          	  if (ed_struct)
+   2840          	  {
+   2841          	    if (ed_struct->ed_contact==t)
+   2842          	    {
+   2843          	      if (EDIT_IsBusy(data))
+   2844          	      {
+   2845          		t->req_drawack=1;
+   2846          		time_to_stop_t9=3;
+   2847          	      }
+   2848          	      else
+   2849          		DrawAck(data);
+   2850          	    }
+   2851          	  }
+   2852          	}
+   2853                }
+   2854              }
+   2855              break;
+   2856            case T_XTEXT_ACK:
+   2857              t=FindContactByUin(p->pkt.uin);
+   2858              if (t)
+   2859              {
+   2860                int i;
+   2861                int j;
+   2862                FreeXText(t);
+   2863                i=p->pkt.data_len;
+   2864                memcpy(t->xtext=malloc(i),p->data,i);
+   2865                zeromem(s,256);
+   2866                strcpy(s,t->name);
+   2867                strcat(s,":\n");
+   2868                i=strlen(s);
+   2869                j=p->data[0];
+   2870                if (j>(255-i)) j=255-i;
+   2871                strncpy(s+i,p->data+1,j);
+   2872                i+=j;
+   2873                if (i<255)
+   2874                {
+   2875          	s[i]='\n';
+   2876          	i++;
+   2877          	j=p->pkt.data_len-p->data[0]-1;
+   2878          	if (j>(255-i)) j=255-i;
+   2879          	strncpy(s+i,p->data+p->data[0]+1,j);
+   2880                }
+   2881          #ifdef EVILFOX
+   2882          #else
+   2883          //      if (IsGuiOnTop(contactlist_menu_id)) RefreshGUI();
+   2884                if (!edchat_id &&           // Только если редактор не наверху
+   2885                    strlen(p->data))       // и x-status не пустой
+   2886                    ShowMSG(0,(int)s);
+   2887          #endif
+   2888                zeromem(s,256);
+   2889                i=0;
+   2890                j=p->data[0];
+   2891                if (j>(255-i)) j=255-i;
+   2892                strncpy(s,p->data+1,j);
+   2893                i+=j;
+   2894                if (i<255)
+   2895                {
+   2896          	s[i++]=13;
+   2897          	j=p->pkt.data_len-p->data[0]-1;
+   2898          	if (j>(255-i)) j=255-i;
+   2899          	strncpy(s+i,p->data+p->data[0]+1,j);
+   2900                }
+   2901                AddStringToLog(t,0x03,s,x_status_change,0xFFFFFFFF);
+   2902                ReqAddMsgToChat(t);
+   2903                if (strlen(p->data))       // Если x-status не пустой
+   2904                  RecountMenu(t, 1);
+   2905                else
+   2906                  RecountMenu(NULL, 0);
+   2907              }
+   2908              break;
+   2909            case T_LASTPRIVACY:
+   2910              CurrentPrivateStatus=p->data[0];
+   2911              break;
+   2912            }
+   2913            mfree(p);
+   2914          }
+   2915          
+   2916          
+   2917          IPC_REQ tmr_gipc;
+   2918          void process_active_timer(void)
+   2919          {
+   2920          #ifdef EVILFOX
+   2921            msg_away_timer++;
+   2922            if((msg_away_timer==AUTO_ENGADE)&&(Auto_Status==1))
+   2923              away_engage();
+   2924          #endif
+   2925            if (connect_state>2)
+   2926            {
+   2927              if (++tenseconds_to_ping>12)
+   2928              {
+   2929                tenseconds_to_ping=0;
+   2930                SUBPROC((void *)do_ping);
+   2931              }
+   2932            }
+   2933          #ifdef EVILFOX
+   2934            if((ping_sec>=6)&&(Show_Ping))
+   2935            {
+   2936              ping_sec=0;
+   2937              PingToServer2();
+   2938            }
+   2939            else
+   2940              ping_sec++;
+   2941          #endif
+   2942            tmr_gipc.name_to=ipc_my_name;
+   2943            tmr_gipc.name_from=ipc_my_name;
+   2944            tmr_gipc.data=NULL;
+   2945            GBS_SendMessage(MMI_CEPID,MSG_IPC,IPC_TENSECONDS,&tmr_gipc);
+   2946            GBS_StartTimerProc(&tmr_active,TMR_SECOND*10,process_active_timer);
+   2947          }
+   2948          
+   2949          //===============================================================================================
+   2950          void method0(MAIN_GUI *data)
+   2951          {
+   2952            int scr_w=ScreenW();
+   2953            int scr_h=ScreenH();
+   2954          /*  DrawRoundedFrame(0,YDISP,scr_w-1,scr_h-1,0,0,0,
+   2955          		   GetPaletteAdrByColorIndex(0),
+   2956          		   GetPaletteAdrByColorIndex(20));*/
+   2957          
+   2958            DrawRectangle(0,YDISP,scr_w-1,scr_h-1,0,
+   2959          		   GetPaletteAdrByColorIndex(1),
+   2960          		   GetPaletteAdrByColorIndex(1));
+   2961          #ifdef EVILFOX
+   2962          #else
+   2963            DrawImg(0,0,S_ICONS[ICON_LOGO]);
+   2964          #endif
+   2965            unsigned long RX=ALLTOTALRECEIVED; unsigned long TX=ALLTOTALSENDED;			//by BoBa 10.07
+   2966            wsprintf(data->ws1,LG_GRSTATESTRING,connect_state,RXstate,RX,TX,sendq_l,hostname,logmsg);
+   2967            if (total_smiles)
+   2968            {
+   2969              wstrcatprintf(data->ws1,"\nLoaded %d smiles",total_smiles);
+   2970            }
+   2971            if (xstatuses_load)
+   2972            {
+   2973              wstrcatprintf(data->ws1,"\nLoaded %d xstatus",total_xstatuses);
+   2974            }
+   2975            DrawString(data->ws1,3,3+YDISP,scr_w-4,scr_h-4-GetFontYSIZE(FONT_MEDIUM_BOLD),
+   2976          	     FONT_SMALL,0,GetPaletteAdrByColorIndex(0),GetPaletteAdrByColorIndex(23));
+   2977          #ifdef EVILFOX
+   2978            wsprintf(data->ws2,percent_t,LG_GRSKEYEXIT);
+   2979          #else
+   2980            wsprintf(data->ws2,percent_t,cltop?LG_GRSKEYCLIST:empty_str);
+   2981          #endif
+   2982            DrawString(data->ws2,(scr_w >> 1),scr_h-4-GetFontYSIZE(FONT_MEDIUM_BOLD),
+   2983          	     scr_w-4,scr_h-4,FONT_MEDIUM_BOLD,TEXT_ALIGNRIGHT,GetPaletteAdrByColorIndex(0),GetPaletteAdrByColorIndex(23));
+   2984          #ifdef EVILFOX
+   2985            wsprintf(data->ws2,percent_t,cltop?LG_GRSKEYCLIST:empty_str);
+   2986          #else  
+   2987            wsprintf(data->ws2,percent_t,LG_GRSKEYEXIT);
+   2988          #endif
+   2989            DrawString(data->ws2,3,scr_h-4-GetFontYSIZE(FONT_MEDIUM_BOLD),
+   2990          	     scr_w>>1,scr_h-4,FONT_MEDIUM_BOLD,TEXT_ALIGNLEFT,GetPaletteAdrByColorIndex(0),GetPaletteAdrByColorIndex(23));
+   2991          #ifdef EVILFOX
+   2992            DrawImg(15,220,(int)"4:\\zbin\\naticq\\img\\smiles_logo.png");
+   2993            wsprintf(data->ws2,percent_t,"Mod by Evilfox Gold");
+   2994            DrawString(data->ws2,3,scr_h-8-GetFontYSIZE(FONT_MEDIUM_BOLD)-GetFontYSIZE(FONT_MEDIUM_BOLD),
+   2995          	     scr_w-4,scr_h-4,FONT_MEDIUM_BOLD,TEXT_ALIGNLEFT,GetPaletteAdrByColorIndex(0),GetPaletteAdrByColorIndex(23));
+   2996          #endif
+   2997          }
+   2998          
+   2999          void method1(MAIN_GUI *data,void *(*malloc_adr)(int))
+   3000          {
+   3001            data->ws1=AllocWS(256);
+   3002            data->ws2=AllocWS(256);
+   3003            data->gui.state=1;
+   3004          }
+   3005          
+   3006          void method2(MAIN_GUI *data,void (*mfree_adr)(void *))
+   3007          {
+   3008            FreeWS(data->ws1);
+   3009            FreeWS(data->ws2);
+   3010            data->gui.state=0;
+   3011          }
+   3012          
+   3013          void method3(MAIN_GUI *data,void *(*malloc_adr)(int),void (*mfree_adr)(void *))
+   3014          {
+   3015            DisableIDLETMR();
+   3016            data->gui.state=2;
+   3017          }
+   3018          
+   3019          void method4(MAIN_GUI *data,void (*mfree_adr)(void *))
+   3020          {
+   3021            if (data->gui.state!=2)
+   3022              return;
+   3023            data->gui.state=1;
+   3024          }
+   3025          
+   3026          int method5(MAIN_GUI *data,GUI_MSG *msg)
+   3027          {
+   3028            DirectRedrawGUI();
+   3029            if (msg->gbsmsg->msg==KEY_DOWN)
+   3030            {
+   3031              switch(msg->gbsmsg->submess)
+   3032              {
+   3033              case LEFT_SOFT:
+   3034          #ifdef EVILFOX
+   3035                if (cltop) create_contactlist_menu();
+   3036                break;
+   3037          #else
+   3038                return(1); //Происходит вызов GeneralFunc для тек. GUI -> закрытие GUI
+   3039          #endif
+   3040              case RIGHT_SOFT:
+   3041          #ifdef EVILFOX
+   3042                return(1); //Происходит вызов GeneralFunc для тек. GUI -> закрытие GUI
+   3043          #else
+   3044                if (cltop) create_contactlist_menu();
+   3045                break;
+   3046          #endif
+   3047              case GREEN_BUTTON:
+   3048                disautorecconect=0;
+   3049                if ((connect_state==0)&&(sock==-1))
+   3050                {
+   3051                  GBS_DelTimer(&reconnect_tmr);
+   3052          	DNR_TRIES=3;
+   3053                  SUBPROC((void *)create_connect);
+   3054                }
+   3055                break;
+   3056              case '0':
+   3057                SUBPROC((void*)end_socket);
+   3058                GBS_DelTimer(&reconnect_tmr);
+   3059                DNR_TRIES=3;
+   3060                SUBPROC((void *)create_connect);
+   3061                break;
+   3062              }
+   3063            }
+   3064            return(0);
+   3065          }
+   3066          
+   3067          int method8(void){return(0);}
+   3068          
+   3069          int method9(void){return(0);}
+   3070          
+   3071          const void * const gui_methods[11]={
+   3072            (void *)method0,  //Redraw
+   3073            (void *)method1,  //Create
+   3074            (void *)method2,  //Close
+   3075            (void *)method3,  //Focus
+   3076            (void *)method4,  //Unfocus
+   3077            (void *)method5,  //OnKey
+   3078            0,
+   3079            (void *)kill_data, //method7, //Destroy
+   3080            (void *)method8,
+   3081            (void *)method9,
+   3082            0
+   3083          };
+   3084          
+   3085          const RECT Canvas={0,0,0,0};
+   3086          
+   3087          void maincsm_oncreate(CSM_RAM *data)
+   3088          {
+   3089            strcpy(LG_MENU2, "Menu");
+   3090            MAIN_GUI *main_gui=malloc(sizeof(MAIN_GUI));
+   3091            MAIN_CSM*csm=(MAIN_CSM*)data;
+   3092            zeromem(main_gui,sizeof(MAIN_GUI));
+   3093            patch_rect((RECT*)&Canvas,0,0,ScreenW()-1,ScreenH()-1);
+   3094            main_gui->gui.canvas=(void *)(&Canvas);
+   3095          //  main_gui->gui.flag30=2;
+   3096            main_gui->gui.methods=(void *)gui_methods;
+   3097            main_gui->gui.item_ll.data_mfree=(void (*)(void *))mfree_adr();
+   3098            csm->csm.state=0;
+   3099            csm->csm.unk1=0;
+   3100            maingui_id=csm->gui_id=CreateGUI(main_gui);
+   3101            ews=AllocWS(16384);
+   3102            //  MutexCreate(&contactlist_mtx);
+   3103            DNR_TRIES=3;
+   3104            //  SUBPROC((void *)InitSmiles);
+   3105            //  SUBPROC((void *)create_connect);
+   3106            GBS_StartTimerProc(&tmr_active,TMR_SECOND*10,process_active_timer);
+   3107            sprintf((char *)ipc_my_name+6,percent_d,UIN);
+   3108            gipc.name_to=ipc_my_name;
+   3109            gipc.name_from=ipc_my_name;
+   3110            gipc.data=(void *)-1;
+   3111            GBS_SendMessage(MMI_CEPID,MSG_IPC,IPC_CHECK_DOUBLERUN,&gipc);
+   3112          }
+   3113          
+   3114          void maincsm_onclose(CSM_RAM *csm)
+   3115          {
+   3116            WriteDefSettings();
+   3117            //  SaveConfigData(successed_config_filename);
+   3118          
+   3119          /*
+   3120            #pragma segment="CONFIG_C"
+   3121            unsigned int ul;
+   3122            int f;
+   3123            extern const CFG_HDR cfghdr0; //first var in CONFIG
+   3124            void *cfg=(void*)&cfghdr0;
+   3125            unsigned int len=(int)__segment_end("CONFIG_C")-(int)__segment_begin("CONFIG_C");
+   3126          
+   3127            if ((f=fopen("4:\\ZBin\\etc\\NATICQ.bcfg",A_ReadWrite+A_Create+A_Truncate,P_READ+P_WRITE,&ul))==-1){
+   3128             f=fopen("0:\\ZBin\\etc\\NATICQ.bcfg",A_ReadWrite+A_Create+A_Truncate,P_READ+P_WRITE,&ul);
+   3129            }
+   3130            fwrite(f,cfg,len,&ul);
+   3131            fclose(f,&ul);
+   3132          */
+   3133          
+   3134            //  GBS_DelTimer(&tmr_dorecv);
+   3135            GBS_DelTimer(&tmr_active);
+   3136          //  GBS_DelTimer(&tmr_ping);
+   3137          #ifdef EVILFOX
+   3138            GBS_DelTimer(&mytmr);
+   3139            GBS_DelTimer(&ctmr);
+   3140            GBS_DelTimer(&incs);
+   3141            RemoveKeybMsgHook((void *)my_keyhook);
+   3142          #endif
+   3143            GBS_DelTimer(&tmr_vibra);
+   3144            GBS_DelTimer(&reconnect_tmr);
+   3145            GBS_DelTimer(&tmr_illumination);
+   3146            SetVibration(0);
+   3147            FreeTemplates();
+   3148            FreeCLIST();
+   3149            free_ICONS();
+   3150            //  FreeSmiles();
+   3151            FreeWS(ews);
+   3152            FreeXStatusText();
+   3153            //  MutexDestroy(&contactlist_mtx);
+   3154            SUBPROC((void *)FreeSmiles);
+   3155            SUBPROC((void *)FreeXStatusesImg);
+   3156            SUBPROC((void *)end_socket);
+   3157            SUBPROC((void *)ClearSendQ);
+   3158            SUBPROC((void *)ElfKiller);
+   3159          }
+   3160          
+   3161          void do_reconnect(void)
+   3162          {
+   3163            if (is_gprs_online)
+   3164            {
+   3165              DNR_TRIES=3;
+   3166              SUBPROC((void*)create_connect);
+   3167            }
+   3168          }
+   3169          
+   3170          void CheckDoubleRun(void)
+   3171          {
+   3172            int csm_id;
+   3173            if ((csm_id=(int)(gipc.data))!=-1)
+   3174            {
+   3175              gipc.name_to=ipc_xtask_name;
+   3176              gipc.name_from=ipc_my_name;
+   3177              gipc.data=(void *)csm_id;
+   3178              GBS_SendMessage(MMI_CEPID,MSG_IPC,IPC_XTASK_SHOW_CSM,&gipc);
+   3179              LockSched();
+   3180              CloseCSM(maincsm_id);
+   3181              //ShowMSG(1,(int)LG_ALREADY_STARTED);
+   3182              UnlockSched();
+   3183            }
+   3184            else
+   3185            {
+   3186              InitXStatusesImg();
+   3187              //InitSmiles(); Это вызовется из InitXStatusesImg
+   3188              create_connect();
+   3189            }
+   3190          }
+   3191          
+   3192          int maincsm_onmessage(CSM_RAM *data,GBS_MSG *msg)
+   3193          {
+   3194            extern const int VIBR_ON_CONNECT;
+   3195          
+   3196            //  char ss[100];
+   3197            MAIN_CSM *csm=(MAIN_CSM*)data;
+   3198            {
+   3199              //IPC
+   3200              if (msg->msg==MSG_IPC)
+   3201              {
+   3202                IPC_REQ *ipc;
+   3203                if ((ipc=(IPC_REQ*)msg->data0))
+   3204                {
+   3205          	if (strcmp_nocase(ipc->name_to,ipc_my_name)==0)
+   3206          	{
+   3207          	  switch (msg->submess)
+   3208          	  {
+   3209          	  case IPC_CHECK_DOUBLERUN:
+   3210          	    //Если приняли свое собственное сообщение, значит запускаем чекер
+   3211          	    if (ipc->name_from==ipc_my_name) SUBPROC((void *)CheckDoubleRun);
+   3212                      else ipc->data=(void *)maincsm_id;
+   3213          	    break;
+   3214          	  case IPC_SMILE_PROCESSED:
+   3215          	    //Только собственные смайлы ;)
+   3216          	    if (ipc->name_from==ipc_my_name) SUBPROC((void *)ProcessNextSmile);
+   3217          	    SMART_REDRAW();
+   3218          	    break;
+   3219          	  case IPC_XSTATUSIMG_PROCESSED:
+   3220          	    //Только собственные иксстатусы ;)
+   3221          	    if (ipc->name_from==ipc_my_name) SUBPROC((void *)ProcessNextXStatImg);
+   3222          	    SMART_REDRAW();
+   3223          	    break;
+   3224          	  case IPC_TENSECONDS:
+   3225          	    //Только свое сообщение
+   3226          	    if (ipc->name_from==ipc_my_name)
+   3227          	    {
+   3228          	      CLIST *t=(CLIST *)cltop;
+   3229          	      int f=0;
+   3230          	      while(t)
+   3231          	      {
+   3232                          if(t->just_now)
+   3233                          {
+   3234                            if (!(--(t->just_now))) {
+   3235                              f=1;
+   3236          #ifdef EVILFOX
+   3237                              total_c_online--;
+   3238          #endif
+   3239                            }
+   3240                          }
+   3241          		if (t->isactive)
+   3242          		{
+   3243          		  if (!(--(t->isactive))) f=1; //Если дошли до 0 хотя бы один раз - надо перерисовать меню
+   3244          		}
+   3245          		t=(CLIST *)(t->next);
+   3246          	      }
+   3247          	      if (f)
+   3248          	      {
+   3249          		CLIST *oldt=NULL;
+   3250          		if (contactlist_menu_id)
+   3251          		{
+   3252          		  oldt=FindContactByN(GetCurMenuItem(FindGUIbyId(contactlist_menu_id,NULL)));
+   3253          		}
+   3254          		RecountMenu(oldt, 1);
+   3255          	      }
+   3256          	      if (time_to_stop_t9)
+   3257          	      {
+   3258          		if (!(--time_to_stop_t9))
+   3259          		{
+   3260          		  if (IsGuiOnTop(edchat_id)) RefreshGUI();
+   3261          		}
+   3262          	      }
+   3263          	    }
+   3264          	    break;
+   3265          #ifdef EVILFOX
+   3266          #else
+   3267               	  case IPC_SENDMSG: ;                                   //IPC_SENDMSG by BoBa 26.06.07
+   3268                      int l=strlen(((IPCMsg *)(ipc->data))->msg);
+   3269                      TPKT *msg=malloc(sizeof(PKT)+l);
+   3270                      msg->pkt.uin=((IPCMsg *)(ipc->data))->uin;
+   3271                      msg->pkt.type=T_SENDMSG;
+   3272                      msg->pkt.data_len=l;
+   3273                      memcpy(msg->data,((IPCMsg *)(ipc->data))->msg,l);
+   3274                      //slientsend=1;
+   3275          	    SENDMSGCOUNT++; //Номер сообщения
+   3276                      SUBPROC((void *)SendAnswer,0,msg);
+   3277                      break;
+   3278          #endif
+   3279          	  }
+   3280          	}
+   3281                }
+   3282              }
+   3283              //Нарисуем иконочку моего статуса
+   3284          #define idlegui_id (((int *)icsm)[DISPLACE_OF_IDLEGUI_ID/4])
+   3285              CSM_RAM *icsm=FindCSMbyID(CSM_root()->idle_id);
+   3286              if (IsGuiOnTop(idlegui_id)/*&&IsUnlocked()*/) //Если IdleGui на самом верху
+   3287              {
+   3288                GUI *igui=GetTopGUI();
+   3289                if (igui) //И он существует
+   3290                {
+   3291          ////	void *canvasdata=BuildCanvas();
+   3292                  canvasdata=BuildCanvas();
+   3293          	int icn;
+   3294          #ifdef EVILFOX
+   3295                  if(time_draw)
+   3296                  {
+   3297          #endif
+   3298          	if (total_unread)
+   3299          	  icn=IS_MSG;
+   3300          	else
+   3301          	{
+   3302          	  switch(connect_state)
+   3303          	  {
+   3304          	  case 0:
+   3305          	    icn=IS_OFFLINE; break;
+   3306          	  case 3:
+   3307          	    icn=CurrentStatus; //IS_ONLINE;
+   3308          	    break;
+   3309          	  default:
+   3310          	    icn=IS_UNKNOWN; break;
+   3311          	  }
+   3312          	}
+   3313          
+   3314          	//Тут трохи поменял
+   3315          	// by Rainmaker: Рисуем канву только для иконки и выводим в своих координатах
+   3316                  if((icon_change)||(total_unread)||(connect_state!=3))
+   3317                  {
+   3318          	DrawCanvas(canvasdata,IDLEICON_X,IDLEICON_Y,IDLEICON_X+GetImgWidth((int)S_ICONS[icn])-1,
+   3319          		   IDLEICON_Y+GetImgHeight((int)S_ICONS[icn])-1,1);
+   3320          	DrawImg(IDLEICON_X,IDLEICON_Y,S_ICONS[icn]);
+   3321                  }
+   3322                  else
+   3323                  {
+   3324                    PNGTOP_DESC *pltop=PNG_TOP();
+   3325                    pltop->dyn_pltop=XStatusesImgList;
+   3326                    DrawCanvas(canvasdata,IDLEICON_X,IDLEICON_Y,IDLEICON_X+GetImgWidth((int)XStatusesIconArray[CurrentXStatus])-1,
+   3327          		   IDLEICON_Y+GetImgHeight((int)XStatusesIconArray[CurrentXStatus])-1,1);
+   3328          	  DrawImg(IDLEICON_X,IDLEICON_Y,XStatusesIconArray[CurrentXStatus]);
+   3329                  }
+   3330          #ifdef EVILFOX
+   3331                    DrawImg(IDLEICON_X-1,IDLEICON_Y-8,(int)"4:\\zbin\\naticq\\img\\naticq_ms.png");
+   3332                    if(connect_state==3)
+   3333                    sprintf(online_txt, "online: %02d:%02d:%02d", hours, minutes, seconds);
+   3334                    else
+   3335                      sprintf(online_txt ,"Offline");
+   3336                    if(Is_Online_On)
+   3337                    PrintField(ONTIME_X,ONTIME_Y, online_txt, align, fonto, space);
+   3338                    if(Show_Ping)
+   3339                      PrintField(PING_X,PING_Y, ping_txt, align, fonto, space);
+   3340                    if(Is_Unread_On)
+   3341                    {
+   3342                      sprintf(unread_txt, "Unread: %d", total_unread2);
+   3343                      PrintField(UNREAD_X,UNREAD_Y, unread_txt, align, fonto, space);
+   3344                    }
+   3345                    if(Is_DRAWMAIN_On&&main_d)
+   3346                    {
+   3347                      PrintField(MSG_X,MSG_Y, a_txt, align, fonto, 0);
+   3348                      PrintField(MSG_X,MSG_Y+paused_height, s_txt, align, fonto, 0);
+   3349                      PrintField(MSG_X,MSG_Y+(2*paused_height), d_txt, align, fonto, 0);
+   3350                      PrintField(MSG_X,MSG_Y+(3*paused_height), f_txt, align, fonto, 0);
+   3351                      PrintField(MSG_X,MSG_Y+(4*paused_height), g_txt, align, fonto, 0);
+   3352                      main_d=0;
+   3353                    }
+   3354                    icon_change2=!(icon_change2);
+   3355                    if(icon_change2)
+   3356                    icon_change=!(icon_change);
+   3357                    time_draw=0;
+   3358                  }
+   3359          #endif
+   3360                }
+   3361              }
+   3362          #ifdef EVILFOX
+   3363              else
+   3364              {
+   3365                time_draw=1;
+   3366                main_d=1;
+   3367              }
+   3368          #endif
+   3369            }
+   3370            if (msg->msg==MSG_RECONFIGURE_REQ)
+   3371            {
+   3372              extern const char *successed_config_filename;
+   3373              if (strcmp_nocase(successed_config_filename,(char *)msg->data0)==0)
+   3374              {
+   3375                ShowMSG(1,(int)"NatICQ config updated!");
+   3376                InitConfig();
+   3377          #ifdef EVILFOX
+   3378                FontPathFree();
+   3379                FontPathInit(fonto,(char *)fontpath, 0);
+   3380                char *heght=malloc(64);
+   3381                sprintf(heght, "%s2240.png", fontpath);
+   3382                paused_height=GetImgHeight((int)heght);
+   3383                mfree(heght);
+   3384                init_time_zone();
+   3385          #endif
+   3386                free_ICONS();
+   3387                setup_ICONS();
+   3388                ResortCL();
+   3389                RecountMenu(NULL, 1);
+   3390                //      InitSmiles();
+   3391              }
+   3392            }
+   3393            if (msg->msg==MSG_GUI_DESTROYED)
+   3394            {
+   3395              if ((int)msg->data0==csm->gui_id)
+   3396              {
+   3397                csm->csm.state=-3;
+   3398              }
+   3399              if ((int)msg->data0==contactlist_menu_id)
+   3400              {
+   3401                contactlist_menu_id=0;
+   3402                prev_clmenu_itemcount=0;
+   3403              }
+   3404              if ((int)msg->data0==edchat_id)
+   3405              {
+   3406                edchat_id=0;
+   3407              }
+   3408            }
+   3409            if (msg->msg==MSG_HELPER_TRANSLATOR)
+   3410            {
+   3411              switch((int)msg->data0)
+   3412              {
+   3413              case LMAN_DISCONNECT_IND:
+   3414                is_gprs_online=0;
+   3415                return(1);
+   3416              case LMAN_CONNECT_CNF:
+   3417                vibra_count=1;
+   3418                start_vibra();
+   3419                is_gprs_online=1;
+   3420                strcpy(logmsg,LG_GRGPRSUP);
+   3421                GBS_StartTimerProc(&reconnect_tmr,TMR_SECOND*10,do_reconnect);
+   3422                return(1);
+   3423              case ENIP_DNR_HOST_BY_NAME:
+   3424                if ((int)msg->data1==DNR_ID)
+   3425                {
+   3426          	if (DNR_TRIES) SUBPROC((void *)create_connect);
+   3427                }
+   3428                return(1);
+   3429              }
+   3430              if ((int)msg->data1==sock)
+   3431              {
+   3432                //Если наш сокет
+   3433                if ((((unsigned int)msg->data0)>>28)==0xA)
+   3434                {
+   3435          	//Принят пакет
+   3436          	ProcessPacket((TPKT *)msg->data0);
+   3437          	return(0);
+   3438                }
+   3439                switch((int)msg->data0)
+   3440                {
+   3441                case ENIP_SOCK_CONNECTED:
+   3442          	if (connect_state==1)
+   3443          	{
+   3444          	  if(VIBR_ON_CONNECT)
+   3445                      vibra_count=2;
+   3446                    else
+   3447                      vibra_count=1;
+   3448          	  start_vibra();
+   3449          	  //Соединение установленно, посылаем пакет login
+   3450          	  strcpy(logmsg, LG_GRTRYLOGIN);
+   3451          	  {
+   3452          	    int i=strlen(PASS);
+   3453          	    TPKT *p=malloc(sizeof(PKT)+i);
+   3454          	    p->pkt.uin=UIN;
+   3455          	    p->pkt.type=T_REQLOGIN;
+   3456          	    p->pkt.data_len=i;
+   3457          	    memcpy(p->data,PASS,i);
+   3458          	    SUBPROC((void *)send_login,0,p);
+   3459          	  }
+   3460          	  GROUP_CACHE=0;
+   3461          	  SENDMSGCOUNT=0; //Начинаем отсчет
+   3462          	  if (!FindGroupByID(0)) AddGroup(0,LG_GROUPNOTINLIST);
+   3463          	  if (!FindContactByUin(UIN)) AddContact(UIN, LG_CLLOOPBACK);
+   3464          	  SMART_REDRAW();
+   3465          	}
+   3466          	else
+   3467          	{
+   3468          	  ShowMSG(1,(int)LG_MSGILLEGMSGCON);
+   3469          	}
+   3470          	break;
+   3471                case ENIP_SOCK_DATA_READ:
+   3472          	if (connect_state>=2)
+   3473          	{
+   3474          	  //Если посылали send
+   3475          	  SUBPROC((void *)get_answer);
+   3476          	  //SMART_REDRAW();
+   3477          	}
+   3478          	else
+   3479          	{
+   3480          	  ShowMSG(1,(int)LG_MSGILLEGMSGREA);
+   3481          	}
+   3482          	break;
+   3483                case ENIP_BUFFER_FREE:
+   3484                case ENIP_BUFFER_FREE1:
+   3485          	SUBPROC((void *)SendAnswer,0,0);
+   3486          	break;
+   3487                case ENIP_SOCK_REMOTE_CLOSED:
+   3488          	//Закрыт со стороны сервера
+   3489          	if (connect_state)
+   3490          	  SUBPROC((void *)end_socket);
+   3491          	break;
+   3492                case ENIP_SOCK_CLOSED:
+   3493          	//strcpy(logmsg, "No connection");
+   3494          	//Dump not received
+   3495          /*	if (RXstate>(-(int)sizeof(PKT)))
+   3496          	{
+   3497          	  unsigned int err;
+   3498          	  int f=fopen("4:\\NATICQ.dump",A_ReadWrite+A_Create+A_Truncate+A_BIN,P_READ+P_WRITE,&err);
+   3499          	  if (f!=-1)
+   3500          	  {
+   3501          	    fwrite(f,&RXbuf,RXstate+sizeof(PKT),&err);
+   3502          	    fclose(f,&err);
+   3503          	  }
+   3504          	}*/
+   3505          	FillAllOffline();
+   3506          	RecountMenu(NULL, 1);
+   3507          	connect_state=0;
+   3508          	sock=-1;
+   3509                  if(VIBR_ON_CONNECT)
+   3510                    vibra_count=4;
+   3511                  else
+   3512                    vibra_count=1;
+   3513          
+   3514          	start_vibra();
+   3515          	if (sendq_p)
+   3516          	{
+   3517          	  snprintf(logmsg,255,"Disconnected, %d bytes not sended!",sendq_l);
+   3518          	}
+   3519          	SMART_REDRAW();
+   3520          	SUBPROC((void *)ClearSendQ);
+   3521          	if (!disautorecconect)
+   3522                  {
+   3523                    GBS_StartTimerProc(&reconnect_tmr,TMR_SECOND*10,do_reconnect);
+   3524                    snprintf(logmsg,255,"%s\nReconect after 10 second...",logmsg);
+   3525                  }
+   3526          	break;
+   3527                }
+   3528              }
+   3529            }
+   3530            return(1);
+   3531          }
+   3532          
+   3533          
+   3534          const int minus11=-11;
+   3535          
+   3536          unsigned short maincsm_name_body[140];
+   3537          
+   3538          const struct
+   3539          {
+   3540            CSM_DESC maincsm;
+   3541            WSHDR maincsm_name;
+   3542          }MAINCSM =
+   3543          {
+   3544            {
+   3545              maincsm_onmessage,
+   3546              maincsm_oncreate,
+   3547          #ifdef NEWSGOLD
+   3548          0,
+   3549          0,
+   3550          0,
+   3551          0,
+   3552          #endif
+   3553          maincsm_onclose,
+   3554          sizeof(MAIN_CSM),
+   3555          1,
+   3556          &minus11
+   3557            },
+   3558            {
+   3559              maincsm_name_body,
+   3560              NAMECSM_MAGIC1,
+   3561              NAMECSM_MAGIC2,
+   3562              0x0,
+   3563              139
+   3564            }
+   3565          };
+   3566          
+   3567          void UpdateCSMname(void)
+   3568          {
+   3569            wsprintf((WSHDR *)(&MAINCSM.maincsm_name), "NATICQ: %d",UIN);
+   3570          }
+   3571          
+   3572          
+   3573          int main(char *filename)
+   3574          {
+   3575            MAIN_CSM main_csm;
+   3576            char *s;
+   3577            int len;
+   3578            extern const char *successed_config_filename;
+   3579            WSHDR *ws;
+   3580          
+   3581            InitConfig();
+   3582            s=strrchr(filename,'\\');
+   3583            len=(s-filename)+1;
+   3584            strncpy(elf_path,filename,len);
+   3585            elf_path[len]=0;
+   3586            if (!UIN)
+   3587            {
+   3588              LockSched();
+   3589              ShowMSG(1,(int)LG_MSGNOUINPASS);
+   3590              ws=AllocWS(150);
+   3591              str_2ws(ws,successed_config_filename,128);
+   3592              ExecuteFile(ws,0,0);
+   3593              UnlockSched();
+   3594              SUBPROC((void *)ElfKiller);
+   3595              return 0;
+   3596            }
+   3597            ReadDefSettings();
+   3598            setup_ICONS();
+   3599            LoadXStatusText();
+   3600            UpdateCSMname();
+   3601            LockSched();
+   3602            maincsm_id=CreateCSM(&MAINCSM.maincsm,&main_csm,0);
+   3603            UnlockSched();
+   3604          #ifdef EVILFOX
+   3605            time_counter();
+   3606            FontPathFree();
+   3607            FontPathInit(fonto,(char *)fontpath, 0);
+   3608            sprintf(ping_txt, "Ping: none");
+   3609            char *heght=malloc(64);
+   3610            sprintf(heght, "%s2240.png", fontpath);
+   3611            paused_height=GetImgHeight((int)heght);
+   3612            mfree(heght);
+   3613            init_time_zone();
+   3614            AddKeybMsgHook((void *)my_keyhook); 
+   3615          #endif
+   3616            return 0;
+   3617          }
+   3618          
+   3619          //===========================================================
+   3620          // Edit chat
+   3621          //===========================================================
+   3622          void edchat_locret(void){}
+   3623          
+   3624          char *ExtractAnswer(WSHDR *ws)
+   3625          {
+   3626            S_SMILES *t;
+   3627            int c;
+   3628            int len=0;
+   3629            int scur;
+   3630            char *msg=NULL;
+   3631            unsigned short *wsbody=ws->wsbody;
+   3632            int wslen=wsbody[0];
+   3633            if (wslen)
+   3634            {
+   3635              for (int i=0; i<wslen; i++) // Посчитаем общую длину будущей строки
+   3636              {
+   3637                c=wsbody[i+1];
+   3638                if (c>=0xE100)
+   3639                {
+   3640                  t=FindSmileByUni(c);
+   3641                  if (t)
+   3642                  {
+   3643                    if (t->lines)
+   3644                    {
+   3645                      len+=strlen(t->lines->text);
+   3646                    }
+   3647                  }
+   3648                  else  len++;
+   3649                }
+   3650                else  len++;
+   3651              }
+   3652          
+   3653              msg=malloc(len+1);
+   3654              scur=0;
+   3655              for (int wcur=0; wcur<wslen && scur<len; wcur++)
+   3656              {
+   3657                c=wsbody[wcur+1];
+   3658                if (c==10) c=13;
+   3659                if (c>=0xE100)
+   3660                {
+   3661                  t=FindSmileByUni(c);
+   3662                  if (t)
+   3663                  {
+   3664                    int w;
+   3665                    char *s;
+   3666                    if (t->lines)
+   3667                    {
+   3668                      s=t->lines->text;
+   3669                      while ((w=*s++) && scur<len)
+   3670                      {
+   3671                        msg[scur]=w;
+   3672                        scur++;
+   3673                      }
+   3674                    }
+   3675                  }
+   3676                  else
+   3677                  {
+   3678                    msg[scur]=char16to8(c);
+   3679                    scur++;
+   3680                  }
+   3681                }
+   3682                else
+   3683                {
+   3684                  msg[scur]=char16to8(c);
+   3685                  scur++;
+   3686                }
+   3687              }
+   3688              msg[scur]=0;
+   3689            }
+   3690            return msg;
+   3691          }
+   3692          
+   3693          CLIST *FindNextActiveContact(CLIST *t)
+   3694          {
+   3695            while(t=(CLIST *)(t->next))
+   3696            {
+   3697              if (t->isactive) return t;
+   3698            }
+   3699            t=(CLIST *)(&cltop);
+   3700            while(t=(CLIST *)(t->next))
+   3701            {
+   3702              if (t->isactive) return t;
+   3703            }
+   3704            return NULL;
+   3705          }
+   3706          
+   3707          CLIST *FindPrevActiveContact(CLIST *t)
+   3708          {
+   3709            CLIST *cl;
+   3710            CLIST *cl_active=NULL;
+   3711            cl=(CLIST *)(&cltop);
+   3712          
+   3713          
+   3714            while(cl=cl->next)
+   3715            {
+   3716              if (cl==t)
+   3717              {
+   3718                if (cl_active==NULL) break;
+   3719                else return (cl_active);
+   3720              }
+   3721              else
+   3722              {
+   3723                if (cl->isactive) cl_active=cl;
+   3724              }
+   3725            }
+   3726            while(t)
+   3727            {
+   3728              if (t->isactive) cl_active=t;
+   3729              t=t->next;
+   3730            }
+   3731            return cl_active;
+   3732          }
+   3733          
+   3734          
+   3735          void ed_options_handler(USR_MENU_ITEM *item)
+   3736          {
+   3737            EDCHAT_STRUCT *ed_struct=item->user_pointer;
+   3738            CLIST *t;
+   3739            int i=item->cur_item;
+   3740            if (item->type==0)
+   3741            {
+   3742              switch(i)
+   3743              {
+   3744              case 0:
+   3745                ascii2ws(item->ws,LG_MNUEDNEXTACT);
+   3746                break;
+   3747              case 1:
+   3748                ascii2ws(item->ws,LG_MNUEDPREVACT);
+   3749                break;
+   3750              default:
+   3751                i-=2;
+   3752                if (i<ed_struct->loaded_templates) ascii2ws(item->ws,templates_lines[i]);
+   3753                break;
+   3754              }
+   3755            }
+   3756            if (item->type==1)
+   3757            {
+   3758              switch(i)
+   3759              {
+   3760              case 0:
+   3761                t=FindNextActiveContact(ed_struct->ed_contact);
+   3762                if (t && t!=ed_struct->ed_contact)
+   3763                {
+   3764                  GeneralFunc_flag1(edchat_id,1);
+   3765                  CreateEditChat(t);
+   3766                }
+   3767                break;
+   3768              case 1:
+   3769                t=FindPrevActiveContact(ed_struct->ed_contact);
+   3770                if (t && t!=ed_struct->ed_contact)
+   3771                {
+   3772                  GeneralFunc_flag1(edchat_id,1);
+   3773                  CreateEditChat(t);
+   3774                }
+   3775                break;
+   3776              default:
+   3777                i-=2;
+   3778                if (i<ed_struct->loaded_templates)
+   3779                {
+   3780          	EDITCONTROL ec;
+   3781          	WSHDR *ed_ws;
+   3782          	int c;
+   3783          	char *p=templates_lines[i];
+   3784          	ExtractEditControl(ed_struct->ed_chatgui,ed_struct->ed_answer,&ec);
+   3785          	ed_ws=AllocWS(ec.pWS->wsbody[0]+strlen(p));
+   3786          	wstrcpy(ed_ws,ec.pWS);
+   3787                  if (EDIT_GetFocus(ed_struct->ed_chatgui)==ed_struct->ed_answer)
+   3788                  {
+   3789                    int pos=EDIT_GetCursorPos(ed_struct->ed_chatgui);
+   3790                    while(c=*p++)
+   3791                    {
+   3792                      wsInsertChar(ed_ws,char8to16(c),pos++);
+   3793                    }
+   3794                    EDIT_SetTextToEditControl(ed_struct->ed_chatgui,ed_struct->ed_answer,ed_ws);
+   3795                    EDIT_SetCursorPos(ed_struct->ed_chatgui,pos);
+   3796                  }
+   3797                  else
+   3798                  {
+   3799                    while(c=*p++)
+   3800                    {
+   3801                      wsAppendChar(ed_ws,char8to16(c));
+   3802                    }
+   3803                    EDIT_SetTextToEditControl(ed_struct->ed_chatgui,ed_struct->ed_answer,ed_ws);
+   3804                  }
+   3805          	FreeWS(ed_ws);
+   3806                }
+   3807                break;
+   3808              }
+   3809            }
+   3810          }
+   3811          
+   3812          void ParseAnswer(WSHDR *ws, const char *s)
+   3813          {
+   3814            S_SMILES *t;
+   3815            S_SMILES *t_root=(S_SMILES *)s_top;
+   3816            STXT_SMILES *st;
+   3817            unsigned int wchar;
+   3818            unsigned int ulb=s[0]+(s[1]<<8)+(s[2]<<16)+(s[3]<<24);
+   3819            CutWSTR(ws,0);
+   3820            int i;
+   3821            while(wchar=*s)
+   3822            {
+   3823              t=t_root;
+   3824              while(t)
+   3825              {
+   3826                st=t->lines;
+   3827                while(st)
+   3828                {
+   3829          	if ((ulb&st->mask)==st->key)
+   3830          	{
+   3831          	  if (!strncmp(s,st->text,strlen(st->text))) goto L1;
+   3832          	}
+   3833          	st=st->next;
+   3834                }
+   3835                t=t->next;
+   3836              }
+   3837            L1:
+   3838              if (t)
+   3839              {
+   3840                wchar=t->uni_smile;
+   3841                s+=strlen(st->text);
+   3842                ulb=s[0]+(s[1]<<8)+(s[2]<<16)+(s[3]<<24);
+   3843              }
+   3844              else
+   3845              {
+   3846                wchar=char8to16(wchar);
+   3847                s++;
+   3848                ulb>>=8;
+   3849                ulb+=s[3]<<24;
+   3850              }
+   3851              if (wchar!=10) wsAppendChar(ws,wchar);
+   3852            }
+   3853            i=ws->wsbody[0];
+   3854            while(i>1)
+   3855            {
+   3856              if (ws->wsbody[i--]!=13) break;
+   3857              ws->wsbody[0]=i;
+   3858            }
+   3859          }
+   3860          
+   3861          void SaveAnswer(CLIST *cl, WSHDR *ws)
+   3862          {
+   3863            char *p=ExtractAnswer(ws);
+   3864            mfree(cl->answer);
+   3865            cl->answer=p;
+   3866          }
+   3867          
+   3868          int edchat_onkey(GUI *data, GUI_MSG *msg)
+   3869          {
+   3870            //-1 - do redraw
+   3871            GBS_DelTimer(&tmr_illumination);
+   3872            CLIST *t;
+   3873            TPKT *p;
+   3874            EDITCONTROL ec;
+   3875            int len;
+   3876            char *s;
+   3877            int l=msg->gbsmsg->submess;
+   3878            EDCHAT_STRUCT *ed_struct=EDIT_GetUserPointer(data);
+   3879          
+   3880            if (msg->keys==0xFFF)
+   3881            {
+   3882              void ec_menu(EDCHAT_STRUCT *);
+   3883              ec_menu(ed_struct);
+   3884              return(-1);
+   3885            }
+   3886            if (msg->keys==0xFF0)  return (1);
+   3887            if (msg->gbsmsg->msg==LONG_PRESS)
+   3888            {
+   3889          #ifdef EVILFOX
+   3890              if (l==VOL_DOWN_BUTTON)
+   3891              {
+   3892                WSHDR *ws;
+   3893                ExtractEditControl(data,ed_struct->ed_answer,&ec);
+   3894                if(wstrlen(ec.pWS)>0)
+   3895                {
+   3896                  ws=AllocWS(1);
+   3897                  CutWSTR(ws,0);
+   3898            
+   3899                  EDIT_SetFocus(data,ed_struct->ed_answer);
+   3900                  EDIT_SetTextToFocused(ed_struct->ed_chatgui,ws); 
+   3901              
+   3902                  FreeWS(ws);
+   3903                  RefreshGUI();  
+   3904                }
+   3905              }
+   3906              if (l==VOL_UP_BUTTON)
+   3907              {
+   3908          //      WSHDR *ws=AllocWS(strlen(ed_struct->ed_contact->last_msg_buffer)+1);
+   3909          //      ascii2ws(ws,ed_struct->ed_contact->last_msg_buffer);
+   3910                WSHDR *ws=AllocWS(strlen(last_msg_buffer)+1);
+   3911                ascii2ws(ws,last_msg_buffer);
+   3912                EDIT_SetFocus(ed_struct->ed_chatgui,ed_struct->ed_answer);
+   3913                EDIT_SetTextToFocused(ed_struct->ed_chatgui,ws);
+   3914                FreeWS(ws);
+   3915                RefreshGUI();
+   3916              }
+   3917          #else
+   3918              if (l==RIGHT_BUTTON)
+   3919              {
+   3920                if (EDIT_GetFocus(data)==ed_struct->ed_answer)
+   3921                {
+   3922          	ExtractEditControl(data,ed_struct->ed_answer,&ec);
+   3923          	if (ec.pWS->wsbody[0]==(EDIT_GetCursorPos(data)-1))
+   3924          	{
+   3925          	  t=FindNextActiveContact(ed_struct->ed_contact);
+   3926          	  if (t && t!=ed_struct->ed_contact)
+   3927          	  {
+   3928          	    CreateEditChat(t);
+   3929          	    return(1);
+   3930          	  }
+   3931          	}
+   3932                }
+   3933              }
+   3934          #endif
+   3935            }
+   3936            if (msg->gbsmsg->msg==KEY_DOWN)
+   3937            {
+   3938              if ((l>='0')&&(l<='9'))
+   3939              {
+   3940                if (EDIT_GetFocus(data)!=ed_struct->ed_answer)
+   3941          	EDIT_SetFocus(data,ed_struct->ed_answer);
+   3942              }
+   3943              if (l==GREEN_BUTTON)
+   3944              {
+   3945                if (connect_state==3)
+   3946                {
+   3947          	if ((t=ed_struct->ed_contact))
+   3948          	{
+   3949                    ExtractEditControl(data,ed_struct->ed_answer,&ec);
+   3950                    SaveAnswer(t,ec.pWS);
+   3951          	  if ((s=t->answer))
+   3952          	  {
+   3953          	    if ((len=strlen(s)))
+   3954          	    {
+   3955          	      t->isactive=ACTIVE_TIME;
+   3956          	      p=malloc(sizeof(PKT)+len+1);
+   3957          	      p->pkt.uin=t->uin;
+   3958          	      p->pkt.type=T_SENDMSG;
+   3959          	      p->pkt.data_len=len;
+   3960          	      strcpy(p->data,s);
+   3961          #ifdef EVILFOX
+   3962                        strcpy(last_msg_buffer, s);
+   3963          #endif
+   3964          	      AddStringToLog(t,0x01,p->data,I_str,(++SENDMSGCOUNT)&0x7FFF); //Номер сообщения
+   3965                        out_count++;
+   3966          	      SUBPROC((void *)SendAnswer,0,p);
+   3967          	      mfree(t->answer);
+   3968          	      t->answer=NULL;
+   3969          	      //        request_remake_edchat=1;
+   3970          	      EDIT_SetFocus(data,ed_struct->ed_answer);
+   3971          	      CutWSTR(ews,0);
+   3972          	      EDIT_SetTextToFocused(data,ews);
+   3973          	      AddMsgToChat(data);
+   3974          	      RecountMenu(t, 1);
+   3975          	      return(-1);
+   3976          	    }
+   3977          	  }
+   3978          	}
+   3979                }
+   3980              }
+   3981              if (l==ENTER_BUTTON)
+   3982              {
+   3983                //      t=FindNextActiveContact(ed_struct->ed_contact);
+   3984                //      if ((t!=ed_struct->ed_contact) && t)
+   3985                {
+   3986          	int i=ed_struct->loaded_templates=LoadTemplates(ed_struct->ed_contact->uin);
+                 	                                                ^
+Error[Pe132]: expression must have pointer-to-struct-or-union type
+   3987                  EDIT_OpenOptionMenuWithUserItems(data,ed_options_handler,ed_struct,i+2);
+   3988                  return (-1);
+   3989                }
+   3990              }
+   3991              if (l==VOL_UP_BUTTON)
+   3992              {
+   3993                int pos;
+   3994          
+   3995                if ((pos=EDIT_GetFocus(data)-2)>=2)
+   3996                {
+   3997                  EDIT_SetFocus(data, pos);
+   3998                  EDIT_SetCursorPos(data, 1);
+   3999                }
+   4000                return (-1);
+   4001              }
+   4002              if (l==VOL_DOWN_BUTTON)
+   4003              {
+   4004                int pos;
+   4005          
+   4006                if ((pos=EDIT_GetFocus(data)+2)<=ed_struct->ed_answer)
+   4007                {
+   4008                  EDIT_SetFocus(data, pos);
+   4009                  EDIT_SetCursorPos(data, 1);
+   4010                }
+   4011                return (-1);
+   4012              }
+   4013            }
+   4014            return(0); //Do standart keys
+   4015            //1: close
+   4016          }
+   4017          
+   4018          static const HEADER_DESC edchat_hdr={0,0,NULL,NULL,NULL,0,LGP_NULL};
+   4019          
+   4020          void (*old_ed_redraw)(void *data);
+   4021          void my_ed_redraw(void *data)
+   4022          {
+   4023            void *edchat_gui;
+   4024            EDCHAT_STRUCT *ed_struct;
+   4025            if (old_ed_redraw) old_ed_redraw(data);
+   4026            edchat_gui=FindGUIbyId(edchat_id,NULL);
+   4027            if (edchat_gui)
+   4028            {
+   4029              ed_struct=EDIT_GetUserPointer(edchat_gui);
+   4030              if (ed_struct)
+   4031              {
+   4032                int icon, width;
+   4033          #ifndef	NEWSGOLD
+   4034                icon=*(S_ICONS+GetIconIndex(ed_struct->ed_contact));
+   4035                ((HEADER_DESC *)&edchat_hdr)->rc.x2=ScreenW()-1-(width=GetImgWidth(icon));
+   4036                DrawImg(ScreenW()-1-width,1,icon);
+   4037          #else
+   4038                icon=*(S_ICONS+GetIconIndex(ed_struct->ed_contact));
+   4039                width=GetImgWidth(icon);
+   4040                DrawImg(2,((HeaderH()-width)>>1)+YDISP,icon);
+   4041          /*      DrawRoundedFrame(ScreenW()-8,YDISP,ScreenW()-1,YDISP+7,0,0,0,
+   4042          		       GetPaletteAdrByColorIndex(0),
+   4043          		       GetPaletteAdrByColorIndex(EDIT_IsBusy(edchat_gui)?3:4));*/
+   4044          #endif
+   4045              }
+   4046            }
+   4047          }
+   4048          
+   4049          void edchat_ghook(GUI *data, int cmd)
+   4050          {
+   4051            static const SOFTKEY_DESC sk={0x0FFF,0x0000,(int)LG_MENU};
+   4052            static const SOFTKEY_DESC sk_cancel={0x0FF0,0x0000,(int)LG_CLOSE};
+   4053            //  static SOFTKEY_DESC sk={0x0018,0x0000,(int)"Menu"};
+   4054            int j;
+   4055            EDITCONTROL ec;
+   4056            EDCHAT_STRUCT *ed_struct=EDIT_GetUserPointer(data);
+   4057            PNGTOP_DESC *pltop=PNG_TOP();
+   4058            if (cmd==9)
+   4059            {
+   4060              GBS_DelTimer(&tmr_illumination);          //by BoBa 25.06.07
+   4061              pltop->dyn_pltop=NULL;
+   4062            }
+   4063            if (cmd==2)
+   4064            {
+   4065              ed_struct->ed_chatgui=data;
+   4066          //    edgui_data=data;
+   4067              EDIT_SetFocus(data,ed_struct->ed_answer);
+   4068          
+   4069              static void *methods[16];
+   4070              void **m=GetDataOfItemByID(data,2);
+   4071              if (m)
+   4072              {
+   4073                if (m[1])
+   4074                {
+   4075                  memcpy(methods,m[1],sizeof(methods));
+   4076                  old_ed_redraw=(void (*)(void *))(methods[0]);
+   4077                  methods[0]=(void *)my_ed_redraw;
+   4078                  m[1]=methods;
+   4079                }
+   4080              }
+   4081            }
+   4082            if (cmd==3)
+   4083            {
+   4084          //    if (edgui_data==data) edgui_data=NULL;
+   4085              if (ed_struct->ed_contact)
+   4086              {
+   4087                ExtractEditControl(data,ed_struct->ed_answer,&ec);
+   4088                SaveAnswer(ed_struct->ed_contact,ec.pWS);
+   4089              }
+   4090              RecountMenu(ed_struct->ed_contact, 1);
+   4091              mfree(ed_struct);
+   4092            }
+   4093            if (cmd==0x0A)
+   4094            {
+   4095              pltop->dyn_pltop=SmilesImgList;
+   4096              DisableIDLETMR();
+   4097              total_unread-=ed_struct->requested_decrement_total_unread;
+   4098              ed_struct->requested_decrement_total_unread=0;
+   4099          /*    if (request_close_edchat)
+   4100              {
+   4101                request_close_edchat=0;
+   4102                GeneralFunc_flag1(edchat_id,1);
+   4103                return;
+   4104              }*/
+   4105            }
+   4106            if (cmd==7)
+   4107            {
+   4108              SetSoftKey(data,&sk,SET_SOFT_KEY_N);
+   4109              ExtractEditControl(data,ed_struct->ed_answer,&ec);
+   4110              if (ec.pWS->wsbody[0]==0)
+   4111                SetSoftKey(data,&sk_cancel,SET_SOFT_KEY_N==0?1:0);
+   4112              if (!EDIT_IsBusy(data))
+   4113              {
+   4114                time_to_stop_t9=0;
+   4115                if (ed_struct->ed_contact->req_add)
+                           ^
+Error[Pe132]: expression must have pointer-to-struct-or-union type
+   4116                {
+   4117          	ed_struct->ed_contact->req_add=0;
+                 	^
+Error[Pe132]: expression must have pointer-to-struct-or-union type
+   4118          	AddMsgToChat(data);
+   4119          	RecountMenu(ed_struct->ed_contact, 1);
+   4120                }
+   4121                if (ed_struct->ed_contact->req_drawack)
+                           ^
+Error[Pe132]: expression must have pointer-to-struct-or-union type
+   4122                {
+   4123          	ed_struct->ed_contact->req_drawack=0;
+                 	^
+Error[Pe132]: expression must have pointer-to-struct-or-union type
+   4124          	DrawAck(data);
+   4125                }
+   4126              }
+   4127            }
+   4128            if (cmd==0x0C)
+   4129            {
+   4130              j=EDIT_GetFocus(data);
+   4131              if ((EDIT_GetUnFocus(data)<j)&&(j!=ed_struct->ed_answer))
+   4132                EDIT_SetCursorPos(data,1);
+   4133            }
+   4134          }
+   4135          
+   4136          
+   4137          
+   4138          static const INPUTDIA_DESC edchat_desc =
+   4139          {
+   4140            1,
+   4141            edchat_onkey,
+   4142            edchat_ghook,
+   4143            (void *)edchat_locret,
+   4144            0,
+   4145            &menu_skt,
+   4146            {0,NULL,NULL,NULL},
+   4147            FONT_SMALL,
+   4148            100,
+   4149            101,
+   4150            0,
+   4151            //  0x00000001 - Выровнять по правому краю
+   4152            //  0x00000002 - Выровнять по центру
+   4153            //  0x00000004 - Инверсия знакомест
+   4154            //  0x00000008 - UnderLine
+   4155            //  0x00000020 - Не переносить слова
+   4156            //  0x00000200 - bold
+   4157            0,
+   4158            //  0x00000002 - ReadOnly
+   4159            //  0x00000004 - Не двигается курсор
+   4160            //  0x40000000 - Поменять местами софт-кнопки
+   4161            0x40000000
+   4162          };
+   4163          
+   4164          void CreateEditChat(CLIST *t)
+   4165          {
+   4166            extern const int FIRST_LETTER;
+   4167            void *ma=malloc_adr();
+   4168            void *eq;
+   4169            EDITCONTROL ec;
+   4170            EDITC_OPTIONS ec_options;
+   4171            int color, font, type;
+   4172            int zc;
+   4173          
+   4174            LOGQ *lp;
+   4175            int edchat_toitem;
+   4176          //  edcontact=t;
+   4177          
+   4178            *((int *)(&edchat_hdr.lgp_id))=(int)t->name;
+   4179          //  *((int **)(&edchat_hdr.icon))=(int *)S_ICONS+GetIconIndex(t);
+   4180            *((int **)(&edchat_hdr.icon))=(int *)S_ICONS+IS_NULLICON;
+   4181          
+   4182            eq=AllocEQueue(ma,mfree_adr());
+   4183          
+   4184          
+   4185            lp=t->log;
+   4186          
+   4187            while(lp)
+   4188            {
+   4189              font = ED_H_FONT_SIZE;
+   4190              if ((zc=lp->acked&3))
+   4191              {
+   4192                if ((zc==1)&&(t->uin!=487313865))
+   4193          	color=ACK_COLOR; //Зеленый
+   4194                else
+   4195          	color=I_COLOR;
+   4196              }
+   4197              else
+   4198              {
+   4199                if (lp->ID==0xFFFFFFFF)
+   4200                {
+   4201                  type = lp->type&0x0F;
+   4202                  if(lp->type&0x10)
+   4203                  {
+   4204                    color = (type==1)?O_I_COLOR:((type==3)?O_X_COLOR:O_TO_COLOR);
+   4205                    font = (type==3)?O_ED_X_FONT_SIZE:O_ED_H_FONT_SIZE;
+   4206                  }
+   4207                  else
+   4208                  {
+   4209                    color = (type==1)?I_COLOR:((type==3)?X_COLOR:TO_COLOR);
+   4210                    font = (type==3)?ED_X_FONT_SIZE:ED_H_FONT_SIZE;
+   4211                  }
+   4212                }
+   4213                else
+   4214          	color=UNACK_COLOR; //Серый
+   4215              }
+   4216              PrepareEditControl(&ec);
+   4217              if ((lp->type&0x0F)!=3)
+   4218              {
+   4219                ascii2ws(ews,lp->hdr);
+   4220                ConstructEditControl(&ec,ECT_HEADER,ECF_APPEND_EOL,ews,ews->wsbody[0]);
+   4221              }
+   4222              else
+   4223                ConstructEditControl(&ec,ECT_HEADER,ECF_DELSTR,ews,0);
+   4224              PrepareEditCOptions(&ec_options);
+   4225              SetPenColorToEditCOptions(&ec_options,color);
+   4226              SetFontToEditCOptions(&ec_options,font);
+   4227              CopyOptionsToEditControl(&ec,&ec_options);
+   4228              AddEditControlToEditQend(eq,&ec,ma);
+   4229              if ((lp->type&0x0F)!=3)
+   4230              {
+   4231                ParseAnswer(ews,lp->text);
+   4232              }
+   4233              else
+   4234              {
+   4235                ParseXStatusText(ews,lp->text,(lp->type&0x10)?O_X_COLOR:X_COLOR);
+   4236              }
+   4237              PrepareEditControl(&ec);
+   4238              ConstructEditControl(&ec,
+   4239                                   ECT_NORMAL_TEXT,
+   4240                                   ews->wsbody[0] ? ECF_APPEND_EOL|ECF_DISABLE_T9 : ECF_DELSTR,
+   4241                                   ews,ews->wsbody[0]);
+   4242              PrepareEditCOptions(&ec_options);
+   4243          //#ifdef M75
+   4244              if ((lp->type&0x0F)!=3)
+   4245              {
+   4246                SetFontToEditCOptions(&ec_options,(lp->type&0x10)?O_ED_FONT_SIZE:ED_FONT_SIZE);
+   4247              }
+   4248              else
+   4249              {
+   4250                SetPenColorToEditCOptions(&ec_options,(lp->type&0x10)?O_X_COLOR:X_COLOR);
+   4251                SetFontToEditCOptions(&ec_options,(lp->type&0x10)?O_ED_X_FONT_SIZE:ED_X_FONT_SIZE);
+   4252              }
+   4253          //#else
+   4254          //    SetFontToEditCOptions(&ec_options,(lp->type&0x10)?O_ED_FONT_SIZE:ED_FONT_SIZE);
+   4255          //#endif
+   4256              CopyOptionsToEditControl(&ec,&ec_options);
+   4257              AddEditControlToEditQend(eq,&ec,ma);
+   4258              lp=lp->next;
+   4259            }
+   4260            if (t->isunread) total_unread--;
+   4261            t->isunread=0;
+   4262          #ifdef EVILFOX
+   4263            total_unread2=total_unread2-t->unread_msg;
+   4264            t->unread_msg=0;
+   4265          #endif
+   4266            ChangeContactPos(t);
+   4267            wsprintf(ews, "-------");
+   4268            PrepareEditControl(&ec);
+   4269            ConstructEditControl(&ec,ECT_HEADER,ECF_APPEND_EOL,ews,ews->wsbody[0]);
+   4270            PrepareEditCOptions(&ec_options);
+   4271            SetFontToEditCOptions(&ec_options,ED_FONT_SIZE);
+   4272            CopyOptionsToEditControl(&ec,&ec_options);
+   4273            AddEditControlToEditQend(eq,&ec,ma);
+   4274          
+   4275            if (t->answer) ParseAnswer(ews,t->answer);
+   4276            else  CutWSTR(ews,0);
+   4277            PrepareEditControl(&ec);
+   4278            ConstructEditControl(&ec,3,(FIRST_LETTER)?ECF_DEFAULT_BIG_LETTER:0,ews,1024);
+   4279          
+   4280            PrepareEditCOptions(&ec_options);
+   4281            SetFontToEditCOptions(&ec_options,ED_FONT_SIZE);
+   4282            CopyOptionsToEditControl(&ec,&ec_options);
+   4283            edchat_toitem=AddEditControlToEditQend(eq,&ec,ma);
+   4284          
+   4285            if (t->req_xtext)
+   4286            {
+   4287              FreeXText(t);
+   4288              t->req_xtext=0;
+   4289              RequestXText(t->uin);
+   4290            }
+   4291          
+   4292            EDCHAT_STRUCT *ed_struct=malloc(sizeof(EDCHAT_STRUCT));
+   4293            ed_struct->ed_contact=t;
+   4294            ed_struct->ed_answer=edchat_toitem;
+   4295            ed_struct->requested_decrement_total_unread=0;
+   4296            t->req_add=0;
+   4297            t->last_log=NULL;
+   4298          
+   4299            //  int scr_w=ScreenW();
+   4300            //  int scr_h=ScreenH();
+   4301            //  int head_h=HeaderH();
+   4302          
+   4303            patch_header(&edchat_hdr);
+   4304            patch_input(&edchat_desc);
+   4305            //  edchat_desc.font=ED_FONT_SIZE;
+   4306            edchat_id=CreateInputTextDialog(&edchat_desc,&edchat_hdr,eq,1,ed_struct);
+   4307          }
+   4308          
+   4309          //-----------------------------------------------------------------------------
+   4310          #define EC_MNU_MAX 8
+   4311          
+   4312          void Quote(GUI *data)
+   4313          {
+   4314            int q_n;
+   4315            EDITCONTROL ec, ec_hdr;
+   4316            EDITCONTROL ec_ed;
+   4317            WSHDR *ed_ws;
+   4318            WSHDR *ws;
+   4319          
+   4320            EDCHAT_STRUCT *ed_struct;
+   4321            ed_struct=MenuGetUserPointer(data);
+   4322          
+   4323            q_n=EDIT_GetFocus(ed_struct->ed_chatgui);
+   4324            ExtractEditControl(ed_struct->ed_chatgui,q_n,&ec);
+   4325            ExtractEditControl(ed_struct->ed_chatgui,q_n-1,&ec_hdr);
+   4326            ExtractEditControl(ed_struct->ed_chatgui,ed_struct->ed_answer,&ec_ed);
+   4327          
+   4328            ed_ws=AllocWS((ec_ed.maxlen<<1) + 1);
+   4329            if(wstrlen(ec_hdr.pWS))
+   4330            {
+   4331              wstrcpy(ed_ws,ec_hdr.pWS);
+   4332              wsAppendChar(ed_ws,'\r');
+   4333            }
+   4334            else
+   4335              CutWSTR(ed_ws,0);
+   4336            if (EDIT_IsMarkModeActive(ed_struct->ed_chatgui))
+   4337            {
+   4338              EDIT_GetMarkedText(ed_struct->ed_chatgui,ed_ws);
+   4339            }
+   4340            else
+   4341            {
+   4342              wstrcat(ed_ws,ec.pWS);
+   4343            }
+   4344            int ed_pos=0;
+   4345            do
+   4346            {
+   4347              ed_pos++;
+   4348              wsInsertChar(ed_ws,'>',ed_pos++);
+   4349              wsInsertChar(ed_ws,' ',ed_pos);
+   4350            }
+   4351            while((ed_pos=wstrchr(ed_ws,ed_pos,'\r'))!=0xFFFF);
+   4352            wsAppendChar(ed_ws,'\r');
+   4353            wsAppendChar(ed_ws,'\r');
+   4354            ws=AllocWS(ec_ed.pWS->wsbody[0]+ed_ws->wsbody[0]);
+   4355            wstrcpy(ws,ec_ed.pWS);
+   4356            wstrcat(ws,ed_ws);
+   4357            FreeWS(ed_ws);
+   4358            CutWSTR(ws,ec_ed.maxlen);
+   4359            EDIT_SetFocus(ed_struct->ed_chatgui,ed_struct->ed_answer);
+   4360            EDIT_SetTextToFocused(ed_struct->ed_chatgui,ws);
+   4361            FreeWS(ws);
+   4362            GeneralFuncF1(1);
+   4363          }
+   4364          
+   4365          
+   4366          void GetShortInfo(GUI *data)
+   4367          {
+   4368            EDCHAT_STRUCT *ed_struct;
+   4369            ed_struct=MenuGetUserPointer(data);
+   4370          
+   4371            TPKT *p;
+   4372            CLIST *t;
+   4373            if ((t=ed_struct->ed_contact)&&(connect_state==3))
+   4374            {
+   4375              p=malloc(sizeof(PKT));
+   4376              p->pkt.uin=t->uin;
+   4377              p->pkt.type=T_REQINFOSHORT;
+   4378              p->pkt.data_len=0;
+   4379              AddStringToLog(t, 0x01, "Request info...", I_str,0xFFFFFFFF);
+   4380              AddMsgToChat(ed_struct->ed_chatgui);
+   4381              RecountMenu(t, 1);
+   4382              SUBPROC((void *)SendAnswer,0,p);
+   4383            }
+   4384            GeneralFuncF1(1);
+   4385          }
+   4386          
+   4387          void AskNickAndAddContact(EDCHAT_STRUCT *);
+   4388          void AddCurContact(GUI *data)
+   4389          {
+   4390            EDCHAT_STRUCT *ed_struct;
+   4391            ed_struct=MenuGetUserPointer(data);
+   4392          
+   4393            if ((ed_struct->ed_contact)&&(connect_state==3)) AskNickAndAddContact(ed_struct);
+   4394            GeneralFuncF1(1);
+   4395          }
+   4396          
+   4397          void SendAuthReq(GUI *data)
+   4398          {
+   4399            EDCHAT_STRUCT *ed_struct;
+   4400            ed_struct=MenuGetUserPointer(data);
+   4401          
+   4402            TPKT *p;
+   4403            CLIST *t;
+   4404            int l;
+   4405            const char s[]=LG_AUTHREQ;
+   4406            if ((t=ed_struct->ed_contact)&&(connect_state==3))
+   4407            {
+   4408              p=malloc(sizeof(PKT)+(l=strlen(s))+1);
+   4409              p->pkt.uin=t->uin;
+   4410              p->pkt.type=T_AUTHREQ;
+   4411              p->pkt.data_len=l;
+   4412              strcpy(p->data,s);
+   4413              AddStringToLog(t,0x01,p->data,I_str,0xFFFFFFFF);
+   4414              AddMsgToChat(ed_struct->ed_chatgui);
+   4415              RecountMenu(t, 1);
+   4416              SUBPROC((void *)SendAnswer,0,p);
+   4417            }
+   4418            GeneralFuncF1(1);
+   4419          }
+   4420          
+   4421          void SendAuthGrant(GUI *data)
+   4422          {
+   4423            EDCHAT_STRUCT *ed_struct;
+   4424            ed_struct=MenuGetUserPointer(data);
+   4425          
+   4426            TPKT *p;
+   4427            CLIST *t;
+   4428            int l;
+   4429            const char s[]=LG_AUTHGRANT;
+   4430            if ((t=ed_struct->ed_contact)&&(connect_state==3))
+   4431            {
+   4432              p=malloc(sizeof(PKT)+(l=strlen(s))+1);
+   4433              p->pkt.uin=t->uin;
+   4434              p->pkt.type=T_AUTHGRANT;
+   4435              p->pkt.data_len=l;
+   4436              strcpy(p->data,s);
+   4437              AddStringToLog(t,0x01,p->data,I_str,0xFFFFFFFF);
+   4438              AddMsgToChat(ed_struct->ed_chatgui);
+   4439              RecountMenu(t, 1);
+   4440              SUBPROC((void *)SendAnswer,0,p);
+   4441            }
+   4442            GeneralFuncF1(1);
+   4443          }
+   4444          
+   4445          void OpenLogfile(GUI *data)
+   4446          {
+   4447            EDCHAT_STRUCT *ed_struct;
+   4448            ed_struct=MenuGetUserPointer(data);
+   4449          
+   4450            extern const char HIST_PATH[64];
+   4451          #ifdef EVILFOX
+   4452          #else
+   4453            extern const int HISTORY_TYPE;
+   4454          #endif
+   4455            CLIST *t;
+   4456            WSHDR *ws=AllocWS(256);
+   4457            if ((t=ed_struct->ed_contact))
+   4458            {
+   4459          #ifdef EVILFOX
+   4460              wsprintf(ws,"%s\\%u\\%s.txt",HIST_PATH,UIN,t->name);  
+   4461          #else
+   4462              if (HISTORY_TYPE)
+   4463                wsprintf(ws,"%s\\%u\\%u.txt",HIST_PATH,UIN,t->uin);
+   4464              else
+   4465                wsprintf(ws,"%s\\%u.txt",HIST_PATH,t->uin);
+   4466          #endif
+   4467              ExecuteFile(ws,NULL,NULL);
+   4468            }
+   4469            FreeWS(ws);
+   4470            GeneralFuncF1(1);
+   4471          }
+   4472          
+   4473          void ClearLog(GUI *data/*,void *dummy*/)
+   4474          {
+   4475            EDITCONTROL ec;
+   4476            EDCHAT_STRUCT *ed_struct;
+   4477            WSHDR *ws;
+   4478            CLIST *t;
+   4479          
+   4480            ed_struct=MenuGetUserPointer(data);
+   4481          
+   4482            ExtractEditControl(ed_struct->ed_chatgui,ed_struct->ed_answer,&ec);
+   4483            if(wstrlen(ec.pWS)>0)
+   4484            {
+   4485              ws=AllocWS(1);
+   4486              CutWSTR(ws,0);
+   4487          
+   4488              EDIT_SetFocus(ed_struct->ed_chatgui,ed_struct->ed_answer);
+   4489              EDIT_SetTextToFocused(ed_struct->ed_chatgui,ws);
+   4490          
+   4491              FreeWS(ws);
+   4492              GeneralFuncF1(1);
+   4493            }
+   4494            else
+   4495            {
+   4496          
+   4497              if ((t=ed_struct->ed_contact))
+   4498              {
+   4499                if (t->log)
+   4500                {
+   4501                  FreeLOGQ(&t->log);
+   4502                  t->msg_count=0;
+   4503                  if (ed_struct->ed_answer>=2&&ed_struct->ed_chatgui)
+   4504                  {
+   4505                    while(ed_struct->ed_answer!=2)
+   4506                    {
+   4507                      EDIT_RemoveEditControl(ed_struct->ed_chatgui,1);
+   4508                      ed_struct->ed_answer--;
+   4509                    }
+   4510                  }
+   4511                }
+   4512                t->isactive=0;		//by BoBa  18.06.07
+   4513                RecountMenu(t, 1);
+   4514                GeneralFuncF1(1);
+   4515              }
+   4516            }
+   4517          }
+   4518          
+   4519          void ecmenu_ghook(void *data, int cmd)
+   4520          {
+   4521            if (cmd==0x0A)
+   4522            {
+   4523              DisableIDLETMR();
+   4524            }
+   4525          }
+   4526          
+   4527          static const MENUITEM_DESC ecmenu_ITEMS[EC_MNU_MAX]=
+   4528          {
+   4529            {NULL,(int)LG_MNUQUOTE,    LGP_NULL,0,NULL,MENU_FLAG3,MENU_FLAG2},
+   4530            {NULL,(int)LG_MNUADDSML,   LGP_NULL,0,NULL,MENU_FLAG3,MENU_FLAG2},
+   4531            {NULL,(int)LG_MNUSHINFO,   LGP_NULL,0,NULL,MENU_FLAG3,MENU_FLAG2},
+   4532            {NULL,(int)LG_MNUADDREN,   LGP_NULL,0,NULL,MENU_FLAG3,MENU_FLAG2},
+   4533            {NULL,(int)LG_MNUSAUTHREQ, LGP_NULL,0,NULL,MENU_FLAG3,MENU_FLAG2},
+   4534            {NULL,(int)LG_MNUSAUTHGRT, LGP_NULL,0,NULL,MENU_FLAG3,MENU_FLAG2},
+   4535            {NULL,(int)LG_MNUOPENLOG,  LGP_NULL,0,NULL,MENU_FLAG3,MENU_FLAG2},
+   4536            {NULL,(int)LG_MNUCLEARCHT, LGP_NULL,0,NULL,MENU_FLAG3,MENU_FLAG2}
+   4537          };
+   4538          
+   4539          extern void AddSmile(GUI *data);
+   4540          static const MENUPROCS_DESC ecmenu_HNDLS[EC_MNU_MAX]=
+   4541          {
+   4542            Quote,
+   4543            AddSmile,
+   4544            GetShortInfo,
+   4545            AddCurContact,
+   4546            SendAuthReq,
+   4547            SendAuthGrant,
+   4548            OpenLogfile,
+   4549            ClearLog,
+   4550          };
+   4551          
+   4552          char ecm_contactname[64];
+   4553          
+   4554          static const HEADER_DESC ecmenu_HDR={0,0,NULL,NULL,NULL,(int)ecm_contactname,LGP_NULL};
+   4555          
+   4556          static const MENU_DESC ecmenu_STRUCT=
+   4557          {
+   4558            8,NULL,ecmenu_ghook,NULL,
+   4559            menusoftkeys,
+   4560            &menu_skt,
+   4561            0,
+   4562            NULL,
+   4563            ecmenu_ITEMS,
+   4564            ecmenu_HNDLS,
+   4565            EC_MNU_MAX
+   4566          };
+   4567          
+   4568          void ec_menu(EDCHAT_STRUCT *ed_struct)
+   4569          {
+   4570            CLIST *t;
+   4571            int to_remove[EC_MNU_MAX+1];
+   4572            int remove=0;
+   4573            if ((t=ed_struct->ed_contact))
+   4574            {
+   4575              if (t->name)
+   4576              {
+   4577                strncpy(ecm_contactname,t->name,63);
+   4578              }
+   4579              else
+   4580              {
+   4581                sprintf(ecm_contactname,"%u",t->uin);
+   4582              }
+   4583              if (EDIT_GetFocus(ed_struct->ed_chatgui)==ed_struct->ed_answer)
+   4584              {
+   4585                to_remove[++remove]=0;
+   4586              }
+   4587              else
+   4588              {
+   4589                to_remove[++remove]=1;
+   4590              }
+   4591          
+   4592              if (ed_struct->ed_answer<=2) to_remove[++remove]=7;
+   4593              if (!ed_struct->ed_contact || connect_state!=3)
+   4594              {
+   4595                to_remove[++remove]=2;
+   4596                to_remove[++remove]=3;
+   4597                to_remove[++remove]=4;
+   4598                to_remove[++remove]=5;
+   4599              }
+   4600          
+   4601              patch_header(&ecmenu_HDR);
+   4602              to_remove[0]=remove;
+   4603              CreateMenu(0,0,&ecmenu_STRUCT,&ecmenu_HDR,0,EC_MNU_MAX,ed_struct,to_remove);
+   4604            }
+   4605          }
+   4606          
+   4607          
+   4608          void AskNickAndAddContact(EDCHAT_STRUCT *ed_struct)
+   4609          {
+   4610            CreateAddContactGrpDialog(ed_struct->ed_contact);
+   4611          }
+   4612          
+   4613          void AddSmile(GUI *data)
+   4614          {
+   4615            EDCHAT_STRUCT *ed_struct=MenuGetUserPointer(data);
+   4616            CreateSmileSelectGUI(ed_struct);
+   4617            GeneralFuncF1(1);
+   4618          }
+
+Errors: 19
+Warnings: none

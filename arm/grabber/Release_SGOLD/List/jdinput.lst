@@ -1,0 +1,938 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    19/Jan/2011  13:21:05 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\grabber\jpeg-7\jdinput.c                      #
+#    Command line    =  C:\arm\grabber\jpeg-7\jdinput.c -lC                  #
+#                       C:\arm\grabber\Release_SGOLD\List\ -o                #
+#                       C:\arm\grabber\Release_SGOLD\Obj\ -s9 --no_unroll    #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\grabber\Release_SGOLD\List\jdinput.lst        #
+#    Object file     =  C:\arm\grabber\Release_SGOLD\Obj\jdinput.r79         #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\grabber\jpeg-7\jdinput.c
+      1          /*
+                  ^
+Warning[Pa050]: non-native end of line sequence detected (this diagnostic is
+          only issued once)
+      2           * jdinput.c
+      3           *
+      4           * Copyright (C) 1991-1997, Thomas G. Lane.
+      5           * Modified 2002-2009 by Guido Vollbeding.
+      6           * This file is part of the Independent JPEG Group's software.
+      7           * For conditions of distribution and use, see the accompanying README file.
+      8           *
+      9           * This file contains input control logic for the JPEG decompressor.
+     10           * These routines are concerned with controlling the decompressor's input
+     11           * processing (marker reading and coefficient decoding).  The actual input
+     12           * reading is done in jdmarker.c, jdhuff.c, and jdarith.c.
+     13           */
+     14          
+     15          #define JPEG_INTERNALS
+     16          #include "jinclude.h"
+     17          #include "jpeglib.h"
+     18          
+     19          
+     20          /* Private state */
+     21          
+     22          typedef struct {
+     23            struct jpeg_input_controller pub; /* public fields */
+     24          
+     25            boolean inheaders;		/* TRUE until first SOS is reached */
+     26          } my_input_controller;
+     27          
+     28          typedef my_input_controller * my_inputctl_ptr;
+     29          
+     30          
+     31          /* Forward declarations */
+     32          METHODDEF(int) consume_markers JPP((j_decompress_ptr cinfo));
+     33          
+     34          
+     35          /*
+     36           * Routines to calculate various quantities related to the size of the image.
+     37           */
+     38          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     39          LOCAL(void)
+     40          initial_setup (j_decompress_ptr cinfo)
+     41          /* Called once, when first SOS marker is reached */
+     42          {
+   \                     initial_setup:
+   \   00000000   F0432DE9           PUSH     {R4-R9,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+     43            int ci;
+     44            jpeg_component_info *compptr;
+     45          
+     46            /* Make sure image isn't bigger than I can handle */
+     47            if ((long) cinfo->image_height > (long) JPEG_MAX_DIMENSION ||
+     48                (long) cinfo->image_width > (long) JPEG_MAX_DIMENSION)
+   \   00000008   201094E5           LDR      R1,[R4, #+32]
+   \   0000000C   DD00A0E3           MOV      R0,#+221
+   \   00000010   FF0C80E3           ORR      R0,R0,#0xFF00
+   \   00000014   000051E1           CMP      R1,R0
+   \   00000018   1C1094B5           LDRLT    R1,[R4, #+28]
+   \   0000001C   000051B1           CMPLT    R1,R0
+   \   00000020   0A0000BA           BLT      ??initial_setup_0
+     49              ERREXIT1(cinfo, JERR_IMAGE_TOO_BIG, (unsigned int) JPEG_MAX_DIMENSION);
+   \   00000024   000094E5           LDR      R0,[R4, #+0]
+   \   00000028   2A10A0E3           MOV      R1,#+42
+   \   0000002C   141080E5           STR      R1,[R0, #+20]
+   \   00000030   000094E5           LDR      R0,[R4, #+0]
+   \   00000034   DC10A0E3           MOV      R1,#+220
+   \   00000038   FF1C81E3           ORR      R1,R1,#0xFF00
+   \   0000003C   181080E5           STR      R1,[R0, #+24]
+   \   00000040   001094E5           LDR      R1,[R4, #+0]
+   \   00000044   0400A0E1           MOV      R0,R4
+   \   00000048   001091E5           LDR      R1,[R1, #+0]
+   \   0000004C   31FF2FE1           BLX      R1
+     50          
+     51            /* For now, precision must match compiled-in value... */
+     52            if (cinfo->data_precision != BITS_IN_JSAMPLE)
+   \                     ??initial_setup_0:
+   \   00000050   D00094E5           LDR      R0,[R4, #+208]
+   \   00000054   080050E3           CMP      R0,#+8
+   \   00000058   0900000A           BEQ      ??initial_setup_1
+     53              ERREXIT1(cinfo, JERR_BAD_PRECISION, cinfo->data_precision);
+   \   0000005C   000094E5           LDR      R0,[R4, #+0]
+   \   00000060   1010A0E3           MOV      R1,#+16
+   \   00000064   141080E5           STR      R1,[R0, #+20]
+   \   00000068   000094E5           LDR      R0,[R4, #+0]
+   \   0000006C   D01094E5           LDR      R1,[R4, #+208]
+   \   00000070   181080E5           STR      R1,[R0, #+24]
+   \   00000074   001094E5           LDR      R1,[R4, #+0]
+   \   00000078   0400A0E1           MOV      R0,R4
+   \   0000007C   001091E5           LDR      R1,[R1, #+0]
+   \   00000080   31FF2FE1           BLX      R1
+     54          
+     55            /* Check that number of components won't exceed internal array sizes */
+     56            if (cinfo->num_components > MAX_COMPONENTS)
+   \                     ??initial_setup_1:
+   \   00000084   240094E5           LDR      R0,[R4, #+36]
+   \   00000088   0B0050E3           CMP      R0,#+11
+   \   0000008C   0C0000BA           BLT      ??initial_setup_2
+     57              ERREXIT2(cinfo, JERR_COMPONENT_COUNT, cinfo->num_components,
+     58          	     MAX_COMPONENTS);
+   \   00000090   000094E5           LDR      R0,[R4, #+0]
+   \   00000094   1B10A0E3           MOV      R1,#+27
+   \   00000098   141080E5           STR      R1,[R0, #+20]
+   \   0000009C   000094E5           LDR      R0,[R4, #+0]
+   \   000000A0   241094E5           LDR      R1,[R4, #+36]
+   \   000000A4   181080E5           STR      R1,[R0, #+24]
+   \   000000A8   000094E5           LDR      R0,[R4, #+0]
+   \   000000AC   0A10A0E3           MOV      R1,#+10
+   \   000000B0   1C1080E5           STR      R1,[R0, #+28]
+   \   000000B4   001094E5           LDR      R1,[R4, #+0]
+   \   000000B8   0400A0E1           MOV      R0,R4
+   \   000000BC   001091E5           LDR      R1,[R1, #+0]
+   \   000000C0   31FF2FE1           BLX      R1
+     59          
+     60            /* Compute maximum sampling factors; check factor validity */
+     61            cinfo->max_h_samp_factor = 1;
+   \                     ??initial_setup_2:
+   \   000000C4   0150A0E3           MOV      R5,#+1
+   \   000000C8   305184E5           STR      R5,[R4, #+304]
+     62            cinfo->max_v_samp_factor = 1;
+   \   000000CC   345184E5           STR      R5,[R4, #+308]
+     63            for (ci = 0, compptr = cinfo->comp_info; ci < cinfo->num_components;
+   \   000000D0   240094E5           LDR      R0,[R4, #+36]
+   \   000000D4   D47094E5           LDR      R7,[R4, #+212]
+   \   000000D8   0060A0E3           MOV      R6,#+0
+   \   000000DC   010050E3           CMP      R0,#+1
+   \   000000E0   0C0000AA           BGE      ??initial_setup_3
+     64                 ci++, compptr++) {
+     65              if (compptr->h_samp_factor<=0 || compptr->h_samp_factor>MAX_SAMP_FACTOR ||
+     66          	compptr->v_samp_factor<=0 || compptr->v_samp_factor>MAX_SAMP_FACTOR)
+     67                ERREXIT(cinfo, JERR_BAD_SAMPLING);
+     68              cinfo->max_h_samp_factor = MAX(cinfo->max_h_samp_factor,
+     69          				   compptr->h_samp_factor);
+     70              cinfo->max_v_samp_factor = MAX(cinfo->max_v_samp_factor,
+     71          				   compptr->v_samp_factor);
+     72            }
+     73          
+     74            /* We initialize DCT_scaled_size and min_DCT_scaled_size to DCTSIZE.
+     75             * In the full decompressor, this will be overridden by jdmaster.c;
+     76             * but in the transcoder, jdmaster.c is not used, so we must do it here.
+     77             */
+     78            cinfo->min_DCT_h_scaled_size = DCTSIZE;
+   \                     ??initial_setup_4:
+   \   000000E4   0860A0E3           MOV      R6,#+8
+   \   000000E8   386184E5           STR      R6,[R4, #+312]
+     79            cinfo->min_DCT_v_scaled_size = DCTSIZE;
+   \   000000EC   3C6184E5           STR      R6,[R4, #+316]
+     80          
+     81            /* Compute dimensions of components */
+     82            for (ci = 0, compptr = cinfo->comp_info; ci < cinfo->num_components;
+   \   000000F0   240094E5           LDR      R0,[R4, #+36]
+   \   000000F4   D48094E5           LDR      R8,[R4, #+212]
+   \   000000F8   0070A0E3           MOV      R7,#+0
+   \   000000FC   0090A0E3           MOV      R9,#+0
+   \   00000100   010050E3           CMP      R0,#+1
+   \   00000104   410000AA           BGE      ??initial_setup_5
+   \   00000108   430000EA           B        ??initial_setup_6
+   \                     ??initial_setup_7:
+   \   0000010C   340184E5           STR      R0,[R4, #+308]
+   \   00000110   016086E2           ADD      R6,R6,#+1
+   \   00000114   587087E2           ADD      R7,R7,#+88
+   \                     ??initial_setup_3:
+   \   00000118   240094E5           LDR      R0,[R4, #+36]
+   \   0000011C   000056E1           CMP      R6,R0
+   \   00000120   EFFFFFAA           BGE      ??initial_setup_4
+   \   00000124   080097E5           LDR      R0,[R7, #+8]
+   \   00000128   010050E3           CMP      R0,#+1
+   \   0000012C   060000BA           BLT      ??initial_setup_8
+   \   00000130   050050E3           CMP      R0,#+5
+   \   00000134   040000AA           BGE      ??initial_setup_8
+   \   00000138   0C0097E5           LDR      R0,[R7, #+12]
+   \   0000013C   010050E3           CMP      R0,#+1
+   \   00000140   010000BA           BLT      ??initial_setup_8
+   \   00000144   050050E3           CMP      R0,#+5
+   \   00000148   060000BA           BLT      ??initial_setup_9
+   \                     ??initial_setup_8:
+   \   0000014C   000094E5           LDR      R0,[R4, #+0]
+   \   00000150   1310A0E3           MOV      R1,#+19
+   \   00000154   141080E5           STR      R1,[R0, #+20]
+   \   00000158   001094E5           LDR      R1,[R4, #+0]
+   \   0000015C   0400A0E1           MOV      R0,R4
+   \   00000160   001091E5           LDR      R1,[R1, #+0]
+   \   00000164   31FF2FE1           BLX      R1
+   \                     ??initial_setup_9:
+   \   00000168   300194E5           LDR      R0,[R4, #+304]
+   \   0000016C   081097E5           LDR      R1,[R7, #+8]
+   \   00000170   000051E1           CMP      R1,R0
+   \   00000174   0100A0A1           MOVGE    R0,R1
+   \   00000178   300184E5           STR      R0,[R4, #+304]
+   \   0000017C   340194E5           LDR      R0,[R4, #+308]
+   \   00000180   0C1097E5           LDR      R1,[R7, #+12]
+   \   00000184   000051E1           CMP      R1,R0
+   \   00000188   0100A0A1           MOVGE    R0,R1
+   \   0000018C   DEFFFFEA           B        ??initial_setup_7
+     83                 ci++, compptr++) {
+     84              compptr->DCT_h_scaled_size = DCTSIZE;
+   \                     ??initial_setup_10:
+   \   00000190   246088E5           STR      R6,[R8, #+36]
+     85              compptr->DCT_v_scaled_size = DCTSIZE;
+   \   00000194   286088E5           STR      R6,[R8, #+40]
+     86              /* Size in DCT blocks */
+     87              compptr->width_in_blocks = (JDIMENSION)
+     88                jdiv_round_up((long) cinfo->image_width * (long) compptr->h_samp_factor,
+     89          		    (long) (cinfo->max_h_samp_factor * DCTSIZE));
+   \   00000198   300194E5           LDR      R0,[R4, #+304]
+   \   0000019C   082098E5           LDR      R2,[R8, #+8]
+   \   000001A0   8011A0E1           LSL      R1,R0,#+3
+   \   000001A4   1C0094E5           LDR      R0,[R4, #+28]
+     90              compptr->height_in_blocks = (JDIMENSION)
+     91                jdiv_round_up((long) cinfo->image_height * (long) compptr->v_samp_factor,
+     92          		    (long) (cinfo->max_v_samp_factor * DCTSIZE));
+     93              /* downsampled_width and downsampled_height will also be overridden by
+     94               * jdmaster.c if we are doing full decompression.  The transcoder library
+     95               * doesn't use these values, but the calling application might.
+     96               */
+     97              /* Size in samples */
+     98              compptr->downsampled_width = (JDIMENSION)
+     99                jdiv_round_up((long) cinfo->image_width * (long) compptr->h_samp_factor,
+    100          		    (long) cinfo->max_h_samp_factor);
+    101              compptr->downsampled_height = (JDIMENSION)
+    102                jdiv_round_up((long) cinfo->image_height * (long) compptr->v_samp_factor,
+    103          		    (long) cinfo->max_v_samp_factor);
+    104              /* Mark component needed, until color conversion says otherwise */
+    105              compptr->component_needed = TRUE;
+    106              /* Mark no quantization table yet saved for component */
+    107              compptr->quant_table = NULL;
+    108            }
+   \   000001A8   017087E2           ADD      R7,R7,#+1
+   \   000001AC   920000E0           MUL      R0,R2,R0
+   \   000001B0   ........           _BLF     jdiv_round_up,??jdiv_round_up??rA
+   \   000001B4   1C0088E5           STR      R0,[R8, #+28]
+   \   000001B8   340194E5           LDR      R0,[R4, #+308]
+   \   000001BC   0C2098E5           LDR      R2,[R8, #+12]
+   \   000001C0   8011A0E1           LSL      R1,R0,#+3
+   \   000001C4   200094E5           LDR      R0,[R4, #+32]
+   \   000001C8   920000E0           MUL      R0,R2,R0
+   \   000001CC   ........           _BLF     jdiv_round_up,??jdiv_round_up??rA
+   \   000001D0   200088E5           STR      R0,[R8, #+32]
+   \   000001D4   1C0094E5           LDR      R0,[R4, #+28]
+   \   000001D8   082098E5           LDR      R2,[R8, #+8]
+   \   000001DC   301194E5           LDR      R1,[R4, #+304]
+   \   000001E0   920000E0           MUL      R0,R2,R0
+   \   000001E4   ........           _BLF     jdiv_round_up,??jdiv_round_up??rA
+   \   000001E8   2C0088E5           STR      R0,[R8, #+44]
+   \   000001EC   200094E5           LDR      R0,[R4, #+32]
+   \   000001F0   0C2098E5           LDR      R2,[R8, #+12]
+   \   000001F4   341194E5           LDR      R1,[R4, #+308]
+   \   000001F8   920000E0           MUL      R0,R2,R0
+   \   000001FC   ........           _BLF     jdiv_round_up,??jdiv_round_up??rA
+   \   00000200   300088E5           STR      R0,[R8, #+48]
+   \   00000204   345088E5           STR      R5,[R8, #+52]
+   \   00000208   509088E5           STR      R9,[R8, #+80]
+   \   0000020C   588088E2           ADD      R8,R8,#+88
+   \                     ??initial_setup_5:
+   \   00000210   240094E5           LDR      R0,[R4, #+36]
+   \   00000214   000057E1           CMP      R7,R0
+   \   00000218   DCFFFFBA           BLT      ??initial_setup_10
+    109          
+    110            /* Compute number of fully interleaved MCU rows. */
+    111            cinfo->total_iMCU_rows = (JDIMENSION)
+    112              jdiv_round_up((long) cinfo->image_height,
+    113          		  (long) (cinfo->max_v_samp_factor*DCTSIZE));
+   \                     ??initial_setup_6:
+   \   0000021C   340194E5           LDR      R0,[R4, #+308]
+   \   00000220   8011A0E1           LSL      R1,R0,#+3
+   \   00000224   200094E5           LDR      R0,[R4, #+32]
+   \   00000228   ........           _BLF     jdiv_round_up,??jdiv_round_up??rA
+   \   0000022C   400184E5           STR      R0,[R4, #+320]
+    114          
+    115            /* Decide whether file contains multiple scans */
+    116            if (cinfo->comps_in_scan < cinfo->num_components || cinfo->progressive_mode)
+   \   00000230   480194E5           LDR      R0,[R4, #+328]
+   \   00000234   241094E5           LDR      R1,[R4, #+36]
+   \   00000238   010050E1           CMP      R0,R1
+   \   0000023C   020000BA           BLT      ??initial_setup_11
+   \   00000240   D80094E5           LDR      R0,[R4, #+216]
+   \   00000244   000050E3           CMP      R0,#+0
+   \   00000248   0200000A           BEQ      ??initial_setup_12
+    117              cinfo->inputctl->has_multiple_scans = TRUE;
+   \                     ??initial_setup_11:
+   \   0000024C   B40194E5           LDR      R0,[R4, #+436]
+   \   00000250   105080E5           STR      R5,[R0, #+16]
+   \   00000254   F083BDE8           POP      {R4-R9,PC}
+    118            else
+    119              cinfo->inputctl->has_multiple_scans = FALSE;
+   \                     ??initial_setup_12:
+   \   00000258   B40194E5           LDR      R0,[R4, #+436]
+   \   0000025C   109080E5           STR      R9,[R0, #+16]
+    120          }
+   \   00000260   F083BDE8           POP      {R4-R9,PC}       ;; return
+    121          
+    122          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    123          LOCAL(void)
+    124          per_scan_setup (j_decompress_ptr cinfo)
+    125          /* Do computations that are needed before processing a JPEG scan */
+    126          /* cinfo->comps_in_scan and cinfo->cur_comp_info[] were set from SOS marker */
+    127          {
+   \                     per_scan_setup:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    128            int ci, mcublks, tmp;
+    129            jpeg_component_info *compptr;
+    130            
+    131            if (cinfo->comps_in_scan == 1) {
+   \   00000008   480194E5           LDR      R0,[R4, #+328]
+   \   0000000C   0050A0E3           MOV      R5,#+0
+   \   00000010   010050E3           CMP      R0,#+1
+   \   00000014   1500001A           BNE      ??per_scan_setup_0
+    132              
+    133              /* Noninterleaved (single-component) scan */
+    134              compptr = cinfo->cur_comp_info[0];
+   \   00000018   4C2194E5           LDR      R2,[R4, #+332]
+    135              
+    136              /* Overall image size in MCUs */
+    137              cinfo->MCUs_per_row = compptr->width_in_blocks;
+    138              cinfo->MCU_rows_in_scan = compptr->height_in_blocks;
+    139              
+    140              /* For noninterleaved scan, always one block per MCU */
+    141              compptr->MCU_width = 1;
+   \   0000001C   0130A0E3           MOV      R3,#+1
+   \   00000020   1C0092E5           LDR      R0,[R2, #+28]
+   \   00000024   5C0184E5           STR      R0,[R4, #+348]
+   \   00000028   200092E5           LDR      R0,[R2, #+32]
+   \   0000002C   600184E5           STR      R0,[R4, #+352]
+   \   00000030   383082E5           STR      R3,[R2, #+56]
+    142              compptr->MCU_height = 1;
+   \   00000034   3C3082E5           STR      R3,[R2, #+60]
+    143              compptr->MCU_blocks = 1;
+   \   00000038   403082E5           STR      R3,[R2, #+64]
+    144              compptr->MCU_sample_width = compptr->DCT_h_scaled_size;
+   \   0000003C   240092E5           LDR      R0,[R2, #+36]
+   \   00000040   440082E5           STR      R0,[R2, #+68]
+    145              compptr->last_col_width = 1;
+   \   00000044   483082E5           STR      R3,[R2, #+72]
+    146              /* For noninterleaved scans, it is convenient to define last_row_height
+    147               * as the number of block rows present in the last iMCU row.
+    148               */
+    149              tmp = (int) (compptr->height_in_blocks % compptr->v_samp_factor);
+   \   00000048   0C6092E5           LDR      R6,[R2, #+12]
+   \   0000004C   200092E5           LDR      R0,[R2, #+32]
+   \   00000050   0610A0E1           MOV      R1,R6
+   \   00000054   ........           _BLF     ??divu32_a,??rA??divu32_a
+    150              if (tmp == 0) tmp = compptr->v_samp_factor;
+   \   00000058   000050E3           CMP      R0,#+0
+   \   0000005C   0600A001           MOVEQ    R0,R6
+    151              compptr->last_row_height = tmp;
+   \   00000060   4C0082E5           STR      R0,[R2, #+76]
+    152              
+    153              /* Prepare array describing MCU composition */
+    154              cinfo->blocks_in_MCU = 1;
+   \   00000064   643184E5           STR      R3,[R4, #+356]
+    155              cinfo->MCU_membership[0] = 0;
+   \   00000068   685184E5           STR      R5,[R4, #+360]
+    156              
+    157            } else {
+    158              
+    159              /* Interleaved (multi-component) scan */
+    160              if (cinfo->comps_in_scan <= 0 || cinfo->comps_in_scan > MAX_COMPS_IN_SCAN)
+    161                ERREXIT2(cinfo, JERR_COMPONENT_COUNT, cinfo->comps_in_scan,
+    162          	       MAX_COMPS_IN_SCAN);
+    163              
+    164              /* Overall image size in MCUs */
+    165              cinfo->MCUs_per_row = (JDIMENSION)
+    166                jdiv_round_up((long) cinfo->image_width,
+    167          		    (long) (cinfo->max_h_samp_factor*DCTSIZE));
+    168              cinfo->MCU_rows_in_scan = (JDIMENSION)
+    169                jdiv_round_up((long) cinfo->image_height,
+    170          		    (long) (cinfo->max_v_samp_factor*DCTSIZE));
+    171              
+    172              cinfo->blocks_in_MCU = 0;
+    173              
+    174              for (ci = 0; ci < cinfo->comps_in_scan; ci++) {
+    175                compptr = cinfo->cur_comp_info[ci];
+    176                /* Sampling factors give # of blocks of component in each MCU */
+    177                compptr->MCU_width = compptr->h_samp_factor;
+    178                compptr->MCU_height = compptr->v_samp_factor;
+    179                compptr->MCU_blocks = compptr->MCU_width * compptr->MCU_height;
+    180                compptr->MCU_sample_width = compptr->MCU_width * compptr->DCT_h_scaled_size;
+    181                /* Figure number of non-dummy blocks in last MCU column & row */
+    182                tmp = (int) (compptr->width_in_blocks % compptr->MCU_width);
+    183                if (tmp == 0) tmp = compptr->MCU_width;
+    184                compptr->last_col_width = tmp;
+    185                tmp = (int) (compptr->height_in_blocks % compptr->MCU_height);
+    186                if (tmp == 0) tmp = compptr->MCU_height;
+    187                compptr->last_row_height = tmp;
+    188                /* Prepare array describing MCU composition */
+    189                mcublks = compptr->MCU_blocks;
+    190                if (cinfo->blocks_in_MCU + mcublks > D_MAX_BLOCKS_IN_MCU)
+    191          	ERREXIT(cinfo, JERR_BAD_MCU_SIZE);
+    192                while (mcublks-- > 0) {
+    193          	cinfo->MCU_membership[cinfo->blocks_in_MCU++] = ci;
+    194                }
+    195              }
+    196              
+    197            }
+    198          }
+   \   0000006C   F080BDE8           POP      {R4-R7,PC}       ;; return
+   \                     ??per_scan_setup_0:
+   \   00000070   010050E3           CMP      R0,#+1
+   \   00000074   010000BA           BLT      ??per_scan_setup_1
+   \   00000078   050050E3           CMP      R0,#+5
+   \   0000007C   0C0000BA           BLT      ??per_scan_setup_2
+   \                     ??per_scan_setup_1:
+   \   00000080   000094E5           LDR      R0,[R4, #+0]
+   \   00000084   1B10A0E3           MOV      R1,#+27
+   \   00000088   141080E5           STR      R1,[R0, #+20]
+   \   0000008C   000094E5           LDR      R0,[R4, #+0]
+   \   00000090   481194E5           LDR      R1,[R4, #+328]
+   \   00000094   181080E5           STR      R1,[R0, #+24]
+   \   00000098   000094E5           LDR      R0,[R4, #+0]
+   \   0000009C   0410A0E3           MOV      R1,#+4
+   \   000000A0   1C1080E5           STR      R1,[R0, #+28]
+   \   000000A4   001094E5           LDR      R1,[R4, #+0]
+   \   000000A8   0400A0E1           MOV      R0,R4
+   \   000000AC   001091E5           LDR      R1,[R1, #+0]
+   \   000000B0   31FF2FE1           BLX      R1
+   \                     ??per_scan_setup_2:
+   \   000000B4   300194E5           LDR      R0,[R4, #+304]
+   \   000000B8   8011A0E1           LSL      R1,R0,#+3
+   \   000000BC   1C0094E5           LDR      R0,[R4, #+28]
+   \   000000C0   ........           _BLF     jdiv_round_up,??jdiv_round_up??rA
+   \   000000C4   5C0184E5           STR      R0,[R4, #+348]
+   \   000000C8   340194E5           LDR      R0,[R4, #+308]
+   \   000000CC   8011A0E1           LSL      R1,R0,#+3
+   \   000000D0   200094E5           LDR      R0,[R4, #+32]
+   \   000000D4   ........           _BLF     jdiv_round_up,??jdiv_round_up??rA
+   \   000000D8   600184E5           STR      R0,[R4, #+352]
+   \   000000DC   645184E5           STR      R5,[R4, #+356]
+   \   000000E0   480194E5           LDR      R0,[R4, #+328]
+   \   000000E4   010050E3           CMP      R0,#+1
+   \   000000E8   0A0000AA           BGE      ??per_scan_setup_3
+   \   000000EC   F080BDE8           POP      {R4-R7,PC}
+   \                     ??per_scan_setup_4:
+   \   000000F0   640194E5           LDR      R0,[R4, #+356]
+   \   000000F4   011080E2           ADD      R1,R0,#+1
+   \   000000F8   641184E5           STR      R1,[R4, #+356]
+   \   000000FC   000184E0           ADD      R0,R4,R0, LSL #+2
+   \   00000100   685180E5           STR      R5,[R0, #+360]
+   \                     ??per_scan_setup_5:
+   \   00000104   0600A0E1           MOV      R0,R6
+   \   00000108   016040E2           SUB      R6,R0,#+1
+   \   0000010C   010050E3           CMP      R0,#+1
+   \   00000110   F6FFFFAA           BGE      ??per_scan_setup_4
+   \   00000114   015085E2           ADD      R5,R5,#+1
+   \                     ??per_scan_setup_3:
+   \   00000118   480194E5           LDR      R0,[R4, #+328]
+   \   0000011C   000055E1           CMP      R5,R0
+   \   00000120   F080BDA8           POPGE    {R4-R7,PC}
+   \   00000124   050184E0           ADD      R0,R4,R5, LSL #+2
+   \   00000128   4C2190E5           LDR      R2,[R0, #+332]
+   \   0000012C   083092E5           LDR      R3,[R2, #+8]
+   \   00000130   383082E5           STR      R3,[R2, #+56]
+   \   00000134   0C7092E5           LDR      R7,[R2, #+12]
+   \   00000138   3C7082E5           STR      R7,[R2, #+60]
+   \   0000013C   970306E0           MUL      R6,R7,R3
+   \   00000140   406082E5           STR      R6,[R2, #+64]
+   \   00000144   240092E5           LDR      R0,[R2, #+36]
+   \   00000148   900301E0           MUL      R1,R0,R3
+   \   0000014C   441082E5           STR      R1,[R2, #+68]
+   \   00000150   1C0092E5           LDR      R0,[R2, #+28]
+   \   00000154   0310A0E1           MOV      R1,R3
+   \   00000158   ........           _BLF     ??divu32_a,??rA??divu32_a
+   \   0000015C   000050E3           CMP      R0,#+0
+   \   00000160   0300A001           MOVEQ    R0,R3
+   \   00000164   480082E5           STR      R0,[R2, #+72]
+   \   00000168   200092E5           LDR      R0,[R2, #+32]
+   \   0000016C   0710A0E1           MOV      R1,R7
+   \   00000170   ........           _BLF     ??divu32_a,??rA??divu32_a
+   \   00000174   000050E3           CMP      R0,#+0
+   \   00000178   0700A001           MOVEQ    R0,R7
+   \   0000017C   4C0082E5           STR      R0,[R2, #+76]
+   \   00000180   640194E5           LDR      R0,[R4, #+356]
+   \   00000184   000086E0           ADD      R0,R6,R0
+   \   00000188   0B0050E3           CMP      R0,#+11
+   \   0000018C   DCFFFFBA           BLT      ??per_scan_setup_5
+   \   00000190   000094E5           LDR      R0,[R4, #+0]
+   \   00000194   0E10A0E3           MOV      R1,#+14
+   \   00000198   141080E5           STR      R1,[R0, #+20]
+   \   0000019C   001094E5           LDR      R1,[R4, #+0]
+   \   000001A0   0400A0E1           MOV      R0,R4
+   \   000001A4   001091E5           LDR      R1,[R1, #+0]
+   \   000001A8   31FF2FE1           BLX      R1
+   \   000001AC   D4FFFFEA           B        ??per_scan_setup_5
+    199          
+    200          
+    201          /*
+    202           * Save away a copy of the Q-table referenced by each component present
+    203           * in the current scan, unless already saved during a prior scan.
+    204           *
+    205           * In a multiple-scan JPEG file, the encoder could assign different components
+    206           * the same Q-table slot number, but change table definitions between scans
+    207           * so that each component uses a different Q-table.  (The IJG encoder is not
+    208           * currently capable of doing this, but other encoders might.)  Since we want
+    209           * to be able to dequantize all the components at the end of the file, this
+    210           * means that we have to save away the table actually used for each component.
+    211           * We do this by copying the table at the start of the first scan containing
+    212           * the component.
+    213           * The JPEG spec prohibits the encoder from changing the contents of a Q-table
+    214           * slot between scans of a component using that slot.  If the encoder does so
+    215           * anyway, this decoder will simply use the Q-table values that were current
+    216           * at the start of the first scan for the component.
+    217           *
+    218           * The decompressor output side looks only at the saved quant tables,
+    219           * not at the current Q-table slots.
+    220           */
+    221          
+    222          LOCAL(void)
+    223          latch_quant_tables (j_decompress_ptr cinfo)
+    224          {
+    225            int ci, qtblno;
+    226            jpeg_component_info *compptr;
+    227            JQUANT_TBL * qtbl;
+    228          
+    229            for (ci = 0; ci < cinfo->comps_in_scan; ci++) {
+    230              compptr = cinfo->cur_comp_info[ci];
+    231              /* No work if we already saved Q-table for this component */
+    232              if (compptr->quant_table != NULL)
+    233                continue;
+    234              /* Make sure specified quantization table is present */
+    235              qtblno = compptr->quant_tbl_no;
+    236              if (qtblno < 0 || qtblno >= NUM_QUANT_TBLS ||
+    237          	cinfo->quant_tbl_ptrs[qtblno] == NULL)
+    238                ERREXIT1(cinfo, JERR_NO_QUANT_TABLE, qtblno);
+    239              /* OK, save away the quantization table */
+    240              qtbl = (JQUANT_TBL *)
+    241                (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_IMAGE,
+    242          				  SIZEOF(JQUANT_TBL));
+    243              MEMCOPY(qtbl, cinfo->quant_tbl_ptrs[qtblno], SIZEOF(JQUANT_TBL));
+    244              compptr->quant_table = qtbl;
+    245            }
+    246          }
+    247          
+    248          
+    249          /*
+    250           * Initialize the input modules to read a scan of compressed data.
+    251           * The first call to this is done by jdmaster.c after initializing
+    252           * the entire decompressor (during jpeg_start_decompress).
+    253           * Subsequent calls come from consume_markers, below.
+    254           */
+    255          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    256          METHODDEF(void)
+    257          start_input_pass (j_decompress_ptr cinfo)
+    258          {
+   \                     start_input_pass:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    259            per_scan_setup(cinfo);
+    260            latch_quant_tables(cinfo);
+   \   00000008   0050A0E3           MOV      R5,#+0
+   \   0000000C   ........           BL       per_scan_setup
+   \   00000010   480194E5           LDR      R0,[R4, #+328]
+   \   00000014   010050E3           CMP      R0,#+1
+   \   00000018   250000AA           BGE      ??start_input_pass_0
+   \   0000001C   270000EA           B        ??start_input_pass_1
+   \                     ??start_input_pass_2:
+   \   00000020   050184E0           ADD      R0,R4,R5, LSL #+2
+   \   00000024   4C6190E5           LDR      R6,[R0, #+332]
+   \   00000028   500096E5           LDR      R0,[R6, #+80]
+   \   0000002C   000050E3           CMP      R0,#+0
+   \   00000030   1E00001A           BNE      ??start_input_pass_3
+   \   00000034   107096E5           LDR      R7,[R6, #+16]
+   \   00000038   000057E3           CMP      R7,#+0
+   \   0000003C   0500004A           BMI      ??start_input_pass_4
+   \   00000040   040057E3           CMP      R7,#+4
+   \   00000044   030000AA           BGE      ??start_input_pass_4
+   \   00000048   070184E0           ADD      R0,R4,R7, LSL #+2
+   \   0000004C   A00090E5           LDR      R0,[R0, #+160]
+   \   00000050   000050E3           CMP      R0,#+0
+   \   00000054   0800001A           BNE      ??start_input_pass_5
+   \                     ??start_input_pass_4:
+   \   00000058   000094E5           LDR      R0,[R4, #+0]
+   \   0000005C   3610A0E3           MOV      R1,#+54
+   \   00000060   141080E5           STR      R1,[R0, #+20]
+   \   00000064   000094E5           LDR      R0,[R4, #+0]
+   \   00000068   187080E5           STR      R7,[R0, #+24]
+   \   0000006C   001094E5           LDR      R1,[R4, #+0]
+   \   00000070   0400A0E1           MOV      R0,R4
+   \   00000074   001091E5           LDR      R1,[R1, #+0]
+   \   00000078   31FF2FE1           BLX      R1
+   \                     ??start_input_pass_5:
+   \   0000007C   043094E5           LDR      R3,[R4, #+4]
+   \   00000080   8420A0E3           MOV      R2,#+132
+   \   00000084   003093E5           LDR      R3,[R3, #+0]
+   \   00000088   0110A0E3           MOV      R1,#+1
+   \   0000008C   0400A0E1           MOV      R0,R4
+   \   00000090   33FF2FE1           BLX      R3
+   \   00000094   0080A0E1           MOV      R8,R0
+   \   00000098   8420A0E3           MOV      R2,#+132
+   \   0000009C   070184E0           ADD      R0,R4,R7, LSL #+2
+   \   000000A0   A01090E5           LDR      R1,[R0, #+160]
+   \   000000A4   0800A0E1           MOV      R0,R8
+   \   000000A8   1E0100EF           SWI      +286
+   \   000000AC   508086E5           STR      R8,[R6, #+80]
+   \                     ??start_input_pass_3:
+   \   000000B0   015085E2           ADD      R5,R5,#+1
+   \                     ??start_input_pass_0:
+   \   000000B4   480194E5           LDR      R0,[R4, #+328]
+   \   000000B8   000055E1           CMP      R5,R0
+   \   000000BC   D7FFFFBA           BLT      ??start_input_pass_2
+    261            (*cinfo->entropy->start_pass) (cinfo);
+   \                     ??start_input_pass_1:
+   \   000000C0   BC1194E5           LDR      R1,[R4, #+444]
+   \   000000C4   0400A0E1           MOV      R0,R4
+   \   000000C8   001091E5           LDR      R1,[R1, #+0]
+   \   000000CC   31FF2FE1           BLX      R1
+    262            (*cinfo->coef->start_input_pass) (cinfo);
+   \   000000D0   AC1194E5           LDR      R1,[R4, #+428]
+   \   000000D4   0400A0E1           MOV      R0,R4
+   \   000000D8   001091E5           LDR      R1,[R1, #+0]
+   \   000000DC   31FF2FE1           BLX      R1
+    263            cinfo->inputctl->consume_input = cinfo->coef->consume_data;
+   \   000000E0   AC1194E5           LDR      R1,[R4, #+428]
+   \   000000E4   B40194E5           LDR      R0,[R4, #+436]
+   \   000000E8   041091E5           LDR      R1,[R1, #+4]
+   \   000000EC   001080E5           STR      R1,[R0, #+0]
+    264          }
+   \   000000F0   F081BDE8           POP      {R4-R8,PC}       ;; return
+    265          
+    266          
+    267          /*
+    268           * Finish up after inputting a compressed-data scan.
+    269           * This is called by the coefficient controller after it's read all
+    270           * the expected data of the scan.
+    271           */
+    272          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    273          METHODDEF(void)
+    274          finish_input_pass (j_decompress_ptr cinfo)
+    275          {
+    276            cinfo->inputctl->consume_input = consume_markers;
+   \                     finish_input_pass:
+   \   00000000   B40190E5           LDR      R0,[R0, #+436]
+   \   00000004   ........           LDR      R1,??DataTable2  ;; consume_markers
+   \   00000008   001080E5           STR      R1,[R0, #+0]
+    277          }
+   \   0000000C   1EFF2FE1           BX       LR               ;; return
+    278          
+    279          
+    280          /*
+    281           * Read JPEG markers before, between, or after compressed-data scans.
+    282           * Change state as necessary when a new scan is reached.
+    283           * Return value is JPEG_SUSPENDED, JPEG_REACHED_SOS, or JPEG_REACHED_EOI.
+    284           *
+    285           * The consume_input method pointer points either here or to the
+    286           * coefficient controller's consume_data routine, depending on whether
+    287           * we are reading a compressed data segment or inter-segment markers.
+    288           */
+    289          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    290          METHODDEF(int)
+    291          consume_markers (j_decompress_ptr cinfo)
+    292          {
+   \                     consume_markers:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    293            my_inputctl_ptr inputctl = (my_inputctl_ptr) cinfo->inputctl;
+   \   00000008   B45194E5           LDR      R5,[R4, #+436]
+    294            int val;
+    295          
+    296            if (inputctl->pub.eoi_reached) /* After hitting EOI, read no further */
+   \   0000000C   140095E5           LDR      R0,[R5, #+20]
+   \   00000010   000050E3           CMP      R0,#+0
+    297              return JPEG_REACHED_EOI;
+   \   00000014   0200A013           MOVNE    R0,#+2
+   \   00000018   7080BD18           POPNE    {R4-R6,PC}
+    298          
+    299            val = (*cinfo->marker->read_markers) (cinfo);
+   \   0000001C   B81194E5           LDR      R1,[R4, #+440]
+   \   00000020   0400A0E1           MOV      R0,R4
+   \   00000024   041091E5           LDR      R1,[R1, #+4]
+   \   00000028   31FF2FE1           BLX      R1
+   \   0000002C   0060A0E1           MOV      R6,R0
+    300          
+    301            switch (val) {
+   \   00000030   010050E2           SUBS     R0,R0,#+1
+   \   00000034   0200000A           BEQ      ??consume_markers_0
+   \   00000038   010050E2           SUBS     R0,R0,#+1
+   \   0000003C   1600000A           BEQ      ??consume_markers_1
+   \   00000040   060000EA           B        ??consume_markers_2
+    302            case JPEG_REACHED_SOS:	/* Found SOS */
+    303              if (inputctl->inheaders) {	/* 1st SOS */
+   \                     ??consume_markers_0:
+   \   00000044   180095E5           LDR      R0,[R5, #+24]
+   \   00000048   000050E3           CMP      R0,#+0
+   \   0000004C   0500000A           BEQ      ??consume_markers_3
+    304                initial_setup(cinfo);
+   \   00000050   0400A0E1           MOV      R0,R4
+   \   00000054   ........           BL       initial_setup
+    305                inputctl->inheaders = FALSE;
+   \   00000058   0000A0E3           MOV      R0,#+0
+   \   0000005C   180085E5           STR      R0,[R5, #+24]
+   \                     ??consume_markers_2:
+   \   00000060   0600A0E1           MOV      R0,R6
+   \   00000064   7080BDE8           POP      {R4-R6,PC}
+    306                /* Note: start_input_pass must be called by jdmaster.c
+    307                 * before any more input can be consumed.  jdapimin.c is
+    308                 * responsible for enforcing this sequencing.
+    309                 */
+    310              } else {			/* 2nd or later SOS marker */
+    311                if (! inputctl->pub.has_multiple_scans)
+   \                     ??consume_markers_3:
+   \   00000068   100095E5           LDR      R0,[R5, #+16]
+   \   0000006C   000050E3           CMP      R0,#+0
+   \   00000070   0600001A           BNE      ??consume_markers_4
+    312          	ERREXIT(cinfo, JERR_EOI_EXPECTED); /* Oops, I wasn't expecting this! */
+   \   00000074   000094E5           LDR      R0,[R4, #+0]
+   \   00000078   2410A0E3           MOV      R1,#+36
+   \   0000007C   141080E5           STR      R1,[R0, #+20]
+   \   00000080   001094E5           LDR      R1,[R4, #+0]
+   \   00000084   0400A0E1           MOV      R0,R4
+   \   00000088   001091E5           LDR      R1,[R1, #+0]
+   \   0000008C   31FF2FE1           BLX      R1
+    313                start_input_pass(cinfo);
+   \                     ??consume_markers_4:
+   \   00000090   0400A0E1           MOV      R0,R4
+   \   00000094   ........           BL       start_input_pass
+   \   00000098   F0FFFFEA           B        ??consume_markers_2
+    314              }
+    315              break;
+    316            case JPEG_REACHED_EOI:	/* Found EOI */
+    317              inputctl->pub.eoi_reached = TRUE;
+   \                     ??consume_markers_1:
+   \   0000009C   0100A0E3           MOV      R0,#+1
+   \   000000A0   140085E5           STR      R0,[R5, #+20]
+    318              if (inputctl->inheaders) {	/* Tables-only datastream, apparently */
+   \   000000A4   180095E5           LDR      R0,[R5, #+24]
+   \   000000A8   000050E3           CMP      R0,#+0
+   \   000000AC   0B00000A           BEQ      ??consume_markers_5
+    319                if (cinfo->marker->saw_SOF)
+   \   000000B0   B80194E5           LDR      R0,[R4, #+440]
+   \   000000B4   100090E5           LDR      R0,[R0, #+16]
+   \   000000B8   000050E3           CMP      R0,#+0
+   \   000000BC   0B00000A           BEQ      ??consume_markers_6
+    320          	ERREXIT(cinfo, JERR_SOF_NO_SOS);
+   \   000000C0   000094E5           LDR      R0,[R4, #+0]
+   \   000000C4   3D10A0E3           MOV      R1,#+61
+   \   000000C8   141080E5           STR      R1,[R0, #+20]
+   \   000000CC   001094E5           LDR      R1,[R4, #+0]
+   \   000000D0   0400A0E1           MOV      R0,R4
+   \   000000D4   001091E5           LDR      R1,[R1, #+0]
+   \   000000D8   31FF2FE1           BLX      R1
+   \   000000DC   DFFFFFEA           B        ??consume_markers_2
+    321              } else {
+    322                /* Prevent infinite loop in coef ctlr's decompress_data routine
+    323                 * if user set output_scan_number larger than number of scans.
+    324                 */
+    325                if (cinfo->output_scan_number > cinfo->input_scan_number)
+   \                     ??consume_markers_5:
+   \   000000E0   8C0094E5           LDR      R0,[R4, #+140]
+   \   000000E4   941094E5           LDR      R1,[R4, #+148]
+   \   000000E8   010050E1           CMP      R0,R1
+    326          	cinfo->output_scan_number = cinfo->input_scan_number;
+   \   000000EC   940084B5           STRLT    R0,[R4, #+148]
+    327              }
+    328              break;
+    329            case JPEG_SUSPENDED:
+    330              break;
+    331            }
+    332          
+    333            return val;
+   \                     ??consume_markers_6:
+   \   000000F0   0600A0E1           MOV      R0,R6
+   \   000000F4   7080BDE8           POP      {R4-R6,PC}       ;; return
+    334          }
+    335          
+    336          
+    337          /*
+    338           * Reset state to begin a fresh datastream.
+    339           */
+    340          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    341          METHODDEF(void)
+    342          reset_input_controller (j_decompress_ptr cinfo)
+    343          {
+    344            my_inputctl_ptr inputctl = (my_inputctl_ptr) cinfo->inputctl;
+    345          
+    346            inputctl->pub.consume_input = consume_markers;
+   \                     reset_input_controller:
+   \   00000000   ........           LDR      R1,??DataTable2  ;; consume_markers
+   \   00000004   30402DE9           PUSH     {R4,R5,LR}
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   B40194E5           LDR      R0,[R4, #+436]
+    347            inputctl->pub.has_multiple_scans = FALSE; /* "unknown" would be better */
+   \   00000010   0050A0E3           MOV      R5,#+0
+   \   00000014   001080E5           STR      R1,[R0, #+0]
+   \   00000018   105080E5           STR      R5,[R0, #+16]
+    348            inputctl->pub.eoi_reached = FALSE;
+   \   0000001C   145080E5           STR      R5,[R0, #+20]
+    349            inputctl->inheaders = TRUE;
+   \   00000020   0110A0E3           MOV      R1,#+1
+   \   00000024   181080E5           STR      R1,[R0, #+24]
+    350            /* Reset other modules */
+    351            (*cinfo->err->reset_error_mgr) ((j_common_ptr) cinfo);
+   \   00000028   001094E5           LDR      R1,[R4, #+0]
+   \   0000002C   0400A0E1           MOV      R0,R4
+   \   00000030   101091E5           LDR      R1,[R1, #+16]
+   \   00000034   31FF2FE1           BLX      R1
+    352            (*cinfo->marker->reset_marker_reader) (cinfo);
+   \   00000038   B81194E5           LDR      R1,[R4, #+440]
+   \   0000003C   0400A0E1           MOV      R0,R4
+   \   00000040   001091E5           LDR      R1,[R1, #+0]
+   \   00000044   31FF2FE1           BLX      R1
+    353            /* Reset progression state -- would be cleaner if entropy decoder did this */
+    354            cinfo->coef_bits = NULL;
+   \   00000048   9C5084E5           STR      R5,[R4, #+156]
+    355          }
+   \   0000004C   3080BDE8           POP      {R4,R5,PC}       ;; return
+    356          
+    357          
+    358          /*
+    359           * Initialize the input controller module.
+    360           * This is called only once, when the decompression object is created.
+    361           */
+    362          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    363          GLOBAL(void)
+    364          jinit_input_controller (j_decompress_ptr cinfo)
+    365          {
+   \                     jinit_input_controller:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    366            my_inputctl_ptr inputctl;
+    367          
+    368            /* Create subobject in permanent pool */
+    369            inputctl = (my_inputctl_ptr)
+    370              (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_PERMANENT,
+    371          				SIZEOF(my_input_controller));
+   \   00000004   1C20A0E3           MOV      R2,#+28
+   \   00000008   0010A0E3           MOV      R1,#+0
+   \   0000000C   0040A0E1           MOV      R4,R0
+   \   00000010   043094E5           LDR      R3,[R4, #+4]
+   \   00000014   003093E5           LDR      R3,[R3, #+0]
+   \   00000018   33FF2FE1           BLX      R3
+    372            cinfo->inputctl = (struct jpeg_input_controller *) inputctl;
+    373            /* Initialize method pointers */
+    374            inputctl->pub.consume_input = consume_markers;
+   \   0000001C   ........           LDR      R1,??DataTable2  ;; consume_markers
+   \   00000020   B40184E5           STR      R0,[R4, #+436]
+   \   00000024   001080E5           STR      R1,[R0, #+0]
+    375            inputctl->pub.reset_input_controller = reset_input_controller;
+   \   00000028   28109FE5           LDR      R1,??jinit_input_controller_0  ;; reset_input_controller
+   \   0000002C   041080E5           STR      R1,[R0, #+4]
+    376            inputctl->pub.start_input_pass = start_input_pass;
+   \   00000030   24109FE5           LDR      R1,??jinit_input_controller_0+0x4  ;; start_input_pass
+   \   00000034   081080E5           STR      R1,[R0, #+8]
+    377            inputctl->pub.finish_input_pass = finish_input_pass;
+   \   00000038   20109FE5           LDR      R1,??jinit_input_controller_0+0x8  ;; finish_input_pass
+   \   0000003C   0C1080E5           STR      R1,[R0, #+12]
+    378            /* Initialize state: can't use reset_input_controller since we don't
+    379             * want to try to reset other modules yet.
+    380             */
+    381            inputctl->pub.has_multiple_scans = FALSE; /* "unknown" would be better */
+   \   00000040   0010A0E3           MOV      R1,#+0
+   \   00000044   101080E5           STR      R1,[R0, #+16]
+    382            inputctl->pub.eoi_reached = FALSE;
+   \   00000048   141080E5           STR      R1,[R0, #+20]
+    383            inputctl->inheaders = TRUE;
+   \   0000004C   0110A0E3           MOV      R1,#+1
+   \   00000050   181080E5           STR      R1,[R0, #+24]
+    384          }
+   \   00000054   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??jinit_input_controller_0:
+   \   00000058   ........           DC32     reset_input_controller
+   \   0000005C   ........           DC32     start_input_pass
+   \   00000060   ........           DC32     finish_input_pass
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable2:
+   \   00000000   ........           DC32     consume_markers
+
+   Maximum stack usage in bytes:
+
+     Function               CSTACK
+     --------               ------
+     consume_markers           16
+     finish_input_pass          0
+     initial_setup             28
+     jinit_input_controller     8
+     per_scan_setup            20
+     reset_input_controller    12
+     start_input_pass          24
+
+
+   Segment part sizes:
+
+     Function/Label         Bytes
+     --------------         -----
+     initial_setup           612
+     per_scan_setup          432
+     start_input_pass        244
+     finish_input_pass        16
+     consume_markers         248
+     reset_input_controller   80
+     jinit_input_controller  100
+     ??DataTable2              4
+      Others                  52
+
+ 
+ 1 788 bytes in segment CODE
+ 
+ 1 736 bytes of CODE memory (+ 52 bytes shared)
+
+Errors: none
+Warnings: 1

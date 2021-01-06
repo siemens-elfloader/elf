@@ -1,0 +1,306 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    07/May/2009  10:45:41 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Template.cpp        #
+#    Command line    =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Template.cpp -D     #
+#                       NEWSGOLD -D ELKA -D LANG_CN -lcN                     #
+#                       D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\List\  #
+#                       -o D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\Obj #
+#                       \ -s9 --no_unroll --cpu_mode arm --endian little     #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --eec++ --dlib_config "D:\pasha\Embedded  #
+#                       Workbench 4.0 Evaluation2\ARM\LIB\dl5tpainl8n.h" -I  #
+#                       "D:\pasha\Embedded Workbench 4.0                     #
+#                       Evaluation2\ARM\INC\" --inline_threshold=2           #
+#    List file       =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\List\T #
+#                       emplate.lst                                          #
+#    Object file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\Obj\Te #
+#                       mplate.r79                                           #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\pasha\elf\SieELF\MySMSYS\Mss3\Template.cpp
+      1          #include "include.h"
+      2          #include "File.h"
+      3          #include "CreateMenu.h"
+      4          #include "Template.h"
+      5          /*
+      6          SOFTKEY_DESC tpl_menu_sk[]=
+      7          {
+      8            {0x0018,0x0000,(int)LGP_NULL},
+      9            {0x0001,0x0000,(int)LGP_NULL},
+     10            {0x003D,0x0000,(int)LGP_DOIT_PIC}
+     11          };
+     12          
+     13          const SOFTKEYSTAB tpl_menu_skt=
+     14          {
+     15            tpl_menu_sk,0
+     16          };
+     17          */
+     18          const HEADER_DESC tpl_menuhdr={0,0,0,0,NULL,LGP_NULL,LGP_NULL};
+     19          
+     20          TplMenu::TplMenu()
+     21          {
+     22            this->menu.flag=8;
+     23            this->menu.flags2=0x10;
+     24            this->menu.ghook=this->GHook;
+     25            this->menu.itemproc=this->ItemProc;
+     26            this->menu.items=NULL;
+     27            this->menu.n_items=0;
+     28            this->menu.onkey=this->OnKey;
+     29            this->menu.proc3=NULL;
+     30            this->menu.procs=NULL;
+     31            this->menu.softkeys=softkeys;
+     32            this->menu.softkeystab=&sel_menu_skt;
+     33            this->tpltop=NULL;
+     34          }
+     35          
+     36          TplMenu::~TplMenu()
+     37          {
+     38            FreeTPList();
+     39          }
+     40          
+     41          TPLIST *TplMenu::AllocTPList(void)
+     42          {
+     43            TPLIST *tpl=new TPLIST;
+     44            zeromem(tpl, sizeof(TPLIST));
+     45            return tpl;
+     46          }
+     47          
+     48          void TplMenu::AddToTPList(TPLIST *tpl)
+     49          {
+     50            LockSched();
+     51            tpl->next=tpltop;
+     52            this->tpltop=tpl;
+     53            UnlockSched();
+     54          }
+     55          
+     56          void TplMenu::FreeTPList(void)
+     57          {
+     58            TPLIST *tp;
+     59            TPLIST *tp0;
+     60            LockSched();
+     61            tp=this->tpltop;
+     62            this->tpltop=0;
+     63            UnlockSched();
+     64            while(tp)
+     65            {
+     66              tp0=tp->next;
+     67              if(tp->text)
+     68                FreeWS(tp->text);
+     69              delete tp;
+     70              tp=tp0;
+     71            }
+     72          }
+     73          
+     74          int TplMenu::ReadTpl(void)
+     75          {
+     76            char folder[128], dir[128], filepath[128], buf[MAX_TEXT*2], *pp;
+     77            WSHDR *ws, wsn;
+     78            unsigned short wsb[MAX_TEXT];
+     79            int len, /*c,*/ res=0, fp, size, wlen;
+     80            DIR_ENTRY de;
+     81            TPLIST *tp;
+     82            strcpy(folder, main_folder);
+     83            //len=strlen(folder);
+     84            //c=folder[len-1];
+     85            //if(c!='\\' && c!='/')
+     86            //{
+     87            //  folder[len]='\\';
+     88            //  folder[len+1]=0;
+     89            //}
+     90            if(!IsDir(folder))
+     91              MkDir(folder);
+     92            strcat(folder, "Text\\");
+     93            if(!IsDir(folder))
+     94              MkDir(folder);
+     95            strcat(folder, "Template\\");
+     96            if(!IsDir(folder))
+     97              return -1;
+     98            ws=CreateLocalWS(&wsn, wsb, MAX_TEXT);
+     99            strcpy(dir, folder);
+    100            strcat(dir, "*.txt");
+    101            if(FindFirstFile(&de, dir))
+    102            {
+    103              do
+    104              {
+    105                strcpy(filepath, de.folder_name);
+    106                len=strlen(filepath);
+    107                if(filepath[len-1]!='\\' && filepath[len-1]!='/')
+    108                {
+    109          	filepath[len++]='\\';
+    110          	filepath[len]='\0';
+    111                }
+    112                strcat(filepath, de.file_name);
+    113                size=(de.file_size<(MAX_TEXT*2))?de.file_size:(MAX_TEXT*2);
+    114                if((fp=FOpen(filepath, A_BIN+A_ReadOnly, P_READ))>=0)
+    115                {
+    116          	if(FRead(fp, buf, size)==size)
+    117          	{
+    118          	  buf[size]=0;
+    119          	  pp=buf;
+    120          	  ascii_2ws(ws, pp, MAX_TEXT);
+    121          	  tp=AllocTPList();
+    122          	  wlen=(ws->wsbody[0]>0)?ws->wsbody[0]:1;
+    123          	  tp->text=AllocWS(wlen);
+    124          	  wstrcpy(tp->text, ws);
+    125          	  AddToTPList(tp);
+    126          	  res++;
+    127          	}
+    128          	FClose(fp);
+    129                }
+    130              }while(FindNextFile(&de));
+    131            }
+    132            FindClose(&de);
+    133            return res;
+    134          }
+    135          
+    136          TPLIST *TplMenu::GetTpl(int n)
+    137          {
+    138            int i=0;
+    139            TPLIST *tp=this->tpltop;
+    140            while(tp)
+    141            {
+    142              if(i==n)
+    143                return tp;
+    144              i++;
+    145              tp=tp->next;
+    146            }
+    147            return 0;
+    148          }
+    149          
+    150          int TplMenu::OnKey(void *data, GUI_MSG *msg)
+    151          {
+    152            TplMenu *tpm=(TplMenu *)MenuGetUserPointer(data);
+    153            if(msg->keys==0x1)
+    154              return 1;
+    155            if((msg->keys==0x18)||(msg->keys==0x3D))
+    156            {
+    157              TPLIST *tpl;
+    158              void *ed_gui;
+    159              if(tpm && (tpl=tpm->GetTpl(GetCurMenuItem(data))) && (ed_gui=tpm->edgui))
+    160              {
+    161                WSHDR csloc, *wcs;
+    162                EDITCONTROL ec;
+    163                int i;
+    164                unsigned short csb[MAX_TEXT];
+    165                int pos=EDIT_GetCursorPos(ed_gui);
+    166                if(EDIT_GetFocus(ed_gui)!=3 || !tpl->text)
+    167          	return 1;
+    168                wcs=CreateLocalWS(&csloc,csb,MAX_TEXT);
+    169                ExtractEditControl(ed_gui,3,&ec);
+    170                wstrcpy(wcs, ec.pWS);
+    171                for(i=tpl->text->wsbody[0];i>0;i--)
+    172                {
+    173          	wsInsertChar(wcs, tpl->text->wsbody[i], pos);
+    174                }
+    175                EDIT_SetTextToEditControl(ed_gui, 3, wcs);
+    176                EDIT_SetCursorPos(ed_gui, pos+tpl->text->wsbody[0]);
+    177              }
+    178              return 1;
+    179            }
+    180            return 0;
+    181          }
+    182          
+    183          void TplMenu::GHook(void *data, int cmd)
+    184          {
+    185            TplMenu *tpm=(TplMenu *)MenuGetUserPointer(data);
+    186            if(cmd==3)
+    187            {
+    188              delete tpm;
+    189            }
+    190            else if (cmd==0x2)
+    191            {
+    192              WSHDR *hdr_t=AllocWS(32);
+    193              wsprintf(hdr_t, PERCENT_T, LGP->lgp.LGP_TEMPLATE);
+    194              SetHeaderText(GetHeaderPointer(data), hdr_t, malloc_adr(), mfree_adr());
+    195            }
+    196          }
+    197          
+    198          void TplMenu::ItemProc(void *data, int curitem, void *user_pointer)
+    199          {
+    200            void *item=AllocMenuItem(data);
+    201            WSHDR *ws=AllocMenuWS(data, 32);
+    202            TplMenu *tpm=(TplMenu *)MenuGetUserPointer(data);
+    203            TPLIST *tpl=tpm->GetTpl(curitem);
+    204            if(tpl)
+    205              wstrcpy(ws, tpl->text);
+    206            else
+    207              wsprintf(ws, PERCENT_T, LGP->lgp.LGP_ERR);
+    208            SetMenuItemText(data, item, ws, curitem);
+    209          }
+    210          
+    211          int TplMenu::CreateTplMenu(void *edgui)
+    212          {
+    213            this->edgui=edgui;
+    214            //patch_header(&tpl_menuhdr);
+    215            return CreateMenu(&this->menu, &tpl_menuhdr, 0, this->ReadTpl(), this);
+    216          }
+    217          
+    218          
+
+   Maximum stack usage in bytes:
+
+     Function                       CSTACK
+     --------                       ------
+     TplMenu::AddToTPList(_TPLIST *)
+                                       12
+     TplMenu::AllocTPList()             8
+     TplMenu::CreateTplMenu(void *)    12
+     TplMenu::FreeTPList()             12
+     TplMenu::GHook(void *, int)       20
+     TplMenu::GetTpl(int)               0
+     TplMenu::ItemProc(void *, int, void *)
+                                       20
+     TplMenu::OnKey(void *, GUI_MSG *)
+                                     4184
+     TplMenu::ReadTpl()              9460
+     TplMenu::TplMenu()                 0
+     TplMenu::delete ~TplMenu(TplMenu *)
+                                        8
+     TplMenu::new TplMenu()             4
+     TplMenu::~TplMenu()                4
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     tpl_menuhdr                      20
+     TplMenu::TplMenu()              104
+     TplMenu::~TplMenu()               4
+     TplMenu::AllocTPList()           32
+     TplMenu::AddToTPList(_TPLIST *)
+                                      36
+     TplMenu::FreeTPList()            76
+     TplMenu::ReadTpl()              592
+     TplMenu::GetTpl(int)             36
+     TplMenu::OnKey(void *, GUI_MSG *)
+                                     316
+     TplMenu::GHook(void *, int)     120
+     TplMenu::ItemProc(void *, int, void *)
+                                     124
+     TplMenu::CreateTplMenu(void *)   52
+     ?<Constant "Text\\">             28
+     TplMenu::delete ~TplMenu(TplMenu *)
+                                      28
+     TplMenu::new TplMenu()           28
+     ??DataTable2                      4
+     ??DataTable3                      4
+      Others                         196
+
+ 
+ 1 752 bytes in segment CODE
+    48 bytes in segment DATA_C
+ 
+ 1 556 bytes of CODE  memory (+ 196 bytes shared)
+    48 bytes of CONST memory
+
+Errors: none
+Warnings: none

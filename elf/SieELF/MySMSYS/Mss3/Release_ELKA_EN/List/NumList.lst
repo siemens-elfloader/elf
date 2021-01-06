@@ -1,0 +1,483 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    05/Mar/2009  13:12:05 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\NumList.cpp         #
+#    Command line    =  D:\pasha\elf\SieELF\MySMSYS\Mss3\NumList.cpp -D      #
+#                       NEWSGOLD -D ELKA -D LANG_EN -lcN                     #
+#                       D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_EN\Lis #
+#                       t\ -o D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_ #
+#                       EN\Obj\ -s9 --no_unroll --cpu_mode arm --endian      #
+#                       little --cpu ARM926EJ-S --stack_align 4 --interwork  #
+#                       -e --fpu None --eec++ --dlib_config                  #
+#                       "D:\pasha\Embedded Workbench 4.0                     #
+#                       Evaluation2\ARM\LIB\dl5tpainl8n.h" -I                #
+#                       "D:\pasha\Embedded Workbench 4.0                     #
+#                       Evaluation2\ARM\INC\" --inline_threshold=2           #
+#    List file       =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_EN\Lis #
+#                       t\NumList.lst                                        #
+#    Object file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_EN\Obj #
+#                       \NumList.r79                                         #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\pasha\elf\SieELF\MySMSYS\Mss3\NumList.cpp
+      1          #include "include.h"
+      2          #include "AdrList.h"
+      3          #include "NumList.h"
+      4          
+      5          
+      6          NumList::NumList()
+      7          {
+      8            this->nltop=NULL;
+      9          }
+     10          
+     11          NumList::~NumList()
+     12          {
+     13            FreeList();
+     14          }
+     15          
+     16          NLST * NumList::AllocNL()
+     17          {
+     18            NLST *nl=new NLST;
+     19            zeromem(nl, sizeof(NLST));
+     20            nl->name=CreateLocalWS(&nl->_name, nl->name_body, 50);
+     21            return nl;
+     22          }
+     23          
+     24          void NumList::FreeList()
+     25          {
+     26            NLST *nl;
+     27            NLST *nl0;
+     28            LockSched();
+     29            nl=this->nltop;
+     30            this->nltop=NULL;
+     31            UnlockSched();
+     32            while(nl)
+     33            {
+     34              nl0=nl->next;
+     35              delete nl;
+     36              nl=nl0;
+     37            }
+     38          }
+     39          
+     40          void NumList::AddToList_end(NLST *nl) //end
+     41          {
+     42            if (!nl) return;
+     43            LockSched();
+     44            if(!this->nltop)
+     45            {
+     46              this->nltop=nl;
+     47            }
+     48            else if(!this->nltop->next && !strlen(this->nltop->number))
+     49            {
+     50              strcpy(this->nltop->number, nl->number);
+     51              wstrcpy(this->nltop->name, nl->name);
+     52            }
+     53            else
+     54            {
+     55              NLST *n0=this->nltop;
+     56              while(n0->next) n0=n0->next;
+     57              n0->next=nl;
+     58              nl->prev=n0;
+     59            }
+     60            UnlockSched();
+     61          }
+     62          
+     63          void NumList::AddToList(NLST *nl, int pos)
+     64          {
+     65            NLST *n0;
+     66            if(!pos)
+     67            {
+     68              AddToList_first(nl);
+     69            }
+     70            else
+     71            {
+     72              if(!(n0=FindNL(pos)))
+     73              {
+     74                AddToList_end(nl);
+     75              }
+     76              //else if (!strlen(n0->number))
+     77              //{
+     78              //  strcpy(this->nltop->number, nl->number);
+     79              //  wstrcpy(this->nltop->name, nl->name);
+     80              //}
+     81              else //front
+     82              {
+     83                NLST *np=n0->prev;
+     84                np->next=nl; //..null
+     85                nl->prev=np;
+     86                nl->next=n0;
+     87                n0->prev=nl;
+     88              }
+     89            }
+     90          }
+     91          
+     92          NLST * NumList::FindNL(int pos)
+     93          {
+     94            int i=0;
+     95            NLST *nl=this->nltop;
+     96            while(nl)
+     97            {
+     98              if(pos==i)
+     99                return nl;
+    100              nl=nl->next;
+    101              i++;
+    102            }
+    103            return 0;
+    104          }
+    105          
+    106          void NumList::AddToList_first(NLST *nl)
+    107          {
+    108            if(!nl) return;
+    109            LockSched();
+    110            if(this->nltop)
+    111            {
+    112              this->nltop=nl;
+    113            }
+    114            else if (!strlen(this->nltop->number))
+    115            {
+    116              strcpy(this->nltop->number, nl->number);
+    117              wstrcpy(this->nltop->name, nl->name);
+    118            }
+    119            else
+    120            {
+    121              NLST *n0;
+    122              n0=this->nltop;
+    123              this->nltop=nl;
+    124              nl->next=n0;
+    125              n0->prev=nl;
+    126            }
+    127            UnlockSched();
+    128          }
+    129          
+    130          void NumList::AddToList(NLST *nl)
+    131          {
+    132            AddToList_end(nl);
+    133          }
+    134          
+    135          void NumList::AddToList(const char *number)
+    136          {
+    137            NLST *nl;
+    138            if (
+    139              (!number
+    140              || !strlen(number))
+    141            //  && (!this->nltop)
+    142              )
+    143            {
+    144              if (!this->nltop)
+    145                AddToList(AllocNL());
+    146              return;
+    147            }
+    148            if((nl=this->nltop) && !strlen(nl->number))
+    149            {
+    150              //if(!strlen(nl->number))
+    151              {
+    152                strcpy(nl->number, number);
+    153                if(!ADRLST->FindName(nl->name, number))
+    154          	num_2ws(nl->name, number, 50);
+    155                return;
+    156              }
+    157            }
+    158            nl=AllocNL();
+    159            strcpy(nl->number, number);
+    160            if(!ADRLST->FindName(nl->name, number))
+    161              num_2ws(nl->name, number, 50);
+    162            AddToList(nl);
+    163          }
+    164          
+    165          void NumList::AddToList(const char *number, int pos)
+    166          {
+    167            NLST *nl;
+    168            if (
+    169              (!number
+    170              || !strlen(number))
+    171              )
+    172            {
+    173              if (!this->nltop)
+    174                AddToList(AllocNL());
+    175              return;
+    176            }
+    177            nl=AllocNL();
+    178            strcpy(nl->number, number);
+    179            if(!ADRLST->FindName(nl->name, number))
+    180              num_2ws(nl->name, number, 50);
+    181            AddToList(nl, pos);
+    182          }
+    183          
+    184          void NumList::DeleteNL(NLST *nl)
+    185          {
+    186            if(!nl) return;
+    187            LockSched();
+    188            if(nl==this->nltop)
+    189            {
+    190              if(!nl->next)
+    191              {
+    192                nl->number[0]='\0';
+    193                CutWSTR(nl->name, 0);
+    194              }
+    195              else
+    196              {
+    197                this->nltop=nl->next;
+    198                nl->next->prev=NULL;
+    199                delete nl;
+    200              }
+    201            }
+    202            else
+    203            {
+    204              nl->prev->next=nl->next;
+    205              if(nl->next)
+    206                nl->next->prev=nl->prev;
+    207              delete nl;
+    208            }
+    209            UnlockSched();
+    210          }
+    211          
+    212          void NumList::DeleteNL(int pos)
+    213          {
+    214            DeleteNL(FindNL(pos));
+    215          }
+    216          
+    217          int NumList::AddNumsToList(const char *nums) //多个号码,以分号或逗号隔开
+    218          {
+    219            char temp[128];
+    220            const char *p;
+    221            char *p2=temp;
+    222            int c;
+    223            int res=0;
+    224            if(!nums) return 0;
+    225            p=nums;
+    226            while((c=*p++))
+    227            {
+    228              if(c>='0' && c<='9')
+    229              {
+    230                *p2++=c;
+    231              }
+    232              else if(c==';' || c==',')
+    233              {
+    234                if(p2!=temp)
+    235                {
+    236          	*p2='\0';
+    237          	AddToList(temp);
+    238          	p2=temp;
+    239          	res++;
+    240                }
+    241              }
+    242            }
+    243            if(p2!=temp)
+    244            {
+    245              *p2='\0';
+    246              AddToList(temp);
+    247              res++;
+    248            }
+    249            if (!this->nltop)
+    250              AddToList(AllocNL());
+    251            return res;
+    252          }
+    253          
+    254          //DEL void NumList::UpdateName(NLST *nl)
+    255          //DEL {
+    256          //DEL 
+    257          //DEL }
+    258          
+    259          void NumList::UpdateNL(const char *number, int pos)
+    260          {
+    261            NLST *nl;
+    262            if(!number
+    263              || !(nl=FindNL(pos))
+    264              )
+    265              return;
+    266            strcpy(nl->number, number);
+    267            if(!ADRLST->FindName(nl->name, number))
+    268              num_2ws(nl->name, number, 50);
+    269          }
+    270          
+    271          //DEL void NumList::UpdateNL(NLST *nl)
+    272          //DEL {
+    273          //DEL 
+    274          //DEL }
+    275          
+    276          void NumList::UpdateNL(NLST *nl, const char *number)
+    277          {
+    278            if( !nl
+    279              || !number
+    280              )
+    281              return;
+    282            strcpy(nl->number, number);
+    283            if(!ADRLST->FindName(nl->name, number))
+    284              num_2ws(nl->name, number, 50);
+    285          }
+    286          
+    287          NLST * NumList::InsertNL_front(NLST *nl, const char *number)
+    288          {
+    289            NLST *n0;
+    290            if(
+    291              !nl ||
+    292              !number
+    293              )
+    294              return 0;
+    295            n0=AllocNL(number);
+    296            LockSched();
+    297            if(nl==this->nltop)
+    298            {
+    299              this->nltop=n0;
+    300              n0->next=nl;
+    301              nl->prev=n0;
+    302            }
+    303            else
+    304            {
+    305              n0->next=nl;
+    306              n0->prev=nl->prev;
+    307              nl->prev->next=n0;
+    308              nl->prev=n0;
+    309            }
+    310            UnlockSched();
+    311            return n0;
+    312          }
+    313          
+    314          NLST * NumList::AllocNL(const char *number)
+    315          {
+    316            NLST *nl=new NLST;
+    317            zeromem(nl, sizeof(NLST));
+    318            nl->name=CreateLocalWS(&nl->_name, nl->name_body, 50);
+    319            if(number)
+    320            {
+    321              strcpy(nl->number, number);
+    322              if(!ADRLST->FindName(nl->name, number))
+    323                num_2ws(nl->name, number, 50);
+    324            }
+    325            return nl;
+    326          }
+    327          
+    328          NLST * NumList::InsertNL_behind(NLST *nl, const char *number)
+    329          {
+    330            NLST *n0;
+    331            if(
+    332              !nl ||
+    333              !number
+    334              )
+    335              return 0;
+    336            n0=AllocNL(number);
+    337            LockSched();
+    338            n0->prev=nl;
+    339            n0->next=nl->next;
+    340            if(nl->next) nl->next->prev=n0;
+    341            nl->next=n0;
+    342            UnlockSched();
+    343            return n0;
+    344          }
+    345          
+    346          void NumList::ClearNL(NLST *nl)
+    347          {
+    348            if(!nl) return;
+    349            nl->number[0]='\0';
+    350            CutWSTR(nl->name,0);
+    351          }
+    352          
+    353          int NumList::IsNumExist(const char *number)
+    354          {
+    355            NLST *nl=this->nltop;
+    356            while(nl)
+    357            {
+    358              if(NumberMatch(number, nl->number)==MATCH_NML)
+    359                return 1;
+    360              nl=nl->next;
+    361            }
+    362            return 0;
+    363          }
+
+   Maximum stack usage in bytes:
+
+     Function                       CSTACK
+     --------                       ------
+     NumList::AddNumsToList(char const *)
+                                      148
+     NumList::AddToList(_NLST *)        4
+     NumList::AddToList(_NLST *, int)
+                                       12
+     NumList::AddToList(char const *)
+                                       20
+     NumList::AddToList(char const *, int)
+                                       20
+     NumList::AddToList_end(_NLST *)
+                                       12
+     NumList::AddToList_first(_NLST *)
+                                       12
+     NumList::AllocNL()                 8
+     NumList::AllocNL(char const *)    12
+     NumList::ClearNL(_NLST *)          4
+     NumList::DeleteNL(_NLST *)        12
+     NumList::DeleteNL(int)             8
+     NumList::FindNL(int)               0
+     NumList::FreeList()               12
+     NumList::InsertNL_behind(_NLST *, char const *)
+                                       12
+     NumList::InsertNL_front(_NLST *, char const *)
+                                       16
+     NumList::IsNumExist(char const *)
+                                       12
+     NumList::NumList()                 0
+     NumList::UpdateNL(_NLST *, char const *)
+                                       12
+     NumList::UpdateNL(char const *, int)
+                                       12
+     NumList::delete ~NumList(NumList *)
+                                        8
+     NumList::new NumList()             4
+     NumList::~NumList()                4
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     NumList::NumList()               12
+     NumList::~NumList()               4
+     NumList::AllocNL()               52
+     NumList::FreeList()              60
+     NumList::AddToList_end(_NLST *)
+                                     152
+     NumList::AddToList(_NLST *, int)
+                                      84
+     NumList::FindNL(int)             36
+     NumList::AddToList_first(_NLST *)
+                                     116
+     NumList::AddToList(_NLST *)       4
+     NumList::AddToList(char const *)
+                                     228
+     NumList::AddToList(char const *, int)
+                                     164
+     NumList::DeleteNL(_NLST *)      128
+     NumList::DeleteNL(int)           28
+     NumList::AddNumsToList(char const *)
+                                     204
+     NumList::UpdateNL(char const *, int)
+                                      92
+     NumList::UpdateNL(_NLST *, char const *)
+                                      84
+     NumList::InsertNL_front(_NLST *, char const *)
+                                     104
+     NumList::AllocNL(char const *)  120
+     NumList::InsertNL_behind(_NLST *, char const *)
+                                      80
+     NumList::ClearNL(_NLST *)        32
+     NumList::IsNumExist(char const *)
+                                      60
+     NumList::new NumList()           28
+     NumList::delete ~NumList(NumList *)
+                                      28
+     ??DataTable4                      4
+      Others                         152
+
+ 
+ 2 056 bytes in segment CODE
+ 
+ 1 904 bytes of CODE memory (+ 152 bytes shared)
+
+Errors: none
+Warnings: none

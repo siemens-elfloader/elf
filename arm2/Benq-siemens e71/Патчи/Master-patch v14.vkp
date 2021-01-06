@@ -1,0 +1,120 @@
+; * Master-patch v14 *
+;(c) avkiev
+;(r) 1nvisible, chaos
+
+;(!) Library, API, SWI
+
+;Run Scanner on startup
+;066B328: 0021 BEDF ; E71v41
+066B2F8: 0021 BEDF ; E71v45
+
+;Run Scanner instead of REMOTE_SYNCHRONIZATION
+;083F9A0: 0xA06E7659 0xA0060C91 ; E71v41
+;0840394: 0xA06E8195 0xA0060C91 ; E71v45
+
+;fix langpack "Fern-Sync." => "Refresher"
+;1606530: 4665726E2D53796E632E00 526566726573686572FF00 ; E71v41 lg1
+;162A805: 4665726E2D53796E632E00 526566726573686572FF00 ; E71v41 lg1
+;160653C: 4665726E2D53796E632E00 526566726573686572FF00 ; E71v45 lg1
+;162A811: 4665726E2D53796E632E00 526566726573686572FF00 ; E71v45 lg1
+
++0060000
+#pragma enable old_equal_ff
+;Bufferizator
+C00: DEB5071CE4DF0468002C1CD0103C1034
+C10: 2668002E18D0BE42F9D16668002E09D1
+C20: 89B03A1C684686A116DF6846211D11DF
+C30: 09B0666834788020204004D0B6DF0121
+C40: 8140214000D10026301CDEBD
+
+;Dispatcher
+C50: FEB5061CE4DF0568103D103528680028
+C60: 0FD0E878B042F8D1A86860B40299039A
+C70: 049B059C069D079E089F804760BC0028
+C80: EBE7FEBD
+
+;Scanner
+C90: F0B5E4DF051C0468002C1CD0103C1034
+CA0: 216800290DD0E06800F098F8090E05D0
+CB0: 010EA82902D10321884315DF606815DF
+CC0: EDE7286815DF00202860002100220323
+CD0: 04B432DF04BCDFDF0078232849D00124
+CE0: A00214DF061C2E60E00314DF051C60B4
+CF0: 10214A03484C474FA41AA4182068434B
+D00: 9842FAD0404B9842F7D03D4B9842F4D0
+D10: 3C4B9842F1D0A3182068B84205D100F0
+D20: 39F800F04EF80F20844364189C42F3D1
+D30: 3A4B9C42E1D14AA011A10131C3DF50A0
+D40: 1CA10131C3DF00203060009E34A00321
+D50: 09020131012212026B460ADF041C311C
+D60: AA1B6B460CDF201C69460DDF301C15DF
+D70: 02B00021F0BD
+
+;Auxiliary
+D80: 00B5041C2349043422688A42FBD100F0
+D90: 01F817E002B56168316000207060A068
+DA0: 00F01CF8B060E06800F021F8F0601034
+DB0: 103602BD01B5041C00F003F801BC15DF
+DC0: 00BD00B520782870013401350028F9D1
+DD0: 013D0A2028706870023500BDFEB500F0
+DE0: 06F801B402D0090E00D18047FFBD02B5
+DF0: 002803D0010E01D1201A013002BD
+
+;Data
+E00: "EELI","EEFU","FFS_","FFS",00 ; Skip 128K
+E10: 0x0000BBBB,0xB1C2D3E4,0xA0000000,0xA2000000 ; LGP, Magic, From, To
+E20: "0:\\Misc\\Patches\\PTC\\configs.txt",00
+E40: "0:\\Misc\\Patches\\PTC\\%08x.ptc",00
+E60: "0:\\Misc\\Patches\\Dis\\*.dis",00
+E80: "0:\\Misc\\Patches\\Dis\\*.cfg",00
+#pragma disable old_equal_ff
+
+;C81: E7 D0 ; Check retcode from dis-patches
+CCE: 03 0F ; Ringtone after Refresher
+E18: 0xA0000000 0xA0060000 ; From
+E1C: 0xA2000000 0xA0080000 ; To
++0
+
+;Run Refresher on exit from Master-Midlet
+; (c) 1nvisible
+; (p) BuG
+
+;0A8E648: 000050E30E00001A6C408FE2 04E08FE204F01FE5090F06A0 ;E71v41
+0A8D740: 000050E30E00001A6C408FE2 04E08FE204F01FE5090F06A0 ;E71v45
+
+#pragma enable old_equal_ff
+0060F00: 006088E5F081BDE8002801D118A47047
+0060F10: EFB52868174B984225D16868164B9842
+0060F20: 02D1FFF7B5FE1DE0144B984215D1281C
+0060F30: 0830002181DF031C281C203081DF021C
+0060F40: 281C183081DF011C02B4281C103081DF
+0060F50: 02BCF0B49847F0BC04E0094B984201D1
+0060F60: 08A4FFE7EFBDEFBC019807B0FFF7C8EF
+0060F70: 000000004D504A43434F4E4652554E46
+0060F80: 4D50564E76332E30302052433200
+#pragma disable old_equal_ff
+
+;Bufferizator. PatchTable must exists before calling.
+;All patches call Bufferizator for getting own options and buffer.
+;Input: R0 - PatchId
+;If buffer already was allocated - return it in R0 (Z=0).
+;If else - tryes allocate buffer by reading according ptc-file (0:\Misc\Patches\%08x.ptc).
+;If success - return it in R0 (Z=0), and write it in PatchTable.
+;If no - return 0 in R0 (Z=1).
+;If patch was disabled globally or in current profile - set Z=1.
+;Example of calling Bufferizator from patch:
+; LoadReg 0, config+4 ; r0-PatchId
+; CallLib Bufferizator
+; beq NoPatch
+
+;Refresher. It is part of Scanner. You should assign it to any button (Remote Synchronization).
+;It need for hot-refreshing patches options after running MasterMidlet.
+;After calling Bufferizator - memory will allocate again, by help reading according ptc-file.
+
+;Scanner. Scans whole flash, searchs configs, merge theirs in file (max=32K), runs theirs startups,
+;creates PatchTable (max=1K=64 patches), address of PatchTable writes in RAM.
+;If "#" pressed during phone's startup - Scanner won't start. Safe mode...
+
+;Dispatcher
+;It is procedure from master-patch, which calls all patches with ID's high byte equal to parameter, which passed via R0.
+;It needs for calling several patches from one entrypoint.

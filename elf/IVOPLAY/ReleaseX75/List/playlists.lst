@@ -1,0 +1,600 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.40A/W32 EVALUATION    28/Mar/2008  19:11:02 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  E:\Ivo\arm\IVOPLAY\playlists.c                       #
+#    Command line    =  E:\Ivo\arm\IVOPLAY\playlists.c -D X75 -lC            #
+#                       E:\Ivo\arm\IVOPLAY\ReleaseX75\List\ -lA              #
+#                       E:\Ivo\arm\IVOPLAY\ReleaseX75\List\ -o               #
+#                       E:\Ivo\arm\IVOPLAY\ReleaseX75\Obj\ -s9 --no_cse      #
+#                       --no_unroll --no_inline --no_code_motion --no_tbaa   #
+#                       --no_clustering --no_scheduling --cpu_mode arm       #
+#                       --endian little --cpu ARM926EJ-S --stack_align 4     #
+#                       --interwork -e --fpu None --dlib_config              #
+#                       D:\arm\ARM\LIB\dl5tpainl8n.h -I D:\arm\ARM\INC\      #
+#    List file       =  E:\Ivo\arm\IVOPLAY\ReleaseX75\List\playlists.lst     #
+#    Object file     =  E:\Ivo\arm\IVOPLAY\ReleaseX75\Obj\playlists.r79      #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+E:\Ivo\arm\IVOPLAY\playlists.c
+      1          #include "../inc/swilib.h"
+      2          #include "language.h"
+      3          #include "main.h"
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \   static char const __data pt[3]
+   \                     pt:
+   \   00000000   257400             DC8 "%t"
+      4          #include "mainmenu.h"
+      5          #include "conf_loader.h"
+      6          
+      7          extern const char playerfolder[128];
+
+   \                                 In segment CODE, align 4, keep-with-next
+      8          void patch_header(const HEADER_DESC* head)
+      9          {
+   \                     patch_header:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+     10            ((HEADER_DESC*)head)->rc.x=0;
+   \   00000008   0000A0E3           MOV      R0,#+0
+   \   0000000C   B000C4E1           STRH     R0,[R4, #+0]
+     11            ((HEADER_DESC*)head)->rc.y=YDISP;
+   \   00000010   B200C4E1           STRH     R0,[R4, #+2]
+     12            ((HEADER_DESC*)head)->rc.x2=ScreenW()-1;
+   \   00000014   888100EF           SWI      +33160
+   \   00000018   010040E2           SUB      R0,R0,#+1
+   \   0000001C   B400C4E1           STRH     R0,[R4, #+4]
+     13            ((HEADER_DESC*)head)->rc.y2=HeaderH()+YDISP-1;
+   \   00000020   8A8100EF           SWI      +33162
+   \   00000024   010040E2           SUB      R0,R0,#+1
+   \   00000028   B600C4E1           STRH     R0,[R4, #+6]
+     14          }
+   \   0000002C   1080BDE8           POP      {R4,PC}          ;; return
+     15          
+     16          typedef struct
+     17          {
+     18            void *next;
+     19            char cfgname[64];
+     20            char fullpath[128];
+     21          }SEL_IPL;
+     22          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     23          int selipl_menu_onkey(void *gui, GUI_MSG *msg)
+     24          {
+   \                     selipl_menu_onkey:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   40DF4DE2           SUB      SP,SP,#+256
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   0150A0E1           MOV      R5,R1
+     25            SEL_IPL *sbtop=MenuGetUserPointer(gui);
+   \   00000010   E00100EF           SWI      +480
+   \   00000014   0060A0E1           MOV      R6,R0
+     26            if (msg->keys==0x3D || msg->keys==0x18)
+   \   00000018   F200D5E1           LDRSH    R0,[R5, #+2]
+   \   0000001C   3D0050E3           CMP      R0,#+61
+   \   00000020   18005013           CMPNE    R0,#+24
+   \   00000024   1400001A           BNE      ??selipl_menu_onkey_0
+     27            {
+     28              int i=GetCurMenuItem(gui);
+   \   00000028   0400A0E1           MOV      R0,R4
+   \   0000002C   8F0100EF           SWI      +399
+     29              for (int n=0; n!=i; n++) sbtop=sbtop->next;
+   \   00000030   0010A0E3           MOV      R1,#+0
+   \   00000034   000050E3           CMP      R0,#+0
+   \   00000038   0300000A           BEQ      ??selipl_menu_onkey_1
+   \                     ??selipl_menu_onkey_2:
+   \   0000003C   006096E5           LDR      R6,[R6, #+0]
+   \   00000040   011081E2           ADD      R1,R1,#+1
+   \   00000044   000051E1           CMP      R1,R0
+   \   00000048   FBFFFF1A           BNE      ??selipl_menu_onkey_2
+     30              if (sbtop)
+   \                     ??selipl_menu_onkey_1:
+   \   0000004C   000056E3           CMP      R6,#+0
+   \   00000050   0900000A           BEQ      ??selipl_menu_onkey_0
+     31              {
+     32                /*
+     33                //Закрываем плеер и запускаем снова с новым плейлистом
+     34                CLOSECURENTCSM();
+     35                WSHDR* ws=AllocWS(128);
+     36                wsprintf(ws,"%sivoplay.elf",playerfolder);
+     37                ExecuteFile(ws,0,sbtop->fullpath);  
+     38                FreeWS(ws);
+     39                //Пока так, а там посмотрим...
+     40                */
+     41                char shliah[255];
+     42                sprintf(shliah,"%sivoplay.elf",playerfolder);
+   \   00000054   ........           LDR      R2,??DataTable1  ;; playerfolder
+   \   00000058   28109FE5           LDR      R1,??selipl_menu_onkey_3  ;; `?<Constant "%sivoplay.elf">`
+   \   0000005C   0D00A0E1           MOV      R0,SP
+   \   00000060   160000EF           SWI      +22
+     43                main(shliah,sbtop->fullpath);
+   \   00000064   441086E2           ADD      R1,R6,#+68
+   \   00000068   0D00A0E1           MOV      R0,SP
+   \   0000006C   ........           _BLF     main,??main??rA
+     44                return (1);
+   \   00000070   0100A0E3           MOV      R0,#+1
+   \   00000074   40DF8DE2           ADD      SP,SP,#+256
+   \   00000078   7080BDE8           POP      {R4-R6,PC}
+     45              }
+     46            }
+     47            return (0);
+   \                     ??selipl_menu_onkey_0:
+   \   0000007C   0000A0E3           MOV      R0,#+0
+   \   00000080   40DF8DE2           ADD      SP,SP,#+256      ;; stack cleaning
+   \   00000084   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??selipl_menu_onkey_3:
+   \   00000088   ........           DC32     `?<Constant "%sivoplay.elf">`
+     48          }
+     49          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     50          void selipl_menu_ghook(void *gui, int cmd)
+     51          {
+   \                     selipl_menu_ghook:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0140A0E1           MOV      R4,R1
+     52            SEL_IPL *sbtop=MenuGetUserPointer(gui);
+   \   00000008   E00100EF           SWI      +480
+   \   0000000C   0050A0E1           MOV      R5,R0
+     53            if (cmd==3)
+   \   00000010   030054E3           CMP      R4,#+3
+   \   00000014   0500001A           BNE      ??selipl_menu_ghook_0
+     54            {
+     55              while(sbtop)
+   \                     ??selipl_menu_ghook_1:
+   \   00000018   000055E3           CMP      R5,#+0
+   \   0000001C   3080BD08           POPEQ    {R4,R5,PC}
+     56              {
+     57                SEL_IPL *sb=sbtop;
+   \   00000020   0500A0E1           MOV      R0,R5
+     58                sbtop=sbtop->next;
+   \   00000024   005095E5           LDR      R5,[R5, #+0]
+     59                mfree(sb);
+   \   00000028   150000EF           SWI      +21
+   \   0000002C   F9FFFFEA           B        ??selipl_menu_ghook_1
+     60              }    
+     61            }
+     62            if (cmd==0x0A)
+   \                     ??selipl_menu_ghook_0:
+   \   00000030   0A0054E3           CMP      R4,#+10
+   \   00000034   3080BD18           POPNE    {R4,R5,PC}
+     63            {
+     64              DisableIDLETMR();
+   \   00000038   7F0100EF           SWI      +383
+     65            }
+     66          }
+   \   0000003C   3080BDE8           POP      {R4,R5,PC}       ;; return
+     67          
+
+   \                                 In segment DATA_I, align 4, align-sorted
+     68          int selipl_softkeys[]={0,1,2};
+   \                     selipl_softkeys:
+   \   00000000                      DS8 12
+   \   0000000C                      REQUIRE `?<Initializer for selipl_softkeys>`
+
+   \                                 In segment DATA_I, align 4, align-sorted
+     69          SOFTKEY_DESC selipl_sk[]=
+   \                     selipl_sk:
+   \   00000000                      DS8 24
+   \   00000018                      REQUIRE `?<Initializer for selipl_sk>`
+     70          {
+     71            {0x0018,0x0000,(int)LG_SELECT},
+     72            {0x0001,0x0000,(int)LG_CLOSE},
+     73            {0x003D,0x0000,(int)"+"}
+     74          };
+     75          
+
+   \                                 In segment DATA_I, align 4, align-sorted
+     76          SOFTKEYSTAB selipl_skt=
+   \                     selipl_skt:
+   \   00000000                      DS8 8
+   \   00000008                      REQUIRE `?<Initializer for selipl_skt>`
+     77          {
+     78            selipl_sk,0
+     79          };
+     80          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     81          void selipl_menu_iconhndl(void *gui, int cur_item, void *user_pointer)
+     82          {
+   \                     selipl_menu_iconhndl:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+   \   0000000C   0260A0E1           MOV      R6,R2
+     83            SEL_IPL *sbtop=user_pointer;
+     84            WSHDR *ws;
+     85            int len;
+     86            for (int n=0; n!=cur_item; n++) sbtop=sbtop->next;
+   \   00000010   0000A0E3           MOV      R0,#+0
+   \   00000014   000055E3           CMP      R5,#+0
+   \   00000018   0300000A           BEQ      ??selipl_menu_iconhndl_0
+   \                     ??selipl_menu_iconhndl_1:
+   \   0000001C   006096E5           LDR      R6,[R6, #+0]
+   \   00000020   010080E2           ADD      R0,R0,#+1
+   \   00000024   050050E1           CMP      R0,R5
+   \   00000028   FBFFFF1A           BNE      ??selipl_menu_iconhndl_1
+     87            void *item=AllocMenuItem(gui);
+   \                     ??selipl_menu_iconhndl_0:
+   \   0000002C   0400A0E1           MOV      R0,R4
+   \   00000030   970100EF           SWI      +407
+   \   00000034   0070A0E1           MOV      R7,R0
+     88            if (sbtop)
+   \   00000038   000056E3           CMP      R6,#+0
+   \   0000003C   0900000A           BEQ      ??selipl_menu_iconhndl_2
+     89            {
+     90              len=strlen(sbtop->cfgname);
+   \   00000040   040086E2           ADD      R0,R6,#+4
+   \   00000044   1B0000EF           SWI      +27
+     91              ws=AllocMenuWS(gui,len+4);
+   \   00000048   041080E2           ADD      R1,R0,#+4
+   \   0000004C   0400A0E1           MOV      R0,R4
+   \   00000050   980100EF           SWI      +408
+   \   00000054   0080A0E1           MOV      R8,R0
+     92              utf8_2ws(ws,sbtop->cfgname,320);
+   \   00000058   502FA0E3           MOV      R2,#+320
+   \   0000005C   041086E2           ADD      R1,R6,#+4
+   \   00000060   E30100EF           SWI      +483
+   \   00000064   060000EA           B        ??selipl_menu_iconhndl_3
+     93            }
+     94            else
+     95            {
+     96              ws=AllocMenuWS(gui,10);
+   \                     ??selipl_menu_iconhndl_2:
+   \   00000068   0A10A0E3           MOV      R1,#+10
+   \   0000006C   0400A0E1           MOV      R0,R4
+   \   00000070   980100EF           SWI      +408
+   \   00000074   0080A0E1           MOV      R8,R0
+     97              wsprintf(ws,pt,LG_ERROR);
+   \   00000078   1C209FE5           LDR      R2,??selipl_menu_iconhndl_4  ;; `?<Constant "\\317\\356\\354\\350\\353\\352\\340">`
+   \   0000007C   1C109FE5           LDR      R1,??selipl_menu_iconhndl_4+0x4  ;; pt
+   \   00000080   240100EF           SWI      +292
+     98            }
+     99            SetMenuItemText(gui, item, ws, cur_item);
+   \                     ??selipl_menu_iconhndl_3:
+   \   00000084   0530A0E1           MOV      R3,R5
+   \   00000088   0820A0E1           MOV      R2,R8
+   \   0000008C   0710A0E1           MOV      R1,R7
+   \   00000090   0400A0E1           MOV      R0,R4
+   \   00000094   9A0100EF           SWI      +410
+    100          }
+   \   00000098   F081BDE8           POP      {R4-R8,PC}       ;; return
+   \                     ??selipl_menu_iconhndl_4:
+   \   0000009C   ........           DC32     `?<Constant "\\317\\356\\354\\350\\353\\352\\340">`
+   \   000000A0   ........           DC32     pt
+    101          
+
+   \                                 In segment DATA_I, align 4, align-sorted
+    102          MENU_DESC selipl_STRUCT=
+   \                     selipl_STRUCT:
+   \   00000000                      DS8 44
+   \   0000002C                      REQUIRE `?<Initializer for selipl_STRUCT>`
+    103          {
+    104            8,selipl_menu_onkey,selipl_menu_ghook,NULL,
+    105            selipl_softkeys,
+    106            &selipl_skt,
+    107            0x10,
+    108            selipl_menu_iconhndl,
+    109            NULL,   //Items
+    110            NULL,   //Procs
+    111            0   //n
+    112          };
+    113          
+
+   \                                 In segment DATA_I, align 4, align-sorted
+    114          HEADER_DESC selipl_HDR={0,0,0,0,NULL,(int)LG_SELECT_PLAYLIST,LGP_NULL};
+   \                     selipl_HDR:
+   \   00000000                      DS8 20
+   \   00000014                      REQUIRE `?<Initializer for selipl_HDR>`
+    115          
+    116          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    117          int CreateMenuFindPlaylist()
+    118          {
+   \                     CreateMenuFindPlaylist:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   D0DF4DE2           SUB      SP,SP,#+832
+    119            CloseMAINMENU();
+   \   00000008   ........           _BLF     CloseMAINMENU,??CloseMAINMENU??rA
+    120            unsigned int err;
+    121            DIR_ENTRY de;
+    122            char e[256];
+    123            sprintf(e,"%splaylists\\",playerfolder);
+   \   0000000C   ........           LDR      R2,??DataTable1  ;; playerfolder
+   \   00000010   44119FE5           LDR      R1,??CreateMenuFindPlaylist_0+0x4  ;; `?<Constant "%splaylists\\\\">`
+   \   00000014   700F8DE2           ADD      R0,SP,#+448
+   \   00000018   160000EF           SWI      +22
+    124            const char *s=e;
+   \   0000001C   704F8DE2           ADD      R4,SP,#+448
+    125            SEL_IPL *sbtop=0;
+   \   00000020   0010A0E3           MOV      R1,#+0
+   \   00000024   00108DE5           STR      R1,[SP, #+0]
+    126            SEL_IPL *sb;
+    127            int n_ipl=0;
+   \   00000028   0050A0E3           MOV      R5,#+0
+    128            char str[128];
+    129            strcpy(str,s);
+   \   0000002C   0410A0E1           MOV      R1,R4
+   \   00000030   B00F8DE2           ADD      R0,SP,#+704
+   \   00000034   1A0000EF           SWI      +26
+    130            strcat(str,"*.*");
+   \   00000038   461F8FE2           ADR      R1,??CreateMenuFindPlaylist_0  ;; "*.*"
+   \   0000003C   B00F8DE2           ADD      R0,SP,#+704
+   \   00000040   170000EF           SWI      +23
+    131            if (FindFirstFile(&de,str,&err))
+   \   00000044   04208DE2           ADD      R2,SP,#+4
+   \   00000048   B01F8DE2           ADD      R1,SP,#+704
+   \   0000004C   08008DE2           ADD      R0,SP,#+8
+   \   00000050   6B0000EF           SWI      +107
+   \   00000054   000050E3           CMP      R0,#+0
+   \   00000058   2C00000A           BEQ      ??CreateMenuFindPlaylist_1
+    132            {
+    133              do
+    134              {
+    135                if (!(de.file_attr&FA_DIRECTORY))
+   \                     ??CreateMenuFindPlaylist_2:
+   \   0000005C   F601DDE1           LDRSH    R0,[SP, #+22]
+   \   00000060   100010E3           TST      R0,#0x10
+   \   00000064   2400001A           BNE      ??CreateMenuFindPlaylist_3
+    136                {
+    137                  extern int strcmp_nocase(const char *s, const char *d);
+    138                  sb=malloc(sizeof(SEL_IPL));
+   \   00000068   C400A0E3           MOV      R0,#+196
+   \   0000006C   140000EF           SWI      +20
+   \   00000070   0060A0E1           MOV      R6,R0
+    139                  strcpy(sb->fullpath,s);
+   \   00000074   0410A0E1           MOV      R1,R4
+   \   00000078   440086E2           ADD      R0,R6,#+68
+   \   0000007C   1A0000EF           SWI      +26
+    140                  strcat(sb->fullpath,de.file_name);
+   \   00000080   B1108DE2           ADD      R1,SP,#+177
+   \   00000084   440086E2           ADD      R0,R6,#+68
+   \   00000088   170000EF           SWI      +23
+    141                  strcpy(sb->cfgname,de.file_name);
+   \   0000008C   B1108DE2           ADD      R1,SP,#+177
+   \   00000090   040086E2           ADD      R0,R6,#+4
+   \   00000094   1A0000EF           SWI      +26
+    142                  sb->cfgname[strlen(de.file_name)-4]=0;
+   \   00000098   B1008DE2           ADD      R0,SP,#+177
+   \   0000009C   1B0000EF           SWI      +27
+   \   000000A0   0010A0E3           MOV      R1,#+0
+   \   000000A4   0610C0E7           STRB     R1,[R0, +R6]
+    143                  sb->next=0;
+   \   000000A8   0000A0E3           MOV      R0,#+0
+   \   000000AC   000086E5           STR      R0,[R6, #+0]
+    144                  if (sbtop)
+   \   000000B0   00009DE5           LDR      R0,[SP, #+0]
+   \   000000B4   000050E3           CMP      R0,#+0
+   \   000000B8   0D00000A           BEQ      ??CreateMenuFindPlaylist_4
+    145                  {
+    146                    SEL_IPL *sbr, *sbt;
+    147                    sbr=(SEL_IPL *)&sbtop;
+   \   000000BC   0D70A0E1           MOV      R7,SP
+    148                    sbt=sbtop;
+   \   000000C0   0080A0E1           MOV      R8,R0
+    149                    while(strcmp_nocase(sbt->cfgname,sb->cfgname)<0)
+   \                     ??CreateMenuFindPlaylist_5:
+   \   000000C4   041086E2           ADD      R1,R6,#+4
+   \   000000C8   040088E2           ADD      R0,R8,#+4
+   \   000000CC   ........           _BLF     strcmp_nocase,??strcmp_nocase??rA
+   \   000000D0   000050E3           CMP      R0,#+0
+   \   000000D4   0300005A           BPL      ??CreateMenuFindPlaylist_6
+    150                    {
+    151                      sbr=sbt;
+   \   000000D8   0870A0E1           MOV      R7,R8
+    152                      sbt=sbt->next;
+   \   000000DC   008098E5           LDR      R8,[R8, #+0]
+    153                      if (!sbt) break;
+   \   000000E0   000058E3           CMP      R8,#+0
+   \   000000E4   F6FFFF1A           BNE      ??CreateMenuFindPlaylist_5
+    154                    }
+    155                    sb->next=sbt;
+   \                     ??CreateMenuFindPlaylist_6:
+   \   000000E8   008086E5           STR      R8,[R6, #+0]
+    156                    sbr->next=sb;
+   \   000000EC   006087E5           STR      R6,[R7, #+0]
+   \   000000F0   000000EA           B        ??CreateMenuFindPlaylist_7
+    157                  }
+    158                  else
+    159                  {
+    160                    sbtop=sb;
+   \                     ??CreateMenuFindPlaylist_4:
+   \   000000F4   00608DE5           STR      R6,[SP, #+0]
+    161                  }
+    162                  n_ipl++;
+   \                     ??CreateMenuFindPlaylist_7:
+   \   000000F8   015085E2           ADD      R5,R5,#+1
+    163                }
+    164              }
+    165              while(FindNextFile(&de,&err));
+   \                     ??CreateMenuFindPlaylist_3:
+   \   000000FC   04108DE2           ADD      R1,SP,#+4
+   \   00000100   08008DE2           ADD      R0,SP,#+8
+   \   00000104   6C0000EF           SWI      +108
+   \   00000108   000050E3           CMP      R0,#+0
+   \   0000010C   D2FFFF1A           BNE      ??CreateMenuFindPlaylist_2
+    166            }
+    167            FindClose(&de,&err);
+   \                     ??CreateMenuFindPlaylist_1:
+   \   00000110   04108DE2           ADD      R1,SP,#+4
+   \   00000114   08008DE2           ADD      R0,SP,#+8
+   \   00000118   6D0000EF           SWI      +109
+    168            patch_header(&selipl_HDR);
+   \   0000011C   3C009FE5           LDR      R0,??CreateMenuFindPlaylist_0+0x8  ;; selipl_HDR
+   \   00000120   ........           BL       patch_header
+    169            return CreateMenu(0,0,&selipl_STRUCT,&selipl_HDR,0,n_ipl,sbtop,0);
+   \   00000124   0000A0E3           MOV      R0,#+0
+   \   00000128   01002DE9           PUSH     {R0}
+   \   0000012C   04009DE5           LDR      R0,[SP, #+4]
+   \   00000130   01002DE9           PUSH     {R0}
+   \   00000134   20002DE9           PUSH     {R5}
+   \   00000138   0000A0E3           MOV      R0,#+0
+   \   0000013C   01002DE9           PUSH     {R0}
+   \   00000140   18309FE5           LDR      R3,??CreateMenuFindPlaylist_0+0x8  ;; selipl_HDR
+   \   00000144   18209FE5           LDR      R2,??CreateMenuFindPlaylist_0+0xC  ;; selipl_STRUCT
+   \   00000148   0010A0E3           MOV      R1,#+0
+   \   0000014C   520100EF           SWI      +338
+   \   00000150   D4DF8DE2           ADD      SP,SP,#+848      ;; stack cleaning
+   \   00000154   F081BDE8           POP      {R4-R8,PC}       ;; return
+   \                     ??CreateMenuFindPlaylist_0:
+   \   00000158   2A2E2A00           DC8      "*.*"
+   \   0000015C   ........           DC32     `?<Constant "%splaylists\\\\">`
+   \   00000160   ........           DC32     selipl_HDR
+   \   00000164   ........           DC32     selipl_STRUCT
+    170          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable1:
+   \   00000000   ........           DC32     playerfolder
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for selipl_softkeys>`:
+   \   00000000   000000000100       DC32 0, 1, 2
+   \              000002000000
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for selipl_sk>`:
+   \   00000000   18000000           DC16 24, 0
+   \   00000004   ........           DC32 `?<Constant "\\302\\350\\341i\\360">`
+   \   00000008   01000000           DC16 1, 0
+   \   0000000C   ........           DC32 `?<Constant "\\315\\340\\347\\340\\344">`
+   \   00000010   3D000000           DC16 61, 0
+   \   00000014   ........           DC32 `?<Constant "+">`
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for selipl_skt>`:
+   \   00000000   ........0000       DC32 selipl_sk, 0
+   \              0000        
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for selipl_STRUCT>`:
+   \   00000000   08000000....       DC32 8, selipl_menu_onkey, selipl_menu_ghook, 0H, selipl_softkeys
+   \              ............
+   \              00000000....
+   \              ....        
+   \   00000014   ........1000       DC32 selipl_skt, 16, selipl_menu_iconhndl, 0H, 0H, 0
+   \              0000........
+   \              000000000000
+   \              000000000000
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for selipl_HDR>`:
+   \   00000000   000000000000       DC16 0, 0, 0, 0
+   \              0000        
+   \   00000008   00000000....       DC32 0H, `?<Constant "\\302\\350\\341i\\360 \\361\\357\\350\\361`
+   \              ....        
+   \   00000010   FF7F0000           DC32 32767
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\302\\350\\341i\\360">`:
+   \   00000000   C2E8E169F000       DC8 "\302\350\341i\360"
+   \   00000006   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\315\\340\\347\\340\\344">`:
+   \   00000000   CDE0E7E0E400       DC8 "\315\340\347\340\344"
+   \   00000006   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \                     `?<Constant "+">`:
+   \   00000000   2B00               DC8 "+"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\302\\350\\341i\\360 \\361\\357\\350\\361`:
+   \   00000000   C2E8E169F020       DC8 "\302\350\341i\360 \361\357\350\361\352\363"
+   \              F1EFE8F1EAF3
+   \              00          
+   \   0000000D   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "%sivoplay.elf">`:
+   \   00000000   257369766F70       DC8 "%sivoplay.elf"
+   \              6C61792E656C
+   \              6600        
+   \   0000000E   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\317\\356\\354\\350\\353\\352\\340">`:
+   \   00000000   CFEEECE8EBEA       DC8 "\317\356\354\350\353\352\340"
+   \              E000        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "%splaylists\\\\">`:
+   \   00000000   2573706C6179       DC8 "%splaylists\\"
+   \              6C697374735C
+   \              00          
+   \   0000000D   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \   00000000   2A2E2A00           DC8 "*.*"
+
+   Maximum stack usage in bytes:
+
+     Function               CSTACK
+     --------               ------
+     CreateMenuFindPlaylist   872
+     patch_header               8
+     selipl_menu_ghook         12
+     selipl_menu_iconhndl      24
+     selipl_menu_onkey        272
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     pt                                3
+     patch_header                     48
+     selipl_menu_onkey               140
+     selipl_menu_ghook                64
+     selipl_softkeys                  12
+     selipl_sk                        24
+     selipl_skt                        8
+     selipl_menu_iconhndl            164
+     selipl_STRUCT                    44
+     selipl_HDR                       20
+     CreateMenuFindPlaylist          360
+     ??DataTable1                      4
+     ?<Initializer for selipl_softkeys>
+                                      12
+     ?<Initializer for selipl_sk>     24
+     ?<Initializer for selipl_skt>     8
+     ?<Initializer for selipl_STRUCT>
+                                      44
+     ?<Initializer for selipl_HDR>    20
+     ?<Constant "\302\350\341i\360">
+                                       8
+     ?<Constant "\315\340\347\340\344">
+                                       8
+     ?<Constant "+">                   2
+     ?<Constant "\302\350\341i\360 \361\357\350\361
+                                      16
+     ?<Constant "%sivoplay.elf">      16
+     ?<Constant "\317\356\354\350\353\352\340">
+                                       8
+     ?<Constant "%splaylists\\">      16
+     ?<Constant "*.*">                 4
+      Others                          68
+
+ 
+ 836 bytes in segment CODE
+  81 bytes in segment DATA_C
+ 108 bytes in segment DATA_I
+ 108 bytes in segment DATA_ID
+  12 bytes in segment INITTAB
+ 
+ 780 bytes of CODE  memory (+ 68 bytes shared)
+ 189 bytes of CONST memory
+ 108 bytes of DATA  memory
+
+Errors: none
+Warnings: none

@@ -1,0 +1,290 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    19/Sep/2009  14:16:05 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\n_xtask_final(all platforms)\swaper.c         #
+#    Command line    =  "C:\arm\n_xtask_final(all platforms)\swaper.c" -D    #
+#                       NEWSGOLD -D ELKA -D EVILFOX -lC                      #
+#                       "C:\arm\n_xtask_final(all                            #
+#                       platforms)\Release_ELKA\List\" -o                    #
+#                       "C:\arm\n_xtask_final(all                            #
+#                       platforms)\Release_ELKA\Obj\" -s9 --no_unroll        #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\n_xtask_final(all platforms)\Release_ELKA\Lis #
+#                       t\swaper.lst                                         #
+#    Object file     =  C:\arm\n_xtask_final(all platforms)\Release_ELKA\Obj #
+#                       \swaper.r79                                          #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\n_xtask_final(all platforms)\swaper.c
+      1          #include "../inc/swilib.h"
+      2          #include "swaper.h"
+      3          
+      4          extern CSM_RAM *under_idle;
+      5          
+
+   \                                 In segment CODE, align 4, keep-with-next
+      6          static int do_CSMtoTop(CSMQ *csm_q, void *_cmd)
+      7          {
+   \                     do_CSMtoTop:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0170A0E1           MOV      R7,R1
+      8          //  static const char my_color[]={0x00,0x00,0x00,0x32};
+      9            MMICMD *cmd=_cmd;
+     10            int *gui;
+     11            CSM_RAM *wcsm;
+     12            CSM_RAM *top_csm=FindCSM(csm_q,cmd->parent_id);
+   \   0000000C   0C1097E5           LDR      R1,[R7, #+12]
+   \   00000010   420100EF           SWI      +322
+   \   00000014   0050A0E1           MOV      R5,R0
+     13            CSM_RAM *bot_csm=under_idle;
+   \   00000018   F0009FE5           LDR      R0,??do_CSMtoTop_0  ;; under_idle
+   \   0000001C   006090E5           LDR      R6,[R0, #+0]
+     14            if (!bot_csm) return 1;
+   \   00000020   000056E3           CMP      R6,#+0
+   \   00000024   0100001A           BNE      ??do_CSMtoTop_1
+   \                     ??do_CSMtoTop_2:
+   \   00000028   0100A0E3           MOV      R0,#+1
+   \   0000002C   F080BDE8           POP      {R4-R7,PC}       ;; return
+     15          #ifdef NEWSGOLD
+     16            CSM_RAM *work_csm=FindCSM(csm_q,cmd->id);
+   \                     ??do_CSMtoTop_1:
+   \   00000030   1C1097E5           LDR      R1,[R7, #+28]
+   \   00000034   0400A0E1           MOV      R0,R4
+   \   00000038   420100EF           SWI      +322
+   \   0000003C   0070B0E1           MOVS     R7,R0
+     17          #else
+     18            CSM_RAM *work_csm=FindCSM(csm_q,(int)(cmd->cmd_csm));
+     19          #endif
+     20            if (!work_csm) return 1;
+     21            if (work_csm==bot_csm) return 1;
+   \   00000040   06005711           CMPNE    R7,R6
+     22            if (work_csm==top_csm) return 1;
+   \   00000044   05005711           CMPNE    R7,R5
+   \   00000048   F6FFFF0A           BEQ      ??do_CSMtoTop_2
+     23            if (work_csm==(top_csm?top_csm->prev:csm_q->csm.last)) return 1;
+   \   0000004C   000055E3           CMP      R5,#+0
+   \   00000050   04009515           LDRNE    R0,[R5, #+4]
+   \   00000054   0C009405           LDREQ    R0,[R4, #+12]
+   \   00000058   000057E1           CMP      R7,R0
+   \   0000005C   F1FFFF0A           BEQ      ??do_CSMtoTop_2
+     24            if (!top_csm) UnfocusGUI();
+   \   00000060   000055E3           CMP      R5,#+0
+   \   00000064   0800001A           BNE      ??do_CSMtoTop_3
+   \   00000068   1F0200EF           SWI      +543
+     25          //
+     26            do
+     27            {
+     28              if (top_csm)
+     29              {
+     30                wcsm=(CSM_RAM *)top_csm->prev; //ѕолучаем перемещаемый CSM
+     31              }
+     32              else
+     33              {
+     34                wcsm=csm_q->csm.last;
+   \                     ??do_CSMtoTop_4:
+   \   0000006C   0C0094E5           LDR      R0,[R4, #+12]
+     35              }
+     36              ((CSM_RAM *)(wcsm->prev))->next=top_csm; //CSM перед перемещаемым теперь указывает на верхний CSM
+     37              if (top_csm)
+   \                     ??do_CSMtoTop_5:
+   \   00000070   000055E3           CMP      R5,#+0
+   \   00000074   041090E5           LDR      R1,[R0, #+4]
+   \   00000078   005081E5           STR      R5,[R1, #+0]
+   \   0000007C   041090E5           LDR      R1,[R0, #+4]
+   \   00000080   0C108405           STREQ    R1,[R4, #+12]
+     38              {
+     39                top_csm->prev=wcsm->prev; //prev верхнего CSM указывает на CSM перед перемещаемым
+   \   00000084   04108515           STRNE    R1,[R5, #+4]
+   \   00000088   030000EA           B        ??do_CSMtoTop_6
+     40              }
+   \                     ??do_CSMtoTop_3:
+   \   0000008C   000055E3           CMP      R5,#+0
+   \   00000090   F5FFFF0A           BEQ      ??do_CSMtoTop_4
+   \   00000094   040095E5           LDR      R0,[R5, #+4]
+   \   00000098   F4FFFFEA           B        ??do_CSMtoTop_5
+     41              else
+     42              {
+     43                csm_q->csm.last=wcsm->prev;
+     44              }
+     45              //“еперь вставл€ем в нужное место перемещаемый CSM
+     46              ((CSM_RAM *)(wcsm->next=bot_csm->next))->prev=wcsm;
+   \                     ??do_CSMtoTop_6:
+   \   0000009C   001096E5           LDR      R1,[R6, #+0]
+   \   000000A0   001080E5           STR      R1,[R0, #+0]
+   \   000000A4   040081E5           STR      R0,[R1, #+4]
+     47              bot_csm->next=wcsm;
+   \   000000A8   000086E5           STR      R0,[R6, #+0]
+     48              wcsm->prev=bot_csm;
+   \   000000AC   046080E5           STR      R6,[R0, #+4]
+     49            }
+     50            while((top_csm?top_csm->prev:csm_q->csm.last)!=work_csm);
+   \   000000B0   04009515           LDRNE    R0,[R5, #+4]
+   \   000000B4   0C009405           LDREQ    R0,[R4, #+12]
+   \   000000B8   070050E1           CMP      R0,R7
+   \   000000BC   F2FFFF1A           BNE      ??do_CSMtoTop_3
+     51          //  
+     52          /*  DrawRectangle(0,0+YDISP,ScreenW()-1,ScreenH()-1,0,
+     53          			my_color,
+     54          			my_color);*/
+     55          
+     56            if (!top_csm)
+   \   000000C0   000055E3           CMP      R5,#+0
+   \   000000C4   D7FFFF1A           BNE      ??do_CSMtoTop_2
+     57            {
+     58              if ((gui=((CSM_RAM *)(csm_q->csm.last))->gui_ll.last))
+   \   000000C8   0C0094E5           LDR      R0,[R4, #+12]
+   \   000000CC   200090E5           LDR      R0,[R0, #+32]
+   \   000000D0   000050E3           CMP      R0,#+0
+   \   000000D4   0200000A           BEQ      ??do_CSMtoTop_7
+     59              {
+     60                FocusGUI(gui[3]);
+   \   000000D8   0C0090E5           LDR      R0,[R0, #+12]
+   \   000000DC   1E0200EF           SWI      +542
+     61              }
+     62              //—ообщение об уничтожении несуществующего CSM, необходимо дл€ правильной работы IdleCSM
+     63              GBS_SendMessage(MMI_CEPID,MSG_CSM_DESTROYED,0,30002,0);
+   \   000000E0   0000A0E3           MOV      R0,#+0
+   \                     ??do_CSMtoTop_7:
+   \   000000E4   01002DE9           PUSH     {R0}
+   \   000000E8   3230A0E3           MOV      R3,#+50
+   \   000000EC   753C83E3           ORR      R3,R3,#0x7500
+   \   000000F0   0020A0E3           MOV      R2,#+0
+   \   000000F4   641CA0E3           MOV      R1,#+25600
+   \   000000F8   0900A0E3           MOV      R0,#+9
+   \   000000FC   420C80E3           ORR      R0,R0,#0x4200
+   \   00000100   000100EF           SWI      +256
+   \   00000104   04D08DE2           ADD      SP,SP,#+4
+   \   00000108   0100A0E3           MOV      R0,#+1
+   \   0000010C   F080BDE8           POP      {R4-R7,PC}
+   \                     ??do_CSMtoTop_0:
+   \   00000110   ........           DC32     under_idle
+     64            }
+     65            return 1;
+     66          }
+     67          
+     68          #pragma optimize=no_inline
+
+   \                                 In segment CODE, align 4, keep-with-next
+     69          __thumb static void LLaddToEnd(LLQ *ll, void *data)
+     70          {
+     71            LLIST *d=data;
+     72            d->next=NULL;
+   \                     LLaddToEnd:
+   \   00000000   0022               MOVS     R2,#+0
+   \   00000002   0A60               STR      R2,[R1, #+0]
+     73            d->prev=ll->last;
+   \   00000004   4268               LDR      R2,[R0, #+4]
+   \   00000006   4A60               STR      R2,[R1, #+4]
+     74            if (ll->last)
+   \   00000008   4268               LDR      R2,[R0, #+4]
+   \   0000000A   002A               CMP      R2,#+0
+   \   0000000C   01D0               BEQ      ??LLaddToEnd_0
+     75            {
+     76              ((LLIST *)ll->last)->next=d;
+   \   0000000E   1160               STR      R1,[R2, #+0]
+   \   00000010   00E0               B        ??LLaddToEnd_1
+     77            }
+     78            else
+     79            {
+     80              ll->first=d;
+   \                     ??LLaddToEnd_0:
+   \   00000012   0160               STR      R1,[R0, #+0]
+     81            }
+     82            ll->last=d;
+   \                     ??LLaddToEnd_1:
+   \   00000014   4160               STR      R1,[R0, #+4]
+     83          }
+   \   00000016   7047               BX       LR
+     84          
+     85          //Move CSM with "id" on top
+     86          //Top is under CSM with "top_id" - may be -1
+
+   \                                 In segment CODE, align 4, keep-with-next
+     87          void CSMtoTop(int id, int top_id)
+     88          {
+   \                     CSMtoTop:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+     89            CSMQ *csm_q=CSM_root()->csm_q;
+   \   0000000C   068100EF           SWI      +33030
+   \   00000010   086090E5           LDR      R6,[R0, #+8]
+     90            MMICMD *cmd;
+     91            if (!FindCSMbyID(id)) return;
+   \   00000014   0400A0E1           MOV      R0,R4
+   \   00000018   080100EF           SWI      +264
+   \   0000001C   000050E3           CMP      R0,#+0
+     92            if (id==top_id) return; //Ќечего
+   \   00000020   05005411           CMPNE    R4,R5
+   \   00000024   7080BD08           POPEQ    {R4-R6,PC}
+     93            cmd=malloc(sizeof(MMICMD));
+   \   00000028   2400A0E3           MOV      R0,#+36
+   \   0000002C   140000EF           SWI      +20
+     94            cmd->csm_q=csm_q;
+   \   00000030   186080E5           STR      R6,[R0, #+24]
+     95          
+     96            cmd->flag1=5;
+   \   00000034   0510A0E3           MOV      R1,#+5
+   \   00000038   081080E5           STR      R1,[R0, #+8]
+     97          #ifdef NEWSGOLD
+     98            cmd->prio=0;
+   \   0000003C   0010A0E3           MOV      R1,#+0
+   \   00000040   101080E5           STR      R1,[R0, #+16]
+     99            cmd->id=id;
+    100          #else
+    101            cmd->cmd_csm=(CSM_RAM*)id;
+    102          #endif
+    103            cmd->parent_id=top_id;
+    104            cmd->proc=do_CSMtoTop;
+   \   00000044   18109FE5           LDR      R1,??CSMtoTop_0  ;; do_CSMtoTop
+   \   00000048   1C4080E5           STR      R4,[R0, #+28]
+   \   0000004C   0C5080E5           STR      R5,[R0, #+12]
+   \   00000050   141080E5           STR      R1,[R0, #+20]
+    105            LLaddToEnd(&csm_q->cmd,cmd);
+   \   00000054   0010A0E1           MOV      R1,R0
+   \   00000058   140086E2           ADD      R0,R6,#+20
+   \   0000005C   ........           BLX      LLaddToEnd
+    106          }
+   \   00000060   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??CSMtoTop_0:
+   \   00000064   ........           DC32     do_CSMtoTop
+    107          
+
+   Maximum stack usage in bytes:
+
+     Function    CSTACK
+     --------    ------
+     CSMtoTop       16
+     LLaddToEnd      4
+     do_CSMtoTop    24
+
+
+   Segment part sizes:
+
+     Function/Label Bytes
+     -------------- -----
+     do_CSMtoTop     276
+     LLaddToEnd       24
+     CSMtoTop        104
+      Others          16
+
+ 
+ 420 bytes in segment CODE
+ 
+ 404 bytes of CODE memory (+ 16 bytes shared)
+
+Errors: none
+Warnings: none

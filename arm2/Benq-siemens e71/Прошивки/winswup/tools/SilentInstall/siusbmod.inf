@@ -1,0 +1,268 @@
+; usb.65inf
+;
+; Installation file (.inf) for the USB Serial device driver.
+;
+; Copyright © 2004 Siemens AG
+;
+
+[Version]
+Signature="$Windows NT$"
+Provider=%S_Povider%
+ClassGUID={4D36E96D-E325-11CE-BFC1-08002BE10318}
+Class=Modem
+CatalogFile=siusbmod.cat
+DriverVer=07/28/2005,1.05.0.0
+
+;
+; Driver information
+;
+
+[Manufacturer]
+%S_Mfg%=_Devices
+
+[_Devices]
+; Siemens VID=11F5
+%S_Device1%=SiemensUSB,USB\VID_11F5&PID_0003&MI_00
+%S_Device2%=SiemensUSB_1,USB\VID_11F5&PID_0003&MI_01
+%S_Device1%=SiemensUSB,USB\VID_11F5&PID_0003
+%S_Device1%=SiemensUSB_1,USB\VID_11F5&PID_0004&MI_01
+%S_Device1%=SiemensUSB,USB\VID_11F5&PID_1004&MI_00
+%S_Device2%=SiemensUSB_1,USB\VID_11F5&PID_1004&MI_01
+%S_Device1%=SiemensUSB,USB\VID_11F5&PID_0004
+
+;
+; General installation section
+;
+
+[SiemensUSB.NT]
+CopyFiles=_CopyFiles_sys
+AddReg= Common_AddReg,Siemens_AddReg,Siemens_Addreg_Responses,Siemens_Addreg_FaxStd
+
+[SiemensUSB.NT.HW]
+AddReg=_AddReg_HW, _AddReg_Param, LowerFilterAddReg
+
+
+[SiemensUSB_1.NT]
+CopyFiles=_CopyFiles_sys
+AddReg= Common_AddReg,Siemens_AddReg,Siemens_Addreg_Responses,Siemens_Addreg_FaxStd
+
+[SiemensUSB_1.NT.HW]
+AddReg=_AddReg_HW, _AddReg_Param1, LowerFilterAddReg
+
+
+
+[LowerFilterAddReg]
+HKR,,"LowerFilters",0x00010000,"siusbmod"
+
+;
+; Service Installation
+;
+
+[SiemensUSB.NT.Services]
+AddService = siusbmod, 0x00000000 , SiemensUSB_Service_Inst, SiemensUSB_EventLog_Inst
+
+[SiemensUSB_1.NT.Services]
+AddService = siusbmod, 0x00000000 , SiemensUSB_Service_Inst, SiemensUSB_EventLog_Inst
+
+[SiemensUSB_Service_Inst]
+ServiceType    = 1                  ; SERVICE_KERNEL_DRIVER
+StartType      = 3                  ; SERVICE_DEMAND_START
+ErrorControl   = 0x1                ; SERVICE_ERROR_NORMAL
+LoadOrderGroup = Pointer Port
+ServiceBinary  = %12%\siusbmod.sys
+
+
+[SiemensUSB_EventLog_Inst]
+AddReg = SiemensUSB_EventLog_AddReg
+
+[SiemensUSB_EventLog_AddReg]
+HKR,,EventMessageFile,0x00020000,"%SystemRoot%\System32\IoLogMsg.dll;%SystemRoot%\System32\drivers\siusbmod.sys"
+HKR,,TypesSupported,0x00010001,7
+
+
+[_AddReg_Param]
+; the following keys will be written in the registry by the install program
+; other default params
+HKR,,RequestTimeout,0x00010001, 2500
+HKR,,DataInPipe,0x00010001, 0x81
+HKR,,DataOutPipe,0x00010001, 0x02
+HKR,,IntInPipe,0x00010001, 0x83
+HKR,,Instance,0x00010001, 0
+HKR,,TimerInterval,0x00010001, 10
+
+
+[_AddReg_Param1]
+; the following keys will be written in the registry by the install program
+HKR,,RequestTimeout,0x00010001, 2500
+HKR,,DataInPipe,0x00010001, 0x85
+HKR,,DataOutPipe,0x00010001, 0x06
+HKR,,IntInPipe,0x00010001, 0x87
+HKR,,Instance,0x00010001, 1
+HKR,,TimerInterval,0x00010001, 10
+
+
+[_AddReg_HW]
+; the following comment is important for uninstalling/updating the driver
+; !!! don't change this line !!!
+; an additional key to identify our modem "{9548D0D8-0733-4abc-8841-39743D40ED88}"
+HKR,, SiemensPrivateModemGuid,1, D8, D0, 48, 95, 33, 07, bc, 4a, 88, 41, 39, 74, 3D, 40, ED, 88
+
+
+; general format of a registry line:
+;  HKR, <Path>, <Key>, <Format>, <Value> [,<Value>, ...]
+[Common_AddReg]
+; all modems described by this file use the UNIMODEM driver
+HKR,, FriendlyDriver, , Unimodem.vxd
+HKR,, DevLoader,,*vcomm
+HKR,, ConfigDialog,, modemui.dll
+HKR,, EnumPropPages,,"modemui.dll,EnumPropPages"
+
+
+; modem is an external modem
+HKR,, DeviceType, 1, 01
+HKR,, PortSubClass, 1, 02
+HKR,,ConfigDelay, 1, 9a,10,00,00
+
+
+HKR,,Reset,,                            "AT&F<cr>"
+HKR, Init,      1,,                     "AT&FE0V1&D2&C1Q0S0=0<cr>"
+HKR, Init,      2,,                     "AT&FE0<cr>"
+HKR, Init,      3,,                     "AT+FCLASS=0<cr>"
+HKR, Monitor,   1,,                     "ATS0=0<cr>"
+HKR, Monitor,   2,,                     "None"
+HKR, Hangup,    1,,                     "ATH<cr>"
+;HKR, Hangup,    2,,                     "AT+CHUP<cr>"
+HKR, Answer,    1,,                     "ATA<cr>"
+HKR, Settings, Prefix,,                 "AT"
+
+HKR, Settings, DialSuffix,,             ";"
+HKR, Settings, Terminator,,             "<cr>"
+HKR, Settings, DialPrefix,,             "D"
+HKR, Settings, FlowControl_Off,,        "\Q0"
+HKR, Settings, FlowControl_Hard,,       "\Q3"
+HKR, Settings, FlowControl_Soft,,       "\Q1"
+HKR, Settings, CallSetupFailTimer,,     "S7=<#>"
+
+[Siemens_Addreg]
+;serial speed set to 460800, max serial speed set to 460800  at the S75
+HKR,, Properties, 1, 00,00,00,00, 3C,00,00,00, 00,00,00,00, 00,00,00,00, 00,00,00,00, 30,00,00,00, 00,08,07,00, 00,08,07,00
+
+HKR, Protocol\GSM\GPRS, 1,,              "AT<cr>"
+HKR, Protocol\GSM\ANALOG_RLP,1,,         "AT+CBST=7,,1<cr>"   ; or ATB13
+;HKR, Protocol\GSM\ANALOG_RLP_14DOT4K,1,, "AT+CBST=14,,1<cr>"  ; or ATB15
+;HKR, Protocol\GSM\V110_2DOT4K,1,,        "AT+CBST=68,,1<cr>"  ; or ATB25
+HKR, Protocol\GSM\V110_4DOT8K,1,,        "AT+CBST=70,,1<cr>"  ; or ATB27
+HKR, Protocol\GSM\V110_9DOT6K,1,,        "AT+CBST=71,,1<cr>"  ; or ATB29
+HKR, Protocol\GSM\V110_14DOT4K,1,,       "AT+CBST=75,,1<cr>"  ; or ATB31
+
+; responses
+[Siemens_Addreg_Responses]
+HKR, Responses, "<cr><lf>OK<cr><lf>",                   1, 00, 00, 00,00,00,00, 00,00,00,00
+HKR, Responses, "<cr><lf>ERROR<cr><lf>",                1, 03, 00, 00,00,00,00, 00,00,00,00
+HKR, Responses, "<cr><lf>RING<cr><lf>",                 1, 08, 00, 00,00,00,00, 00,00,00,00
+HKR, Responses, "<cr><lf>NO CARRIER<cr><lf>",           1, 04, 00, 00,00,00,00, 00,00,00,00
+HKR, Responses, "<cr><lf>NO DIALTONE<cr><lf>",          1, 05, 00, 00,00,00,00, 00,00,00,00
+HKR, Responses, "<cr><lf>BUSY<cr><lf>",                 1, 06, 00, 00,00,00,00, 00,00,00,00
+HKR, Responses, "<cr><lf>CONNECT<cr><lf>",              1, 02, 00, 00,00,00,00, 00,00,00,00
+HKR, Responses, "<cr><lf>CONNECT 2400<cr><lf>",         1, 02, 00, 60,09,00,00, 00,00,00,00
+HKR, Responses, "<cr><lf>CONNECT 4800<cr><lf>",         1, 02, 00, c0,12,00,00, 00,00,00,00
+HKR, Responses, "<cr><lf>CONNECT 9600<cr><lf>",         1, 02, 00, 80,25,00,00, 00,00,00,00
+HKR, Responses, "<cr><lf>CONNECT 14400<cr><lf>",        1, 02, 00, 40,38,00,00, 00,00,00,00
+HKR, Responses, "<cr><lf>CONNECT 2400/RLP<cr><lf>",     1, 02, 0a, 60,09,00,00, 00,00,00,00
+HKR, Responses, "<cr><lf>CONNECT 4800/RLP<cr><lf>",     1, 02, 0a, c0,12,00,00, 00,00,00,00
+HKR, Responses, "<cr><lf>CONNECT 9600/RLP<cr><lf>",     1, 02, 0a, 80,25,00,00, 00,00,00,00
+HKR, Responses, "<cr><lf>CONNECT 14400/RLP<cr><lf>",    1, 02, 00, 40,38,00,00, 00,00,00,00
+HKR, Responses, "<cr><lf>NO ANSWER<cr><lf>",            1, 07, 00, 00,00,00,00, 00,00,00,00
+HKR, Responses, "<cr><lf>CONNECT 16800<cr><lf>",   1, 02, 00, A0,41,00,00, 00,00,00,00   
+HKR, Responses, "<cr><lf>CONNECT 19200<cr><lf>",   1, 02, 00, 00,4B,00,00, 00,00,00,00   
+HKR, Responses, "<cr><lf>CONNECT 21600<cr><lf>",   1, 02, 00, 60,54,00,00, 00,00,00,00 
+HKR, Responses, "<cr><lf>CONNECT 24000<cr><lf>",   1, 02, 00, C0,5D,00,00, 00,00,00,00
+HKR, Responses, "<cr><lf>CONNECT 26400<cr><lf>",   1, 02, 00, 20,67,00,00, 00,00,00,00
+HKR, Responses, "<cr><lf>CONNECT 28800<cr><lf>",   1, 02, 00, 80,70,00,00, 00,00,00,00
+HKR, Responses, "<cr><lf>CONNECT 38400<cr><lf>",   1, 02, 00, 00,96,00,00, 00,00,00,00   
+HKR, Responses, "<cr><lf>CONNECT 57600<cr><lf>",   1, 02, 00, 00,E1,00,00, 00,00,00,00   
+HKR, Responses, "<cr><lf>CONNECT 115200<cr><lf>",  1, 02, 00, 00,C2,01,00, 00,00,00,00
+HKR, Responses, "<cr><lf>CONNECT 16800/RLP<cr><lf>",   1, 02, 00, A0,41,00,00, 00,00,00,00   
+HKR, Responses, "<cr><lf>CONNECT 19200/RLP<cr><lf>",   1, 02, 00, 00,4B,00,00, 00,00,00,00   
+HKR, Responses, "<cr><lf>CONNECT 21600/RLP<cr><lf>",   1, 02, 00, 60,54,00,00, 00,00,00,00 
+HKR, Responses, "<cr><lf>CONNECT 24000/RLP<cr><lf>",   1, 02, 00, C0,5D,00,00, 00,00,00,00
+HKR, Responses, "<cr><lf>CONNECT 26400/RLP<cr><lf>",   1, 02, 00, 20,67,00,00, 00,00,00,00
+HKR, Responses, "<cr><lf>CONNECT 28800/RLP<cr><lf>",   1, 02, 00, 80,70,00,00, 00,00,00,00
+HKR, Responses, "<cr><lf>CONNECT 38400/RLP<cr><lf>",   1, 02, 00, 00,96,00,00, 00,00,00,00   
+HKR, Responses, "<cr><lf>CONNECT 57600/RLP<cr><lf>",   1, 02, 00, 00,E1,00,00, 00,00,00,00   
+HKR, Responses, "<cr><lf>CONNECT 115200/RLP<cr><lf>",  1, 02, 00, 00,C2,01,00, 00,00,00,00
+HKR, Responses, "0<cr>", 1, 00, 00, 00,00,00,00, 00,00,00,00 
+HKR, Responses, "1<cr>", 1, 02, 00, 00,00,00,00, 00,00,00,00
+HKR, Responses, "2<cr>", 1, 08, 00, 00,00,00,00, 00,00,00,00 
+HKR, Responses, "3<cr>", 1, 04, 00, 00,00,00,00, 00,00,00,00 
+HKR, Responses, "4<cr>", 1, 03, 00, 00,00,00,00, 00,00,00,00 
+HKR, Responses, "6<cr>", 1, 05, 00, 00,00,00,00, 00,00,00,00 
+HKR, Responses, "7<cr>", 1, 06, 00, 00,00,00,00, 00,00,00,00 
+HKR, Responses, "8<cr>", 1, 07, 00, 00,00,00,00, 00,00,00,00 
+HKR, Responses, "10<cr>", 1, 02, 00, 60,09,00,00, 00,00,00,00 
+HKR, Responses, "30<cr>", 1, 02, 00, C0,12,00,00, 00,00,00,00 
+HKR, Responses, "32<cr>", 1, 02, 00, 80,25,00,00, 00,00,00,00
+HKR, Responses, "47<cr>", 1, 02, 00, 60,09,00,00, 00,00,00,00 
+HKR, Responses, "48<cr>", 1, 02, 00, C0,12,00,00, 00,00,00,00 
+HKR, Responses, "49<cr>", 1, 02, 00, 80,25,00,00, 00,00,00,00 
+HKR, Responses, "33<cr>", 1, 02, 00, 40,38,00,00, 00,00,00,00 
+HKR, Responses, "50<cr>", 1, 02, 00, 40,38,00,00, 00,00,00,00 
+
+
+
+
+;--- begin FAX settings ---
+
+[Siemens_Addreg_FaxStd]
+HKR, Fax, ResetCommand,, "AT&FS0=0E0V1Q0" 
+HKR, Fax, SetupCommand,, "ATS7=255&D2\Q1"
+; use FAX CLASS 1
+;HKR, Fax, FixModemClass,, "1"
+; set serial line speed in FAX mode
+;HKR, Fax, FixSerialSpeed,, "19200"
+
+
+
+
+
+
+[DestinationDirs]
+DefaultDestDir   = 12
+_CopyFiles_sys = 10,System32\Drivers
+
+;
+; Source file information
+;
+
+[SourceDisksNames.x86]
+1 = %DiskId1%,,,""
+
+[SourceDisksFiles]
+; Files for disk Thesycon Systemsoftware & Consulting GmbH Installation Disk #1 (Ports)
+siusbmod.sys = 1,,
+
+[_CopyFiles_sys]
+siusbmod.sys
+
+[Strings]
+
+;
+; Non-Localizable Strings
+;
+
+REG_SZ         = 0x00000000
+REG_MULTI_SZ   = 0x00010000
+REG_EXPAND_SZ  = 0x00020000
+REG_BINARY     = 0x00000001
+REG_DWORD      = 0x00010001
+SERVICEROOT    = "System\CurrentControlSet\Services"
+
+;
+; Localizable Strings
+;
+
+S_Device1 = "Siemens Mobile Phone USB Modem"
+S_Device2 = "Siemens Mobile Phone USB Modem (Debug)"
+DiskId1 = "Siemens Mobile Phone USB Modem Installation Disk"
+S_Mfg = "Siemens AG"
+S_Povider = "Siemens AG"

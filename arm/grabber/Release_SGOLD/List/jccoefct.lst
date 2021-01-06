@@ -1,0 +1,1155 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    19/Jan/2011  13:20:48 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\grabber\jpeg-7\jccoefct.c                     #
+#    Command line    =  C:\arm\grabber\jpeg-7\jccoefct.c -lC                 #
+#                       C:\arm\grabber\Release_SGOLD\List\ -o                #
+#                       C:\arm\grabber\Release_SGOLD\Obj\ -s9 --no_unroll    #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\grabber\Release_SGOLD\List\jccoefct.lst       #
+#    Object file     =  C:\arm\grabber\Release_SGOLD\Obj\jccoefct.r79        #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\grabber\jpeg-7\jccoefct.c
+      1          
+      2          /*
+      3           * jccoefct.c
+      4           *
+      5           * Copyright (C) 1994-1997, Thomas G. Lane.
+      6           * This file is part of the Independent JPEG Group's software.
+      7           * For conditions of distribution and use, see the accompanying README file.
+      8           *
+      9           * This file contains the coefficient buffer controller for compression.
+     10           * This controller is the top level of the JPEG compressor proper.
+     11           * The coefficient buffer lies between forward-DCT and entropy encoding steps.
+     12           */
+     13          
+     14          #define JPEG_INTERNALS
+     15          #include "jinclude.h"
+     16          #include "jpeglib.h"
+     17          
+     18          
+     19          /* We use a full-image coefficient buffer when doing Huffman optimization,
+     20           * and also for writing multiple-scan JPEG files.  In all cases, the DCT
+     21           * step is run during the first pass, and subsequent passes need only read
+     22           * the buffered coefficients.
+     23           */
+     24          #ifdef ENTROPY_OPT_SUPPORTED
+     25          #define FULL_COEF_BUFFER_SUPPORTED
+     26          #else
+     27          #ifdef C_MULTISCAN_FILES_SUPPORTED
+     28          #define FULL_COEF_BUFFER_SUPPORTED
+     29          #endif
+     30          #endif
+     31          
+     32          
+     33          /* Private buffer controller object */
+     34          
+     35          typedef struct {
+     36            struct jpeg_c_coef_controller pub; /* public fields */
+     37          
+     38            JDIMENSION iMCU_row_num;	/* iMCU row # within image */
+     39            JDIMENSION mcu_ctr;		/* counts MCUs processed in current row */
+     40            int MCU_vert_offset;		/* counts MCU rows within iMCU row */
+     41            int MCU_rows_per_iMCU_row;	/* number of such rows needed */
+     42          
+     43            /* For single-pass compression, it's sufficient to buffer just one MCU
+     44             * (although this may prove a bit slow in practice).  We allocate a
+     45             * workspace of C_MAX_BLOCKS_IN_MCU coefficient blocks, and reuse it for each
+     46             * MCU constructed and sent.  (On 80x86, the workspace is FAR even though
+     47             * it's not really very big; this is to keep the module interfaces unchanged
+     48             * when a large coefficient buffer is necessary.)
+     49             * In multi-pass modes, this array points to the current MCU's blocks
+     50             * within the virtual arrays.
+     51             */
+     52            JBLOCKROW MCU_buffer[C_MAX_BLOCKS_IN_MCU];
+     53          
+     54            /* In multi-pass modes, we need a virtual block array for each component. */
+     55            jvirt_barray_ptr whole_image[MAX_COMPONENTS];
+     56          } my_coef_controller;
+     57          
+     58          typedef my_coef_controller * my_coef_ptr;
+     59          
+     60          
+     61          /* Forward declarations */
+     62          METHODDEF(boolean) compress_data
+     63              JPP((j_compress_ptr cinfo, JSAMPIMAGE input_buf));
+     64          #ifdef FULL_COEF_BUFFER_SUPPORTED
+     65          METHODDEF(boolean) compress_first_pass
+     66              JPP((j_compress_ptr cinfo, JSAMPIMAGE input_buf));
+     67          METHODDEF(boolean) compress_output
+     68              JPP((j_compress_ptr cinfo, JSAMPIMAGE input_buf));
+     69          #endif
+     70          
+     71          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     72          LOCAL(void)
+     73          start_iMCU_row (j_compress_ptr cinfo)
+     74          /* Reset within-iMCU-row counters for a new row */
+     75          {
+     76            my_coef_ptr coef = (my_coef_ptr) cinfo->coef;
+     77          
+     78            /* In an interleaved scan, an MCU row is the same as an iMCU row.
+     79             * In a noninterleaved scan, an iMCU row has v_samp_factor MCU rows.
+     80             * But at the bottom of the image, process only what's left.
+     81             */
+     82            if (cinfo->comps_in_scan > 1) {
+   \                     start_iMCU_row:
+   \   00000000   1C2190E5           LDR      R2,[R0, #+284]
+   \   00000004   801190E5           LDR      R1,[R0, #+384]
+   \   00000008   020052E3           CMP      R2,#+2
+     83              coef->MCU_rows_per_iMCU_row = 1;
+   \   0000000C   0100A0A3           MOVGE    R0,#+1
+   \   00000010   060000AA           BGE      ??start_iMCU_row_0
+   \   00000014   202190E5           LDR      R2,[R0, #+288]
+   \   00000018   083091E5           LDR      R3,[R1, #+8]
+   \   0000001C   180190E5           LDR      R0,[R0, #+280]
+   \   00000020   010040E2           SUB      R0,R0,#+1
+   \   00000024   000053E1           CMP      R3,R0
+     84            } else {
+     85              if (coef->iMCU_row_num < (cinfo->total_iMCU_rows-1))
+     86                coef->MCU_rows_per_iMCU_row = cinfo->cur_comp_info[0]->v_samp_factor;
+   \   00000028   0C009235           LDRCC    R0,[R2, #+12]
+     87              else
+     88                coef->MCU_rows_per_iMCU_row = cinfo->cur_comp_info[0]->last_row_height;
+   \   0000002C   4C009225           LDRCS    R0,[R2, #+76]
+   \                     ??start_iMCU_row_0:
+   \   00000030   140081E5           STR      R0,[R1, #+20]
+     89            }
+     90          
+     91            coef->mcu_ctr = 0;
+   \   00000034   0000A0E3           MOV      R0,#+0
+   \   00000038   0C0081E5           STR      R0,[R1, #+12]
+     92            coef->MCU_vert_offset = 0;
+   \   0000003C   100081E5           STR      R0,[R1, #+16]
+     93          }
+   \   00000040   1EFF2FE1           BX       LR               ;; return
+     94          
+     95          
+     96          /*
+     97           * Initialize for a processing pass.
+     98           */
+     99          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    100          METHODDEF(void)
+    101          start_pass_coef (j_compress_ptr cinfo, J_BUF_MODE pass_mode)
+    102          {
+   \                     start_pass_coef:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0050A0E1           MOV      R5,R0
+    103            my_coef_ptr coef = (my_coef_ptr) cinfo->coef;
+   \   00000008   804195E5           LDR      R4,[R5, #+384]
+   \   0000000C   0160A0E1           MOV      R6,R1
+    104          
+    105            coef->iMCU_row_num = 0;
+   \   00000010   0000A0E3           MOV      R0,#+0
+   \   00000014   080084E5           STR      R0,[R4, #+8]
+    106            start_iMCU_row(cinfo);
+   \   00000018   0500A0E1           MOV      R0,R5
+   \   0000001C   ........           BL       start_iMCU_row
+    107          
+    108            switch (pass_mode) {
+   \   00000020   0300A0E3           MOV      R0,#+3
+   \   00000024   000056E3           CMP      R6,#+0
+   \   00000028   0400000A           BEQ      ??start_pass_coef_0
+   \   0000002C   026056E2           SUBS     R6,R6,#+2
+   \   00000030   1900000A           BEQ      ??start_pass_coef_1
+   \   00000034   016056E2           SUBS     R6,R6,#+1
+   \   00000038   0B00000A           BEQ      ??start_pass_coef_2
+   \   0000003C   220000EA           B        ??start_pass_coef_3
+    109            case JBUF_PASS_THRU:
+    110              if (coef->whole_image[0] != NULL)
+   \                     ??start_pass_coef_0:
+   \   00000040   401094E5           LDR      R1,[R4, #+64]
+   \   00000044   000051E3           CMP      R1,#+0
+   \   00000048   0500000A           BEQ      ??start_pass_coef_4
+    111                ERREXIT(cinfo, JERR_BAD_BUFFER_MODE);
+   \   0000004C   001095E5           LDR      R1,[R5, #+0]
+   \   00000050   140081E5           STR      R0,[R1, #+20]
+   \   00000054   001095E5           LDR      R1,[R5, #+0]
+   \   00000058   0500A0E1           MOV      R0,R5
+   \   0000005C   001091E5           LDR      R1,[R1, #+0]
+   \   00000060   31FF2FE1           BLX      R1
+    112              coef->pub.compress_data = compress_data;
+   \                     ??start_pass_coef_4:
+   \   00000064   7C009FE5           LDR      R0,??start_pass_coef_5  ;; compress_data
+   \   00000068   150000EA           B        ??start_pass_coef_6
+    113              break;
+    114          #ifdef FULL_COEF_BUFFER_SUPPORTED
+    115            case JBUF_SAVE_AND_PASS:
+    116              if (coef->whole_image[0] == NULL)
+   \                     ??start_pass_coef_2:
+   \   0000006C   401094E5           LDR      R1,[R4, #+64]
+   \   00000070   000051E3           CMP      R1,#+0
+   \   00000074   0500001A           BNE      ??start_pass_coef_7
+    117                ERREXIT(cinfo, JERR_BAD_BUFFER_MODE);
+   \   00000078   001095E5           LDR      R1,[R5, #+0]
+   \   0000007C   140081E5           STR      R0,[R1, #+20]
+   \   00000080   001095E5           LDR      R1,[R5, #+0]
+   \   00000084   0500A0E1           MOV      R0,R5
+   \   00000088   001091E5           LDR      R1,[R1, #+0]
+   \   0000008C   31FF2FE1           BLX      R1
+    118              coef->pub.compress_data = compress_first_pass;
+   \                     ??start_pass_coef_7:
+   \   00000090   54009FE5           LDR      R0,??start_pass_coef_5+0x4  ;; compress_first_pass
+   \   00000094   040084E5           STR      R0,[R4, #+4]
+   \   00000098   7080BDE8           POP      {R4-R6,PC}
+    119              break;
+    120            case JBUF_CRANK_DEST:
+    121              if (coef->whole_image[0] == NULL)
+   \                     ??start_pass_coef_1:
+   \   0000009C   401094E5           LDR      R1,[R4, #+64]
+   \   000000A0   000051E3           CMP      R1,#+0
+   \   000000A4   0500001A           BNE      ??start_pass_coef_8
+    122                ERREXIT(cinfo, JERR_BAD_BUFFER_MODE);
+   \   000000A8   001095E5           LDR      R1,[R5, #+0]
+   \   000000AC   140081E5           STR      R0,[R1, #+20]
+   \   000000B0   001095E5           LDR      R1,[R5, #+0]
+   \   000000B4   0500A0E1           MOV      R0,R5
+   \   000000B8   001091E5           LDR      R1,[R1, #+0]
+   \   000000BC   31FF2FE1           BLX      R1
+    123              coef->pub.compress_data = compress_output;
+   \                     ??start_pass_coef_8:
+   \   000000C0   28009FE5           LDR      R0,??start_pass_coef_5+0x8  ;; compress_output
+   \                     ??start_pass_coef_6:
+   \   000000C4   040084E5           STR      R0,[R4, #+4]
+   \   000000C8   7080BDE8           POP      {R4-R6,PC}
+    124              break;
+    125          #endif
+    126            default:
+    127              ERREXIT(cinfo, JERR_BAD_BUFFER_MODE);
+   \                     ??start_pass_coef_3:
+   \   000000CC   001095E5           LDR      R1,[R5, #+0]
+   \   000000D0   140081E5           STR      R0,[R1, #+20]
+   \   000000D4   001095E5           LDR      R1,[R5, #+0]
+   \   000000D8   0500A0E1           MOV      R0,R5
+   \   000000DC   001091E5           LDR      R1,[R1, #+0]
+   \   000000E0   31FF2FE1           BLX      R1
+    128              break;
+    129            }
+    130          }
+   \   000000E4   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??start_pass_coef_5:
+   \   000000E8   ........           DC32     compress_data
+   \   000000EC   ........           DC32     compress_first_pass
+   \   000000F0   ........           DC32     compress_output
+    131          
+    132          
+    133          /*
+    134           * Process some data in the single-pass case.
+    135           * We process the equivalent of one fully interleaved MCU row ("iMCU" row)
+    136           * per call, ie, v_samp_factor block rows for each component in the image.
+    137           * Returns TRUE if the iMCU row is completed, FALSE if suspended.
+    138           *
+    139           * NB: input_buf contains a plane for each component in image,
+    140           * which we index according to the component's SOF position.
+    141           */
+    142          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    143          METHODDEF(boolean)
+    144          compress_data (j_compress_ptr cinfo, JSAMPIMAGE input_buf)
+    145          {
+   \                     compress_data:
+   \   00000000   F24F2DE9           PUSH     {R1,R4-R11,LR}
+   \   00000004   1CD04DE2           SUB      SP,SP,#+28
+   \   00000008   0040A0E1           MOV      R4,R0
+    146            my_coef_ptr coef = (my_coef_ptr) cinfo->coef;
+    147            JDIMENSION MCU_col_num;	/* index of current MCU within row */
+    148            JDIMENSION last_MCU_col = cinfo->MCUs_per_row - 1;
+   \   0000000C   301194E5           LDR      R1,[R4, #+304]
+   \   00000010   805194E5           LDR      R5,[R4, #+384]
+   \   00000014   011041E2           SUB      R1,R1,#+1
+   \   00000018   0C108DE5           STR      R1,[SP, #+12]
+    149            JDIMENSION last_iMCU_row = cinfo->total_iMCU_rows - 1;
+   \   0000001C   181194E5           LDR      R1,[R4, #+280]
+   \   00000020   011041E2           SUB      R1,R1,#+1
+   \   00000024   10108DE5           STR      R1,[SP, #+16]
+    150            int blkn, bi, ci, yindex, yoffset, blockcnt;
+    151            JDIMENSION ypos, xpos;
+    152            jpeg_component_info *compptr;
+    153            forward_DCT_ptr forward_DCT;
+    154          
+    155            /* Loop to write as much as one whole iMCU row */
+    156            for (yoffset = coef->MCU_vert_offset; yoffset < coef->MCU_rows_per_iMCU_row;
+   \   00000028   101095E5           LDR      R1,[R5, #+16]
+   \   0000002C   030000EA           B        ??compress_data_0
+    157                 yoffset++) {
+    158              for (MCU_col_num = coef->mcu_ctr; MCU_col_num <= last_MCU_col;
+    159          	 MCU_col_num++) {
+    160                /* Determine where data comes from in input_buf and do the DCT thing.
+    161                 * Each call on forward_DCT processes a horizontal row of DCT blocks
+    162                 * as wide as an MCU; we rely on having allocated the MCU_buffer[] blocks
+    163                 * sequentially.  Dummy blocks at the right or bottom edge are filled in
+    164                 * specially.  The data in them does not matter for image reconstruction,
+    165                 * so we fill them with values that will encode to the smallest amount of
+    166                 * data, viz: all zeroes in the AC entries, DC entries equal to previous
+    167                 * block's DC value.  (Thanks to Thomas Kinsman for this idea.)
+    168                 */
+    169                blkn = 0;
+    170                for (ci = 0; ci < cinfo->comps_in_scan; ci++) {
+    171          	compptr = cinfo->cur_comp_info[ci];
+    172          	forward_DCT = cinfo->fdct->forward_DCT[compptr->component_index];
+    173          	blockcnt = (MCU_col_num < last_MCU_col) ? compptr->MCU_width
+    174          						: compptr->last_col_width;
+    175          	xpos = MCU_col_num * compptr->MCU_sample_width;
+    176          	ypos = yoffset * compptr->DCT_v_scaled_size;
+    177          	/* ypos == (yoffset+yindex) * DCTSIZE */
+    178          	for (yindex = 0; yindex < compptr->MCU_height; yindex++) {
+    179          	  if (coef->iMCU_row_num < last_iMCU_row ||
+    180          	      yoffset+yindex < compptr->last_row_height) {
+    181          	    (*forward_DCT) (cinfo, compptr,
+    182          			    input_buf[compptr->component_index],
+    183          			    coef->MCU_buffer[blkn],
+    184          			    ypos, xpos, (JDIMENSION) blockcnt);
+    185          	    if (blockcnt < compptr->MCU_width) {
+    186          	      /* Create some dummy blocks at the right edge of the image. */
+    187          	      jzero_far((void FAR *) coef->MCU_buffer[blkn + blockcnt],
+    188          			(compptr->MCU_width - blockcnt) * SIZEOF(JBLOCK));
+    189          	      for (bi = blockcnt; bi < compptr->MCU_width; bi++) {
+    190          		coef->MCU_buffer[blkn+bi][0][0] = coef->MCU_buffer[blkn+bi-1][0][0];
+    191          	      }
+    192          	    }
+    193          	  } else {
+    194          	    /* Create a row of dummy blocks at the bottom of the image. */
+    195          	    jzero_far((void FAR *) coef->MCU_buffer[blkn],
+    196          		      compptr->MCU_width * SIZEOF(JBLOCK));
+    197          	    for (bi = 0; bi < compptr->MCU_width; bi++) {
+    198          	      coef->MCU_buffer[blkn+bi][0][0] = coef->MCU_buffer[blkn-1][0][0];
+    199          	    }
+    200          	  }
+    201          	  blkn += compptr->MCU_width;
+    202          	  ypos += compptr->DCT_v_scaled_size;
+    203          	}
+    204                }
+    205                /* Try to write the MCU.  In event of a suspension failure, we will
+    206                 * re-DCT the MCU on restart (a bit inefficient, could be fixed...)
+    207                 */
+    208                if (! (*cinfo->entropy->encode_mcu) (cinfo, coef->MCU_buffer)) {
+    209          	/* Suspension forced; update state counters and exit */
+    210          	coef->MCU_vert_offset = yoffset;
+    211          	coef->mcu_ctr = MCU_col_num;
+    212          	return FALSE;
+    213                }
+    214              }
+    215              /* Completed an MCU row, but perhaps not an iMCU row */
+    216              coef->mcu_ctr = 0;
+   \                     ??compress_data_1:
+   \   00000030   0000A0E3           MOV      R0,#+0
+   \   00000034   0C0085E5           STR      R0,[R5, #+12]
+   \   00000038   00109DE5           LDR      R1,[SP, #+0]
+   \   0000003C   011081E2           ADD      R1,R1,#+1
+   \                     ??compress_data_0:
+   \   00000040   00108DE5           STR      R1,[SP, #+0]
+   \   00000044   00009DE5           LDR      R0,[SP, #+0]
+   \   00000048   141095E5           LDR      R1,[R5, #+20]
+   \   0000004C   010050E1           CMP      R0,R1
+   \   00000050   890000AA           BGE      ??compress_data_2
+   \   00000054   0C1095E5           LDR      R1,[R5, #+12]
+   \   00000058   010000EA           B        ??compress_data_3
+   \                     ??compress_data_4:
+   \   0000005C   04109DE5           LDR      R1,[SP, #+4]
+   \   00000060   011081E2           ADD      R1,R1,#+1
+   \                     ??compress_data_3:
+   \   00000064   04108DE5           STR      R1,[SP, #+4]
+   \   00000068   0C009DE5           LDR      R0,[SP, #+12]
+   \   0000006C   04109DE5           LDR      R1,[SP, #+4]
+   \   00000070   010050E1           CMP      R0,R1
+   \   00000074   EDFFFF3A           BCC      ??compress_data_1
+   \   00000078   0010A0E3           MOV      R1,#+0
+   \   0000007C   08108DE5           STR      R1,[SP, #+8]
+   \   00000080   1C0194E5           LDR      R0,[R4, #+284]
+   \   00000084   0060A0E3           MOV      R6,#+0
+   \   00000088   010050E3           CMP      R0,#+1
+   \   0000008C   1B0000AA           BGE      ??compress_data_5
+   \                     ??compress_data_6:
+   \   00000090   942194E5           LDR      R2,[R4, #+404]
+   \   00000094   181085E2           ADD      R1,R5,#+24
+   \   00000098   042092E5           LDR      R2,[R2, #+4]
+   \   0000009C   0400A0E1           MOV      R0,R4
+   \   000000A0   32FF2FE1           BLX      R2
+   \   000000A4   000050E3           CMP      R0,#+0
+   \   000000A8   EBFFFF1A           BNE      ??compress_data_4
+   \   000000AC   00009DE5           LDR      R0,[SP, #+0]
+   \   000000B0   100085E5           STR      R0,[R5, #+16]
+   \   000000B4   04009DE5           LDR      R0,[SP, #+4]
+   \   000000B8   0C0085E5           STR      R0,[R5, #+12]
+   \   000000BC   0000A0E3           MOV      R0,#+0
+   \   000000C0   20D08DE2           ADD      SP,SP,#+32
+   \   000000C4   F08FBDE8           POP      {R4-R11,PC}
+   \                     ??compress_data_7:
+   \   000000C8   442097E5           LDR      R2,[R7, #+68]
+   \   000000CC   0010A0E1           MOV      R1,R0
+   \   000000D0   920101E0           MUL      R1,R2,R1
+   \   000000D4   00A0A0E3           MOV      R10,#+0
+   \   000000D8   14108DE5           STR      R1,[SP, #+20]
+   \   000000DC   00009DE5           LDR      R0,[SP, #+0]
+   \   000000E0   281097E5           LDR      R1,[R7, #+40]
+   \   000000E4   910009E0           MUL      R9,R1,R0
+   \   000000E8   3C0097E5           LDR      R0,[R7, #+60]
+   \   000000EC   010050E3           CMP      R0,#+1
+   \   000000F0   220000AA           BGE      ??compress_data_8
+   \                     ??compress_data_9:
+   \   000000F4   08109DE5           LDR      R1,[SP, #+8]
+   \   000000F8   011081E2           ADD      R1,R1,#+1
+   \   000000FC   08108DE5           STR      R1,[SP, #+8]
+   \                     ??compress_data_5:
+   \   00000100   08009DE5           LDR      R0,[SP, #+8]
+   \   00000104   1C1194E5           LDR      R1,[R4, #+284]
+   \   00000108   010050E1           CMP      R0,R1
+   \   0000010C   DFFFFFAA           BGE      ??compress_data_6
+   \   00000110   902194E5           LDR      R2,[R4, #+400]
+   \   00000114   000184E0           ADD      R0,R4,R0, LSL #+2
+   \   00000118   207190E5           LDR      R7,[R0, #+288]
+   \   0000011C   041097E5           LDR      R1,[R7, #+4]
+   \   00000120   011182E0           ADD      R1,R2,R1, LSL #+2
+   \   00000124   041091E5           LDR      R1,[R1, #+4]
+   \   00000128   18108DE5           STR      R1,[SP, #+24]
+   \   0000012C   04009DE5           LDR      R0,[SP, #+4]
+   \   00000130   0C109DE5           LDR      R1,[SP, #+12]
+   \   00000134   010050E1           CMP      R0,R1
+   \   00000138   48809725           LDRCS    R8,[R7, #+72]
+   \   0000013C   38809735           LDRCC    R8,[R7, #+56]
+   \   00000140   E0FFFFEA           B        ??compress_data_7
+   \                     ??compress_data_10:
+   \   00000144   14209BE5           LDR      R2,[R11, #+20]
+   \   00000148   061080E0           ADD      R1,R0,R6
+   \   0000014C   F020D2E1           LDRSH    R2,[R2, #+0]
+   \   00000150   011185E0           ADD      R1,R5,R1, LSL #+2
+   \   00000154   181091E5           LDR      R1,[R1, #+24]
+   \   00000158   010080E2           ADD      R0,R0,#+1
+   \   0000015C   B020C1E1           STRH     R2,[R1, #+0]
+   \                     ??compress_data_11:
+   \   00000160   381097E5           LDR      R1,[R7, #+56]
+   \   00000164   010050E1           CMP      R0,R1
+   \   00000168   F5FFFFBA           BLT      ??compress_data_10
+   \                     ??compress_data_12:
+   \   0000016C   380097E5           LDR      R0,[R7, #+56]
+   \   00000170   01A08AE2           ADD      R10,R10,#+1
+   \   00000174   066080E0           ADD      R6,R0,R6
+   \   00000178   280097E5           LDR      R0,[R7, #+40]
+   \   0000017C   099080E0           ADD      R9,R0,R9
+   \                     ??compress_data_8:
+   \   00000180   3C0097E5           LDR      R0,[R7, #+60]
+   \   00000184   00005AE1           CMP      R10,R0
+   \   00000188   D9FFFFAA           BGE      ??compress_data_9
+   \   0000018C   080095E5           LDR      R0,[R5, #+8]
+   \   00000190   10109DE5           LDR      R1,[SP, #+16]
+   \   00000194   06B185E0           ADD      R11,R5,R6, LSL #+2
+   \   00000198   010050E1           CMP      R0,R1
+   \   0000019C   0400003A           BCC      ??compress_data_13
+   \   000001A0   00009DE5           LDR      R0,[SP, #+0]
+   \   000001A4   4C1097E5           LDR      R1,[R7, #+76]
+   \   000001A8   00008AE0           ADD      R0,R10,R0
+   \   000001AC   010050E1           CMP      R0,R1
+   \   000001B0   280000AA           BGE      ??compress_data_14
+   \                     ??compress_data_13:
+   \   000001B4   0800A0E1           MOV      R0,R8
+   \   000001B8   01002DE9           PUSH     {R0}
+   \   000001BC   18009DE5           LDR      R0,[SP, #+24]
+   \   000001C0   01002DE9           PUSH     {R0}
+   \   000001C4   0900A0E1           MOV      R0,R9
+   \   000001C8   01002DE9           PUSH     {R0}
+   \   000001CC   28109DE5           LDR      R1,[SP, #+40]
+   \   000001D0   18309BE5           LDR      R3,[R11, #+24]
+   \   000001D4   24B09DE5           LDR      R11,[SP, #+36]
+   \   000001D8   040097E5           LDR      R0,[R7, #+4]
+   \   000001DC   002191E7           LDR      R2,[R1, +R0, LSL #+2]
+   \   000001E0   0710A0E1           MOV      R1,R7
+   \   000001E4   0400A0E1           MOV      R0,R4
+   \   000001E8   3BFF2FE1           BLX      R11
+   \   000001EC   380097E5           LDR      R0,[R7, #+56]
+   \   000001F0   0CD08DE2           ADD      SP,SP,#+12
+   \   000001F4   000058E1           CMP      R8,R0
+   \   000001F8   DBFFFFAA           BGE      ??compress_data_12
+   \   000001FC   080040E0           SUB      R0,R0,R8
+   \   00000200   8013A0E1           LSL      R1,R0,#+7
+   \   00000204   060088E0           ADD      R0,R8,R6
+   \   00000208   000185E0           ADD      R0,R5,R0, LSL #+2
+   \   0000020C   180090E5           LDR      R0,[R0, #+24]
+   \   00000210   ........           _BLF     jzero_far,??jzero_far??rA
+   \   00000214   381097E5           LDR      R1,[R7, #+56]
+   \   00000218   0800A0E1           MOV      R0,R8
+   \   0000021C   010050E1           CMP      R0,R1
+   \   00000220   D1FFFFAA           BGE      ??compress_data_12
+   \                     ??compress_data_15:
+   \   00000224   061080E0           ADD      R1,R0,R6
+   \   00000228   182085E2           ADD      R2,R5,#+24
+   \   0000022C   012192E7           LDR      R2,[R2, +R1, LSL #+2]
+   \   00000230   183085E2           ADD      R3,R5,#+24
+   \   00000234   011183E0           ADD      R1,R3,R1, LSL #+2
+   \   00000238   041011E5           LDR      R1,[R1, #-4]
+   \   0000023C   010080E2           ADD      R0,R0,#+1
+   \   00000240   F010D1E1           LDRSH    R1,[R1, #+0]
+   \   00000244   B010C2E1           STRH     R1,[R2, #+0]
+   \   00000248   381097E5           LDR      R1,[R7, #+56]
+   \   0000024C   010050E1           CMP      R0,R1
+   \   00000250   C5FFFFAA           BGE      ??compress_data_12
+   \   00000254   F2FFFFEA           B        ??compress_data_15
+   \                     ??compress_data_14:
+   \   00000258   380097E5           LDR      R0,[R7, #+56]
+   \   0000025C   8013A0E1           LSL      R1,R0,#+7
+   \   00000260   18009BE5           LDR      R0,[R11, #+24]
+   \   00000264   ........           _BLF     jzero_far,??jzero_far??rA
+   \   00000268   381097E5           LDR      R1,[R7, #+56]
+   \   0000026C   0000A0E3           MOV      R0,#+0
+   \   00000270   010051E3           CMP      R1,#+1
+   \   00000274   B9FFFFAA           BGE      ??compress_data_11
+   \   00000278   BBFFFFEA           B        ??compress_data_12
+    217            }
+    218            /* Completed the iMCU row, advance counters for next one */
+    219            coef->iMCU_row_num++;
+   \                     ??compress_data_2:
+   \   0000027C   080095E5           LDR      R0,[R5, #+8]
+   \   00000280   010080E2           ADD      R0,R0,#+1
+   \   00000284   080085E5           STR      R0,[R5, #+8]
+    220            start_iMCU_row(cinfo);
+   \   00000288   0400A0E1           MOV      R0,R4
+   \   0000028C   ........           BL       start_iMCU_row
+    221            return TRUE;
+   \   00000290   0100A0E3           MOV      R0,#+1
+   \   00000294   20D08DE2           ADD      SP,SP,#+32
+   \   00000298   F08FBDE8           POP      {R4-R11,PC}      ;; return
+    222          }
+    223          
+    224          
+    225          #ifdef FULL_COEF_BUFFER_SUPPORTED
+    226          
+    227          /*
+    228           * Process some data in the first pass of a multi-pass case.
+    229           * We process the equivalent of one fully interleaved MCU row ("iMCU" row)
+    230           * per call, ie, v_samp_factor block rows for each component in the image.
+    231           * This amount of data is read from the source buffer, DCT'd and quantized,
+    232           * and saved into the virtual arrays.  We also generate suitable dummy blocks
+    233           * as needed at the right and lower edges.  (The dummy blocks are constructed
+    234           * in the virtual arrays, which have been padded appropriately.)  This makes
+    235           * it possible for subsequent passes not to worry about real vs. dummy blocks.
+    236           *
+    237           * We must also emit the data to the entropy encoder.  This is conveniently
+    238           * done by calling compress_output() after we've loaded the current strip
+    239           * of the virtual arrays.
+    240           *
+    241           * NB: input_buf contains a plane for each component in image.  All
+    242           * components are DCT'd and loaded into the virtual arrays in this pass.
+    243           * However, it may be that only a subset of the components are emitted to
+    244           * the entropy encoder during this first pass; be careful about looking
+    245           * at the scan-dependent variables (MCU dimensions, etc).
+    246           */
+    247          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    248          METHODDEF(boolean)
+    249          compress_first_pass (j_compress_ptr cinfo, JSAMPIMAGE input_buf)
+    250          {
+   \                     compress_first_pass:
+   \   00000000   F34F2DE9           PUSH     {R0,R1,R4-R11,LR}
+   \   00000004   10D04DE2           SUB      SP,SP,#+16
+    251            my_coef_ptr coef = (my_coef_ptr) cinfo->coef;
+   \   00000008   801190E5           LDR      R1,[R0, #+384]
+   \   0000000C   04108DE5           STR      R1,[SP, #+4]
+    252            JDIMENSION last_iMCU_row = cinfo->total_iMCU_rows - 1;
+   \   00000010   181190E5           LDR      R1,[R0, #+280]
+   \   00000014   011041E2           SUB      R1,R1,#+1
+   \   00000018   08108DE5           STR      R1,[SP, #+8]
+    253            JDIMENSION blocks_across, MCUs_across, MCUindex;
+    254            int bi, ci, h_samp_factor, block_row, block_rows, ndummy;
+    255            JCOEF lastDC;
+    256            jpeg_component_info *compptr;
+    257            JBLOCKARRAY buffer;
+    258            JBLOCKROW thisblockrow, lastblockrow;
+    259            forward_DCT_ptr forward_DCT;
+    260          
+    261            for (ci = 0, compptr = cinfo->comp_info; ci < cinfo->num_components;
+   \   0000001C   0010A0E3           MOV      R1,#+0
+   \   00000020   00108DE5           STR      R1,[SP, #+0]
+   \   00000024   504090E5           LDR      R4,[R0, #+80]
+   \   00000028   480090E5           LDR      R0,[R0, #+72]
+   \   0000002C   010050E3           CMP      R0,#+1
+   \   00000030   3B0000AA           BGE      ??compress_first_pass_0
+    262                 ci++, compptr++) {
+    263              /* Align the virtual buffer for this component. */
+    264              buffer = (*cinfo->mem->access_virt_barray)
+    265                ((j_common_ptr) cinfo, coef->whole_image[ci],
+    266                 coef->iMCU_row_num * compptr->v_samp_factor,
+    267                 (JDIMENSION) compptr->v_samp_factor, TRUE);
+    268              /* Count non-dummy DCT block rows in this iMCU row. */
+    269              if (coef->iMCU_row_num < last_iMCU_row)
+    270                block_rows = compptr->v_samp_factor;
+    271              else {
+    272                /* NB: can't use last_row_height here, since may not be set! */
+    273                block_rows = (int) (compptr->height_in_blocks % compptr->v_samp_factor);
+    274                if (block_rows == 0) block_rows = compptr->v_samp_factor;
+    275              }
+    276              blocks_across = compptr->width_in_blocks;
+    277              h_samp_factor = compptr->h_samp_factor;
+    278              /* Count number of dummy blocks to be added at the right margin. */
+    279              ndummy = (int) (blocks_across % h_samp_factor);
+    280              if (ndummy > 0)
+    281                ndummy = h_samp_factor - ndummy;
+    282              forward_DCT = cinfo->fdct->forward_DCT[ci];
+    283              /* Perform DCT for all non-dummy blocks in this iMCU row.  Each call
+    284               * on forward_DCT processes a complete horizontal row of DCT blocks.
+    285               */
+    286              for (block_row = 0; block_row < block_rows; block_row++) {
+    287                thisblockrow = buffer[block_row];
+    288                (*forward_DCT) (cinfo, compptr, input_buf[ci], thisblockrow,
+    289          		      (JDIMENSION) (block_row * compptr->DCT_v_scaled_size),
+    290          		      (JDIMENSION) 0, blocks_across);
+    291                if (ndummy > 0) {
+    292          	/* Create dummy blocks at the right edge of the image. */
+    293          	thisblockrow += blocks_across; /* => first dummy block */
+    294          	jzero_far((void FAR *) thisblockrow, ndummy * SIZEOF(JBLOCK));
+    295          	lastDC = thisblockrow[-1][0];
+    296          	for (bi = 0; bi < ndummy; bi++) {
+    297          	  thisblockrow[bi][0] = lastDC;
+    298          	}
+    299                }
+    300              }
+    301              /* If at end of image, create dummy block rows as needed.
+    302               * The tricky part here is that within each MCU, we want the DC values
+    303               * of the dummy blocks to match the last real block's DC value.
+    304               * This squeezes a few more bytes out of the resulting file...
+    305               */
+    306              if (coef->iMCU_row_num == last_iMCU_row) {
+    307                blocks_across += ndummy;	/* include lower right corner */
+    308                MCUs_across = blocks_across / h_samp_factor;
+    309                for (block_row = block_rows; block_row < compptr->v_samp_factor;
+    310          	   block_row++) {
+    311          	thisblockrow = buffer[block_row];
+    312          	lastblockrow = buffer[block_row-1];
+    313          	jzero_far((void FAR *) thisblockrow,
+    314          		  (size_t) (blocks_across * SIZEOF(JBLOCK)));
+    315          	for (MCUindex = 0; MCUindex < MCUs_across; MCUindex++) {
+    316          	  lastDC = lastblockrow[h_samp_factor-1][0];
+    317          	  for (bi = 0; bi < h_samp_factor; bi++) {
+    318          	    thisblockrow[bi][0] = lastDC;
+    319          	  }
+    320          	  thisblockrow += h_samp_factor; /* advance to next MCU in row */
+    321          	  lastblockrow += h_samp_factor;
+    322          	}
+    323                }
+    324              }
+    325            }
+    326            /* NB: compress_output will increment iMCU_row_num if successful.
+    327             * A suspension return will result in redoing all the work above next time.
+    328             */
+    329          
+    330            /* Emit data to the entropy encoder, sharing code with subsequent passes */
+    331            return compress_output(cinfo, input_buf);
+   \                     ??compress_first_pass_1:
+   \   00000034   14109DE5           LDR      R1,[SP, #+20]
+   \   00000038   10009DE5           LDR      R0,[SP, #+16]
+   \   0000003C   ........           BL       compress_output
+   \   00000040   18D08DE2           ADD      SP,SP,#+24
+   \   00000044   F08FBDE8           POP      {R4-R11,PC}      ;; return
+   \                     ??compress_first_pass_2:
+   \   00000048   0C2094E5           LDR      R2,[R4, #+12]
+   \   0000004C   200094E5           LDR      R0,[R4, #+32]
+   \   00000050   0210A0E1           MOV      R1,R2
+   \   00000054   ........           _BLF     ??divu32_a,??rA??divu32_a
+   \   00000058   0060B0E1           MOVS     R6,R0
+   \   0000005C   0260A001           MOVEQ    R6,R2
+   \                     ??compress_first_pass_3:
+   \   00000060   1C7094E5           LDR      R7,[R4, #+28]
+   \   00000064   088094E5           LDR      R8,[R4, #+8]
+   \   00000068   10209DE5           LDR      R2,[SP, #+16]
+   \   0000006C   0700A0E1           MOV      R0,R7
+   \   00000070   902192E5           LDR      R2,[R2, #+400]
+   \   00000074   0810A0E1           MOV      R1,R8
+   \   00000078   ........           _BLF     ??divu32_a,??rA??divu32_a
+   \   0000007C   00109DE5           LDR      R1,[SP, #+0]
+   \   00000080   0090A0E1           MOV      R9,R0
+   \   00000084   011182E0           ADD      R1,R2,R1, LSL #+2
+   \   00000088   041091E5           LDR      R1,[R1, #+4]
+   \   0000008C   010059E3           CMP      R9,#+1
+   \   00000090   099048A0           SUBGE    R9,R8,R9
+   \   00000094   0C108DE5           STR      R1,[SP, #+12]
+   \   00000098   00A0A0E3           MOV      R10,#+0
+   \   0000009C   010056E3           CMP      R6,#+1
+   \   000000A0   420000AA           BGE      ??compress_first_pass_4
+   \                     ??compress_first_pass_5:
+   \   000000A4   04009DE5           LDR      R0,[SP, #+4]
+   \   000000A8   08109DE5           LDR      R1,[SP, #+8]
+   \   000000AC   080090E5           LDR      R0,[R0, #+8]
+   \   000000B0   010050E1           CMP      R0,R1
+   \   000000B4   1600001A           BNE      ??compress_first_pass_6
+   \   000000B8   077089E0           ADD      R7,R9,R7
+   \   000000BC   0700A0E1           MOV      R0,R7
+   \   000000C0   0810A0E1           MOV      R1,R8
+   \   000000C4   ........           _BLF     ??divu32_a,??rA??divu32_a
+   \   000000C8   0C0094E5           LDR      R0,[R4, #+12]
+   \   000000CC   0190A0E1           MOV      R9,R1
+   \   000000D0   06A0A0E1           MOV      R10,R6
+   \   000000D4   00005AE1           CMP      R10,R0
+   \   000000D8   0D0000AA           BGE      ??compress_first_pass_6
+   \   000000DC   8763A0E1           LSL      R6,R7,#+7
+   \                     ??compress_first_pass_7:
+   \   000000E0   0AB195E7           LDR      R11,[R5, +R10, LSL #+2]
+   \   000000E4   040045E2           SUB      R0,R5,#+4
+   \   000000E8   0A7190E7           LDR      R7,[R0, +R10, LSL #+2]
+   \   000000EC   0610A0E1           MOV      R1,R6
+   \   000000F0   0B00A0E1           MOV      R0,R11
+   \   000000F4   ........           _BLF     jzero_far,??jzero_far??rA
+   \   000000F8   0020A0E3           MOV      R2,#+0
+   \   000000FC   000059E3           CMP      R9,#+0
+   \   00000100   4F00001A           BNE      ??compress_first_pass_8
+   \                     ??compress_first_pass_9:
+   \   00000104   0C0094E5           LDR      R0,[R4, #+12]
+   \   00000108   01A08AE2           ADD      R10,R10,#+1
+   \   0000010C   00005AE1           CMP      R10,R0
+   \   00000110   F2FFFFBA           BLT      ??compress_first_pass_7
+   \                     ??compress_first_pass_6:
+   \   00000114   00109DE5           LDR      R1,[SP, #+0]
+   \   00000118   584084E2           ADD      R4,R4,#+88
+   \   0000011C   011081E2           ADD      R1,R1,#+1
+   \   00000120   00108DE5           STR      R1,[SP, #+0]
+   \                     ??compress_first_pass_0:
+   \   00000124   10109DE5           LDR      R1,[SP, #+16]
+   \   00000128   00009DE5           LDR      R0,[SP, #+0]
+   \   0000012C   481091E5           LDR      R1,[R1, #+72]
+   \   00000130   010050E1           CMP      R0,R1
+   \   00000134   BEFFFFAA           BGE      ??compress_first_pass_1
+   \   00000138   0C0094E5           LDR      R0,[R4, #+12]
+   \   0000013C   0110A0E3           MOV      R1,#+1
+   \   00000140   02002DE9           PUSH     {R1}
+   \   00000144   08109DE5           LDR      R1,[SP, #+8]
+   \   00000148   0030A0E1           MOV      R3,R0
+   \   0000014C   081091E5           LDR      R1,[R1, #+8]
+   \   00000150   900102E0           MUL      R2,R0,R1
+   \   00000154   04009DE5           LDR      R0,[SP, #+4]
+   \   00000158   08109DE5           LDR      R1,[SP, #+8]
+   \   0000015C   000181E0           ADD      R0,R1,R0, LSL #+2
+   \   00000160   401090E5           LDR      R1,[R0, #+64]
+   \   00000164   14009DE5           LDR      R0,[SP, #+20]
+   \   00000168   045090E5           LDR      R5,[R0, #+4]
+   \   0000016C   205095E5           LDR      R5,[R5, #+32]
+   \   00000170   35FF2FE1           BLX      R5
+   \   00000174   0C109DE5           LDR      R1,[SP, #+12]
+   \   00000178   0050A0E1           MOV      R5,R0
+   \   0000017C   08009DE5           LDR      R0,[SP, #+8]
+   \   00000180   080090E5           LDR      R0,[R0, #+8]
+   \   00000184   04D08DE2           ADD      SP,SP,#+4
+   \   00000188   010050E1           CMP      R0,R1
+   \   0000018C   ADFFFF2A           BCS      ??compress_first_pass_2
+   \   00000190   0C6094E5           LDR      R6,[R4, #+12]
+   \   00000194   B1FFFFEA           B        ??compress_first_pass_3
+   \                     ??compress_first_pass_10:
+   \   00000198   80238BE0           ADD      R2,R11,R0, LSL #+7
+   \   0000019C   B010C2E1           STRH     R1,[R2, #+0]
+   \   000001A0   010080E2           ADD      R0,R0,#+1
+   \                     ??compress_first_pass_11:
+   \   000001A4   090050E1           CMP      R0,R9
+   \   000001A8   FAFFFFBA           BLT      ??compress_first_pass_10
+   \                     ??compress_first_pass_12:
+   \   000001AC   01A08AE2           ADD      R10,R10,#+1
+   \                     ??compress_first_pass_4:
+   \   000001B0   06005AE1           CMP      R10,R6
+   \   000001B4   BAFFFFAA           BGE      ??compress_first_pass_5
+   \   000001B8   0AB195E7           LDR      R11,[R5, +R10, LSL #+2]
+   \   000001BC   0700A0E1           MOV      R0,R7
+   \   000001C0   01002DE9           PUSH     {R0}
+   \   000001C4   0B30A0E1           MOV      R3,R11
+   \   000001C8   0000A0E3           MOV      R0,#+0
+   \   000001CC   01002DE9           PUSH     {R0}
+   \   000001D0   280094E5           LDR      R0,[R4, #+40]
+   \   000001D4   900A01E0           MUL      R1,R0,R10
+   \   000001D8   02002DE9           PUSH     {R1}
+   \   000001DC   0C009DE5           LDR      R0,[SP, #+12]
+   \   000001E0   18C09DE5           LDR      R12,[SP, #+24]
+   \   000001E4   20109DE5           LDR      R1,[SP, #+32]
+   \   000001E8   002191E7           LDR      R2,[R1, +R0, LSL #+2]
+   \   000001EC   1C009DE5           LDR      R0,[SP, #+28]
+   \   000001F0   0410A0E1           MOV      R1,R4
+   \   000001F4   3CFF2FE1           BLX      R12
+   \   000001F8   010059E3           CMP      R9,#+1
+   \   000001FC   0CD08DE2           ADD      SP,SP,#+12
+   \   00000200   E9FFFFBA           BLT      ??compress_first_pass_12
+   \   00000204   87B38BE0           ADD      R11,R11,R7, LSL #+7
+   \   00000208   8913A0E1           LSL      R1,R9,#+7
+   \   0000020C   0B00A0E1           MOV      R0,R11
+   \   00000210   ........           _BLF     jzero_far,??jzero_far??rA
+   \   00000214   7F00E0E3           MVN      R0,#+127
+   \   00000218   FB1090E1           LDRSH    R1,[R0, +R11]
+   \   0000021C   0000A0E3           MOV      R0,#+0
+   \   00000220   DFFFFFEA           B        ??compress_first_pass_11
+   \                     ??compress_first_pass_13:
+   \   00000224   80338BE0           ADD      R3,R11,R0, LSL #+7
+   \   00000228   B010C3E1           STRH     R1,[R3, #+0]
+   \   0000022C   010080E2           ADD      R0,R0,#+1
+   \                     ??compress_first_pass_14:
+   \   00000230   080050E1           CMP      R0,R8
+   \   00000234   FAFFFFBA           BLT      ??compress_first_pass_13
+   \                     ??compress_first_pass_15:
+   \   00000238   88B38BE0           ADD      R11,R11,R8, LSL #+7
+   \   0000023C   887387E0           ADD      R7,R7,R8, LSL #+7
+   \   00000240   012082E2           ADD      R2,R2,#+1
+   \                     ??compress_first_pass_8:
+   \   00000244   090052E1           CMP      R2,R9
+   \   00000248   ADFFFF2A           BCS      ??compress_first_pass_9
+   \   0000024C   7F00E0E3           MVN      R0,#+127
+   \   00000250   881387E0           ADD      R1,R7,R8, LSL #+7
+   \   00000254   F11090E1           LDRSH    R1,[R0, +R1]
+   \   00000258   0000A0E3           MOV      R0,#+0
+   \   0000025C   010058E3           CMP      R8,#+1
+   \   00000260   F2FFFFAA           BGE      ??compress_first_pass_14
+   \   00000264   F3FFFFEA           B        ??compress_first_pass_15
+    332          }
+    333          
+    334          
+    335          /*
+    336           * Process some data in subsequent passes of a multi-pass case.
+    337           * We process the equivalent of one fully interleaved MCU row ("iMCU" row)
+    338           * per call, ie, v_samp_factor block rows for each component in the scan.
+    339           * The data is obtained from the virtual arrays and fed to the entropy coder.
+    340           * Returns TRUE if the iMCU row is completed, FALSE if suspended.
+    341           *
+    342           * NB: input_buf is ignored; it is likely to be a NULL pointer.
+    343           */
+    344          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    345          METHODDEF(boolean)
+    346          compress_output (j_compress_ptr cinfo, JSAMPIMAGE input_buf)
+    347          {
+   \                     compress_output:
+   \   00000000   F0432DE9           PUSH     {R4-R9,LR}
+   \   00000004   10D04DE2           SUB      SP,SP,#+16
+   \   00000008   0040A0E1           MOV      R4,R0
+    348            my_coef_ptr coef = (my_coef_ptr) cinfo->coef;
+    349            JDIMENSION MCU_col_num;	/* index of current MCU within row */
+    350            int blkn, ci, xindex, yindex, yoffset;
+    351            JDIMENSION start_col;
+    352            JBLOCKARRAY buffer[MAX_COMPS_IN_SCAN];
+    353            JBLOCKROW buffer_ptr;
+    354            jpeg_component_info *compptr;
+    355          
+    356            /* Align the virtual buffers for the components used in this scan.
+    357             * NB: during first pass, this is safe only because the buffers will
+    358             * already be aligned properly, so jmemmgr.c won't need to do any I/O.
+    359             */
+    360            for (ci = 0; ci < cinfo->comps_in_scan; ci++) {
+   \   0000000C   1C0194E5           LDR      R0,[R4, #+284]
+   \   00000010   805194E5           LDR      R5,[R4, #+384]
+   \   00000014   0080A0E3           MOV      R8,#+0
+   \   00000018   010050E3           CMP      R0,#+1
+   \   0000001C   130000AA           BGE      ??compress_output_0
+   \   00000020   150000EA           B        ??compress_output_1
+    361              compptr = cinfo->cur_comp_info[ci];
+   \                     ??compress_output_2:
+   \   00000024   080184E0           ADD      R0,R4,R8, LSL #+2
+   \   00000028   200190E5           LDR      R0,[R0, #+288]
+    362              buffer[ci] = (*cinfo->mem->access_virt_barray)
+    363                ((j_common_ptr) cinfo, coef->whole_image[compptr->component_index],
+    364                 coef->iMCU_row_num * compptr->v_samp_factor,
+    365                 (JDIMENSION) compptr->v_samp_factor, FALSE);
+   \   0000002C   0020A0E3           MOV      R2,#+0
+   \   00000030   0C1090E5           LDR      R1,[R0, #+12]
+   \   00000034   04002DE9           PUSH     {R2}
+   \   00000038   040090E5           LDR      R0,[R0, #+4]
+   \   0000003C   082095E5           LDR      R2,[R5, #+8]
+   \   00000040   046094E5           LDR      R6,[R4, #+4]
+   \   00000044   0130A0E1           MOV      R3,R1
+   \   00000048   910202E0           MUL      R2,R1,R2
+   \   0000004C   206096E5           LDR      R6,[R6, #+32]
+   \   00000050   000185E0           ADD      R0,R5,R0, LSL #+2
+   \   00000054   401090E5           LDR      R1,[R0, #+64]
+   \   00000058   0400A0E1           MOV      R0,R4
+   \   0000005C   36FF2FE1           BLX      R6
+   \   00000060   04108DE2           ADD      R1,SP,#+4
+   \   00000064   080181E7           STR      R0,[R1, +R8, LSL #+2]
+    366            }
+   \   00000068   018088E2           ADD      R8,R8,#+1
+   \   0000006C   04D08DE2           ADD      SP,SP,#+4
+   \                     ??compress_output_0:
+   \   00000070   1C0194E5           LDR      R0,[R4, #+284]
+   \   00000074   000058E1           CMP      R8,R0
+   \   00000078   E9FFFFBA           BLT      ??compress_output_2
+    367          
+    368            /* Loop to process one whole iMCU row */
+    369            for (yoffset = coef->MCU_vert_offset; yoffset < coef->MCU_rows_per_iMCU_row;
+   \                     ??compress_output_1:
+   \   0000007C   106095E5           LDR      R6,[R5, #+16]
+   \   00000080   020000EA           B        ??compress_output_3
+    370                 yoffset++) {
+    371              for (MCU_col_num = coef->mcu_ctr; MCU_col_num < cinfo->MCUs_per_row;
+    372          	 MCU_col_num++) {
+    373                /* Construct list of pointers to DCT blocks belonging to this MCU */
+    374                blkn = 0;			/* index of current DCT block within MCU */
+    375                for (ci = 0; ci < cinfo->comps_in_scan; ci++) {
+    376          	compptr = cinfo->cur_comp_info[ci];
+    377          	start_col = MCU_col_num * compptr->MCU_width;
+    378          	for (yindex = 0; yindex < compptr->MCU_height; yindex++) {
+    379          	  buffer_ptr = buffer[ci][yindex+yoffset] + start_col;
+    380          	  for (xindex = 0; xindex < compptr->MCU_width; xindex++) {
+    381          	    coef->MCU_buffer[blkn++] = buffer_ptr++;
+    382          	  }
+    383          	}
+    384                }
+    385                /* Try to write the MCU. */
+    386                if (! (*cinfo->entropy->encode_mcu) (cinfo, coef->MCU_buffer)) {
+    387          	/* Suspension forced; update state counters and exit */
+    388          	coef->MCU_vert_offset = yoffset;
+    389          	coef->mcu_ctr = MCU_col_num;
+    390          	return FALSE;
+    391                }
+    392              }
+    393              /* Completed an MCU row, but perhaps not an iMCU row */
+    394              coef->mcu_ctr = 0;
+   \                     ??compress_output_4:
+   \   00000084   0000A0E3           MOV      R0,#+0
+   \   00000088   0C0085E5           STR      R0,[R5, #+12]
+   \   0000008C   016086E2           ADD      R6,R6,#+1
+   \                     ??compress_output_3:
+   \   00000090   140095E5           LDR      R0,[R5, #+20]
+   \   00000094   000056E1           CMP      R6,R0
+   \   00000098   380000AA           BGE      ??compress_output_5
+   \   0000009C   0C7095E5           LDR      R7,[R5, #+12]
+   \   000000A0   000000EA           B        ??compress_output_6
+   \                     ??compress_output_7:
+   \   000000A4   017087E2           ADD      R7,R7,#+1
+   \                     ??compress_output_6:
+   \   000000A8   300194E5           LDR      R0,[R4, #+304]
+   \   000000AC   000057E1           CMP      R7,R0
+   \   000000B0   F3FFFF2A           BCS      ??compress_output_4
+   \   000000B4   1C0194E5           LDR      R0,[R4, #+284]
+   \   000000B8   0010A0E3           MOV      R1,#+0
+   \   000000BC   0080A0E3           MOV      R8,#+0
+   \   000000C0   010050E3           CMP      R0,#+1
+   \   000000C4   0B0000AA           BGE      ??compress_output_8
+   \                     ??compress_output_9:
+   \   000000C8   942194E5           LDR      R2,[R4, #+404]
+   \   000000CC   181085E2           ADD      R1,R5,#+24
+   \   000000D0   042092E5           LDR      R2,[R2, #+4]
+   \   000000D4   0400A0E1           MOV      R0,R4
+   \   000000D8   32FF2FE1           BLX      R2
+   \   000000DC   000050E3           CMP      R0,#+0
+   \   000000E0   EFFFFF1A           BNE      ??compress_output_7
+   \   000000E4   106085E5           STR      R6,[R5, #+16]
+   \   000000E8   0C7085E5           STR      R7,[R5, #+12]
+   \   000000EC   10D08DE2           ADD      SP,SP,#+16
+   \   000000F0   F083BDE8           POP      {R4-R9,PC}
+   \                     ??compress_output_10:
+   \   000000F4   018088E2           ADD      R8,R8,#+1
+   \                     ??compress_output_8:
+   \   000000F8   1C0194E5           LDR      R0,[R4, #+284]
+   \   000000FC   000058E1           CMP      R8,R0
+   \   00000100   F0FFFFAA           BGE      ??compress_output_9
+   \   00000104   080184E0           ADD      R0,R4,R8, LSL #+2
+   \   00000108   200190E5           LDR      R0,[R0, #+288]
+   \   0000010C   383090E5           LDR      R3,[R0, #+56]
+   \   00000110   3CC090E5           LDR      R12,[R0, #+60]
+   \   00000114   930702E0           MUL      R2,R3,R7
+   \   00000118   0030A0E3           MOV      R3,#+0
+   \   0000011C   01005CE3           CMP      R12,#+1
+   \   00000120   090000AA           BGE      ??compress_output_11
+   \   00000124   F2FFFFEA           B        ??compress_output_10
+   \                     ??compress_output_12:
+   \   00000128   019185E0           ADD      R9,R5,R1, LSL #+2
+   \   0000012C   18C089E5           STR      R12,[R9, #+24]
+   \   00000130   80C08CE2           ADD      R12,R12,#+128
+   \   00000134   011081E2           ADD      R1,R1,#+1
+   \   00000138   01E08EE2           ADD      LR,LR,#+1
+   \                     ??compress_output_13:
+   \   0000013C   389090E5           LDR      R9,[R0, #+56]
+   \   00000140   09005EE1           CMP      LR,R9
+   \   00000144   F7FFFFBA           BLT      ??compress_output_12
+   \                     ??compress_output_14:
+   \   00000148   013083E2           ADD      R3,R3,#+1
+   \                     ??compress_output_11:
+   \   0000014C   3C9090E5           LDR      R9,[R0, #+60]
+   \   00000150   090053E1           CMP      R3,R9
+   \   00000154   E6FFFFAA           BGE      ??compress_output_10
+   \   00000158   0DC0A0E1           MOV      R12,SP
+   \   0000015C   08C19CE7           LDR      R12,[R12, +R8, LSL #+2]
+   \   00000160   039086E0           ADD      R9,R6,R3
+   \   00000164   09919CE7           LDR      R9,[R12, +R9, LSL #+2]
+   \   00000168   00E0A0E3           MOV      LR,#+0
+   \   0000016C   82C389E0           ADD      R12,R9,R2, LSL #+7
+   \   00000170   389090E5           LDR      R9,[R0, #+56]
+   \   00000174   010059E3           CMP      R9,#+1
+   \   00000178   EFFFFFAA           BGE      ??compress_output_13
+   \   0000017C   F1FFFFEA           B        ??compress_output_14
+    395            }
+    396            /* Completed the iMCU row, advance counters for next one */
+    397            coef->iMCU_row_num++;
+   \                     ??compress_output_5:
+   \   00000180   080095E5           LDR      R0,[R5, #+8]
+   \   00000184   010080E2           ADD      R0,R0,#+1
+   \   00000188   080085E5           STR      R0,[R5, #+8]
+    398            start_iMCU_row(cinfo);
+   \   0000018C   0400A0E1           MOV      R0,R4
+   \   00000190   ........           BL       start_iMCU_row
+    399            return TRUE;
+   \   00000194   0100A0E3           MOV      R0,#+1
+   \   00000198   10D08DE2           ADD      SP,SP,#+16
+   \   0000019C   F083BDE8           POP      {R4-R9,PC}       ;; return
+    400          }
+    401          
+    402          #endif /* FULL_COEF_BUFFER_SUPPORTED */
+    403          
+    404          
+    405          /*
+    406           * Initialize coefficient buffer controller.
+    407           */
+    408          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    409          GLOBAL(void)
+    410          jinit_c_coef_controller (j_compress_ptr cinfo, boolean need_full_buffer)
+    411          {
+   \                     jinit_c_coef_controller:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    412            my_coef_ptr coef;
+    413          
+    414            coef = (my_coef_ptr)
+    415              (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_IMAGE,
+    416          				SIZEOF(my_coef_controller));
+   \   00000008   043094E5           LDR      R3,[R4, #+4]
+   \   0000000C   0160A0E1           MOV      R6,R1
+   \   00000010   003093E5           LDR      R3,[R3, #+0]
+   \   00000014   6820A0E3           MOV      R2,#+104
+   \   00000018   0110A0E3           MOV      R1,#+1
+   \   0000001C   33FF2FE1           BLX      R3
+   \   00000020   0050A0E1           MOV      R5,R0
+    417            cinfo->coef = (struct jpeg_c_coef_controller *) coef;
+    418            coef->pub.start_pass = start_pass_coef;
+   \   00000024   C8009FE5           LDR      R0,??jinit_c_coef_controller_0  ;; start_pass_coef
+   \   00000028   805184E5           STR      R5,[R4, #+384]
+   \   0000002C   000085E5           STR      R0,[R5, #+0]
+    419          
+    420            /* Create the coefficient buffer. */
+    421            if (need_full_buffer) {
+   \   00000030   000056E3           CMP      R6,#+0
+   \   00000034   1E00000A           BEQ      ??jinit_c_coef_controller_1
+    422          #ifdef FULL_COEF_BUFFER_SUPPORTED
+    423              /* Allocate a full-image virtual array for each component, */
+    424              /* padded to a multiple of samp_factor DCT blocks in each direction. */
+    425              int ci;
+    426              jpeg_component_info *compptr;
+    427          
+    428              for (ci = 0, compptr = cinfo->comp_info; ci < cinfo->num_components;
+   \   00000038   480094E5           LDR      R0,[R4, #+72]
+   \   0000003C   507094E5           LDR      R7,[R4, #+80]
+   \   00000040   0060A0E3           MOV      R6,#+0
+   \   00000044   010050E3           CMP      R0,#+1
+   \   00000048   F081BDB8           POPLT    {R4-R8,PC}
+   \                     ??jinit_c_coef_controller_2:
+   \   0000004C   480094E5           LDR      R0,[R4, #+72]
+   \   00000050   000056E1           CMP      R6,R0
+   \   00000054   F081BDA8           POPGE    {R4-R8,PC}
+    429          	 ci++, compptr++) {
+    430                coef->whole_image[ci] = (*cinfo->mem->request_virt_barray)
+    431          	((j_common_ptr) cinfo, JPOOL_IMAGE, FALSE,
+    432          	 (JDIMENSION) jround_up((long) compptr->width_in_blocks,
+    433          				(long) compptr->h_samp_factor),
+    434          	 (JDIMENSION) jround_up((long) compptr->height_in_blocks,
+    435          				(long) compptr->v_samp_factor),
+    436          	 (JDIMENSION) compptr->v_samp_factor);
+   \   00000058   200097E5           LDR      R0,[R7, #+32]
+   \   0000005C   0C1097E5           LDR      R1,[R7, #+12]
+   \   00000060   ........           _BLF     jround_up,??jround_up??rA
+   \   00000064   081097E5           LDR      R1,[R7, #+8]
+   \   00000068   0080A0E1           MOV      R8,R0
+   \   0000006C   1C0097E5           LDR      R0,[R7, #+28]
+   \   00000070   ........           _BLF     jround_up,??jround_up??rA
+   \   00000074   0C1097E5           LDR      R1,[R7, #+12]
+   \   00000078   0030A0E1           MOV      R3,R0
+   \   0000007C   02002DE9           PUSH     {R1}
+   \   00000080   00012DE9           PUSH     {R8}
+   \   00000084   048094E5           LDR      R8,[R4, #+4]
+   \   00000088   0020A0E3           MOV      R2,#+0
+   \   0000008C   0110A0E3           MOV      R1,#+1
+   \   00000090   148098E5           LDR      R8,[R8, #+20]
+   \   00000094   0400A0E1           MOV      R0,R4
+   \   00000098   38FF2FE1           BLX      R8
+   \   0000009C   061185E0           ADD      R1,R5,R6, LSL #+2
+   \   000000A0   400081E5           STR      R0,[R1, #+64]
+    437              }
+   \   000000A4   016086E2           ADD      R6,R6,#+1
+   \   000000A8   587087E2           ADD      R7,R7,#+88
+   \   000000AC   08D08DE2           ADD      SP,SP,#+8
+   \   000000B0   E5FFFFEA           B        ??jinit_c_coef_controller_2
+    438          #else
+    439              ERREXIT(cinfo, JERR_BAD_BUFFER_MODE);
+    440          #endif
+    441            } else {
+    442              /* We only need a single-MCU buffer. */
+    443              JBLOCKROW buffer;
+    444              int i;
+    445          
+    446              buffer = (JBLOCKROW)
+    447                (*cinfo->mem->alloc_large) ((j_common_ptr) cinfo, JPOOL_IMAGE,
+    448          				  C_MAX_BLOCKS_IN_MCU * SIZEOF(JBLOCK));
+   \                     ??jinit_c_coef_controller_1:
+   \   000000B4   043094E5           LDR      R3,[R4, #+4]
+   \   000000B8   502EA0E3           MOV      R2,#+1280
+   \   000000BC   043093E5           LDR      R3,[R3, #+4]
+   \   000000C0   0110A0E3           MOV      R1,#+1
+   \   000000C4   0400A0E1           MOV      R0,R4
+   \   000000C8   33FF2FE1           BLX      R3
+    449              for (i = 0; i < C_MAX_BLOCKS_IN_MCU; i++) {
+   \   000000CC   0010A0E3           MOV      R1,#+0
+    450                coef->MCU_buffer[i] = buffer + i;
+   \                     ??jinit_c_coef_controller_3:
+   \   000000D0   012185E0           ADD      R2,R5,R1, LSL #+2
+   \   000000D4   813380E0           ADD      R3,R0,R1, LSL #+7
+   \   000000D8   183082E5           STR      R3,[R2, #+24]
+    451              }
+   \   000000DC   011081E2           ADD      R1,R1,#+1
+   \   000000E0   0A0051E3           CMP      R1,#+10
+   \   000000E4   F9FFFFBA           BLT      ??jinit_c_coef_controller_3
+    452              coef->whole_image[0] = NULL; /* flag for no virtual arrays */
+   \   000000E8   0000A0E3           MOV      R0,#+0
+   \   000000EC   400085E5           STR      R0,[R5, #+64]
+    453            }
+    454          }
+   \   000000F0   F081BDE8           POP      {R4-R8,PC}       ;; return
+   \                     ??jinit_c_coef_controller_0:
+   \   000000F4   ........           DC32     start_pass_coef
+
+   Maximum stack usage in bytes:
+
+     Function                CSTACK
+     --------                ------
+     compress_data              80
+     compress_first_pass        72
+     compress_output            48
+     jinit_c_coef_controller    32
+     start_iMCU_row              0
+     start_pass_coef            16
+
+
+   Segment part sizes:
+
+     Function/Label          Bytes
+     --------------          -----
+     start_iMCU_row            68
+     start_pass_coef          244
+     compress_data            668
+     compress_first_pass      616
+     compress_output          416
+     jinit_c_coef_controller  248
+      Others                   60
+
+ 
+ 2 320 bytes in segment CODE
+ 
+ 2 260 bytes of CODE memory (+ 60 bytes shared)
+
+Errors: none
+Warnings: none

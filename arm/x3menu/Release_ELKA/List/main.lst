@@ -1,0 +1,2119 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.41A/W32 EVALUATION    15/Jul/2008  14:41:18 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  E:\cd\e71\Develop\Eraser\Menu\main.c                 #
+#    Command line    =  E:\cd\e71\Develop\Eraser\Menu\main.c -D NEWSGOLD -D  #
+#                       ELKA -lC E:\cd\e71\Develop\Eraser\Menu\Release_ELKA\ #
+#                       List\ -o E:\cd\e71\Develop\Eraser\Menu\Release_ELKA\ #
+#                       Obj\ -s9 --no_unroll --no_clustering --cpu_mode arm  #
+#                       --endian little --cpu ARM926EJ-S --stack_align 4     #
+#                       --interwork -e --fpu None --dlib_config              #
+#                       "E:\cd\e71\Develop\Embedded Workbench 4.0            #
+#                       Evaluation\ARM\LIB\dl5tpainl8n.h" -I                 #
+#                       "E:\cd\e71\Develop\Embedded Workbench 4.0            #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  E:\cd\e71\Develop\Eraser\Menu\Release_ELKA\List\main #
+#                       .lst                                                 #
+#    Object file     =  E:\cd\e71\Develop\Eraser\Menu\Release_ELKA\Obj\main. #
+#                       r79                                                  #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+E:\cd\e71\Develop\Eraser\Menu\main.c
+      1          #include "..\inc\swilib.h"
+      2          #include "conf_loader.h"
+      3          #include "main.h"
+      4          
+      5          
+      6          
+      7          
+      8          #define isElka() (isnewSGold()==2)
+      9          #define UNI_YDISP (isElka()?24:0)
+     10          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     11          int CellX;
+   \                     CellX:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     12          int CellY;
+   \                     CellY:
+   \   00000000                      DS8 4
+     13          
+     14          typedef struct
+     15          {
+     16            int flag; //0, 8, 16 хз
+     17            int (*onKey)(GUI *gui, GUI_MSG *msg);
+     18            void (*global_hook_proc)(GUI *gui, int cmd);
+     19            void *locret; //0
+     20            const int *softkeys;
+     21            const SOFTKEYSTAB *softkeystab;
+     22            int unkflag; //1
+     23            int lgp_null;
+     24            const int *icons; //&x52A
+     25            int pos; //0 (pos?)
+     26            int font; //4
+     27            int textcolor; //0x64
+     28            int _101;
+     29            int timeout; //0-forever
+     30          } MSG_BOX;
+     31          
+     32          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     33          int(*MsgBox)(int _1, int, MSG_BOX*, int lgp_id);
+   \                     MsgBox:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     34          void(*AddHeader)(GUI*,HEADER_DESC*,void* malloc_adr);
+   \                     AddHeader:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     35          int m; //коэффициент для формулы = isnewSGold
+   \                     m:
+   \   00000000                      DS8 4
+     36          
+     37          #pragma inline
+     38          void patch_header(const HEADER_DESC* headc)
+     39          {
+     40            HEADER_DESC *head=(HEADER_DESC *)headc;
+     41            head->rc.x=0;
+     42            head->rc.y=UNI_YDISP;
+     43            head->rc.x2=ScreenW()-1;
+     44            head->rc.y2=HeaderH()+UNI_YDISP;
+     45          }
+     46          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     47          void ElfKiller()
+     48          {
+   \                     ElfKiller:
+   \   00000000   00402DE9           PUSH     {LR}
+     49            extern void kill_data(void *p, void (*func_p)(void *));
+     50            extern void *ELF_BEGIN;
+     51            kill_data(&ELF_BEGIN,(void (*)(void *))mfree_adr());
+   \   00000004   158000EF           SWI      +32789
+   \   00000008   0010A0E1           MOV      R1,R0
+   \   0000000C   ........           LDR      R0,??DataTable35  ;; ELF_BEGIN
+   \   00000010   0040BDE8           POP      {LR}             ;; Pop
+   \   00000014   ........           _BF      kill_data,??kill_data??rA  ;; tailcall
+     52          }
+     53          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     54          CSM_DESC icsmd;
+   \                     icsmd:
+   \   00000000                      DS8 40
+     55          
+     56          //int (*oldIcsmOnMessage)(CSM_RAM*,GBS_MSG*);
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     57          void (*oldIcsmOnClose)(CSM_RAM*);
+   \                     oldIcsmOnClose:
+   \   00000000                      DS8 4
+     58          
+     59          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     60          void _WriteLog(char *buf)
+     61          {
+   \                     _WriteLog:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   85DF4DE2           SUB      SP,SP,#+532
+   \   00000008   0040A0E1           MOV      R4,R0
+     62            int flog=-1;
+     63            unsigned int err;
+     64            flog = fopen("4:\\ZBin\\menu\\menu.log",A_ReadWrite + A_Create + A_Append + A_BIN,P_READ+P_WRITE,&err);
+   \   0000000C   7C009FE5           LDR      R0,??_WriteLog_0  ;; `?<Constant "4:\\\\ZBin\\\\menu\\\\menu.log">`
+   \   00000010   0D30A0E1           MOV      R3,SP
+   \   00000014   602FA0E3           MOV      R2,#+384
+   \   00000018   0A10A0E3           MOV      R1,#+10
+   \   0000001C   811C81E3           ORR      R1,R1,#0x8100
+   \   00000020   0A0000EF           SWI      +10
+   \   00000024   0050A0E1           MOV      R5,R0
+     65                  if (flog!=-1)
+   \   00000028   010075E3           CMN      R5,#+1
+   \   0000002C   1200000A           BEQ      ??_WriteLog_1
+     66          	{
+     67          		char msg[512];
+     68          
+     69          		TTime t;
+     70          		TDate d;
+     71          		GetDateTime(&d,&t);
+   \   00000030   04108DE2           ADD      R1,SP,#+4
+   \   00000034   0C008DE2           ADD      R0,SP,#+12
+   \   00000038   B40000EF           SWI      +180
+     72          		sprintf(msg, "%02d:%02d:%02d %s\n", t.hour,t.min,t.sec,buf);
+   \   0000003C   50109FE5           LDR      R1,??_WriteLog_0+0x4  ;; `?<Constant "%02d:%02d:%02d %s\\n">`
+   \   00000040   10002DE9           PUSH     {R4}
+   \   00000044   0A00DDE5           LDRB     R0,[SP, #+10]
+   \   00000048   01002DE9           PUSH     {R0}
+   \   0000004C   0D30DDE5           LDRB     R3,[SP, #+13]
+   \   00000050   0C20DDE5           LDRB     R2,[SP, #+12]
+   \   00000054   1C008DE2           ADD      R0,SP,#+28
+   \   00000058   160000EF           SWI      +22
+     73          		//  sprintf(msg, "%s\n", buf);
+     74          		fwrite(flog,msg,strlen(msg),&err);
+   \   0000005C   1C008DE2           ADD      R0,SP,#+28
+   \   00000060   1B0000EF           SWI      +27
+   \   00000064   08308DE2           ADD      R3,SP,#+8
+   \   00000068   0020A0E1           MOV      R2,R0
+   \   0000006C   1C108DE2           ADD      R1,SP,#+28
+   \   00000070   0500A0E1           MOV      R0,R5
+   \   00000074   0C0000EF           SWI      +12
+   \   00000078   08D08DE2           ADD      SP,SP,#+8
+     75          	}
+     76            fclose(flog,&err);      
+   \                     ??_WriteLog_1:
+   \   0000007C   0D10A0E1           MOV      R1,SP
+   \   00000080   0500A0E1           MOV      R0,R5
+   \   00000084   0D0000EF           SWI      +13
+     77          }
+   \   00000088   85DF8DE2           ADD      SP,SP,#+532
+   \   0000008C   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??_WriteLog_0:
+   \   00000090   ........           DC32     `?<Constant "4:\\\\ZBin\\\\menu\\\\menu.log">`
+   \   00000094   ........           DC32     `?<Constant "%02d:%02d:%02d %s\\n">`
+     78          
+     79          //----------------MMenu----------------
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     80          int MHico;
+   \                     MHico:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_I, align 4, align-sorted
+     81          HEADER_DESC MHeader={0, 0, 0, 0, &MHico, 0, LGP_NULL};
+   \                     MHeader:
+   \   00000000                      DS8 20
+   \   00000014                      REQUIRE `?<Initializer for MHeader>`
+
+   \                                 In segment DATA_I, align 4, align-sorted
+     82          int MSoftKeys[]={0,1,2};
+   \                     MSoftKeys:
+   \   00000000                      DS8 12
+   \   0000000C                      REQUIRE `?<Initializer for MSoftKeys>`
+     83          
+
+   \                                 In segment DATA_I, align 4, align-sorted
+     84          SOFTKEY_DESC Msk[]=
+   \                     Msk:
+   \   00000000                      DS8 24
+   \   00000018                      REQUIRE `?<Initializer for Msk>`
+     85          {
+     86            {0x0018,0x0000,(int)""},
+     87            {0x0001,0x0000,(int)"Назад"},
+     88            {0x003D,0x0000,(int)LGP_DOIT_PIC}
+     89          };
+     90          
+
+   \                                 In segment DATA_I, align 4, align-sorted
+     91          SOFTKEYSTAB Mskt=
+   \                     Mskt:
+   \   00000000                      DS8 8
+   \   00000008                      REQUIRE `?<Initializer for Mskt>`
+     92          {
+     93            Msk,0
+     94          };
+     95          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     96          GBSTMR tmr;
+   \                     tmr:
+   \   00000000                      DS8 16
+     97          
+
+   \                                 In segment DATA_I, align 4, align-sorted
+     98          short hs[]={56,101,159,204};
+   \                     hs:
+   \   00000000                      DS8 8
+   \   00000008                      REQUIRE `?<Initializer for hs>`
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     99          int pic_n=0;
+   \                     pic_n:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_I, align 4, align-sorted
+    100          int pos=4;
+   \                     pos:
+   \   00000000                      DS8 4
+   \   00000004                      REQUIRE `?<Initializer for pos>`
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    101          TMenuPoint *items;
+   \                     items:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    102          int ItemsCount=0;
+   \                     ItemsCount:
+   \   00000000                      DS8 4
+    103          #define TIME 262/5
+    104          
+    105          #pragma inline=forced
+    106          int toupper(int c)
+    107          {
+    108            if((c>='a')&&(c<='z')) c+='A'-'a';
+    109            return(c);
+    110          }
+    111          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    112          int strncmpNoCase(const char *s1,const char *s2,unsigned int n)
+    113          {
+   \                     strncmpNoCase:
+   \   00000000   10002DE9           PUSH     {R4}
+    114            int i;
+    115            int c;
+    116            while(!(i=(c=toupper(*s1++))-toupper(*s2++))&&(--n)) if (!c) break;
+   \                     ??strncmpNoCase_0:
+   \   00000004   0030D0E5           LDRB     R3,[R0, #+0]
+   \   00000008   610053E3           CMP      R3,#+97
+   \   0000000C   010000BA           BLT      ??strncmpNoCase_1
+   \   00000010   7B0053E3           CMP      R3,#+123
+   \   00000014   203043B2           SUBLT    R3,R3,#+32
+   \                     ??strncmpNoCase_1:
+   \   00000018   0040D1E5           LDRB     R4,[R1, #+0]
+   \   0000001C   010080E2           ADD      R0,R0,#+1
+   \   00000020   03C0A0E1           MOV      R12,R3
+   \   00000024   610054E3           CMP      R4,#+97
+   \   00000028   010000BA           BLT      ??strncmpNoCase_2
+   \   0000002C   7B0054E3           CMP      R4,#+123
+   \   00000030   204044B2           SUBLT    R4,R4,#+32
+   \                     ??strncmpNoCase_2:
+   \   00000034   011081E2           ADD      R1,R1,#+1
+   \   00000038   043053E0           SUBS     R3,R3,R4
+   \   0000003C   0200001A           BNE      ??strncmpNoCase_3
+   \   00000040   012052E2           SUBS     R2,R2,#+1
+   \   00000044   00005C13           CMPNE    R12,#+0
+   \   00000048   EDFFFF1A           BNE      ??strncmpNoCase_0
+    117            return(i);
+   \                     ??strncmpNoCase_3:
+   \   0000004C   1000BDE8           POP      {R4}
+   \   00000050   0300A0E1           MOV      R0,R3
+   \   00000054   1EFF2FE1           BX       LR               ;; return
+    118          }
+    119          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    120          int strcmp_nocase(const char *s1,const char *s2)
+    121          {
+    122            int i;
+    123            int c;
+    124            while(!(i=(c=toupper(*s1++))-toupper(*s2++))) if (!c) break;
+   \                     strcmp_nocase:
+   \                     ??strcmp_nocase_0:
+   \   00000000   0020D0E5           LDRB     R2,[R0, #+0]
+   \   00000004   610052E3           CMP      R2,#+97
+   \   00000008   010000BA           BLT      ??strcmp_nocase_1
+   \   0000000C   7B0052E3           CMP      R2,#+123
+   \   00000010   202042B2           SUBLT    R2,R2,#+32
+   \                     ??strcmp_nocase_1:
+   \   00000014   00C0D1E5           LDRB     R12,[R1, #+0]
+   \   00000018   010080E2           ADD      R0,R0,#+1
+   \   0000001C   0230A0E1           MOV      R3,R2
+   \   00000020   61005CE3           CMP      R12,#+97
+   \   00000024   010000BA           BLT      ??strcmp_nocase_2
+   \   00000028   7B005CE3           CMP      R12,#+123
+   \   0000002C   20C04CB2           SUBLT    R12,R12,#+32
+   \                     ??strcmp_nocase_2:
+   \   00000030   011081E2           ADD      R1,R1,#+1
+   \   00000034   0C2052E0           SUBS     R2,R2,R12
+   \   00000038   0100001A           BNE      ??strcmp_nocase_3
+   \   0000003C   000053E3           CMP      R3,#+0
+   \   00000040   EEFFFF1A           BNE      ??strcmp_nocase_0
+    125            return(i);
+   \                     ??strcmp_nocase_3:
+   \   00000044   0200A0E1           MOV      R0,R2
+   \   00000048   1EFF2FE1           BX       LR               ;; return
+    126          }
+    127          
+    128          //Взято с китайского свн sieelf.googlecode.com (r)BingK
+    129          #define FUNC_PT_START	0xA085DEA4
+    130          #define FUNC_PT_END	0xA0865BA3
+    131          #define FUNC_PT_PSIZE	0x80
+    132          #define FUNC_PT_OFFSET	0x10
+    133          #define MAX_FUNC	0xFA
+    134          
+    135          #ifdef NEWSGOLD
+
+   \                                 In segment CODE, align 4, keep-with-next
+    136          unsigned int GetFunctionPointByName(char *name)
+    137          {
+   \                     GetFunctionPointByName:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+    138            char *p=(char *)FUNC_PT_START;
+   \   00000004   48509FE5           LDR      R5,??GetFunctionPointByName_0  ;; 0xffffffffa085dea4
+   \   00000008   0040A0E1           MOV      R4,R0
+    139            int len=strlen(name);
+   \   0000000C   1B0000EF           SWI      +27
+   \   00000010   0060B0E1           MOVS     R6,R0
+    140            if(len==0)
+   \   00000014   0200001A           BNE      ??GetFunctionPointByName_1
+    141               return 0;
+   \                     ??GetFunctionPointByName_2:
+   \   00000018   0000A0E3           MOV      R0,#+0
+   \   0000001C   7080BDE8           POP      {R4-R6,PC}
+    142            while((char *)FUNC_PT_END-p>0)
+    143             {
+    144               if(!strncmpNoCase(p, name, len))
+    145          	return (*(unsigned int *)(p+FUNC_PT_OFFSET));
+    146               p+=FUNC_PT_PSIZE;
+   \                     ??GetFunctionPointByName_3:
+   \   00000020   805085E2           ADD      R5,R5,#+128
+   \                     ??GetFunctionPointByName_1:
+   \   00000024   2C009FE5           LDR      R0,??GetFunctionPointByName_0+0x4  ;; 0xffffffffa0865ba3
+   \   00000028   050040E0           SUB      R0,R0,R5
+   \   0000002C   010050E3           CMP      R0,#+1
+   \   00000030   F8FFFFBA           BLT      ??GetFunctionPointByName_2
+   \   00000034   0620A0E1           MOV      R2,R6
+   \   00000038   0410A0E1           MOV      R1,R4
+   \   0000003C   0500A0E1           MOV      R0,R5
+   \   00000040   ........           BL       strncmpNoCase
+   \   00000044   000050E3           CMP      R0,#+0
+   \   00000048   F4FFFF1A           BNE      ??GetFunctionPointByName_3
+   \   0000004C   100095E5           LDR      R0,[R5, #+16]
+   \   00000050   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??GetFunctionPointByName_0:
+   \   00000054   A4DE85A0           DC32     0xffffffffa085dea4
+   \   00000058   A35B86A0           DC32     0xffffffffa0865ba3
+    147             }
+    148            return 0;
+    149          }
+    150          #endif
+    151          
+    152          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    153          void run_address(unsigned int address) 
+    154          {
+   \                     run_address:
+   \   00000000   00402DE9           PUSH     {LR}
+    155            void (*runaddr)(void);
+    156            runaddr=(void (*)())address;
+    157            if (runaddr) 
+   \   00000004   000050E3           CMP      R0,#+0
+   \   00000008   0080BD08           POPEQ    {PC}
+    158            {
+    159              runaddr();
+   \   0000000C   30FF2FE1           BLX      R0
+    160            }
+    161          }
+   \   00000010   0080BDE8           POP      {PC}             ;; return
+    162          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    163          void run_shortcut(char *shortcut) 
+    164          {
+   \                     run_shortcut:
+   \   00000000   00402DE9           PUSH     {LR}
+    165          #ifdef NEWSGOLD
+    166             run_address(GetFunctionPointByName(shortcut));
+   \   00000004   ........           BL       GetFunctionPointByName
+   \   00000008   0040BDE8           POP      {LR}             ;; Pop
+   \   0000000C   ........           B        run_address      ;; tailcall
+    167          #else
+    168             run_address((unsigned int)GetFunctionPointer(shortcut));
+    169          #endif
+    170          }
+    171          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    172          int chr2num(char chr)
+    173          {
+    174            if(chr>='0'&&chr<='9')
+   \                     chr2num:
+   \   00000000   300050E3           CMP      R0,#+48
+   \   00000004   0200003A           BCC      ??chr2num_0
+   \   00000008   3A0050E3           CMP      R0,#+58
+    175               return (chr-('0'-0));
+   \   0000000C   30004032           SUBCC    R0,R0,#+48
+   \   00000010   1EFF2F31           BXCC     LR
+    176            if(chr>='A'&&chr<='Z')
+   \                     ??chr2num_0:
+   \   00000014   410050E3           CMP      R0,#+65
+   \   00000018   0200003A           BCC      ??chr2num_1
+   \   0000001C   5B0050E3           CMP      R0,#+91
+    177               return (chr-('A'-0xA));
+   \   00000020   37004032           SUBCC    R0,R0,#+55
+   \   00000024   1EFF2F31           BXCC     LR
+    178            if(chr>='a'&&chr<='z')
+   \                     ??chr2num_1:
+   \   00000028   610050E3           CMP      R0,#+97
+   \   0000002C   0200003A           BCC      ??chr2num_2
+   \   00000030   7B0050E3           CMP      R0,#+123
+    179               return (chr-('a'-0xA));
+   \   00000034   57004032           SUBCC    R0,R0,#+87
+   \   00000038   1EFF2F31           BXCC     LR
+    180            return 0;
+   \                     ??chr2num_2:
+   \   0000003C   0000A0E3           MOV      R0,#+0
+   \   00000040   1EFF2FE1           BX       LR               ;; return
+    181          }
+    182          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    183          int RunBM2(int bm)
+    184          {
+    185           const char *s=items[bm].Run;
+   \                     RunBM2:
+   \   00000000   ........           LDR      R2,??DataTable46  ;; items
+   \   00000004   F0432DE9           PUSH     {R4-R9,LR}
+   \   00000008   20D04DE2           SUB      SP,SP,#+32
+   \   0000000C   002092E5           LDR      R2,[R2, #+0]
+   \   00000010   881FA0E3           MOV      R1,#+544
+   \   00000014   912020E0           MLA      R0,R1,R0,R2
+   \   00000018   684F90E2           ADDS     R4,R0,#+416
+    186           if((s)&&strlen(s))
+   \   0000001C   6900000A           BEQ      ??RunBM2_0
+   \   00000020   0400A0E1           MOV      R0,R4
+   \   00000024   1B0000EF           SWI      +27
+   \   00000028   000050E3           CMP      R0,#+0
+   \   0000002C   6600000A           BEQ      ??RunBM2_1
+    187           {
+    188            if ((s[2]=='\\')&&((s[(strlen(s))-3]=='.')||//Проверяем строку на наличие символов '\\' и '.'
+    189               (s[(strlen(s))-4]=='.')||(s[(strlen(s))-5]=='.')))
+   \   00000030   0200D4E5           LDRB     R0,[R4, #+2]
+   \   00000034   5C0050E3           CMP      R0,#+92
+   \   00000038   2200001A           BNE      ??RunBM2_2
+   \   0000003C   0400A0E1           MOV      R0,R4
+   \   00000040   1B0000EF           SWI      +27
+   \   00000044   040080E0           ADD      R0,R0,R4
+   \   00000048   030050E5           LDRB     R0,[R0, #-3]
+   \   0000004C   2E0050E3           CMP      R0,#+46
+   \   00000050   0B00000A           BEQ      ??RunBM2_3
+   \   00000054   0400A0E1           MOV      R0,R4
+   \   00000058   1B0000EF           SWI      +27
+   \   0000005C   040080E0           ADD      R0,R0,R4
+   \   00000060   040050E5           LDRB     R0,[R0, #-4]
+   \   00000064   2E0050E3           CMP      R0,#+46
+   \   00000068   0500000A           BEQ      ??RunBM2_3
+   \   0000006C   0400A0E1           MOV      R0,R4
+   \   00000070   1B0000EF           SWI      +27
+   \   00000074   040080E0           ADD      R0,R0,R4
+   \   00000078   050050E5           LDRB     R0,[R0, #-5]
+   \   0000007C   2E0050E3           CMP      R0,#+46
+   \   00000080   1000001A           BNE      ??RunBM2_2
+    190                 {
+    191                  WSHDR *ws;
+    192                  ws=AllocWS(256);
+   \                     ??RunBM2_3:
+   \   00000084   400FA0E3           MOV      R0,#+256
+   \   00000088   250100EF           SWI      +293
+   \   0000008C   0050A0E1           MOV      R5,R0
+    193                  str_2ws(ws,s,256);
+   \   00000090   402FA0E3           MOV      R2,#+256
+   \   00000094   0410A0E1           MOV      R1,R4
+   \   00000098   6C0100EF           SWI      +364
+    194                  if(ExecuteFile(ws,0,0))
+   \   0000009C   0020A0E3           MOV      R2,#+0
+   \   000000A0   0010A0E3           MOV      R1,#+0
+   \   000000A4   0500A0E1           MOV      R0,R5
+   \   000000A8   940000EF           SWI      +148
+   \   000000AC   000050E3           CMP      R0,#+0
+   \   000000B0   0500A0E1           MOV      R0,R5
+   \   000000B4   0100000A           BEQ      ??RunBM2_4
+    195                  {
+    196                    FreeWS(ws);
+   \   000000B8   290100EF           SWI      +297
+    197                    return(1);
+   \   000000BC   3E0000EA           B        ??RunBM2_5
+    198                  }
+    199                  else
+    200                  {
+    201                    FreeWS(ws);
+   \                     ??RunBM2_4:
+   \   000000C0   290100EF           SWI      +297
+    202                    return 0;
+   \   000000C4   3F0000EA           B        ??RunBM2_0
+    203                  }
+    204                 }
+    205              
+    206              if ((s[2]!='\\')&&(s[(strlen(s))-3]!='.')&&
+    207                 (s[(strlen(s))-4]!='.')&&(s[(strlen(s))-5]!='.')&&
+    208                 ((s[0]=='a')||(s[0]=='A'))&&(s[1]=='0'))  
+   \                     ??RunBM2_2:
+   \   000000C8   0200D4E5           LDRB     R0,[R4, #+2]
+   \   000000CC   0050A0E3           MOV      R5,#+0
+   \   000000D0   5C0050E3           CMP      R0,#+92
+   \   000000D4   2400000A           BEQ      ??RunBM2_6
+   \   000000D8   0400A0E1           MOV      R0,R4
+   \   000000DC   1B0000EF           SWI      +27
+   \   000000E0   040080E0           ADD      R0,R0,R4
+   \   000000E4   030050E5           LDRB     R0,[R0, #-3]
+   \   000000E8   2E0050E3           CMP      R0,#+46
+   \   000000EC   1E00000A           BEQ      ??RunBM2_6
+   \   000000F0   0400A0E1           MOV      R0,R4
+   \   000000F4   1B0000EF           SWI      +27
+   \   000000F8   040080E0           ADD      R0,R0,R4
+   \   000000FC   040050E5           LDRB     R0,[R0, #-4]
+   \   00000100   2E0050E3           CMP      R0,#+46
+   \   00000104   1800000A           BEQ      ??RunBM2_6
+   \   00000108   0400A0E1           MOV      R0,R4
+   \   0000010C   1B0000EF           SWI      +27
+   \   00000110   040080E0           ADD      R0,R0,R4
+   \   00000114   050050E5           LDRB     R0,[R0, #-5]
+   \   00000118   2E0050E3           CMP      R0,#+46
+   \   0000011C   1200000A           BEQ      ??RunBM2_6
+   \   00000120   0000D4E5           LDRB     R0,[R4, #+0]
+   \   00000124   610050E3           CMP      R0,#+97
+   \   00000128   41005013           CMPNE    R0,#+65
+   \   0000012C   0100D405           LDRBEQ   R0,[R4, #+1]
+   \   00000130   30005003           CMPEQ    R0,#+48
+   \   00000134   0C00001A           BNE      ??RunBM2_6
+    209                  {
+    210                    int i;
+    211                    unsigned int addr=0;
+    212                    char *p=(char*)s;
+    213                    for(i=0;i<strlen(s);i++)
+   \   00000138   0060A0E3           MOV      R6,#+0
+   \   0000013C   0470A0E1           MOV      R7,R4
+   \   00000140   030000EA           B        ??RunBM2_7
+    214                    {
+    215                       addr=chr2num(p[i])+addr*0x10;
+   \                     ??RunBM2_8:
+   \   00000144   ........           LDRB     R0,[R7], #+1
+    216                    }
+   \   00000148   016086E2           ADD      R6,R6,#+1
+   \   0000014C   ........           BL       chr2num
+   \   00000150   055280E0           ADD      R5,R0,R5, LSL #+4
+   \                     ??RunBM2_7:
+   \   00000154   0400A0E1           MOV      R0,R4
+   \   00000158   1B0000EF           SWI      +27
+   \   0000015C   000056E1           CMP      R6,R0
+   \   00000160   F7FFFF3A           BCC      ??RunBM2_8
+    217                    run_address(addr);
+   \   00000164   0500A0E1           MOV      R0,R5
+   \   00000168   120000EA           B        ??RunBM2_9
+    218                    return 1;
+    219                  }
+    220              else
+    221              {
+    222                    char ShortCut[32];
+    223                    char *p=(char*)s;
+    224                    int i=0;
+   \                     ??RunBM2_6:
+   \   0000016C   0060A0E3           MOV      R6,#+0
+    225                    int j=0;
+   \   00000170   0570A0E1           MOV      R7,R5
+   \   00000174   0480A0E1           MOV      R8,R4
+   \   00000178   050000EA           B        ??RunBM2_10
+    226                    for(;j<strlen(s);j++)
+    227                    {
+    228                      if(p[j]>='A')
+   \                     ??RunBM2_11:
+   \   0000017C   0000D8E5           LDRB     R0,[R8, #+0]
+    229                      {
+    230                        ShortCut[i]=p[j];
+    231                        i++;
+    232                      }
+    233                    }
+   \   00000180   017087E2           ADD      R7,R7,#+1
+   \   00000184   018088E2           ADD      R8,R8,#+1
+   \   00000188   410050E3           CMP      R0,#+65
+   \   0000018C   0000C925           STRBCS   R0,[R9, #+0]
+   \   00000190   01608622           ADDCS    R6,R6,#+1
+   \                     ??RunBM2_10:
+   \   00000194   0D00A0E1           MOV      R0,SP
+   \   00000198   009086E0           ADD      R9,R6,R0
+   \   0000019C   0400A0E1           MOV      R0,R4
+   \   000001A0   1B0000EF           SWI      +27
+   \   000001A4   000057E1           CMP      R7,R0
+   \   000001A8   F3FFFF3A           BCC      ??RunBM2_11
+    234                    ShortCut[i]=0;
+   \   000001AC   0050C9E5           STRB     R5,[R9, #+0]
+    235                    run_shortcut(ShortCut);     
+   \   000001B0   0D00A0E1           MOV      R0,SP
+   \   000001B4   ........           BL       GetFunctionPointByName
+   \                     ??RunBM2_9:
+   \   000001B8   ........           BL       run_address
+    236                    return 1;
+   \                     ??RunBM2_5:
+   \   000001BC   0100A0E3           MOV      R0,#+1
+   \   000001C0   20D08DE2           ADD      SP,SP,#+32
+   \   000001C4   F083BDE8           POP      {R4-R9,PC}
+    237              }  
+    238            }
+    239           return(0);
+   \                     ??RunBM2_0:
+   \   000001C8   0000A0E3           MOV      R0,#+0
+   \                     ??RunBM2_1:
+   \   000001CC   20D08DE2           ADD      SP,SP,#+32       ;; stack cleaning
+   \   000001D0   F083BDE8           POP      {R4-R9,PC}       ;; return
+    240          }
+    241          // ----------------------------------------------
+    242          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    243          void PickNumTmr()
+    244          {
+    245            pic_n++;
+   \                     PickNumTmr:
+   \   00000000   ........           LDR      R0,??DataTable6  ;; pic_n
+   \   00000004   00402DE9           PUSH     {LR}
+   \   00000008   001090E5           LDR      R1,[R0, #+0]
+   \   0000000C   011081E2           ADD      R1,R1,#+1
+    246            if(pic_n>4)
+   \   00000010   050051E3           CMP      R1,#+5
+    247              pic_n=0;
+   \   00000014   0010A0A3           MOVGE    R1,#+0
+   \   00000018   001080E5           STR      R1,[R0, #+0]
+    248            DirectRedrawGUI();
+   \   0000001C   3F0100EF           SWI      +319
+    249            GBS_StartTimerProc(&tmr, TIME, PickNumTmr);
+   \   00000020   ........           LDR      R2,??DataTable7  ;; PickNumTmr
+   \   00000024   ........           LDR      R0,??DataTable30  ;; tmr
+   \   00000028   3410A0E3           MOV      R1,#+52
+   \   0000002C   4D0000EF           SWI      +77
+    250          }
+   \   00000030   0080BDE8           POP      {PC}             ;; return
+    251          
+    252          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    253          void TmrReset()
+    254          {
+   \                     TmrReset:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    255            GBS_DelTimer(&tmr);
+   \   00000004   ........           LDR      R4,??DataTable30  ;; tmr
+   \   00000008   0400A0E1           MOV      R0,R4
+   \   0000000C   8C0100EF           SWI      +396
+    256            pic_n=0;
+   \   00000010   ........           LDR      R0,??DataTable6  ;; pic_n
+    257            GBS_StartTimerProc(&tmr, TIME, PickNumTmr);
+   \   00000014   ........           LDR      R2,??DataTable7  ;; PickNumTmr
+   \   00000018   0010A0E3           MOV      R1,#+0
+   \   0000001C   001080E5           STR      R1,[R0, #+0]
+   \   00000020   3410A0E3           MOV      R1,#+52
+   \   00000024   0400A0E1           MOV      R0,R4
+   \   00000028   4D0000EF           SWI      +77
+    258          }
+   \   0000002C   1080BDE8           POP      {R4,PC}          ;; return
+    259          
+    260          extern unsigned long  strtoul (const char *nptr,char **endptr,int base);
+
+   \                                 In segment CODE, align 4, keep-with-next
+    261          int CalcPic(char* picture)
+    262          {
+   \                     CalcPic:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+    263            int pic = strtoul(picture, 0, 10);
+   \   00000004   0A20A0E3           MOV      R2,#+10
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   0010A0E3           MOV      R1,#+0
+   \   00000010   ........           _BLF     strtoul,??strtoul??rA
+   \   00000014   0050A0E1           MOV      R5,R0
+    264            if ( (pic <= 4) && (strlen(picture) > 1) )
+   \   00000018   050055E3           CMP      R5,#+5
+   \   0000001C   030000AA           BGE      ??CalcPic_0
+   \   00000020   0400A0E1           MOV      R0,R4
+   \   00000024   1B0000EF           SWI      +27
+   \   00000028   020050E3           CMP      R0,#+2
+    265            {
+    266               pic = (int)picture;
+   \   0000002C   0450A021           MOVCS    R5,R4
+    267            }
+    268            return pic;
+   \                     ??CalcPic_0:
+   \   00000030   0500A0E1           MOV      R0,R5
+   \   00000034   3080BDE8           POP      {R4,R5,PC}       ;; return
+    269          }
+    270          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    271          void UpdateHeader(GUI* gui)
+    272          {
+   \                     UpdateHeader:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+    273            MHico=CalcPic(items[pos].IconSmall); //Значек заголовка
+   \   00000004   ........           LDR      R4,??DataTable46  ;; items
+   \   00000008   ........           LDR      R6,??DataTable31  ;; pos
+   \   0000000C   002094E5           LDR      R2,[R4, #+0]
+   \   00000010   0050A0E1           MOV      R5,R0
+   \   00000014   000096E5           LDR      R0,[R6, #+0]
+   \   00000018   881FA0E3           MOV      R1,#+544
+   \   0000001C   912020E0           MLA      R0,R1,R0,R2
+   \   00000020   480F80E2           ADD      R0,R0,#+288
+   \   00000024   ........           BL       CalcPic
+   \   00000028   24109FE5           LDR      R1,??UpdateHeader_0  ;; MHico
+   \   0000002C   000081E5           STR      R0,[R1, #+0]
+    274            ((int*)GetDataOfItemByID(gui, 2))[13]=(int)items[pos].Text; //Текст заголовка
+   \   00000030   0210A0E3           MOV      R1,#+2
+   \   00000034   0500A0E1           MOV      R0,R5
+   \   00000038   4F0100EF           SWI      +335
+   \   0000003C   001096E5           LDR      R1,[R6, #+0]
+   \   00000040   003094E5           LDR      R3,[R4, #+0]
+   \   00000044   882FA0E3           MOV      R2,#+544
+   \   00000048   923121E0           MLA      R1,R2,R1,R3
+   \   0000004C   341080E5           STR      R1,[R0, #+52]
+    275          }
+   \   00000050   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??UpdateHeader_0:
+   \   00000054   ........           DC32     MHico
+    276          
+    277          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    278          void (*OOnRedraw)(GUI *data);
+   \                     OOnRedraw:
+   \   00000000                      DS8 4
+
+   \                                 In segment CODE, align 4, keep-with-next
+    279          void NOnRedraw(GUI *data)
+    280          {
+    281            OOnRedraw(data); //Сначала старый OnRedraw
+   \                     NOnRedraw:
+   \   00000000   ........           LDR      R1,??DataTable20  ;; OOnRedraw
+   \   00000004   F04F2DE9           PUSH     {R4-R11,LR}
+    282            
+    283            int delta=0;
+    284            if (pos>(Columns*Rows-1))
+   \   00000008   ........           LDR      R7,??DataTable31  ;; pos
+   \   0000000C   04D04DE2           SUB      SP,SP,#+4
+   \   00000010   001091E5           LDR      R1,[R1, #+0]
+   \   00000014   31FF2FE1           BLX      R1
+   \   00000018   ........           LDR      R0,??DataTable43  ;; Columns
+   \   0000001C   0020A0E3           MOV      R2,#+0
+   \   00000020   006090E5           LDR      R6,[R0, #+0]
+   \   00000024   ........           LDR      R0,??DataTable44  ;; Rows
+   \   00000028   000090E5           LDR      R0,[R0, #+0]
+   \   0000002C   900604E0           MUL      R4,R0,R6
+   \   00000030   000097E5           LDR      R0,[R7, #+0]
+   \   00000034   011044E2           SUB      R1,R4,#+1
+   \   00000038   000051E1           CMP      R1,R0
+   \   0000003C   0A00002A           BCS      ??NOnRedraw_0
+   \   00000040   040040E0           SUB      R0,R0,R4
+   \   00000044   013080E2           ADD      R3,R0,#+1
+   \   00000048   0300A0E1           MOV      R0,R3
+   \   0000004C   0610A0E1           MOV      R1,R6
+   \   00000050   ........           _BLF     ??divu32_a,??rA??divu32_a
+   \   00000054   0120A0E1           MOV      R2,R1
+    285            {
+    286             delta=(pos-(Columns*Rows-1))/Columns;
+    287             if ((pos-(Columns*Rows-1))%Columns!=0)
+   \   00000058   0300A0E1           MOV      R0,R3
+   \   0000005C   0610A0E1           MOV      R1,R6
+   \   00000060   ........           _BLF     ??divu32_a,??rA??divu32_a
+   \   00000064   000050E3           CMP      R0,#+0
+    288             ++delta;
+   \   00000068   01208212           ADDNE    R2,R2,#+1
+    289            }
+    290              
+    291          
+    292            int setka=Columns*Rows;
+    293            if ((ItemsCount-delta*Columns)<(Columns*Rows))
+   \                     ??NOnRedraw_0:
+   \   0000006C   ........           LDR      R1,??DataTable41  ;; ItemsCount
+   \   00000070   960200E0           MUL      R0,R6,R2
+   \   00000074   001091E5           LDR      R1,[R1, #+0]
+   \   00000078   960205E0           MUL      R5,R6,R2
+    294              setka=ItemsCount-delta*Columns;
+    295            
+    296            for(int i=0;i<setka;i++)
+   \   0000007C   0080A0E3           MOV      R8,#+0
+   \   00000080   052041E0           SUB      R2,R1,R5
+   \   00000084   040052E1           CMP      R2,R4
+   \   00000088   00404130           SUBCC    R4,R1,R0
+   \   0000008C   010054E3           CMP      R4,#+1
+   \   00000090   F18FBDB8           POPLT    {R0,R4-R11,PC}
+   \   00000094   881FA0E3           MOV      R1,#+544
+   \   00000098   910009E0           MUL      R9,R1,R0
+   \   0000009C   A4109FE5           LDR      R1,??NOnRedraw_1  ;; OffsetX
+   \   000000A0   001091E5           LDR      R1,[R1, #+0]
+   \   000000A4   00108DE5           STR      R1,[SP, #+0]
+    297            {
+    298              
+    299          /* --==Формула==-- */
+    300              int x=OffsetX+CellX*(i%Columns);
+   \                     ??NOnRedraw_2:
+   \   000000A8   ........           LDR      R0,??DataTable42  ;; CellX
+   \   000000AC   00209DE5           LDR      R2,[SP, #+0]
+   \   000000B0   003090E5           LDR      R3,[R0, #+0]
+   \   000000B4   0800A0E1           MOV      R0,R8
+   \   000000B8   0610A0E1           MOV      R1,R6
+   \   000000BC   ........           _BLF     ??divu32_a,??rA??divu32_a
+   \   000000C0   90232AE0           MLA      R10,R0,R3,R2
+    301              int y=55+OffsetY+CellY*(i/Columns);
+   \   000000C4   80009FE5           LDR      R0,??NOnRedraw_1+0x4  ;; OffsetY
+   \   000000C8   0610A0E1           MOV      R1,R6
+   \   000000CC   002090E5           LDR      R2,[R0, #+0]
+   \   000000D0   ........           LDR      R0,??DataTable45  ;; CellY
+   \   000000D4   003090E5           LDR      R3,[R0, #+0]
+   \   000000D8   0800A0E1           MOV      R0,R8
+   \   000000DC   ........           _BLF     ??divu32_a,??rA??divu32_a
+   \   000000E0   912320E0           MLA      R0,R1,R3,R2
+   \   000000E4   37B080E2           ADD      R11,R0,#+55
+    302                
+    303              if((i+delta*Columns)==pos)
+   \   000000E8   000097E5           LDR      R0,[R7, #+0]
+   \   000000EC   000055E1           CMP      R5,R0
+   \   000000F0   0500001A           BNE      ??NOnRedraw_3
+    304              DrawImg(x,y,CalcPic((char*)CURSOR_PATH));
+   \   000000F4   54009FE5           LDR      R0,??NOnRedraw_1+0x8  ;; CURSOR_PATH
+   \   000000F8   ........           BL       CalcPic
+   \   000000FC   0020A0E1           MOV      R2,R0
+   \   00000100   0B10A0E1           MOV      R1,R11
+   \   00000104   0A00A0E1           MOV      R0,R10
+   \   00000108   230000EF           SWI      +35
+    305             
+    306              DrawImg(x,y,CalcPic(items[i+delta*Columns].IconBig));
+   \                     ??NOnRedraw_3:
+   \   0000010C   ........           LDR      R0,??DataTable46  ;; items
+    307            
+    308            }
+   \   00000110   018088E2           ADD      R8,R8,#+1
+   \   00000114   000090E5           LDR      R0,[R0, #+0]
+   \   00000118   015085E2           ADD      R5,R5,#+1
+   \   0000011C   000089E0           ADD      R0,R9,R0
+   \   00000120   A00080E2           ADD      R0,R0,#+160
+   \   00000124   ........           BL       CalcPic
+   \   00000128   0020A0E1           MOV      R2,R0
+   \   0000012C   0B10A0E1           MOV      R1,R11
+   \   00000130   0A00A0E1           MOV      R0,R10
+   \   00000134   230000EF           SWI      +35
+   \   00000138   889F89E2           ADD      R9,R9,#+544
+   \   0000013C   040058E1           CMP      R8,R4
+   \   00000140   D8FFFFBA           BLT      ??NOnRedraw_2
+    309          }
+   \   00000144   F18FBDE8           POP      {R0,R4-R11,PC}   ;; return
+   \                     ??NOnRedraw_1:
+   \   00000148   ........           DC32     OffsetX
+   \   0000014C   ........           DC32     OffsetY
+   \   00000150   ........           DC32     CURSOR_PATH
+    310          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    311          const void * NGuiMeths[11];
+   \                     NGuiMeths:
+   \   00000000                      DS8 44
+    312          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    313          void MGHook(GUI *gui, int cmd)
+    314          {
+   \                     MGHook:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+    315            switch(cmd)
+   \   00000004   011051E2           SUBS     R1,R1,#+1
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   0400000A           BEQ      ??MGHook_0
+   \   00000010   041051E2           SUBS     R1,R1,#+4
+   \   00000014   1500000A           BEQ      ??MGHook_1
+   \   00000018   011051E2           SUBS     R1,R1,#+1
+   \   0000001C   1500000A           BEQ      ??MGHook_2
+   \   00000020   3080BDE8           POP      {R4,R5,PC}
+    316            {
+    317            case 1://Создание: подмена onRedraw + добавление хедера
+    318              {
+    319                AddHeader(gui,&MHeader,malloc_adr());
+    320                memcpy(NGuiMeths,gui->methods,11*sizeof(void*));
+   \                     ??MGHook_0:
+   \   00000024   5C509FE5           LDR      R5,??MGHook_3    ;; NGuiMeths
+   \   00000028   148000EF           SWI      +32788
+   \   0000002C   ........           LDR      R3,??DataTable40  ;; AddHeader
+   \   00000030   ........           LDR      R1,??DataTable38  ;; MHeader
+   \   00000034   003093E5           LDR      R3,[R3, #+0]
+   \   00000038   0020A0E1           MOV      R2,R0
+   \   0000003C   0400A0E1           MOV      R0,R4
+   \   00000040   33FF2FE1           BLX      R3
+   \   00000044   041094E5           LDR      R1,[R4, #+4]
+   \   00000048   2C20A0E3           MOV      R2,#+44
+   \   0000004C   0500A0E1           MOV      R0,R5
+   \   00000050   1E0100EF           SWI      +286
+    321                gui->methods=(void*)NGuiMeths;
+    322                OOnRedraw=(void(*)(GUI*))NGuiMeths[0];//(gui->methods[0]);
+   \   00000054   ........           LDR      R0,??DataTable20  ;; OOnRedraw
+   \   00000058   045084E5           STR      R5,[R4, #+4]
+   \   0000005C   001095E5           LDR      R1,[R5, #+0]
+   \   00000060   001080E5           STR      R1,[R0, #+0]
+    323                NGuiMeths[0]=(void*)NOnRedraw;
+   \   00000064   20009FE5           LDR      R0,??MGHook_3+0x4  ;; NOnRedraw
+   \   00000068   000085E5           STR      R0,[R5, #+0]
+   \   0000006C   3080BDE8           POP      {R4,R5,PC}
+    324              }
+    325              break;
+    326            case 5://Получение фокуса (?)
+    327              TmrReset();
+   \                     ??MGHook_1:
+   \   00000070   ........           BL       TmrReset
+   \   00000074   3080BDE8           POP      {R4,R5,PC}
+    328              break;
+    329            case 6://Потеря фокуса
+    330              UpdateHeader(gui);
+   \                     ??MGHook_2:
+   \   00000078   ........           BL       UpdateHeader
+    331              GBS_DelTimer(&tmr);//Экономим ресурсы (типо)
+   \   0000007C   ........           LDR      R0,??DataTable30  ;; tmr
+   \   00000080   8C0100EF           SWI      +396
+    332              break;
+    333            }
+    334          }
+   \   00000084   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??MGHook_3:
+   \   00000088   ........           DC32     NGuiMeths
+   \   0000008C   ........           DC32     NOnRedraw
+    335          
+    336          extern int LoadItems(void);
+    337          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    338          int MOnKey(GUI *gui, GUI_MSG *msg)
+    339          {
+    340            int key=msg->gbsmsg->submess;
+    341            
+    342            if(msg->gbsmsg->msg==LONG_PRESS)
+   \                     MOnKey:
+   \   00000000   ........           LDR      R3,??DataTable43  ;; Columns
+   \   00000004   70402DE9           PUSH     {R4-R6,LR}
+   \   00000008   042091E5           LDR      R2,[R1, #+4]
+   \   0000000C   004093E5           LDR      R4,[R3, #+0]
+   \   00000010   081092E5           LDR      R1,[R2, #+8]
+   \   00000014   043092E5           LDR      R3,[R2, #+4]
+   \   00000018   ........           LDR      R5,??DataTable41  ;; ItemsCount
+   \   0000001C   95C0A0E3           MOV      R12,#+149
+   \   00000020   40CF8CE3           ORR      R12,R12,#0x100
+   \   00000024   0C0053E1           CMP      R3,R12
+    343            {
+    344               if (key=='*')
+   \   00000028   2A005103           CMPEQ    R1,#+42
+   \   0000002C   0E00001A           BNE      ??MOnKey_1
+    345                {
+    346                InitConfig();
+   \   00000030   ........           _BLF     InitConfig,??InitConfig??rA
+    347                ItemsCount = LoadItems();
+   \   00000034   ........           BL       LoadItems
+    348                CellX=240/Columns;
+   \   00000038   ........           LDR      R2,??DataTable42  ;; CellX
+   \   0000003C   000085E5           STR      R0,[R5, #+0]
+   \   00000040   F000A0E3           MOV      R0,#+240
+   \   00000044   0410A0E1           MOV      R1,R4
+   \   00000048   ........           _BLF     ??divu32_a,??rA??divu32_a
+   \   0000004C   001082E5           STR      R1,[R2, #+0]
+    349                CellY=(320-55-32)/Rows;
+   \   00000050   ........           LDR      R1,??DataTable44  ;; Rows
+   \   00000054   ........           LDR      R2,??DataTable45  ;; CellY
+   \   00000058   001091E5           LDR      R1,[R1, #+0]
+   \   0000005C   E900A0E3           MOV      R0,#+233
+   \   00000060   ........           _BLF     ??divu32_a,??rA??divu32_a
+   \   00000064   001082E5           STR      R1,[R2, #+0]
+    350                return(0);
+   \   00000068   3D0000EA           B        ??MOnKey_2
+    351                }
+    352            }
+    353            
+    354            if(msg->gbsmsg->msg==KEY_DOWN)
+   \                     ??MOnKey_1:
+   \   0000006C   0320A0E1           MOV      R2,R3
+   \   00000070   02304CE2           SUB      R3,R12,#+2
+   \   00000074   030052E1           CMP      R2,R3
+   \   00000078   4300001A           BNE      ??MOnKey_3
+   \   0000007C   ........           LDR      R3,??DataTable31  ;; pos
+   \   00000080   002095E5           LDR      R2,[R5, #+0]
+   \   00000084   00C093E5           LDR      R12,[R3, #+0]
+   \   00000088   012042E2           SUB      R2,R2,#+1
+   \   0000008C   00005CE3           CMP      R12,#+0
+   \   00000090   0300001A           BNE      ??MOnKey_4
+   \   00000094   3D0051E3           CMP      R1,#+61
+   \   00000098   3B005113           CMPNE    R1,#+59
+    355            {
+    356              if(pos==0 && (key==LEFT_BUTTON | key==UP_BUTTON))
+    357              {
+    358                pos=ItemsCount-1;
+   \   0000009C   00208305           STREQ    R2,[R3, #+0]
+    359                goto end;
+   \   000000A0   2300000A           BEQ      ??MOnKey_5
+    360              }
+    361              if(pos==ItemsCount-1 && (key==RIGHT_BUTTON | key==DOWN_BUTTON))
+   \                     ??MOnKey_4:
+   \   000000A4   0050A0E3           MOV      R5,#+0
+   \   000000A8   02005CE1           CMP      R12,R2
+   \   000000AC   0200001A           BNE      ??MOnKey_6
+   \   000000B0   3E0051E3           CMP      R1,#+62
+   \   000000B4   3C005113           CMPNE    R1,#+60
+   \   000000B8   1C00000A           BEQ      ??MOnKey_7
+    362              {
+    363                pos=0;
+    364                goto end;
+    365              }
+    366                  
+    367              
+    368              switch(key)
+   \                     ??MOnKey_6:
+   \   000000BC   04E041E2           SUB      LR,R1,#+4
+   \   000000C0   3A005EE3           CMP      LR,#+58
+   \   000000C4   2800008A           BHI      ??MOnKey_8
+   \   000000C8   016F8FE2           ADR      R6,??MOnKey_0
+   \   000000CC   0E60D6E7           LDRB     R6,[R6, LR]
+   \   000000D0   06F18FE0           ADD      PC,PC,R6, LSL #+2
+   \                     ??MOnKey_0:
+   \   000000D4   21252525           DC8      +33,+37,+37,+37
+   \   000000D8   25252525           DC8      +37,+37,+37,+37
+   \   000000DC   25252525           DC8      +37,+37,+37,+37
+   \   000000E0   25252525           DC8      +37,+37,+37,+37
+   \   000000E4   25252525           DC8      +37,+37,+37,+37
+   \   000000E8   25252B25           DC8      +37,+37,+43,+37
+   \   000000EC   25252525           DC8      +37,+37,+37,+37
+   \   000000F0   25252525           DC8      +37,+37,+37,+37
+   \   000000F4   25252525           DC8      +37,+37,+37,+37
+   \   000000F8   25252525           DC8      +37,+37,+37,+37
+   \   000000FC   25252525           DC8      +37,+37,+37,+37
+   \   00000100   25252525           DC8      +37,+37,+37,+37
+   \   00000104   25252525           DC8      +37,+37,+37,+37
+   \   00000108   2525251D           DC8      +37,+37,+37,+29
+   \   0000010C   1F0E1B00           DC8      +31,+14,+27,+0
+    369              {
+    370              case ENTER_BUTTON:
+    371                goto run;
+    372              case LEFT_BUTTON:
+    373                pos--;
+   \                     ??MOnKey_9:
+   \   00000110   01104CE2           SUB      R1,R12,#+1
+   \                     ??MOnKey_10:
+   \   00000114   001083E5           STR      R1,[R3, #+0]
+    374                break;
+    375              case RIGHT_BUTTON:
+    376                pos++;
+    377                break;
+    378              case UP_BUTTON:
+    379                pos-=Columns;
+    380                break;
+    381              case DOWN_BUTTON:
+    382                pos+=Columns;
+    383                break;
+    384              case RIGHT_SOFT:
+    385                GBS_DelTimer(&tmr);
+    386                return(0);
+    387          /*    case '*':
+    388                pos=9;
+    389                goto run;
+    390              case '0':
+    391                pos=10;
+    392                goto run;
+    393              case '#':
+    394                pos=11;
+    395                goto run;
+    396          */   default:
+    397                if(key>='1' && key<='9')
+    398                {
+    399                  pos=key-1-'0';
+    400                  goto run;
+    401                }
+    402                else
+    403                  return(0);
+    404              }
+    405              if(pos<0)
+   \   00000118   001093E5           LDR      R1,[R3, #+0]
+   \   0000011C   000051E3           CMP      R1,#+0
+    406                pos=ItemsCount-1;
+   \   00000120   00208345           STRMI    R2,[R3, #+0]
+    407              if(pos>ItemsCount-1)
+   \   00000124   001093E5           LDR      R1,[R3, #+0]
+   \   00000128   010052E1           CMP      R2,R1
+   \   0000012C   000000AA           BGE      ??MOnKey_5
+    408                pos=0;
+   \                     ??MOnKey_7:
+   \   00000130   005083E5           STR      R5,[R3, #+0]
+    409          
+    410            end:
+    411              UpdateHeader(gui);
+   \                     ??MOnKey_5:
+   \   00000134   ........           BL       UpdateHeader
+    412              TmrReset();
+   \   00000138   ........           BL       TmrReset
+    413              RefreshGUI();
+   \   0000013C   960100EF           SWI      +406
+    414              return(0);
+   \                     ??MOnKey_11:
+   \   00000140   110000EA           B        ??MOnKey_3
+   \                     ??MOnKey_12:
+   \   00000144   01108CE2           ADD      R1,R12,#+1
+   \   00000148   F1FFFFEA           B        ??MOnKey_10
+   \                     ??MOnKey_13:
+   \   0000014C   04104CE0           SUB      R1,R12,R4
+   \   00000150   EFFFFFEA           B        ??MOnKey_10
+   \                     ??MOnKey_14:
+   \   00000154   0C1084E0           ADD      R1,R4,R12
+   \   00000158   EDFFFFEA           B        ??MOnKey_10
+   \                     ??MOnKey_15:
+   \   0000015C   ........           LDR      R0,??DataTable30  ;; tmr
+   \   00000160   8C0100EF           SWI      +396
+   \                     ??MOnKey_2:
+   \   00000164   0000A0E3           MOV      R0,#+0
+   \   00000168   7080BDE8           POP      {R4-R6,PC}
+   \                     ??MOnKey_8:
+   \   0000016C   310051E3           CMP      R1,#+49
+   \   00000170   050000BA           BLT      ??MOnKey_3
+   \   00000174   3A0051E3           CMP      R1,#+58
+   \   00000178   030000AA           BGE      ??MOnKey_3
+   \   0000017C   310041E2           SUB      R0,R1,#+49
+   \   00000180   000083E5           STR      R0,[R3, #+0]
+    415            run:
+    416              RunBM2(pos);
+   \                     ??MOnKey_16:
+   \   00000184   000093E5           LDR      R0,[R3, #+0]
+   \   00000188   ........           BL       RunBM2
+    417              return(0);
+   \                     ??MOnKey_3:
+   \   0000018C   0000A0E3           MOV      R0,#+0
+   \   00000190   7080BDE8           POP      {R4-R6,PC}       ;; return
+    418            }
+    419            return(0);
+    420          }
+    421          
+
+   \                                 In segment DATA_I, align 4, align-sorted
+    422          MSG_BOX MMenu=
+   \                     MMenu:
+   \   00000000                      DS8 56
+   \   00000038                      REQUIRE `?<Initializer for MMenu>`
+    423          {
+    424            0,
+    425            MOnKey,
+    426            MGHook,
+    427            0,
+    428            MSoftKeys,
+    429            &Mskt,
+    430            1,
+    431            LGP_NULL,
+    432            0,
+    433            0,
+    434            0,
+    435            0x64,
+    436            0x65,
+    437            0
+    438          };
+    439          //-----------------CSM-----------------
+
+   \                                 In segment DATA_C, align 4, align-sorted
+    440          const int minus11=-11;
+   \                     minus11:
+   \   00000000   F5FFFFFF           DC32 -11
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    441          unsigned short maincsm_name_body[140];
+   \                     maincsm_name_body:
+   \   00000000                      DS8 280
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    442          int MCSMid;
+   \                     MCSMid:
+   \   00000000                      DS8 4
+    443          
+    444          typedef struct
+    445          {
+    446            CSM_RAM csm;
+    447            int gui_id;
+    448          }MAIN_CSM;
+    449          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    450          __thumb void MOnCreate(CSM_RAM *data)
+    451          {
+    452            MAIN_CSM *csm=(MAIN_CSM*)data;
+    453            //MHico=*items[4].icon_inact-11-m;
+    454            csm->gui_id=MsgBox(0,0,&MMenu,LGP_NULL);
+   \                     MOnCreate:
+   \   00000000   054B               LDR      R3,??MOnCreate_0  ;; 0x7fffffff
+   \   00000002   064A               LDR      R2,??MOnCreate_0+0x4  ;; MMenu
+   \   00000004   30B5               PUSH     {R4,R5,LR}
+   \   00000006   ....               LDR      R5,??DataTable29  ;; MsgBox
+   \   00000008   0400               MOVS     R4,R0
+   \   0000000A   2D68               LDR      R5,[R5, #+0]
+   \   0000000C   0021               MOVS     R1,#+0
+   \   0000000E   0020               MOVS     R0,#+0
+   \   00000010   A847               BLX      R5
+   \   00000012   A062               STR      R0,[R4, #+40]
+    455          }
+   \   00000014   30BD               POP      {R4,R5,PC}       ;; return
+   \   00000016   C046               Nop      
+   \                     ??MOnCreate_0:
+   \   00000018   FFFFFF7F           DC32     0x7fffffff
+   \   0000001C   ........           DC32     MMenu
+    456          
+    457          
+    458          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    459          __thumb int MOnMsg(CSM_RAM *data, GBS_MSG *msg)
+    460          {
+    461            MAIN_CSM *csm=(MAIN_CSM*)data;
+    462            if ((msg->msg==MSG_GUI_DESTROYED)&&((int)msg->data0==csm->gui_id))
+   \                     MOnMsg:
+   \   00000000   064B               LDR      R3,??MOnMsg_0    ;; 0x640e
+   \   00000002   4A68               LDR      R2,[R1, #+4]
+   \   00000004   9A42               CMP      R2,R3
+   \   00000006   06D1               BNE      ??MOnMsg_1
+   \   00000008   C968               LDR      R1,[R1, #+12]
+   \   0000000A   826A               LDR      R2,[R0, #+40]
+   \   0000000C   9142               CMP      R1,R2
+   \   0000000E   02D1               BNE      ??MOnMsg_1
+    463              csm->csm.state=-3;
+   \   00000010   0221               MOVS     R1,#+2
+   \   00000012   C943               MVNS     R1,R1
+   \   00000014   0161               STR      R1,[R0, #+16]
+    464          
+    465          
+    466            return(1);
+   \                     ??MOnMsg_1:
+   \   00000016   0120               MOVS     R0,#+1
+   \   00000018   7047               BX       LR
+   \   0000001A   C046               Nop      
+   \                     ??MOnMsg_0:
+   \   0000001C   0E640000           DC32     0x640e
+    467          }
+    468          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    469          void MOnClose(CSM_RAM *csm)
+    470          {
+    471            GBS_DelTimer(&tmr);
+   \                     MOnClose:
+   \   00000000   ........           LDR      R0,??DataTable30  ;; tmr
+   \   00000004   00402DE9           PUSH     {LR}
+   \   00000008   8C0100EF           SWI      +396
+    472            pos=4;
+   \   0000000C   ........           LDR      R0,??DataTable31  ;; pos
+   \   00000010   0410A0E3           MOV      R1,#+4
+   \   00000014   001080E5           STR      R1,[R0, #+0]
+    473          }
+   \   00000018   0080BDE8           POP      {PC}             ;; return
+    474          
+    475          const struct
+    476          {
+    477            CSM_DESC maincsm;
+    478            WSHDR maincsm_name;
+
+   \                                 In segment DATA_C, align 4, align-sorted
+    479          }MAINCSM =
+   \                     MAINCSM:
+   \   00000000   ............       DC32 MOnMsg, MOnCreate, 0, 0, 0, 0, MOnClose, 44, 1, minus11
+   \              ....00000000
+   \              000000000000
+   \              000000000000
+   \              ........2C00
+   \              000001000000
+   \              ........    
+   \   00000028   ........CCCC       DC32 maincsm_name_body, 55AACCCCH, 3333AA55H, 0
+   \              AA5555AA3333
+   \              00000000    
+   \   00000038   8B00               DC16 139
+   \   0000003A   0000               DC8 0, 0
+    480          {
+    481            {
+    482            MOnMsg,
+    483            MOnCreate,
+    484          #ifdef NEWSGOLD
+    485            0,
+    486            0,
+    487            0,
+    488            0,
+    489          #endif
+    490            MOnClose,
+    491            sizeof(MAIN_CSM),
+    492            1,
+    493            &minus11
+    494            },
+    495            {
+    496              maincsm_name_body,
+    497              NAMECSM_MAGIC1,
+    498              NAMECSM_MAGIC2,
+    499              0x0,
+    500              139
+    501            }
+    502          };
+    503          //-------------------------------------
+    504          
+    505          /*int newIcsmOnMessage(CSM_RAM* data,GBS_MSG* msg)
+    506          {
+    507            if(msg->msg == MSG_RECONFIGURE_REQ) 
+    508              InitConfig();
+    509          
+    510            return oldIcsmOnMessage(data,msg);
+    511          }*/
+    512          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    513          GBSTMR errtmr;
+   \                     errtmr:
+   \   00000000                      DS8 16
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    514          GUI * errgui;
+   \                     errgui:
+   \   00000000                      DS8 4
+    515          
+    516          #pragma swi_number=0x37
+    517          __swi __arm void Ringtones_SetState(unsigned char state);
+    518          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    519          void ErrTmr()
+    520          {
+   \                     ErrTmr:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    521            if(errgui==NULL)
+   \   00000004   58409FE5           LDR      R4,??ErrTmr_0    ;; errgui
+   \   00000008   000094E5           LDR      R0,[R4, #+0]
+   \   0000000C   000050E3           CMP      R0,#+0
+   \   00000010   0100001A           BNE      ??ErrTmr_1
+    522              errgui=GetTopGUI();
+   \   00000014   4D0100EF           SWI      +333
+   \   00000018   000084E5           STR      R0,[R4, #+0]
+    523            if(errgui==GetTopGUI())
+   \                     ??ErrTmr_1:
+   \   0000001C   4D0100EF           SWI      +333
+   \   00000020   001094E5           LDR      R1,[R4, #+0]
+   \   00000024   000051E1           CMP      R1,R0
+   \   00000028   0A00001A           BNE      ??ErrTmr_2
+    524            {
+    525              GBS_SendMessage(MMI_CEPID,KEY_DOWN,ENTER_BUTTON);
+   \   0000002C   1A20A0E3           MOV      R2,#+26
+   \   00000030   9310A0E3           MOV      R1,#+147
+   \   00000034   401F81E3           ORR      R1,R1,#0x100
+   \   00000038   0900A0E3           MOV      R0,#+9
+   \   0000003C   420C80E3           ORR      R0,R0,#0x4200
+   \   00000040   000100EF           SWI      +256
+    526              GBS_StartTimerProc(&errtmr, 262/3, ErrTmr);
+   \   00000044   ........           LDR      R2,??DataTable49  ;; ErrTmr
+   \   00000048   ........           LDR      R0,??DataTable50  ;; errtmr
+   \   0000004C   5710A0E3           MOV      R1,#+87
+   \   00000050   4D0000EF           SWI      +77
+   \   00000054   1080BDE8           POP      {R4,PC}
+    527            }
+    528            else
+    529              Ringtones_SetState(0);
+   \                     ??ErrTmr_2:
+   \   00000058   0000A0E3           MOV      R0,#+0
+   \   0000005C   370000EF           SWI      +55
+    530          }
+   \   00000060   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??ErrTmr_0:
+   \   00000064   ........           DC32     errgui
+    531          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    532          int hook(int submsg, int msg)
+    533          {
+   \                     hook:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   2CD04DE2           SUB      SP,SP,#+44
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   0150A0E1           MOV      R5,R1
+    534            if (IsUnlocked() && submsg==ENTER_BUTTON && msg==KEY_DOWN)
+   \   00000010   430000EF           SWI      +67
+   \   00000014   000050E3           CMP      R0,#+0
+   \   00000018   1E00000A           BEQ      ??hook_0
+   \   0000001C   1A0054E3           CMP      R4,#+26
+   \   00000020   1B00001A           BNE      ??hook_1
+   \   00000024   9300A0E3           MOV      R0,#+147
+   \   00000028   400F80E3           ORR      R0,R0,#0x100
+   \   0000002C   000055E1           CMP      R5,R0
+   \   00000030   1700001A           BNE      ??hook_1
+    535              if (IsGuiOnTop(((int *)FindCSMbyID(CSM_root()->idle_id))[DISPLACE_OF_IDLEGUI_ID/4]))
+   \   00000034   068100EF           SWI      +33030
+   \   00000038   040090E5           LDR      R0,[R0, #+4]
+   \   0000003C   080100EF           SWI      +264
+   \   00000040   2C0090E5           LDR      R0,[R0, #+44]
+   \   00000044   350100EF           SWI      +309
+   \   00000048   000050E3           CMP      R0,#+0
+   \   0000004C   1100000A           BEQ      ??hook_0
+    536              {
+    537                if(FindCSMbyID(MCSMid))
+   \   00000050   48409FE5           LDR      R4,??hook_2      ;; MCSMid
+   \   00000054   000094E5           LDR      R0,[R4, #+0]
+   \   00000058   080100EF           SWI      +264
+   \   0000005C   000050E3           CMP      R0,#+0
+   \   00000060   0100000A           BEQ      ??hook_3
+    538                  CloseCSM(MCSMid);
+   \   00000064   000094E5           LDR      R0,[R4, #+0]
+   \   00000068   FC0100EF           SWI      +508
+    539                char dummy[sizeof(MAIN_CSM)];
+    540                LockSched();
+   \                     ??hook_3:
+   \   0000006C   460100EF           SWI      +326
+    541                MCSMid=CreateCSM(&MAINCSM.maincsm,dummy,0);
+   \   00000070   2C009FE5           LDR      R0,??hook_2+0x4  ;; MAINCSM
+   \   00000074   0020A0E3           MOV      R2,#+0
+   \   00000078   0D10A0E1           MOV      R1,SP
+   \   0000007C   070100EF           SWI      +263
+   \   00000080   000084E5           STR      R0,[R4, #+0]
+    542                UnlockSched();
+   \   00000084   470100EF           SWI      +327
+    543                return(2);
+   \   00000088   0200A0E3           MOV      R0,#+2
+   \   0000008C   2CD08DE2           ADD      SP,SP,#+44
+   \   00000090   3080BDE8           POP      {R4,R5,PC}
+    544              }
+    545            return (0);
+   \                     ??hook_1:
+   \   00000094   0000A0E3           MOV      R0,#+0
+   \                     ??hook_0:
+   \   00000098   2CD08DE2           ADD      SP,SP,#+44       ;; stack cleaning
+   \   0000009C   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??hook_2:
+   \   000000A0   ........           DC32     MCSMid
+   \   000000A4   ........           DC32     MAINCSM
+    546          }
+    547          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    548          void newIcsmOnClose(CSM_RAM *data)
+    549          {
+   \                     newIcsmOnClose:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    550            extern void seqkill(void *data, void(*next_in_seq)(CSM_RAM *), void *data_to_kill, void *seqkiller);
+    551            extern void *ELF_BEGIN;
+    552            RemoveKeybMsgHook((void *)hook);
+   \   00000008   ........           LDR      R0,??DataTable48  ;; hook
+   \   0000000C   2D0100EF           SWI      +301
+    553            seqkill(data,oldIcsmOnClose,&ELF_BEGIN,SEQKILLER_ADR());
+   \   00000010   9C8100EF           SWI      +33180
+   \   00000014   ........           LDR      R2,??DataTable35  ;; ELF_BEGIN
+   \   00000018   0030A0E1           MOV      R3,R0
+   \   0000001C   ........           LDR      R0,??DataTable47  ;; oldIcsmOnClose
+   \   00000020   001090E5           LDR      R1,[R0, #+0]
+   \   00000024   0400A0E1           MOV      R0,R4
+   \   00000028   1040BDE8           POP      {R4,LR}          ;; Pop
+   \   0000002C   ........           _BF      seqkill,??seqkill??rA  ;; tailcall
+    554          }
+    555          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    556          __thumb unsigned int GetBLAddr(unsigned int adr)
+    557          {
+   \                     GetBLAddr:
+   \   00000000   30B4               PUSH     {R4,R5}
+    558            short _1_11=((short*)adr)[0];
+   \   00000002   0100               MOVS     R1,R0
+   \   00000004   0022               MOVS     R2,#+0
+   \   00000006   8A5E               LDRSH    R2,[R1, R2]
+    559            int _1=(_1_11&0x7FF)<<11|(_1_11&0x0400?0xFFC00000:0);
+   \   00000008   5305               LSLS     R3,R2,#+21
+   \   0000000A   01D5               BPL      ??GetBLAddr_0
+   \   0000000C   0A4C               LDR      R4,??GetBLAddr_1  ;; 0xffffffffffc00000
+   \   0000000E   00E0               B        ??GetBLAddr_2
+   \                     ??GetBLAddr_0:
+   \   00000010   0024               MOVS     R4,#+0
+   \                     ??GetBLAddr_2:
+   \   00000012   0A4B               LDR      R3,??GetBLAddr_1+0x4  ;; 0x7ff
+   \   00000014   1D00               MOVS     R5,R3
+   \   00000016   1540               ANDS     R5,R5,R2
+   \   00000018   ED02               LSLS     R5,R5,#+11
+   \   0000001A   2C43               ORRS     R4,R4,R5
+    560            short _2=((short*)adr)[1]&0x7FF;
+    561            return(unsigned int)(adr+_1*2+_2*2+4+(_1_11>>12&1));
+   \   0000001C   6400               LSLS     R4,R4,#+1
+   \   0000001E   0019               ADDS     R0,R0,R4
+   \   00000020   0224               MOVS     R4,#+2
+   \   00000022   095F               LDRSH    R1,[R1, R4]
+   \   00000024   0B40               ANDS     R3,R3,R1
+   \   00000026   5900               LSLS     R1,R3,#+1
+   \   00000028   4018               ADDS     R0,R0,R1
+   \   0000002A   1113               ASRS     R1,R2,#+12
+   \   0000002C   0122               MOVS     R2,#+1
+   \   0000002E   0A40               ANDS     R2,R2,R1
+   \   00000030   8018               ADDS     R0,R0,R2
+   \   00000032   001D               ADDS     R0,R0,#+4
+   \   00000034   30BC               POP      {R4,R5}
+   \   00000036   7047               BX       LR
+   \                     ??GetBLAddr_1:
+   \   00000038   0000C0FF           DC32     0xffffffffffc00000
+   \   0000003C   FF070000           DC32     0x7ff
+    562          }
+    563          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    564          int LoadItems(void)
+    565          {
+   \                     LoadItems:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+    566            FSTATS stat;
+    567            char *fn;
+    568            int f;
+    569            unsigned int ul;
+    570            int i;
+    571            int fsize;
+    572            int c;
+    573          
+    574            //FreeLines();
+    575           
+    576            extern const char MENU_PATH[];
+    577            fn=(char *)MENU_PATH;
+    578            
+    579            if (GetFileStats(fn,&stat,&ul)==-1) return 0;
+   \   00000004   D8409FE5           LDR      R4,??LoadItems_0  ;; MENU_PATH
+   \   00000008   8BDF4DE2           SUB      SP,SP,#+556
+   \   0000000C   0050E0E3           MVN      R5,#+0
+   \   00000010   0D20A0E1           MOV      R2,SP
+   \   00000014   811F8DE2           ADD      R1,SP,#+516
+   \   00000018   0400A0E1           MOV      R0,R4
+   \   0000001C   840000EF           SWI      +132
+   \   00000020   050050E1           CMP      R0,R5
+   \   00000024   0200001A           BNE      ??LoadItems_1
+   \                     ??LoadItems_2:
+   \   00000028   0000A0E3           MOV      R0,#+0
+   \   0000002C   8BDF8DE2           ADD      SP,SP,#+556
+   \   00000030   F081BDE8           POP      {R4-R8,PC}
+    580            if ((fsize=stat.size)<=0) return 0;
+   \                     ??LoadItems_1:
+   \   00000034   08629DE5           LDR      R6,[SP, #+520]
+   \   00000038   010056E3           CMP      R6,#+1
+   \   0000003C   F9FFFFBA           BLT      ??LoadItems_2
+    581            if ((f=fopen(fn,A_ReadOnly+A_BIN,P_READ,&ul))==-1) return 0;
+   \   00000040   0D30A0E1           MOV      R3,SP
+   \   00000044   8020A0E3           MOV      R2,#+128
+   \   00000048   801CA0E3           MOV      R1,#+32768
+   \   0000004C   0400A0E1           MOV      R0,R4
+   \   00000050   0A0000EF           SWI      +10
+   \   00000054   0040A0E1           MOV      R4,R0
+   \   00000058   050054E1           CMP      R4,R5
+   \   0000005C   F1FFFF0A           BEQ      ??LoadItems_2
+    582          
+    583          //  _WriteLog("Menu.cfg find");
+    584            c=fsize/sizeof(TMenuPoint);
+   \   00000060   80009FE5           LDR      R0,??LoadItems_0+0x4  ;; 0xfffffffff0f0f0f1
+    585            char msg[512];
+    586            sprintf(msg, "%02d %s\n", c,"item");
+   \   00000064   80309FE5           LDR      R3,??LoadItems_0+0x8  ;; `?<Constant "item">`
+   \   00000068   901685E0           UMULL    R1,R5,R0,R6
+   \   0000006C   7C109FE5           LDR      R1,??LoadItems_0+0xC  ;; `?<Constant "%02d %s\\n">`
+   \   00000070   A554A0E1           LSR      R5,R5,#+9
+   \   00000074   0520A0E1           MOV      R2,R5
+   \   00000078   04008DE2           ADD      R0,SP,#+4
+   \   0000007C   160000EF           SWI      +22
+    587          //  _WriteLog(msg);
+    588          		
+    589            for (i=0;i<c;i++)
+   \   00000080   0060A0E3           MOV      R6,#+0
+   \   00000084   010055E3           CMP      R5,#+1
+   \   00000088   0F0000BA           BLT      ??LoadItems_3
+   \   0000008C   ........           LDR      R8,??DataTable46  ;; items
+   \   00000090   887FA0E3           MOV      R7,#+544
+    590            {
+    591              items=realloc(items,(i+1)*sizeof(TMenuPoint));
+   \                     ??LoadItems_4:
+   \   00000094   0710A0E1           MOV      R1,R7
+   \   00000098   000098E5           LDR      R0,[R8, #+0]
+    592              fread(f,&items[i], sizeof(TMenuPoint),&ul);
+    593            }
+   \   0000009C   887F87E2           ADD      R7,R7,#+544
+   \   000000A0   BA0000EF           SWI      +186
+   \   000000A4   000088E5           STR      R0,[R8, #+0]
+   \   000000A8   001098E5           LDR      R1,[R8, #+0]
+   \   000000AC   0D30A0E1           MOV      R3,SP
+   \   000000B0   882FA0E3           MOV      R2,#+544
+   \   000000B4   921621E0           MLA      R1,R2,R6,R1
+   \   000000B8   0400A0E1           MOV      R0,R4
+   \   000000BC   0B0000EF           SWI      +11
+   \   000000C0   016086E2           ADD      R6,R6,#+1
+   \   000000C4   050056E1           CMP      R6,R5
+   \   000000C8   F1FFFFBA           BLT      ??LoadItems_4
+    594            
+    595            fclose(f,&ul);
+   \                     ??LoadItems_3:
+   \   000000CC   0D10A0E1           MOV      R1,SP
+   \   000000D0   0400A0E1           MOV      R0,R4
+   \   000000D4   0D0000EF           SWI      +13
+    596            
+    597            return c;
+   \   000000D8   0500A0E1           MOV      R0,R5
+   \   000000DC   8BDF8DE2           ADD      SP,SP,#+556
+   \   000000E0   F081BDE8           POP      {R4-R8,PC}       ;; return
+   \                     ??LoadItems_0:
+   \   000000E4   ........           DC32     MENU_PATH
+   \   000000E8   F1F0F0F0           DC32     0xfffffffff0f0f0f1
+   \   000000EC   ........           DC32     `?<Constant "item">`
+   \   000000F0   ........           DC32     `?<Constant "%02d %s\\n">`
+    598          }
+    599          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    600          void main()
+    601          {
+   \                     main:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+    602            unsigned int adr;
+    603          
+    604            //Нахожу функцию MsgBox
+    605            #pragma swi_number=0x8050
+    606            __swi __arm unsigned int MsgBoxOkCancel_adr();
+    607            adr=MsgBoxOkCancel_adr()+7; //Тут лежит инструкция "B MsgBox"
+    608            MsgBox=(int(*)(int,int,MSG_BOX*,int))(adr+(short)((*(short*)adr|0xF800))*2+5);
+    609          
+    610            //Нахожу функцию AddHeader
+    611            #pragma swi_number=0x8152
+    612            __swi __arm unsigned int CreateMenu_adr();
+    613            AddHeader=(void(*)(GUI*,HEADER_DESC*,void*))GetBLAddr(GetBLAddr(CreateMenu_adr()+33)+123);
+    614          
+    615          //  _WriteLog("InitCinfig");
+    616            // загрузка настроек
+    617            InitConfig();
+    618          //  _WriteLog("InitMenu");
+    619            // загрузка пунктов меню
+    620            ItemsCount = LoadItems();
+    621          //  _WriteLog("Menu yes");
+    622            
+    623            m=isnewSGold();
+    624            
+    625            CellX=240/Columns;
+    626            CellY=(320-55-32)/Rows;
+    627           
+    628            patch_header(&MHeader);
+   \   00000004   ........           LDR      R4,??DataTable38  ;; MHeader
+   \   00000008   508000EF           SWI      +32848
+   \   0000000C   F720F0E1           LDRSH    R2,[R0, #+7]!
+   \   00000010   ........           LDR      R1,??DataTable39  ;; MsgBox
+   \   00000014   FF30E0E3           MVN      R3,#+255
+   \   00000018   703EC3E3           BIC      R3,R3,#0x700
+   \   0000001C   022083E1           ORR      R2,R3,R2
+   \   00000020   0228A0E1           MOV      R2,R2, LSL #+16
+   \   00000024   4228A0E1           MOV      R2,R2, ASR #+16
+   \   00000028   820080E0           ADD      R0,R0,R2, LSL #+1
+   \   0000002C   050080E2           ADD      R0,R0,#+5
+   \   00000030   000081E5           STR      R0,[R1, #+0]
+   \   00000034   528100EF           SWI      +33106
+   \   00000038   210080E2           ADD      R0,R0,#+33
+   \   0000003C   ........           BLX      GetBLAddr
+   \   00000040   7B0080E2           ADD      R0,R0,#+123
+   \   00000044   ........           BLX      GetBLAddr
+   \   00000048   ........           LDR      R1,??DataTable40  ;; AddHeader
+   \   0000004C   0050A0E3           MOV      R5,#+0
+   \   00000050   000081E5           STR      R0,[R1, #+0]
+   \   00000054   ........           _BLF     InitConfig,??InitConfig??rA
+   \   00000058   ........           BL       LoadItems
+   \   0000005C   ........           LDR      R1,??DataTable41  ;; ItemsCount
+   \   00000060   000081E5           STR      R0,[R1, #+0]
+   \   00000064   B58100EF           SWI      +33205
+   \   00000068   18119FE5           LDR      R1,??main_0+0x4  ;; m
+   \   0000006C   ........           LDR      R2,??DataTable42  ;; CellX
+   \   00000070   000081E5           STR      R0,[R1, #+0]
+   \   00000074   ........           LDR      R1,??DataTable43  ;; Columns
+   \   00000078   F000A0E3           MOV      R0,#+240
+   \   0000007C   001091E5           LDR      R1,[R1, #+0]
+   \   00000080   B050C4E1           STRH     R5,[R4, #+0]
+   \   00000084   ........           _BLF     ??divu32_a,??rA??divu32_a
+   \   00000088   001082E5           STR      R1,[R2, #+0]
+   \   0000008C   ........           LDR      R1,??DataTable44  ;; Rows
+   \   00000090   ........           LDR      R2,??DataTable45  ;; CellY
+   \   00000094   001091E5           LDR      R1,[R1, #+0]
+   \   00000098   E900A0E3           MOV      R0,#+233
+   \   0000009C   ........           _BLF     ??divu32_a,??rA??divu32_a
+   \   000000A0   001082E5           STR      R1,[R2, #+0]
+   \   000000A4   B58100EF           SWI      +33205
+   \   000000A8   020050E3           CMP      R0,#+2
+   \   000000AC   1850A003           MOVEQ    R5,#+24
+   \   000000B0   B250C4E1           STRH     R5,[R4, #+2]
+   \   000000B4   888100EF           SWI      +33160
+   \   000000B8   010040E2           SUB      R0,R0,#+1
+   \   000000BC   B400C4E1           STRH     R0,[R4, #+4]
+   \   000000C0   8A8100EF           SWI      +33162
+   \   000000C4   0050A0E1           MOV      R5,R0
+   \   000000C8   B58100EF           SWI      +33205
+    629            MHeader.lgp_id=(int)items[4].Text;
+    630          
+    631            wsprintf((WSHDR*)&MAINCSM.maincsm_name,"%t","Главное меню");
+   \   000000CC   B8209FE5           LDR      R2,??main_0+0x8  ;; `?<Constant "\\303\\353\\340\\342\\355\\356\\345 \\354\\`
+   \   000000D0   020050E3           CMP      R0,#+2
+   \   000000D4   1800A003           MOVEQ    R0,#+24
+   \   000000D8   0000A013           MOVNE    R0,#+0
+   \   000000DC   050080E0           ADD      R0,R0,R5
+    632          
+    633            LockSched();
+    634            CSM_RAM *icsm=FindCSMbyID(CSM_root()->idle_id);
+    635            memcpy(&icsmd,icsm->constr,sizeof(icsmd));
+   \   000000E0   A8509FE5           LDR      R5,??main_0+0xC  ;; icsmd
+   \   000000E4   B600C4E1           STRH     R0,[R4, #+6]
+   \   000000E8   ........           LDR      R0,??DataTable46  ;; items
+   \   000000EC   241F8FE2           ADR      R1,??main_0      ;; "%t"
+   \   000000F0   000090E5           LDR      R0,[R0, #+0]
+   \   000000F4   880E80E2           ADD      R0,R0,#+2176
+   \   000000F8   0C0084E5           STR      R0,[R4, #+12]
+   \   000000FC   90009FE5           LDR      R0,??main_0+0x10  ;; MAINCSM + 40
+   \   00000100   240100EF           SWI      +292
+   \   00000104   460100EF           SWI      +326
+   \   00000108   068100EF           SWI      +33030
+   \   0000010C   040090E5           LDR      R0,[R0, #+4]
+   \   00000110   080100EF           SWI      +264
+   \   00000114   0040A0E1           MOV      R4,R0
+   \   00000118   081094E5           LDR      R1,[R4, #+8]
+   \   0000011C   2820A0E3           MOV      R2,#+40
+   \   00000120   0500A0E1           MOV      R0,R5
+   \   00000124   1E0100EF           SWI      +286
+    636            oldIcsmOnClose=icsmd.onClose;
+   \   00000128   ........           LDR      R0,??DataTable47  ;; oldIcsmOnClose
+   \   0000012C   181095E5           LDR      R1,[R5, #+24]
+   \   00000130   001080E5           STR      R1,[R0, #+0]
+    637            icsmd.onClose=newIcsmOnClose;
+   \   00000134   5C009FE5           LDR      R0,??main_0+0x14  ;; newIcsmOnClose
+   \   00000138   180085E5           STR      R0,[R5, #+24]
+    638            icsm->constr=&icsmd;
+    639            AddKeybMsgHook((void *)hook);
+   \   0000013C   ........           LDR      R0,??DataTable48  ;; hook
+   \   00000140   085084E5           STR      R5,[R4, #+8]
+   \   00000144   2B0100EF           SWI      +299
+    640            UnlockSched();
+   \   00000148   470100EF           SWI      +327
+    641          
+    642            #pragma swi_number=0x8060
+    643            __swi __arm void* ShowMainMenu_adr();
+    644            static GBSTMR mmtmr;
+    645            Ringtones_SetState(1);
+   \   0000014C   0100A0E3           MOV      R0,#+1
+   \   00000150   370000EF           SWI      +55
+    646            GBS_StartTimerProc(&mmtmr, 262*5, (void(*)())ShowMainMenu_adr());
+   \   00000154   608000EF           SWI      +32864
+   \   00000158   0020A0E1           MOV      R2,R0
+   \   0000015C   38009FE5           LDR      R0,??main_0+0x18  ;; ??mmtmr
+   \   00000160   1E10A0E3           MOV      R1,#+30
+   \   00000164   501E81E3           ORR      R1,R1,#0x500
+   \   00000168   4D0000EF           SWI      +77
+    647            GBS_StartTimerProc(&errtmr, 262*5+262/3, ErrTmr);
+   \   0000016C   ........           LDR      R2,??DataTable49  ;; ErrTmr
+   \   00000170   ........           LDR      R0,??DataTable50  ;; errtmr
+   \   00000174   7510A0E3           MOV      R1,#+117
+   \   00000178   501E81E3           ORR      R1,R1,#0x500
+   \   0000017C   4D0000EF           SWI      +77
+    648          }
+   \   00000180   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??main_0:
+   \   00000184   25740000           DC8      "%t",+0
+   \   00000188   ........           DC32     m
+   \   0000018C   ........           DC32     `?<Constant "\\303\\353\\340\\342\\355\\356\\345 \\354\\`
+   \   00000190   ........           DC32     icsmd
+   \   00000194   ........           DC32     MAINCSM + 40
+   \   00000198   ........           DC32     newIcsmOnClose
+   \   0000019C   ........           DC32     ??mmtmr
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+   \                     ??mmtmr:
+   \   00000000                      DS8 16
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable6:
+   \   00000000   ........           DC32     pic_n
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable7:
+   \   00000000   ........           DC32     PickNumTmr
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable20:
+   \   00000000   ........           DC32     OOnRedraw
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable29:
+   \   00000000   ........           DC32     MsgBox
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable30:
+   \   00000000   ........           DC32     tmr
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable31:
+   \   00000000   ........           DC32     pos
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable35:
+   \   00000000   ........           DC32     ELF_BEGIN
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable38:
+   \   00000000   ........           DC32     MHeader
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable39:
+   \   00000000   ........           DC32     MsgBox
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable40:
+   \   00000000   ........           DC32     AddHeader
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable41:
+   \   00000000   ........           DC32     ItemsCount
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable42:
+   \   00000000   ........           DC32     CellX
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable43:
+   \   00000000   ........           DC32     Columns
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable44:
+   \   00000000   ........           DC32     Rows
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable45:
+   \   00000000   ........           DC32     CellY
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable46:
+   \   00000000   ........           DC32     items
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable47:
+   \   00000000   ........           DC32     oldIcsmOnClose
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable48:
+   \   00000000   ........           DC32     hook
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable49:
+   \   00000000   ........           DC32     ErrTmr
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable50:
+   \   00000000   ........           DC32     errtmr
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for MHeader>`:
+   \   00000000   000000000000       DC16 0, 0, 0, 0
+   \              0000        
+   \   00000008   ........0000       DC32 MHico, 0, 2147483647
+   \              0000FFFFFF7F
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for MSoftKeys>`:
+   \   00000000   000000000100       DC32 0, 1, 2
+   \              000002000000
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for Msk>`:
+   \   00000000   18000000           DC16 24, 0
+   \   00000004   ........           DC32 `?<Constant "">`
+   \   00000008   01000000           DC16 1, 0
+   \   0000000C   ........           DC32 `?<Constant "\\315\\340\\347\\340\\344">`
+   \   00000010   3D000000           DC16 61, 0
+   \   00000014   FBC0FF7F           DC32 2147467515
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for Mskt>`:
+   \   00000000   ........0000       DC32 Msk, 0
+   \              0000        
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for hs>`:
+   \   00000000   380065009F00       DC16 56, 101, 159, 204
+   \              CC00        
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for pos>`:
+   \   00000000   04000000           DC32 4
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for MMenu>`:
+   \   00000000   00000000....       DC32 0, MOnKey, MGHook, 0H, MSoftKeys, Mskt, 1, 2147483647, 0H, 0, 0
+   \              ............
+   \              00000000....
+   \              ............
+   \              01000000FFFF
+   \              FF7F00000000
+   \              000000000000
+   \              0000        
+   \   0000002C   640000006500       DC32 100, 101, 0
+   \              000000000000
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\303\\353\\340\\342\\355\\356\\345 \\354\\`:
+   \   00000000   C3EBE0E2EDEE       DC8 "\303\353\340\342\355\356\345 \354\345\355\376"
+   \              E520ECE5EDFE
+   \              00          
+   \   0000000D   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "4:\\\\ZBin\\\\menu\\\\menu.log">`:
+   \   00000000   343A5C5A4269       DC8 "4:\\ZBin\\menu\\menu.log"
+   \              6E5C6D656E75
+   \              5C6D656E752E
+   \              6C6F6700    
+   \   00000016   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\315\\340\\347\\340\\344">`:
+   \   00000000   CDE0E7E0E400       DC8 "\315\340\347\340\344"
+   \   00000006   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \                     `?<Constant "">`:
+   \   00000000   00                 DC8 ""
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \   00000000   257400             DC8 "%t"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "item">`:
+   \   00000000   6974656D00         DC8 "item"
+   \   00000005   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "%02d %s\\n">`:
+   \   00000000   253032642025       DC8 "%02d %s\012"
+   \              730A00      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "%02d:%02d:%02d %s\\n">`:
+   \   00000000   253032643A25       DC8 "%02d:%02d:%02d %s\012"
+   \              3032643A2530
+   \              32642025730A
+   \              00          
+   \   00000013   00                 DC8 0
+
+   Maximum stack usage in bytes:
+
+     Function               CSTACK
+     --------               ------
+     CalcPic                   12
+     ElfKiller                  4
+     ErrTmr                     8
+     GetBLAddr                 12
+     GetFunctionPointByName    16
+     LoadItems                580
+     MGHook                    12
+     MOnClose                   4
+     MOnCreate                 12
+     MOnKey                    16
+     MOnMsg                     4
+     NOnRedraw                 40
+     PickNumTmr                 4
+     RunBM2                    60
+     TmrReset                   8
+     UpdateHeader              16
+     _WriteLog                552
+     chr2num                    0
+     hook                      56
+     main                      12
+     newIcsmOnClose             8
+     run_address                4
+     run_shortcut               4
+     strcmp_nocase              0
+     strncmpNoCase              4
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     CellX                             4
+     CellY                             4
+     MsgBox                            4
+     AddHeader                         4
+     m                                 4
+     ElfKiller                        24
+     icsmd                            40
+     oldIcsmOnClose                    4
+     _WriteLog                       152
+     MHico                             4
+     MHeader                          20
+     MSoftKeys                        12
+     Msk                              24
+     Mskt                              8
+     tmr                              16
+     hs                                8
+     pic_n                             4
+     pos                               4
+     items                             4
+     ItemsCount                        4
+     strncmpNoCase                    88
+     ??strcmp_nocase_0                76
+     GetFunctionPointByName           92
+     run_address                      20
+     run_shortcut                     16
+     chr2num                          68
+     RunBM2                          468
+     PickNumTmr                       52
+     TmrReset                         48
+     CalcPic                          56
+     UpdateHeader                     88
+     OOnRedraw                         4
+     NOnRedraw                       340
+     NGuiMeths                        44
+     MGHook                          144
+     MOnKey                          404
+     MMenu                            56
+     minus11                           4
+     maincsm_name_body               280
+     MCSMid                            4
+     MOnCreate                        32
+     MOnMsg                           32
+     MOnClose                         28
+     MAINCSM                          60
+     errtmr                           16
+     errgui                            4
+     ErrTmr                          104
+     hook                            168
+     newIcsmOnClose                   48
+     GetBLAddr                        64
+     LoadItems                       244
+     main                            416
+     mmtmr                            16
+     ??DataTable6                      4
+     ??DataTable7                      4
+     ??DataTable20                     4
+     ??DataTable29                     4
+     ??DataTable30                     4
+     ??DataTable31                     4
+     ??DataTable35                     4
+     ??DataTable38                     4
+     ??DataTable39                     4
+     ??DataTable40                     4
+     ??DataTable41                     4
+     ??DataTable42                     4
+     ??DataTable43                     4
+     ??DataTable44                     4
+     ??DataTable45                     4
+     ??DataTable46                     4
+     ??DataTable47                     4
+     ??DataTable48                     4
+     ??DataTable49                     4
+     ??DataTable50                     4
+     ?<Initializer for MHeader>       20
+     ?<Initializer for MSoftKeys>     12
+     ?<Initializer for Msk>           24
+     ?<Initializer for Mskt>           8
+     ?<Initializer for hs>             8
+     ?<Initializer for pos>            4
+     ?<Initializer for MMenu>         56
+     ?<Constant "\303\353\340\342\355\356\345 \354\
+                                      16
+     ?<Constant "4:\\ZBin\\menu\\menu.log">
+                                      24
+     ?<Constant "\315\340\347\340\344">
+                                       8
+     ?<Constant "">                    1
+     ?<Constant "%t">                  3
+     ?<Constant "item">                8
+     ?<Constant "%02d %s\n">          12
+     ?<Constant "%02d:%02d:%02d %s\n">
+                                      20
+      Others                         196
+
+ 
+ 3 524 bytes in segment CODE
+   156 bytes in segment DATA_C
+   132 bytes in segment DATA_I
+   132 bytes in segment DATA_ID
+   464 bytes in segment DATA_Z
+    24 bytes in segment INITTAB
+ 
+ 3 352 bytes of CODE  memory (+ 196 bytes shared)
+   288 bytes of CONST memory
+   596 bytes of DATA  memory
+
+Errors: none
+Warnings: none

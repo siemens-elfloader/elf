@@ -1,0 +1,147 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    07/May/2009  10:45:43 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\KeyHook.cpp         #
+#    Command line    =  D:\pasha\elf\SieELF\MySMSYS\Mss3\KeyHook.cpp -D      #
+#                       NEWSGOLD -D ELKA -D LANG_CN -lcN                     #
+#                       D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\List\  #
+#                       -o D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\Obj #
+#                       \ -s9 --no_unroll --cpu_mode arm --endian little     #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --eec++ --dlib_config "D:\pasha\Embedded  #
+#                       Workbench 4.0 Evaluation2\ARM\LIB\dl5tpainl8n.h" -I  #
+#                       "D:\pasha\Embedded Workbench 4.0                     #
+#                       Evaluation2\ARM\INC\" --inline_threshold=2           #
+#    List file       =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\List\K #
+#                       eyHook.lst                                           #
+#    Object file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\Obj\Ke #
+#                       yHook.r79                                            #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\pasha\elf\SieELF\MySMSYS\Mss3\KeyHook.cpp
+      1          // KeyHook.cpp: implementation of the KeyHook class.
+      2          //
+      3          //////////////////////////////////////////////////////////////////////
+      4          #include "include.h"
+      5          #include "SiemensPDU.h"
+      6          #include "MyIpcMessage.h"
+      7          #include "File.h"
+      8          #include "AdrList.h"
+      9          #include "SmsData.h"
+     10          #include "config_data.h"
+     11          #include "KeyHook.h"
+     12          
+     13          //////////////////////////////////////////////////////////////////////
+     14          // Construction/Destruction
+     15          //////////////////////////////////////////////////////////////////////
+     16          
+     17          //DEL KeyHook::KeyHook()
+     18          //DEL {
+     19          //DEL 
+     20          //DEL }
+     21          
+     22          //DEL KeyHook::~KeyHook()
+     23          //DEL {
+     24          //DEL 
+     25          //DEL }
+     26          int KeyHook::mode=0;
+     27          
+     28          void KeyHook::Create()
+     29          {
+     30            AddKeybMsgHook((void *)HookProc);
+     31          }
+     32          
+     33          int KeyHook::HookProc(int submsg, int msg)
+     34          {
+     35            if(msg==KEY_UP)
+     36              mode=0;
+     37            if(msg==KEY_DOWN)
+     38            {
+     39              if(submsg==KEY1)
+     40                mode=1;
+     41              else if(submsg==KEY2 && mode==1)
+     42              {
+     43                if(!IsUnlocked()) TempLightOn(3, 0x7FFF);
+     44                SendMyIpc(SMSYS_IPC_MAIN);
+     45                return KEYHOOK_BREAK;
+     46              }
+     47            }
+     48            if(SMSDATA->n_new
+     49              && msg==KEY_DOWN
+     50              && submsg==LEFT_SOFT
+     51              &&(IsSS() || (!IsUnlocked() && IsIdle()))
+     52              )
+     53            {
+     54              if(!IsUnlocked()) TempLightOn(3, 0x7FFF);
+     55              SendMyIpc(SMSYS_IPC_IN_ALL);
+     56              return KEYHOOK_BREAK;
+     57            }
+     58            return KEYHOOK_NEXT;
+     59          }
+     60          
+     61          void KeyHook::Remove()
+     62          {
+     63            RemoveKeybMsgHook((void *)HookProc);
+     64          }
+     65          
+     66          int KeyHook::IsSS()
+     67          {
+     68            SS_RAM *ss_ram;
+     69            if(!(ss_ram=GetScreenSaverRAM())) return 0;
+     70            if((ss_ram->ss_gui_id) && IsGuiOnTop(ss_ram->ss_gui_id))
+     71              return 1;
+     72            if((ss_ram->keylock_gui_id) && IsGuiOnTop(ss_ram->keylock_gui_id))
+     73              return 1;
+     74            return 0;
+     75          }
+     76          
+     77          int KeyHook::IsIdle()
+     78          {
+     79          #define idlegui_id (((int *)icsm)[DISPLACE_OF_IDLEGUI_ID/4])
+     80            CSM_RAM *icsm=FindCSMbyID(CSM_root()->idle_id);
+     81            if(icsm && IsGuiOnTop(idlegui_id))
+     82              return 1;
+     83            return 0;
+     84          }
+
+   Maximum stack usage in bytes:
+
+     Function                    CSTACK
+     --------                    ------
+     KeyHook::Create()               4
+     KeyHook::HookProc(int, int)     8
+     KeyHook::IsIdle()               4
+     KeyHook::IsSS()                 8
+     KeyHook::Remove()               4
+
+
+   Segment part sizes:
+
+     Function/Label              Bytes
+     --------------              -----
+     KeyHook::mode                  4
+     KeyHook::Create()             16
+     KeyHook::HookProc(int, int)  264
+     KeyHook::Remove()             16
+     KeyHook::IsSS()               92
+     KeyHook::IsIdle()             44
+     ??DataTable1                   4
+      Others                       44
+
+ 
+ 468 bytes in segment CODE
+   4 bytes in segment DATA_Z
+  12 bytes in segment INITTAB
+ 
+ 436 bytes of CODE memory (+ 44 bytes shared)
+   4 bytes of DATA memory
+
+Errors: none
+Warnings: none

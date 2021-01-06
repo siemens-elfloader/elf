@@ -1,0 +1,237 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    07/May/2009  10:45:39 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\TabGUI.cpp          #
+#    Command line    =  D:\pasha\elf\SieELF\MySMSYS\Mss3\TabGUI.cpp -D       #
+#                       NEWSGOLD -D ELKA -D LANG_CN -lcN                     #
+#                       D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\List\  #
+#                       -o D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\Obj #
+#                       \ -s9 --no_unroll --cpu_mode arm --endian little     #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --eec++ --dlib_config "D:\pasha\Embedded  #
+#                       Workbench 4.0 Evaluation2\ARM\LIB\dl5tpainl8n.h" -I  #
+#                       "D:\pasha\Embedded Workbench 4.0                     #
+#                       Evaluation2\ARM\INC\" --inline_threshold=2           #
+#    List file       =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\List\T #
+#                       abGUI.lst                                            #
+#    Object file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\Obj\Ta #
+#                       bGUI.r79                                             #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\pasha\elf\SieELF\MySMSYS\Mss3\TabGUI.cpp
+      1          #include "include.h"
+      2          #include "SiemensPDU.h"
+      3          #include "MyIpcMessage.h"
+      4          #include "File.h"
+      5          #include "SmsData.h"
+      6          #include "CreateMenu.h"
+      7          #include "SmsListMenu.h"
+      8          #include "MainMenu.h"
+      9          #include "TabGUI.h"
+     10          
+     11          
+     12          int TABICONS[5][4]=
+     13          {
+     14            ICON_BLANK,ICON_BLANK,ICON_BLANK,ICON_BLANK,
+     15            ICON_BLANK,ICON_BLANK,ICON_BLANK,ICON_BLANK,
+     16            ICON_BLANK,ICON_BLANK,ICON_BLANK,ICON_BLANK,
+     17            ICON_BLANK,ICON_BLANK,ICON_BLANK,ICON_BLANK,
+     18            ICON_BLANK,ICON_BLANK,ICON_BLANK,ICON_BLANK,
+     19          };
+     20          
+     21          TabGUI::TabGUI()
+     22          {
+     23            tab_desc=new TABGUI_DESC;
+     24            tab_desc->flag=8;
+     25            tab_desc->onkey=this->OnKey;
+     26            tab_desc->ghook=this->GHook;
+     27            tab_desc->locret=(void *)this->Locret;
+     28            tab_desc->softkeys=NULL;
+     29            tab_desc->softkeystab=NULL;
+     30          }
+     31          
+     32          TabGUI::~TabGUI()
+     33          {
+     34          }
+     35          
+     36          #define TAB_ITEM_N 5
+     37          int TabGUI::CreateTabGUI(DLG_CSM *dlg_csm)
+     38          {
+     39            int n, type;
+     40            void *m_gui;
+     41            void *ma=malloc_adr();
+     42            void *mf=mfree_adr();
+     43            void *tab_gui=GetTabGUI(ma, mf);
+     44            SetGUIDefinition(tab_gui, this->tab_desc);
+     45            MainMenu *mm=new MainMenu;
+     46            m_gui=mm->GetMainMenuGUI(dlg_csm, 0);
+     47            SetGUIToTabGUI(tab_gui, 0, TABICONS[0], m_gui);
+     48            for(n=1;n<TAB_ITEM_N;n++)
+     49            {
+     50              switch(n)
+     51              {
+     52              case 1: type=TYPE_IN_ALL;break;
+     53              case 2: type=TYPE_SENT;break;
+     54              case 3: type=TYPE_DRAFT;break;
+     55              //case 4: type=0;break;
+     56              case 4: type=TYPE_FILTER;break;
+     57              }
+     58              SmsListMenu *slm=new SmsListMenu;
+     59              m_gui=slm->GetSmsListMenuGUI(type, 1, dlg_csm, 0);
+     60              SetGUIToTabGUI(tab_gui, n, TABICONS[n], m_gui);
+     61            }
+     62            SetCursorTab(tab_gui, CFG_DEFAULT_TAB);
+     63            UpdateTab1stItem(tab_gui, 0);
+     64            return CreateGUI(tab_gui);
+     65          }
+     66          
+     67          int TabGUI::OnKey(void *data, GUI_MSG *msg)
+     68          {
+     69            return 0;
+     70          }
+     71          
+     72          void TabGUI::GHook(void *data, int cmd)
+     73          {
+     74            if(cmd==0x3)
+     75            {
+     76              TABGUI_DESC *tab_desc=(TABGUI_DESC *)(((void **)data)[8/4]);
+     77              delete tab_desc;
+     78            }
+     79            else if(cmd==0x18)
+     80            {
+     81              int n=GetCursorTab(data);
+     82              if(n)
+     83              {
+     84                int type, cnt, cur;
+     85                void *m_gui;
+     86                switch(n)
+     87                {
+     88                case 1: type=TYPE_IN_ALL;break;
+     89                case 2: type=TYPE_SENT;break;
+     90                case 3: type=TYPE_DRAFT;break;
+     91                //case 4: type=0;break;
+     92                case 4: type=TYPE_FILTER;break;
+     93                default : type=0;break;
+     94                }
+     95                m_gui=GetGuiByTab(data, n);
+     96                if(m_gui)
+     97                {
+     98          	//SmsListMenu *slm=(SmsListMenu *)MenuGetUserPointer(m_gui);
+     99                  cnt=SMSDATA->GetSMSCount(type);
+    100                  cur=GetCurMenuItem(m_gui);
+    101                  if(cur>=cnt) SetCursorToMenuItem(m_gui, 0);
+    102                  Menu_SetItemCountDyn(m_gui, cnt);
+    103                }
+    104              }
+    105              void **methods=(void **)((GUI *)data)->methods;
+    106              ((void (*)(void *))methods[0])(data);
+    107            }
+    108            else if(cmd==0xA)
+    109            {
+    110              DisableIDLETMR();
+    111            }
+    112          }
+    113          
+    114          void TabGUI::Locret(void)
+    115          {
+    116          }
+    117          
+    118          int TabGUI::ReCreateTabGUI(DLG_CSM *dlg_csm)
+    119          {
+    120            int n, type;
+    121            void *old_gui, *t_gui, *m_gui, *tab_gui, *ma, *mf;
+    122            if(!dlg_csm)
+    123              return 0;
+    124            if(!(old_gui=FindGUIbyId(dlg_csm->gui_id, NULL)))
+    125              return 0;
+    126            ma=malloc_adr();
+    127            mf=mfree_adr();
+    128            tab_gui=GetTabGUI(ma, mf);
+    129            if(((GUI *)old_gui)->methods != ((GUI *)tab_gui)->methods)
+    130              return 0;
+    131            if(!(t_gui=GetGuiByTab(old_gui, 0)))
+    132              return 0;
+    133            SetGUIDefinition(tab_gui, this->tab_desc);
+    134            MainMenu *mm=new MainMenu;
+    135            m_gui=mm->GetMainMenuGUI(dlg_csm, GetCurMenuItem(t_gui));
+    136            SetGUIToTabGUI(tab_gui, 0, TABICONS[0], m_gui);
+    137            for(n=1;n<TAB_ITEM_N;n++)
+    138            {
+    139              switch(n)
+    140              {
+    141              case 1: type=TYPE_IN_ALL;break;
+    142              case 2: type=TYPE_SENT;break;
+    143              case 3: type=TYPE_DRAFT;break;
+    144              case 4: type=TYPE_FILTER;break;
+    145              }
+    146              if(!(t_gui=GetGuiByTab(old_gui, n)))
+    147                break;
+    148              SmsListMenu *slm=new SmsListMenu;
+    149              m_gui=slm->GetSmsListMenuGUI(type, 1, dlg_csm, GetCurMenuItem(t_gui));
+    150              SetGUIToTabGUI(tab_gui, n, TABICONS[n], m_gui);
+    151            }
+    152            SetCursorTab(tab_gui, GetCursorTab(old_gui));
+    153            UpdateTab1stItem(tab_gui, 0);
+    154            return CreateGUI(tab_gui);
+    155          }
+
+   Maximum stack usage in bytes:
+
+     Function                       CSTACK
+     --------                       ------
+     TabGUI::CreateTabGUI(DLG_CSM *)
+                                       28
+     TabGUI::GHook(void *, int)        16
+     TabGUI::Locret()                   0
+     TabGUI::OnKey(void *, GUI_MSG *)
+                                        0
+     TabGUI::ReCreateTabGUI(DLG_CSM *)
+                                       40
+     TabGUI::TabGUI()                   8
+     TabGUI::delete ~TabGUI(TabGUI *)
+                                        4
+     TabGUI::new TabGUI()               4
+     TabGUI::~TabGUI()                  0
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     TABICONS                         80
+     TabGUI::TabGUI()                104
+     TabGUI::~TabGUI()                 4
+     TabGUI::CreateTabGUI(DLG_CSM *)
+                                     260
+     TabGUI::OnKey(void *, GUI_MSG *)
+                                       8
+     TabGUI::GHook(void *, int)      240
+     TabGUI::Locret()                  4
+     TabGUI::ReCreateTabGUI(DLG_CSM *)
+                                     380
+     ?<Initializer for TABICONS>      80
+     TabGUI::new TabGUI()             28
+     TabGUI::delete ~TabGUI(TabGUI *)
+                                      20
+     ??DataTable1                      4
+      Others                         132
+
+ 
+ 1 172 bytes in segment CODE
+    80 bytes in segment DATA_I
+    80 bytes in segment DATA_ID
+    12 bytes in segment INITTAB
+ 
+ 1 052 bytes of CODE  memory (+ 132 bytes shared)
+    80 bytes of CONST memory
+    80 bytes of DATA  memory
+
+Errors: none
+Warnings: none

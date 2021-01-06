@@ -1,0 +1,1043 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    07/Jul/2010  13:09:27 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\splayer\mainmenu.c                            #
+#    Command line    =  C:\arm\splayer\mainmenu.c -D NEWSGOLD -D ELKA -D     #
+#                       OBS -lC C:\arm\splayer\Release_ELKA\List\ -o         #
+#                       C:\arm\splayer\Release_ELKA\Obj\ -s9 --no_unroll     #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\splayer\Release_ELKA\List\mainmenu.lst        #
+#    Object file     =  C:\arm\splayer\Release_ELKA\Obj\mainmenu.r79         #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\splayer\mainmenu.c
+      1          #include "../inc/swilib.h"
+      2          #include "main.h"
+      3          #include "mainmenu.h"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \   static char const *const __data items[7]
+   \                     items:
+   \   00000000   ............       DC32 `?<Constant "setnexttrack">`, `?<Constant "showid3">`
+   \              ....        
+   \   00000008   ............       DC32 `?<Constant "fm">`, `?<Constant "setsmenu">`
+   \              ....        
+   \   00000010   ............       DC32 `?<Constant "settings">`, `?<Constant "about">`
+   \              ....        
+   \   00000018   ........           DC32 `?<Constant "exit">`
+      4          #include "langpack.h"
+      5          #include "lang.h"
+      6          #include "playlist.h"
+      7          #include "ID3Genres.h"
+      8          #include "item_info.h"
+      9          #include "sets_menu.h"
+     10          #include "FM.h"
+     11          
+     12          #ifdef NEWSGOLD
+     13          #define DEFAULT_DISK "4"
+     14          #else
+     15          #define DEFAULT_DISK "0"
+     16          #endif
+     17          
+     18          /*
+     19           Тут делаю главное меню...
+     20           Все работает норм! И графика пашет. Так что здесь пока можно ничего не трогать,
+     21           пока новые пункты не добавлять...
+     22          */
+     23          // Ну да ладно! это не помешает!
+     24          
+     25          // Mr. Anderstand:
+     26          // Переделал все...
+     27          
+     28          //==============================================================================
+     29          // ELKA Compatibility
+     30          //#pragma inline
+
+   \                                 In segment CODE, align 4, keep-with-next
+     31          void patch_header(HEADER_DESC* head)
+     32          {
+   \                     patch_header:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+     33            head->rc.x=0;
+   \   00000008   0000A0E3           MOV      R0,#+0
+   \   0000000C   B000C4E1           STRH     R0,[R4, #+0]
+     34            head->rc.y=YDISP;
+   \   00000010   1800A0E3           MOV      R0,#+24
+   \   00000014   B200C4E1           STRH     R0,[R4, #+2]
+     35            head->rc.x2=ScreenW()-1;
+   \   00000018   888100EF           SWI      +33160
+   \   0000001C   010040E2           SUB      R0,R0,#+1
+   \   00000020   B400C4E1           STRH     R0,[R4, #+4]
+     36            head->rc.y2=HeaderH()+YDISP;
+   \   00000024   8A8100EF           SWI      +33162
+   \   00000028   180080E2           ADD      R0,R0,#+24
+   \   0000002C   B600C4E1           STRH     R0,[R4, #+6]
+     37          }
+   \   00000030   1080BDE8           POP      {R4,PC}          ;; return
+     38          //#pragma inline
+
+   \                                 In segment CODE, align 4, keep-with-next
+     39          void patch_input(INPUTDIA_DESC* inp)
+     40          {
+   \                     patch_input:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+     41            inp->rc.x=0;
+   \   00000008   0000A0E3           MOV      R0,#+0
+   \   0000000C   B801C4E1           STRH     R0,[R4, #+24]
+     42            inp->rc.y=HeaderH()+1+YDISP;
+   \   00000010   8A8100EF           SWI      +33162
+   \   00000014   190080E2           ADD      R0,R0,#+25
+   \   00000018   BA01C4E1           STRH     R0,[R4, #+26]
+     43            inp->rc.x2=ScreenW()-1;
+   \   0000001C   888100EF           SWI      +33160
+   \   00000020   010040E2           SUB      R0,R0,#+1
+   \   00000024   BC01C4E1           STRH     R0,[R4, #+28]
+     44            inp->rc.y2=ScreenH()-SoftkeyH()-1;
+   \   00000028   898100EF           SWI      +33161
+   \   0000002C   0050A0E1           MOV      R5,R0
+   \   00000030   8B8100EF           SWI      +33163
+   \   00000034   000045E0           SUB      R0,R5,R0
+   \   00000038   010040E2           SUB      R0,R0,#+1
+   \   0000003C   BE01C4E1           STRH     R0,[R4, #+30]
+     45          }
+   \   00000040   3080BDE8           POP      {R4,R5,PC}       ;; return
+     46          //==============================================================================
+     47          extern const char PIC_DIR[];
+     48          extern const char EXENAME[];   // SPlayer cfg editor.elf
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     49          char cfgname[256];
+   \                     cfgname:
+   \   00000000                      DS8 256
+     50          extern unsigned short EditPL;
+     51          extern int CurrentTrack[TCPL];
+     52          extern int CurrentPL;
+     53          extern unsigned int TC[TCPL];
+
+   \                                 In segment CODE, align 4, keep-with-next
+     54          void inp_locret(void){}
+   \                     inp_locret:
+   \   00000000   1EFF2FE1           BX       LR               ;; return
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     55          ID3TAGDATA *MainTag;
+   \                     MainTag:
+   \   00000000                      DS8 4
+     56          
+     57          #define N_ITEMS 7
+     58          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     59          int MainMenu_ID;
+   \                     MainMenu_ID:
+   \   00000000                      DS8 4
+     60          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     61          void SetNextPlayedOn()
+     62          {
+   \                     SetNextPlayedOn:
+   \   00000000   00402DE9           PUSH     {LR}
+     63            SetNextPlayed();
+   \   00000004   ........           _BLF     SetNextPlayed,??SetNextPlayed??rA
+     64            GeneralFuncF1(1);
+   \   00000008   0100A0E3           MOV      R0,#+1
+   \   0000000C   3B0100EF           SWI      +315
+     65          }
+   \   00000010   0080BDE8           POP      {PC}             ;; return
+     66          
+     67          // ID3 tags
+
+   \                                 In segment CODE, align 4, keep-with-next
+     68          void ShowID3()
+     69          {
+   \                     ShowID3:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+     70            if(CurrentTrack[CurrentPL]!=0&&TC[CurrentPL]!=0)
+   \   00000004   98409FE5           LDR      R4,??ShowID3_0   ;; CurrentTrack
+   \   00000008   98509FE5           LDR      R5,??ShowID3_0+0x4  ;; CurrentPL
+   \   0000000C   000095E5           LDR      R0,[R5, #+0]
+   \   00000010   001194E7           LDR      R1,[R4, +R0, LSL #+2]
+   \   00000014   000051E3           CMP      R1,#+0
+   \   00000018   1A00000A           BEQ      ??ShowID3_1
+   \   0000001C   88109FE5           LDR      R1,??ShowID3_0+0x8  ;; TC
+   \   00000020   000191E7           LDR      R0,[R1, +R0, LSL #+2]
+   \   00000024   000050E3           CMP      R0,#+0
+   \   00000028   1600000A           BEQ      ??ShowID3_1
+     71            {
+     72              MainTag=malloc(sizeof(ID3TAGDATA));
+   \   0000002C   7C609FE5           LDR      R6,??ShowID3_0+0xC  ;; MainTag
+   \   00000030   9000A0E3           MOV      R0,#+144
+   \   00000034   140000EF           SWI      +20
+   \   00000038   000086E5           STR      R0,[R6, #+0]
+     73              ReadID3v1(GetCurrentTrack(CurrentTrack[CurrentPL]), MainTag);
+   \   0000003C   000095E5           LDR      R0,[R5, #+0]
+   \   00000040   000194E7           LDR      R0,[R4, +R0, LSL #+2]
+   \   00000044   ........           _BLF     GetCurrentTrack,??GetCurrentTrack??rA
+   \   00000048   001096E5           LDR      R1,[R6, #+0]
+   \   0000004C   ........           _BLF     ReadID3v1,??ReadID3v1??rA
+     74              if(ReadID3v1(GetCurrentTrack(CurrentTrack[CurrentPL]), MainTag)) {Disp_Info(MainTag);}
+   \   00000050   000095E5           LDR      R0,[R5, #+0]
+   \   00000054   000194E7           LDR      R0,[R4, +R0, LSL #+2]
+   \   00000058   ........           _BLF     GetCurrentTrack,??GetCurrentTrack??rA
+   \   0000005C   001096E5           LDR      R1,[R6, #+0]
+   \   00000060   ........           _BLF     ReadID3v1,??ReadID3v1??rA
+   \   00000064   000050E3           CMP      R0,#+0
+   \   00000068   0100000A           BEQ      ??ShowID3_2
+   \   0000006C   000096E5           LDR      R0,[R6, #+0]
+   \   00000070   ........           _BLF     Disp_Info,??Disp_Info??rA
+     75              mfree(MainTag);
+   \                     ??ShowID3_2:
+   \   00000074   000096E5           LDR      R0,[R6, #+0]
+   \   00000078   150000EF           SWI      +21
+   \   0000007C   0100A0E3           MOV      R0,#+1
+   \   00000080   3B0100EF           SWI      +315
+   \   00000084   7080BDE8           POP      {R4-R6,PC}
+     76            }
+     77            else
+     78            {
+     79              MsgBoxError(0,(int)lgpData[LGP_Is_not_selected]);
+   \                     ??ShowID3_1:
+   \   00000088   24009FE5           LDR      R0,??ShowID3_0+0x10  ;; lgpData + 124
+   \   0000008C   001090E5           LDR      R1,[R0, #+0]
+   \   00000090   0000A0E3           MOV      R0,#+0
+   \   00000094   4E0000EF           SWI      +78
+     80            }
+     81            GeneralFuncF1(1);
+   \   00000098   0100A0E3           MOV      R0,#+1
+   \   0000009C   3B0100EF           SWI      +315
+     82          }
+   \   000000A0   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??ShowID3_0:
+   \   000000A4   ........           DC32     CurrentTrack
+   \   000000A8   ........           DC32     CurrentPL
+   \   000000AC   ........           DC32     TC
+   \   000000B0   ........           DC32     MainTag
+   \   000000B4   ........           DC32     lgpData + 124
+     83          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     84          void FM()
+     85          {
+   \                     FM:
+   \   00000000   00402DE9           PUSH     {LR}
+     86            ShowFM();
+   \   00000004   ........           _BLF     ShowFM,??ShowFM??rA
+     87            GeneralFuncF1(1);
+   \   00000008   0100A0E3           MOV      R0,#+1
+   \   0000000C   3B0100EF           SWI      +315
+     88          }
+   \   00000010   0080BDE8           POP      {PC}             ;; return
+     89          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     90          void Sets_Menu()
+     91          {
+   \                     Sets_Menu:
+   \   00000000   00402DE9           PUSH     {LR}
+     92            Disp_Sets_Menu();
+   \   00000004   ........           _BLF     Disp_Sets_Menu,??Disp_Sets_Menu??rA
+     93            GeneralFuncF1(1);
+   \   00000008   0100A0E3           MOV      R0,#+1
+   \   0000000C   3B0100EF           SWI      +315
+     94          }
+   \   00000010   0080BDE8           POP      {PC}             ;; return
+     95          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     96          void Settings()   //Настройки  AAA
+     97          {
+   \                     Settings:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+     98            extern const char *successed_config_filename;
+     99            WSHDR *ws;
+    100            ws=AllocWS(150);
+   \   00000004   9600A0E3           MOV      R0,#+150
+   \   00000008   250100EF           SWI      +293
+   \   0000000C   0040A0E1           MOV      R4,R0
+    101            str_2ws(ws,successed_config_filename,128);
+   \   00000010   30009FE5           LDR      R0,??Settings_0  ;; successed_config_filename
+   \   00000014   8020A0E3           MOV      R2,#+128
+   \   00000018   001090E5           LDR      R1,[R0, #+0]
+   \   0000001C   0400A0E1           MOV      R0,R4
+   \   00000020   6C0100EF           SWI      +364
+    102            ExecuteFile(ws,0,0);
+   \   00000024   0020A0E3           MOV      R2,#+0
+   \   00000028   0010A0E3           MOV      R1,#+0
+   \   0000002C   0400A0E1           MOV      R0,R4
+   \   00000030   940000EF           SWI      +148
+    103            FreeWS(ws);
+   \   00000034   0400A0E1           MOV      R0,R4
+   \   00000038   290100EF           SWI      +297
+    104            GeneralFuncF1(1);
+   \   0000003C   0100A0E3           MOV      R0,#+1
+   \   00000040   3B0100EF           SWI      +315
+    105          };
+   \   00000044   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??Settings_0:
+   \   00000048   ........           DC32     successed_config_filename
+    106          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    107          void AboutDlg()
+    108          {
+    109            /*
+    110            WSHDR * ews = AllocWS(512);
+    111            EDITCONTROL ec;
+    112            void *ma=malloc_adr();
+    113            void *eq;
+    114            PrepareEditControl(&ec);
+    115            eq=AllocEQueue(ma,mfree_adr());
+    116            wsprintf(ews,"%t","SPlayer v 0.7.6.0\n\nАвторы (c):\nMr.Anderstand\nBlind007\nDemonGloom\n\nОформление (r):\nVedan");
+    117            ConstructEditControl(&ec,1,0x40,ews,512);
+    118            AddEditControlToEditQend(eq,&ec,ma);
+    119            CreateInputTextDialog(&info_desc,&info_about,eq,1,0);
+    120            FreeWS(ews);
+    121            */
+    122            ShowMSG(0,(int)"(r)\nIlya_ZX\n-Shadow-\nCaptain SISka\nVedan\nGanster and The_Zen\nDIEsel\nShadows");
+   \                     AboutDlg:
+   \   00000000   38109FE5           LDR      R1,??AboutDlg_0  ;; `?<Constant "(r)\\nIlya_ZX\\n-Shadow-\\n...">`
+   \   00000004   00402DE9           PUSH     {LR}
+   \   00000008   80D04DE2           SUB      SP,SP,#+128
+   \   0000000C   0000A0E3           MOV      R0,#+0
+   \   00000010   480100EF           SWI      +328
+    123            char info[128];
+    124            sprintf(info,"SPlayer v%s\n(c): \nAnderstand\nBlind007\nDemonGloom",LG_Version);
+   \   00000014   28209FE5           LDR      R2,??AboutDlg_0+0x4  ;; `?<Constant "1.0.1.4">`
+   \   00000018   28109FE5           LDR      R1,??AboutDlg_0+0x8  ;; `?<Constant "SPlayer v%s\\n(c): \\nAnd...">`
+   \   0000001C   0D00A0E1           MOV      R0,SP
+   \   00000020   160000EF           SWI      +22
+    125            ShowMSG(0,(int)info);
+   \   00000024   0D10A0E1           MOV      R1,SP
+   \   00000028   0000A0E3           MOV      R0,#+0
+   \   0000002C   480100EF           SWI      +328
+    126            GeneralFuncF1(1);
+   \   00000030   0100A0E3           MOV      R0,#+1
+   \   00000034   3B0100EF           SWI      +315
+    127          };
+   \   00000038   80D08DE2           ADD      SP,SP,#+128
+   \   0000003C   0080BDE8           POP      {PC}             ;; return
+   \                     ??AboutDlg_0:
+   \   00000040   ........           DC32     `?<Constant "(r)\\nIlya_ZX\\n-Shadow-\\n...">`
+   \   00000044   ........           DC32     `?<Constant "1.0.1.4">`
+   \   00000048   ........           DC32     `?<Constant "SPlayer v%s\\n(c): \\nAnd...">`
+    128          /////////////////////////////////////////////Об эльфе///////////////////////////////////////////////////
+    129          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    130          void Exit_SPlayer()
+    131          {
+    132            QuitCallbackProc(0);
+   \                     Exit_SPlayer:
+   \   00000000   0000A0E3           MOV      R0,#+0
+   \   00000004   ........           _BF      QuitCallbackProc,??QuitCallbackProc??rA  ;; tailcall
+    133          }
+    134          
+
+   \                                 In segment DATA_I, align 4, align-sorted
+    135          HEADER_DESC menuhdr={0,0,131,21,NULL,NULL,LGP_NULL};
+   \                     menuhdr:
+   \   00000000                      DS8 20
+   \   00000014                      REQUIRE `?<Initializer for menuhdr>`
+    136          
+
+   \                                 In segment DATA_I, align 4, align-sorted
+    137          int mmenusoftkeys[]={0,1,2};
+   \                     mmenusoftkeys:
+   \   00000000                      DS8 12
+   \   0000000C                      REQUIRE `?<Initializer for mmenusoftkeys>`
+    138          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    139          int icon_array[2];
+   \                     icon_array:
+   \   00000000                      DS8 8
+    140          
+    141          /*
+    142          static const char * const menutexts[N_ITEMS]=
+    143          {
+    144            LG_SetNextPlayed,
+    145            LG_ShowID3,
+    146            LG_FM,
+    147            LG_Sets_Menu,
+    148            LG_Settings,
+    149            LG_AboutDlg,
+    150            LG_Exit_SPlayer
+    151          };
+    152          */
+    153          // Убрал постоянность, чтобы можно было изменить текст - Vedan
+    154          // И присваиваем текстовым значениям нули, потому что и так уже загружены
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    155          static char * menutexts[N_ITEMS]=
+   \                     menutexts:
+   \   00000000                      DS8 28
+    156          {
+    157            NULL,
+    158            NULL,
+    159            NULL,
+    160            NULL,
+    161            NULL,
+    162            NULL,
+    163            NULL
+    164          };
+    165          
+    166          
+    167          /*
+    168          MENUITEM_DESC menuitems[N_ITEMS]=
+    169          {
+    170            {0,(int)"Позиционирование",LGP_NULL,0,NULL,MENU_FLAG3,MENU_FLAG2},
+    171            {0,(int)"Редактирование",LGP_NULL,0,NULL,MENU_FLAG3,MENU_FLAG2},
+    172            {0,(int)"Настройки",LGP_NULL,0,NULL,MENU_FLAG3,MENU_FLAG2},
+    173            {0,(int)"Об эльфе...",LGP_NULL,0,NULL,MENU_FLAG3,MENU_FLAG2},
+    174            {0,(int)"Выход",LGP_NULL,0,NULL,MENU_FLAG3,MENU_FLAG2}
+    175          };*/
+    176          
+
+   \                                 In segment DATA_I, align 4, align-sorted
+    177          void *menuprocs[N_ITEMS]={
+   \                     menuprocs:
+   \   00000000                      DS8 28
+   \   0000001C                      REQUIRE `?<Initializer for menuprocs>`
+    178                                    (void *)SetNextPlayedOn,
+    179                                    (void *)ShowID3,
+    180                                    (void *)FM,
+    181                                    (void *)Sets_Menu,
+    182                                    (void *)Settings,
+    183                                    (void *)AboutDlg,
+    184                                    (void *)Exit_SPlayer
+    185                                   };
+    186          /*
+    187          static const MENUPROCS_DESC menuprocs[N_ITEMS]={
+    188                                    Coordinates,
+    189                                    SetEditPL,
+    190                                    Settings,
+    191                                    AboutDlg,
+    192                                    Exit_SPlayer
+    193                                   };*/
+    194          
+
+   \                                 In segment DATA_I, align 4, align-sorted
+    195          SOFTKEY_DESC mmenu_sk[]=
+   \                     mmenu_sk:
+   \   00000000                      DS8 24
+   \   00000018                      REQUIRE `?<Initializer for mmenu_sk>`
+    196          {
+    197            {0x0018,0x0000,NULL},
+    198            {0x0001,0x0000,NULL},
+    199            {0x003D,0x0000,(int)LGP_DOIT_PIC}
+    200          };
+    201          
+
+   \                                 In segment DATA_I, align 4, align-sorted
+    202          SOFTKEYSTAB mmenu_skt=
+   \                     mmenu_skt:
+   \   00000000                      DS8 8
+   \   00000008                      REQUIRE `?<Initializer for mmenu_skt>`
+    203          {
+    204            mmenu_sk,0
+    205          };
+    206          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    207          int S_ICONS[N_ITEMS];
+   \                     S_ICONS:
+   \   00000000                      DS8 28
+    208          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    209          void menuitemhandler(void *data, int curitem, void *unk)
+    210          {
+   \                     menuitemhandler:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+    211            WSHDR *ws;
+    212            void *item=AllocMenuItem(data);
+    213            ws=AllocMenuWS(data,strlen(menutexts[curitem]));
+   \   00000004   ........           LDR      R7,??DataTable3  ;; menutexts
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   0150A0E1           MOV      R5,R1
+   \   00000010   970100EF           SWI      +407
+   \   00000014   0060A0E1           MOV      R6,R0
+   \   00000018   050197E7           LDR      R0,[R7, +R5, LSL #+2]
+   \   0000001C   1B0000EF           SWI      +27
+   \   00000020   0010A0E1           MOV      R1,R0
+   \   00000024   0400A0E1           MOV      R0,R4
+   \   00000028   980100EF           SWI      +408
+    214            wsprintf(ws,"%t",menutexts[curitem]);
+   \   0000002C   052197E7           LDR      R2,[R7, +R5, LSL #+2]
+   \   00000030   0080A0E1           MOV      R8,R0
+   \   00000034   1D1F8FE2           ADR      R1,??menuitemhandler_1  ;; "%t"
+   \   00000038   240100EF           SWI      +292
+    215            switch(curitem)
+   \   0000003C   ........           LDR      R2,??DataTable2  ;; S_ICONS
+   \   00000040   0500A0E1           MOV      R0,R5
+   \   00000044   060050E3           CMP      R0,#+6
+   \   00000048   1200008A           BHI      ??menuitemhandler_2
+   \   0000004C   011F8FE2           ADR      R1,??menuitemhandler_0
+   \   00000050   0010D1E7           LDRB     R1,[R1, R0]
+   \   00000054   01F18FE0           ADD      PC,PC,R1, LSL #+2
+   \                     ??menuitemhandler_0:
+   \   00000058   0C010305           DC8      +12,+1,+3,+5
+   \   0000005C   07090B00           DC8      +7,+9,+11,+0
+    216            {
+    217            case 0:
+    218              SetMenuItemIconArray(data,item,S_ICONS+0);
+    219              break;
+    220            case 1:
+    221              SetMenuItemIconArray(data,item,S_ICONS+1);
+   \                     ??menuitemhandler_3:
+   \   00000060   042082E2           ADD      R2,R2,#+4
+   \   00000064   080000EA           B        ??menuitemhandler_4
+    222              break;
+    223            case 2:
+    224              SetMenuItemIconArray(data,item,S_ICONS+2);
+   \                     ??menuitemhandler_5:
+   \   00000068   082082E2           ADD      R2,R2,#+8
+   \   0000006C   060000EA           B        ??menuitemhandler_4
+    225              break;
+    226            case 3:
+    227              SetMenuItemIconArray(data,item,S_ICONS+3);
+   \                     ??menuitemhandler_6:
+   \   00000070   0C2082E2           ADD      R2,R2,#+12
+   \   00000074   040000EA           B        ??menuitemhandler_4
+    228              break;
+    229            case 4:
+    230              SetMenuItemIconArray(data,item,S_ICONS+4);
+   \                     ??menuitemhandler_7:
+   \   00000078   102082E2           ADD      R2,R2,#+16
+   \   0000007C   020000EA           B        ??menuitemhandler_4
+    231              break;
+    232            case 5:
+    233              SetMenuItemIconArray(data,item,S_ICONS+5);
+   \                     ??menuitemhandler_8:
+   \   00000080   142082E2           ADD      R2,R2,#+20
+   \   00000084   000000EA           B        ??menuitemhandler_4
+    234              break;
+    235            case 6:
+    236              SetMenuItemIconArray(data,item,S_ICONS+6);
+   \                     ??menuitemhandler_9:
+   \   00000088   182082E2           ADD      R2,R2,#+24
+   \                     ??menuitemhandler_4:
+   \   0000008C   0610A0E1           MOV      R1,R6
+   \   00000090   0400A0E1           MOV      R0,R4
+   \   00000094   990100EF           SWI      +409
+    237              break;
+    238            }
+    239            SetMenuItemText(data, item, ws, curitem);
+   \                     ??menuitemhandler_2:
+   \   00000098   0530A0E1           MOV      R3,R5
+   \   0000009C   0820A0E1           MOV      R2,R8
+   \   000000A0   0610A0E1           MOV      R1,R6
+   \   000000A4   0400A0E1           MOV      R0,R4
+   \   000000A8   9A0100EF           SWI      +410
+    240          }
+   \   000000AC   F081BDE8           POP      {R4-R8,PC}       ;; return
+   \                     ??menuitemhandler_1:
+   \   000000B0   25740000           DC8      "%t",+0
+    241          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    242          void mmenu_ghook(void *data, int cmd)
+    243          {
+   \                     mmenu_ghook:
+   \   00000000   00402DE9           PUSH     {LR}
+    244            if (cmd==0x0A)
+   \   00000004   0A0051E3           CMP      R1,#+10
+   \   00000008   0080BD18           POPNE    {PC}
+    245            {
+    246              DisableIDLETMR();
+   \   0000000C   7F0100EF           SWI      +383
+    247            }
+    248          }
+   \   00000010   0080BDE8           POP      {PC}             ;; return
+    249          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    250          static int mmenu_keyhook(void *data, GUI_MSG *msg)
+    251          {
+   \                     mmenu_keyhook:
+   \   00000000   00402DE9           PUSH     {LR}
+    252            if ((msg->keys==0x18)||(msg->keys==0x3D))
+   \   00000004   F210D1E1           LDRSH    R1,[R1, #+2]
+   \   00000008   180051E3           CMP      R1,#+24
+   \   0000000C   3D005113           CMPNE    R1,#+61
+   \   00000010   0300001A           BNE      ??mmenu_keyhook_0
+    253            {
+    254              ((void (*)(void))(menuprocs[GetCurMenuItem(data)]))();
+   \   00000014   8F0100EF           SWI      +399
+   \   00000018   0C109FE5           LDR      R1,??mmenu_keyhook_1  ;; menuprocs
+   \   0000001C   000191E7           LDR      R0,[R1, +R0, LSL #+2]
+   \   00000020   30FF2FE1           BLX      R0
+    255            }
+    256            return(0);
+   \                     ??mmenu_keyhook_0:
+   \   00000024   0000A0E3           MOV      R0,#+0
+   \   00000028   0080BDE8           POP      {PC}             ;; return
+   \                     ??mmenu_keyhook_1:
+   \   0000002C   ........           DC32     menuprocs
+    257          }
+    258          
+
+   \                                 In segment DATA_C, align 4, align-sorted
+    259          static const MENU_DESC tmenu=
+   \                     tmenu:
+   \   00000000   08000000....       DC32 8, mmenu_keyhook, mmenu_ghook, 0H, mmenusoftkeys, mmenu_skt, 17
+   \              ............
+   \              00000000....
+   \              ............
+   \              11000000    
+   \   0000001C   ........0000       DC32 menuitemhandler, 0H, 0H, 7
+   \              000000000000
+   \              07000000    
+    260          {
+    261            8,mmenu_keyhook,mmenu_ghook,NULL,
+    262            mmenusoftkeys,
+    263            &mmenu_skt,
+    264          #ifndef NO_PNG
+    265            0x11,
+    266          #else
+    267            0x10,
+    268          #endif
+    269            menuitemhandler,
+    270            NULL, //menuitems,
+    271            NULL, //menuprocs,
+    272            N_ITEMS
+    273          };
+    274          
+    275          //int S_ICONS[N_ITEMS];
+    276          /*
+    277          char setnexttrackpic[128];
+    278          char showid3pic[128];
+    279          char fmpic[128];
+    280          char setsmenupic[128];
+    281          char settingspic[128];
+    282          char aboutpic[128];
+    283          char exitpic[128];
+    284          */
+    285          
+    286          #ifndef NO_PNG
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    287          char pic[TOTAL_ITEMS][128];
+   \                     pic:
+   \   00000000                      DS8 896
+    288          #endif
+    289          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    290          void MM_Show()  // Люблю порядок... Ниче так килобайт почти из воздуха! :)   AAA
+    291          {
+   \                     MM_Show:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+    292          #ifndef NO_PNG
+    293            /*
+    294            // Картинка В очередь
+    295            strcpy(setnexttrackpic,PIC_DIR);
+    296            strcat(setnexttrackpic,"setnexttrack.png");
+    297            S_ICONS[0] = (int)setnexttrackpic;
+    298          
+    299            // Картинка Атрибуты
+    300            strcpy(showid3pic,PIC_DIR);
+    301            strcat(showid3pic,"showid3.png");
+    302            S_ICONS[1] = (int)showid3pic;
+    303          
+    304            // Картинка Файловый менеджер
+    305            strcpy(fmpic,PIC_DIR);
+    306            strcat(fmpic,"fm.png");
+    307            S_ICONS[2] = (int)fmpic;
+    308            
+    309            // Картинка Коордиаты
+    310            strcpy(setsmenupic,PIC_DIR);
+    311            strcat(setsmenupic,"setsmenu.png");
+    312            S_ICONS[3] = (int)setsmenupic;
+    313          
+    314            // Картинка Настройки
+    315            strcpy(settingspic,PIC_DIR);
+    316            strcat(settingspic,"settings.png");
+    317            S_ICONS[4] = (int)settingspic;
+    318          
+    319            // Картинка Об эльфе...
+    320            strcpy(aboutpic,PIC_DIR);
+    321            strcat(aboutpic,"about.png");
+    322            S_ICONS[5] = (int)aboutpic;
+    323          
+    324            // Картинка Выход
+    325            strcpy(exitpic,PIC_DIR);
+    326            strcat(exitpic,"exit.png");
+    327            S_ICONS[6] = (int)exitpic;
+    328          */
+    329            for(unsigned int i=0; i<TOTAL_ITEMS; i++)
+   \   00000004   0040A0E3           MOV      R4,#+0
+    330            {
+    331              strcpy(pic[i],PIC_DIR);
+   \                     ??MM_Show_0:
+   \   00000008   A4009FE5           LDR      R0,??MM_Show_1   ;; pic
+   \   0000000C   A4109FE5           LDR      R1,??MM_Show_1+0x4  ;; PIC_DIR
+   \   00000010   845380E0           ADD      R5,R0,R4, LSL #+7
+   \   00000014   0500A0E1           MOV      R0,R5
+   \   00000018   1A0000EF           SWI      +26
+    332              strcat(pic[i],items[i]);
+   \   0000001C   98009FE5           LDR      R0,??MM_Show_1+0x8  ;; items
+   \   00000020   041190E7           LDR      R1,[R0, +R4, LSL #+2]
+   \   00000024   0500A0E1           MOV      R0,R5
+   \   00000028   170000EF           SWI      +23
+    333              strcat(pic[i],PNGEXT);
+   \   0000002C   8C109FE5           LDR      R1,??MM_Show_1+0xC  ;; `?<Constant ".png">`
+   \   00000030   0500A0E1           MOV      R0,R5
+   \   00000034   170000EF           SWI      +23
+    334              S_ICONS[i] = (int)pic[i];
+   \   00000038   ........           LDR      R0,??DataTable2  ;; S_ICONS
+   \   0000003C   045180E7           STR      R5,[R0, +R4, LSL #+2]
+    335            }
+   \   00000040   014084E2           ADD      R4,R4,#+1
+   \   00000044   070054E3           CMP      R4,#+7
+   \   00000048   EEFFFF3A           BCC      ??MM_Show_0
+    336            
+    337            
+    338            
+    339          #else
+    340            /*
+    341            S_ICONS[0] = 0;
+    342            menuitems[0].icon = S_ICONS;
+    343            S_ICONS[1] = 0;
+    344            menuitems[1].icon = S_ICONS+1;
+    345            S_ICONS[2] = 0;
+    346            menuitems[2].icon = S_ICONS+2;
+    347            S_ICONS[3] = 0;
+    348            menuitems[3].icon = S_ICONS+3;
+    349            S_ICONS[4] = 0;
+    350            menuitems[4].icon = S_ICONS+4;
+    351            S_ICONS[5] = 0;
+    352            menuitems[5].icon = S_ICONS+5;
+    353            S_ICONS[6] = 0;
+    354            menuitems[6].icon = S_ICONS+6;
+    355            */
+    356          /*  for(unsigned int i=0; i<TOTAL_ITEMS; i++)
+    357            {
+    358              S_ICONS[i] = 0;
+    359            }*/
+    360          #endif  
+    361            
+    362            icon_array[0]=GetPicNByUnicodeSymbol(CBOX_CHECKED);
+   \   0000004C   70409FE5           LDR      R4,??MM_Show_1+0x10  ;; icon_array
+   \   00000050   1600A0E3           MOV      R0,#+22
+   \   00000054   E10C80E3           ORR      R0,R0,#0xE100
+   \   00000058   E40100EF           SWI      +484
+   \   0000005C   000084E5           STR      R0,[R4, #+0]
+    363            icon_array[1]=GetPicNByUnicodeSymbol(CBOX_UNCHECKED);
+   \   00000060   1700A0E3           MOV      R0,#+23
+   \   00000064   E10C80E3           ORR      R0,R0,#0xE100
+   \   00000068   E40100EF           SWI      +484
+   \   0000006C   040084E5           STR      R0,[R4, #+4]
+    364            
+    365            patch_header(&menuhdr);
+   \   00000070   50409FE5           LDR      R4,??MM_Show_1+0x14  ;; menuhdr
+   \   00000074   0400A0E1           MOV      R0,R4
+   \   00000078   ........           BL       patch_header
+    366            MainMenu_ID = CreateMenu(0,0,&tmenu,&menuhdr,0,N_ITEMS,0,0);
+   \   0000007C   48209FE5           LDR      R2,??MM_Show_1+0x18  ;; tmenu
+   \   00000080   0000A0E3           MOV      R0,#+0
+   \   00000084   01002DE9           PUSH     {R0}
+   \   00000088   01002DE9           PUSH     {R0}
+   \   0000008C   0430A0E1           MOV      R3,R4
+   \   00000090   0010A0E3           MOV      R1,#+0
+   \   00000094   0700A0E3           MOV      R0,#+7
+   \   00000098   01002DE9           PUSH     {R0}
+   \   0000009C   0000A0E3           MOV      R0,#+0
+   \   000000A0   01002DE9           PUSH     {R0}
+   \   000000A4   520100EF           SWI      +338
+   \   000000A8   20109FE5           LDR      R1,??MM_Show_1+0x1C  ;; MainMenu_ID
+   \   000000AC   000081E5           STR      R0,[R1, #+0]
+    367          }
+   \   000000B0   3F80BDE8           POP      {R0-R5,PC}       ;; return
+   \                     ??MM_Show_1:
+   \   000000B4   ........           DC32     pic
+   \   000000B8   ........           DC32     PIC_DIR
+   \   000000BC   ........           DC32     items
+   \   000000C0   ........           DC32     `?<Constant ".png">`
+   \   000000C4   ........           DC32     icon_array
+   \   000000C8   ........           DC32     menuhdr
+   \   000000CC   ........           DC32     tmenu
+   \   000000D0   ........           DC32     MainMenu_ID
+    368          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    369          void initMainMenuLangPack() //Инициализировать язык для Главного Меню - Vedan
+    370          {
+    371            mmenu_sk[0].lgp_id=(int)lgpData[LGP_SELECT];
+   \                     initMainMenuLangPack:
+   \   00000000   5C109FE5           LDR      R1,??initMainMenuLangPack_0  ;; lgpData
+   \   00000004   5C009FE5           LDR      R0,??initMainMenuLangPack_0+0x4  ;; mmenu_sk
+   \   00000008   1C2091E5           LDR      R2,[R1, #+28]
+   \   0000000C   042080E5           STR      R2,[R0, #+4]
+    372            mmenu_sk[1].lgp_id=(int)lgpData[LGP_BACK];
+   \   00000010   202091E5           LDR      R2,[R1, #+32]
+   \   00000014   0C2080E5           STR      R2,[R0, #+12]
+    373            menuhdr.lgp_id=(int)lgpData[LGP_Menu];
+   \   00000018   4C009FE5           LDR      R0,??initMainMenuLangPack_0+0x8  ;; menuhdr + 12
+   \   0000001C   002091E5           LDR      R2,[R1, #+0]
+   \   00000020   002080E5           STR      R2,[R0, #+0]
+    374            menutexts[0]=(char *)lgpData[LGP_SetNextPlayed];
+   \   00000024   ........           LDR      R0,??DataTable3  ;; menutexts
+   \   00000028   042091E5           LDR      R2,[R1, #+4]
+   \   0000002C   002080E5           STR      R2,[R0, #+0]
+    375            menutexts[1]=(char *)lgpData[LGP_ShowID3];
+   \   00000030   082091E5           LDR      R2,[R1, #+8]
+   \   00000034   042080E5           STR      R2,[R0, #+4]
+    376            menutexts[2]=(char *)lgpData[LGP_FM];
+   \   00000038   0C2091E5           LDR      R2,[R1, #+12]
+   \   0000003C   082080E5           STR      R2,[R0, #+8]
+    377            menutexts[3]=(char *)lgpData[LGP_Sets_Menu];
+   \   00000040   242091E5           LDR      R2,[R1, #+36]
+   \   00000044   0C2080E5           STR      R2,[R0, #+12]
+    378            menutexts[4]=(char *)lgpData[LGP_Settings];
+   \   00000048   102091E5           LDR      R2,[R1, #+16]
+   \   0000004C   102080E5           STR      R2,[R0, #+16]
+    379            menutexts[5]=(char *)lgpData[LGP_AboutDlg];
+   \   00000050   142091E5           LDR      R2,[R1, #+20]
+    380            menutexts[6]=(char *)lgpData[LGP_Exit_SPlayer];
+   \   00000054   181091E5           LDR      R1,[R1, #+24]
+   \   00000058   142080E5           STR      R2,[R0, #+20]
+   \   0000005C   181080E5           STR      R1,[R0, #+24]
+    381          
+    382          }
+   \   00000060   1EFF2FE1           BX       LR               ;; return
+   \                     ??initMainMenuLangPack_0:
+   \   00000064   ........           DC32     lgpData
+   \   00000068   ........           DC32     mmenu_sk
+   \   0000006C   ........           DC32     menuhdr + 12
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable2:
+   \   00000000   ........           DC32     S_ICONS
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable3:
+   \   00000000   ........           DC32     menutexts
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for menuhdr>`:
+   \   00000000   000000008300       DC16 0, 0, 131, 21
+   \              1500        
+   \   00000008   000000000000       DC32 0H, 0, 2147483647
+   \              0000FFFFFF7F
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for mmenusoftkeys>`:
+   \   00000000   000000000100       DC32 0, 1, 2
+   \              000002000000
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for menuprocs>`:
+   \   00000000   ............       DC32 SetNextPlayedOn, ShowID3, FM, Sets_Menu, Settings, AboutDlg
+   \              ............
+   \              ............
+   \              ............
+   \   00000018   ........           DC32 Exit_SPlayer
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for mmenu_sk>`:
+   \   00000000   18000000           DC16 24, 0
+   \   00000004   00000000           DC32 0
+   \   00000008   01000000           DC16 1, 0
+   \   0000000C   00000000           DC32 0
+   \   00000010   3D000000           DC16 61, 0
+   \   00000014   FBC0FF7F           DC32 2147467515
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for mmenu_skt>`:
+   \   00000000   ........0000       DC32 mmenu_sk, 0
+   \              0000        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "setnexttrack">`:
+   \   00000000   7365746E6578       DC8 "setnexttrack"
+   \              74747261636B
+   \              00          
+   \   0000000D   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "showid3">`:
+   \   00000000   73686F776964       DC8 "showid3"
+   \              3300        
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \                     `?<Constant "fm">`:
+   \   00000000   666D00             DC8 "fm"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "setsmenu">`:
+   \   00000000   736574736D65       DC8 "setsmenu"
+   \              6E7500      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "settings">`:
+   \   00000000   73657474696E       DC8 "settings"
+   \              677300      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "about">`:
+   \   00000000   61626F757400       DC8 "about"
+   \   00000006   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "exit">`:
+   \   00000000   6578697400         DC8 "exit"
+   \   00000005   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "(r)\\nIlya_ZX\\n-Shadow-\\n...">`:
+   \   00000000   2872290A496C       DC8 28H, 72H, 29H, 0AH, 49H, 6CH, 79H, 61H
+   \              7961        
+   \   00000008   5F5A580A2D53       DC8 5FH, 5AH, 58H, 0AH, 2DH, 53H, 68H, 61H
+   \              6861        
+   \   00000010   646F772D0A43       DC8 64H, 6FH, 77H, 2DH, 0AH, 43H, 61H, 70H
+   \              6170        
+   \   00000018   7461696E2053       DC8 74H, 61H, 69H, 6EH, 20H, 53H, 49H, 53H
+   \              4953        
+   \   00000020   6B610A566564       DC8 6BH, 61H, 0AH, 56H, 65H, 64H, 61H, 6EH
+   \              616E        
+   \   00000028   0A47616E7374       DC8 0AH, 47H, 61H, 6EH, 73H, 74H, 65H, 72H
+   \              6572        
+   \   00000030   20616E642054       DC8 20H, 61H, 6EH, 64H, 20H, 54H, 68H, 65H
+   \              6865        
+   \   00000038   5F5A656E0A44       DC8 5FH, 5AH, 65H, 6EH, 0AH, 44H, 49H, 45H
+   \              4945        
+   \   00000040   73656C0A5368       DC8 73H, 65H, 6CH, 0AH, 53H, 68H, 61H, 64H
+   \              6164        
+   \   00000048   6F777300           DC8 6FH, 77H, 73H, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "SPlayer v%s\\n(c): \\nAnd...">`:
+   \   00000000   53506C617965       DC8 "SPlayer v%s\012(c): \012Anderstand\012Blind007\012DemonGloom"
+   \              72207625730A
+   \              2863293A200A
+   \              416E64657273
+   \              74616E640A42
+   \              6C696E643030
+   \              370A44656D6F
+   \              6E476C6F6F6D
+   \              00          
+   \   00000031   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "1.0.1.4">`:
+   \   00000000   312E302E312E       DC8 "1.0.1.4"
+   \              3400        
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \   00000000   257400             DC8 "%t"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant ".png">`:
+   \   00000000   2E706E6700         DC8 ".png"
+   \   00000005   000000             DC8 0, 0, 0
+
+   Maximum stack usage in bytes:
+
+     Function             CSTACK
+     --------             ------
+     AboutDlg               132
+     Exit_SPlayer             4
+     FM                       4
+     MM_Show                 28
+     SetNextPlayedOn          4
+     Sets_Menu                4
+     Settings                 8
+     ShowID3                 16
+     initMainMenuLangPack     0
+     inp_locret               0
+     menuitemhandler         24
+     mmenu_ghook              4
+     mmenu_keyhook            4
+     patch_header             8
+     patch_input             12
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     items                            28
+     patch_header                     52
+     patch_input                      68
+     cfgname                         256
+     inp_locret                        4
+     MainTag                           4
+     MainMenu_ID                       4
+     SetNextPlayedOn                  20
+     ShowID3                         184
+     FM                               20
+     Sets_Menu                        20
+     Settings                         76
+     AboutDlg                         76
+     Exit_SPlayer                      8
+     menuhdr                          20
+     mmenusoftkeys                    12
+     icon_array                        8
+     menutexts                        28
+     menuprocs                        28
+     mmenu_sk                         24
+     mmenu_skt                         8
+     S_ICONS                          28
+     menuitemhandler                 180
+     mmenu_ghook                      20
+     mmenu_keyhook                    48
+     tmenu                            44
+     pic                             896
+     MM_Show                         212
+     initMainMenuLangPack            112
+     ??DataTable2                      4
+     ??DataTable3                      4
+     ?<Initializer for menuhdr>       20
+     ?<Initializer for mmenusoftkeys>
+                                      12
+     ?<Initializer for menuprocs>     28
+     ?<Initializer for mmenu_sk>      24
+     ?<Initializer for mmenu_skt>      8
+     ?<Constant "setnexttrack">       16
+     ?<Constant "showid3">             8
+     ?<Constant "fm">                  3
+     ?<Constant "setsmenu">           12
+     ?<Constant "settings">           12
+     ?<Constant "about">               8
+     ?<Constant "exit">                8
+     ?<Constant "(r)\nIlya_ZX\n-Shadow-\n...">
+                                      76
+     ?<Constant "SPlayer v%s\n(c): \nAnd...">
+                                      52
+     ?<Constant "1.0.1.4">             8
+     ?<Constant "%t">                  3
+     ?<Constant ".png">                8
+      Others                         168
+
+ 
+ 1 252 bytes in segment CODE
+   286 bytes in segment DATA_C
+    92 bytes in segment DATA_I
+    92 bytes in segment DATA_ID
+ 1 224 bytes in segment DATA_Z
+    24 bytes in segment INITTAB
+ 
+ 1 108 bytes of CODE  memory (+ 168 bytes shared)
+   378 bytes of CONST memory
+ 1 316 bytes of DATA  memory
+
+Errors: none
+Warnings: none

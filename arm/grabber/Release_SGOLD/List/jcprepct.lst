@@ -1,0 +1,924 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    19/Jan/2011  13:20:56 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\grabber\jpeg-7\jcprepct.c                     #
+#    Command line    =  C:\arm\grabber\jpeg-7\jcprepct.c -lC                 #
+#                       C:\arm\grabber\Release_SGOLD\List\ -o                #
+#                       C:\arm\grabber\Release_SGOLD\Obj\ -s9 --no_unroll    #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\grabber\Release_SGOLD\List\jcprepct.lst       #
+#    Object file     =  C:\arm\grabber\Release_SGOLD\Obj\jcprepct.r79        #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\grabber\jpeg-7\jcprepct.c
+      1          /*
+                  ^
+Warning[Pa050]: non-native end of line sequence detected (this diagnostic is
+          only issued once)
+      2           * jcprepct.c
+      3           *
+      4           * Copyright (C) 1994-1996, Thomas G. Lane.
+      5           * This file is part of the Independent JPEG Group's software.
+      6           * For conditions of distribution and use, see the accompanying README file.
+      7           *
+      8           * This file contains the compression preprocessing controller.
+      9           * This controller manages the color conversion, downsampling,
+     10           * and edge expansion steps.
+     11           *
+     12           * Most of the complexity here is associated with buffering input rows
+     13           * as required by the downsampler.  See the comments at the head of
+     14           * jcsample.c for the downsampler's needs.
+     15           */
+     16          
+     17          #define JPEG_INTERNALS
+     18          #include "jinclude.h"
+     19          #include "jpeglib.h"
+     20          
+     21          
+     22          /* At present, jcsample.c can request context rows only for smoothing.
+     23           * In the future, we might also need context rows for CCIR601 sampling
+     24           * or other more-complex downsampling procedures.  The code to support
+     25           * context rows should be compiled only if needed.
+     26           */
+     27          #ifdef INPUT_SMOOTHING_SUPPORTED
+     28          #define CONTEXT_ROWS_SUPPORTED
+     29          #endif
+     30          
+     31          
+     32          /*
+     33           * For the simple (no-context-row) case, we just need to buffer one
+     34           * row group's worth of pixels for the downsampling step.  At the bottom of
+     35           * the image, we pad to a full row group by replicating the last pixel row.
+     36           * The downsampler's last output row is then replicated if needed to pad
+     37           * out to a full iMCU row.
+     38           *
+     39           * When providing context rows, we must buffer three row groups' worth of
+     40           * pixels.  Three row groups are physically allocated, but the row pointer
+     41           * arrays are made five row groups high, with the extra pointers above and
+     42           * below "wrapping around" to point to the last and first real row groups.
+     43           * This allows the downsampler to access the proper context rows.
+     44           * At the top and bottom of the image, we create dummy context rows by
+     45           * copying the first or last real pixel row.  This copying could be avoided
+     46           * by pointer hacking as is done in jdmainct.c, but it doesn't seem worth the
+     47           * trouble on the compression side.
+     48           */
+     49          
+     50          
+     51          /* Private buffer controller object */
+     52          
+     53          typedef struct {
+     54            struct jpeg_c_prep_controller pub; /* public fields */
+     55          
+     56            /* Downsampling input buffer.  This buffer holds color-converted data
+     57             * until we have enough to do a downsample step.
+     58             */
+     59            JSAMPARRAY color_buf[MAX_COMPONENTS];
+     60          
+     61            JDIMENSION rows_to_go;	/* counts rows remaining in source image */
+     62            int next_buf_row;		/* index of next row to store in color_buf */
+     63          
+     64          #ifdef CONTEXT_ROWS_SUPPORTED	/* only needed for context case */
+     65            int this_row_group;		/* starting row index of group to process */
+     66            int next_buf_stop;		/* downsample when we reach this index */
+     67          #endif
+     68          } my_prep_controller;
+     69          
+     70          typedef my_prep_controller * my_prep_ptr;
+     71          
+     72          
+     73          /*
+     74           * Initialize for a processing pass.
+     75           */
+     76          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     77          METHODDEF(void)
+     78          start_pass_prep (j_compress_ptr cinfo, J_BUF_MODE pass_mode)
+     79          {
+   \                     start_pass_prep:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+     80            my_prep_ptr prep = (my_prep_ptr) cinfo->prep;
+     81          
+     82            if (pass_mode != JBUF_PASS_THRU)
+   \   00000004   000051E3           CMP      R1,#+0
+   \   00000008   0050A0E1           MOV      R5,R0
+   \   0000000C   7C4195E5           LDR      R4,[R5, #+380]
+   \   00000010   0600000A           BEQ      ??start_pass_prep_0
+     83              ERREXIT(cinfo, JERR_BAD_BUFFER_MODE);
+   \   00000014   000095E5           LDR      R0,[R5, #+0]
+   \   00000018   0310A0E3           MOV      R1,#+3
+   \   0000001C   141080E5           STR      R1,[R0, #+20]
+   \   00000020   001095E5           LDR      R1,[R5, #+0]
+   \   00000024   0500A0E1           MOV      R0,R5
+   \   00000028   001091E5           LDR      R1,[R1, #+0]
+   \   0000002C   31FF2FE1           BLX      R1
+     84          
+     85            /* Initialize total-height counter for detecting bottom of image */
+     86            prep->rows_to_go = cinfo->image_height;
+   \                     ??start_pass_prep_0:
+   \   00000030   200095E5           LDR      R0,[R5, #+32]
+   \   00000034   300084E5           STR      R0,[R4, #+48]
+     87            /* Mark the conversion buffer empty */
+     88            prep->next_buf_row = 0;
+   \   00000038   0000A0E3           MOV      R0,#+0
+   \   0000003C   340084E5           STR      R0,[R4, #+52]
+     89          #ifdef CONTEXT_ROWS_SUPPORTED
+     90            /* Preset additional state variables for context mode.
+     91             * These aren't used in non-context mode, so we needn't test which mode.
+     92             */
+     93            prep->this_row_group = 0;
+   \   00000040   380084E5           STR      R0,[R4, #+56]
+     94            /* Set next_buf_stop to stop after two row groups have been read in. */
+     95            prep->next_buf_stop = 2 * cinfo->max_v_samp_factor;
+   \   00000044   0C0195E5           LDR      R0,[R5, #+268]
+   \   00000048   8000A0E1           LSL      R0,R0,#+1
+   \   0000004C   3C0084E5           STR      R0,[R4, #+60]
+     96          #endif
+     97          }
+   \   00000050   3080BDE8           POP      {R4,R5,PC}       ;; return
+     98          
+     99          
+    100          /*
+    101           * Expand an image vertically from height input_rows to height output_rows,
+    102           * by duplicating the bottom row.
+    103           */
+    104          
+    105          LOCAL(void)
+    106          expand_bottom_edge (JSAMPARRAY image_data, JDIMENSION num_cols,
+    107          		    int input_rows, int output_rows)
+    108          {
+    109            register int row;
+    110          
+    111            for (row = input_rows; row < output_rows; row++) {
+    112              jcopy_sample_rows(image_data, input_rows-1, image_data, row,
+    113          		      1, num_cols);
+    114            }
+    115          }
+    116          
+    117          
+    118          /*
+    119           * Process some data in the simple no-context case.
+    120           *
+    121           * Preprocessor output data is counted in "row groups".  A row group
+    122           * is defined to be v_samp_factor sample rows of each component.
+    123           * Downsampling will produce this much data from each max_v_samp_factor
+    124           * input rows.
+    125           */
+    126          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    127          METHODDEF(void)
+    128          pre_process_data (j_compress_ptr cinfo,
+    129          		  JSAMPARRAY input_buf, JDIMENSION *in_row_ctr,
+    130          		  JDIMENSION in_rows_avail,
+    131          		  JSAMPIMAGE output_buf, JDIMENSION *out_row_group_ctr,
+    132          		  JDIMENSION out_row_groups_avail)
+    133          {
+   \                     pre_process_data:
+   \   00000000   FE4F2DE9           PUSH     {R1-R11,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    134            my_prep_ptr prep = (my_prep_ptr) cinfo->prep;
+   \   00000008   7C6194E5           LDR      R6,[R4, #+380]
+    135            int numrows, ci;
+    136            JDIMENSION inrows;
+    137            jpeg_component_info * compptr;
+    138          
+    139            while (*in_row_ctr < in_rows_avail &&
+    140          	 *out_row_group_ctr < out_row_groups_avail) {
+   \                     ??pre_process_data_0:
+   \   0000000C   04009DE5           LDR      R0,[SP, #+4]
+   \   00000010   08109DE5           LDR      R1,[SP, #+8]
+   \   00000014   000090E5           LDR      R0,[R0, #+0]
+   \   00000018   010050E1           CMP      R0,R1
+   \   0000001C   F78FBD28           POPCS    {R0-R2,R4-R11,PC}
+   \   00000020   34109DE5           LDR      R1,[SP, #+52]
+   \   00000024   38209DE5           LDR      R2,[SP, #+56]
+   \   00000028   001091E5           LDR      R1,[R1, #+0]
+   \   0000002C   020051E1           CMP      R1,R2
+   \   00000030   F78FBD28           POPCS    {R0-R2,R4-R11,PC}
+    141              /* Do color conversion to fill the conversion buffer. */
+    142              inrows = in_rows_avail - *in_row_ctr;
+   \   00000034   08109DE5           LDR      R1,[SP, #+8]
+    143              numrows = cinfo->max_v_samp_factor - prep->next_buf_row;
+   \   00000038   0C2194E5           LDR      R2,[R4, #+268]
+   \   0000003C   343096E5           LDR      R3,[R6, #+52]
+   \   00000040   001041E0           SUB      R1,R1,R0
+   \   00000044   038042E0           SUB      R8,R2,R3
+    144              numrows = (int) MIN((JDIMENSION) numrows, inrows);
+   \   00000048   010058E1           CMP      R8,R1
+   \   0000004C   0180A021           MOVCS    R8,R1
+    145              (*cinfo->cconvert->color_convert) (cinfo, input_buf + *in_row_ctr,
+    146          				       prep->color_buf,
+    147          				       (JDIMENSION) prep->next_buf_row,
+    148          				       numrows);
+   \   00000050   0810A0E1           MOV      R1,R8
+   \   00000054   02002DE9           PUSH     {R1}
+   \   00000058   885194E5           LDR      R5,[R4, #+392]
+   \   0000005C   343096E5           LDR      R3,[R6, #+52]
+   \   00000060   04109DE5           LDR      R1,[SP, #+4]
+   \   00000064   045095E5           LDR      R5,[R5, #+4]
+   \   00000068   082086E2           ADD      R2,R6,#+8
+   \   0000006C   001181E0           ADD      R1,R1,R0, LSL #+2
+   \   00000070   0400A0E1           MOV      R0,R4
+   \   00000074   35FF2FE1           BLX      R5
+    149              *in_row_ctr += numrows;
+   \   00000078   08009DE5           LDR      R0,[SP, #+8]
+   \   0000007C   001090E5           LDR      R1,[R0, #+0]
+   \   00000080   011088E0           ADD      R1,R8,R1
+   \   00000084   001080E5           STR      R1,[R0, #+0]
+    150              prep->next_buf_row += numrows;
+   \   00000088   340096E5           LDR      R0,[R6, #+52]
+   \   0000008C   000088E0           ADD      R0,R8,R0
+   \   00000090   340086E5           STR      R0,[R6, #+52]
+    151              prep->rows_to_go -= numrows;
+   \   00000094   300096E5           LDR      R0,[R6, #+48]
+   \   00000098   080040E0           SUB      R0,R0,R8
+   \   0000009C   300086E5           STR      R0,[R6, #+48]
+    152              /* If at bottom of image, pad to fill the conversion buffer. */
+    153              if (prep->rows_to_go == 0 &&
+    154          	prep->next_buf_row < cinfo->max_v_samp_factor) {
+   \   000000A0   000050E3           CMP      R0,#+0
+   \   000000A4   04D08DE2           ADD      SP,SP,#+4
+   \   000000A8   2400001A           BNE      ??pre_process_data_1
+   \   000000AC   340096E5           LDR      R0,[R6, #+52]
+   \   000000B0   0C1194E5           LDR      R1,[R4, #+268]
+   \   000000B4   010050E1           CMP      R0,R1
+   \   000000B8   200000AA           BGE      ??pre_process_data_1
+    155                for (ci = 0; ci < cinfo->num_components; ci++) {
+   \   000000BC   480094E5           LDR      R0,[R4, #+72]
+   \   000000C0   0050A0E3           MOV      R5,#+0
+   \   000000C4   010050E3           CMP      R0,#+1
+   \   000000C8   170000AA           BGE      ??pre_process_data_2
+   \   000000CC   190000EA           B        ??pre_process_data_3
+    156          	expand_bottom_edge(prep->color_buf[ci], cinfo->image_width,
+    157          			   prep->next_buf_row, cinfo->max_v_samp_factor);
+   \                     ??pre_process_data_4:
+   \   000000D0   0C7194E5           LDR      R7,[R4, #+268]
+   \   000000D4   340096E5           LDR      R0,[R6, #+52]
+   \   000000D8   1C8094E5           LDR      R8,[R4, #+28]
+   \   000000DC   051186E0           ADD      R1,R6,R5, LSL #+2
+   \   000000E0   089091E5           LDR      R9,[R1, #+8]
+   \   000000E4   00A0A0E1           MOV      R10,R0
+   \   000000E8   07005AE1           CMP      R10,R7
+   \   000000EC   0D0000AA           BGE      ??pre_process_data_5
+   \   000000F0   01B040E2           SUB      R11,R0,#+1
+   \                     ??pre_process_data_6:
+   \   000000F4   0800A0E1           MOV      R0,R8
+   \   000000F8   01002DE9           PUSH     {R0}
+   \   000000FC   0A30A0E1           MOV      R3,R10
+   \   00000100   0920A0E1           MOV      R2,R9
+   \   00000104   0B10A0E1           MOV      R1,R11
+   \   00000108   0100A0E3           MOV      R0,#+1
+   \   0000010C   01002DE9           PUSH     {R0}
+   \   00000110   01A08AE2           ADD      R10,R10,#+1
+   \   00000114   0900A0E1           MOV      R0,R9
+   \   00000118   ........           _BLF     jcopy_sample_rows,??jcopy_sample_rows??rA
+   \   0000011C   07005AE1           CMP      R10,R7
+   \   00000120   08D08DE2           ADD      SP,SP,#+8
+   \   00000124   F2FFFFBA           BLT      ??pre_process_data_6
+    158                }
+   \                     ??pre_process_data_5:
+   \   00000128   015085E2           ADD      R5,R5,#+1
+   \                     ??pre_process_data_2:
+   \   0000012C   480094E5           LDR      R0,[R4, #+72]
+   \   00000130   000055E1           CMP      R5,R0
+   \   00000134   E5FFFFBA           BLT      ??pre_process_data_4
+    159                prep->next_buf_row = cinfo->max_v_samp_factor;
+   \                     ??pre_process_data_3:
+   \   00000138   0C0194E5           LDR      R0,[R4, #+268]
+   \   0000013C   340086E5           STR      R0,[R6, #+52]
+    160              }
+    161              /* If we've filled the conversion buffer, empty it. */
+    162              if (prep->next_buf_row == cinfo->max_v_samp_factor) {
+   \                     ??pre_process_data_1:
+   \   00000140   340096E5           LDR      R0,[R6, #+52]
+   \   00000144   0C1194E5           LDR      R1,[R4, #+268]
+   \   00000148   010050E1           CMP      R0,R1
+   \   0000014C   1000001A           BNE      ??pre_process_data_7
+    163                (*cinfo->downsample->downsample) (cinfo,
+    164          					prep->color_buf, (JDIMENSION) 0,
+    165          					output_buf, *out_row_group_ctr);
+   \   00000150   34009DE5           LDR      R0,[SP, #+52]
+   \   00000154   0020A0E3           MOV      R2,#+0
+   \   00000158   000090E5           LDR      R0,[R0, #+0]
+   \   0000015C   081086E2           ADD      R1,R6,#+8
+   \   00000160   01002DE9           PUSH     {R0}
+   \   00000164   8C5194E5           LDR      R5,[R4, #+396]
+   \   00000168   34309DE5           LDR      R3,[SP, #+52]
+   \   0000016C   045095E5           LDR      R5,[R5, #+4]
+   \   00000170   0400A0E1           MOV      R0,R4
+   \   00000174   35FF2FE1           BLX      R5
+    166                prep->next_buf_row = 0;
+   \   00000178   0000A0E3           MOV      R0,#+0
+   \   0000017C   340086E5           STR      R0,[R6, #+52]
+    167                (*out_row_group_ctr)++;
+   \   00000180   38009DE5           LDR      R0,[SP, #+56]
+   \   00000184   001090E5           LDR      R1,[R0, #+0]
+   \   00000188   011081E2           ADD      R1,R1,#+1
+   \   0000018C   001080E5           STR      R1,[R0, #+0]
+   \   00000190   04D08DE2           ADD      SP,SP,#+4
+    168              }
+    169              /* If at bottom of image, pad the output to a full iMCU height.
+    170               * Note we assume the caller is providing a one-iMCU-height output buffer!
+    171               */
+    172              if (prep->rows_to_go == 0 &&
+    173          	*out_row_group_ctr < out_row_groups_avail) {
+   \                     ??pre_process_data_7:
+   \   00000194   300096E5           LDR      R0,[R6, #+48]
+   \   00000198   000050E3           CMP      R0,#+0
+   \   0000019C   9AFFFF1A           BNE      ??pre_process_data_0
+   \   000001A0   34009DE5           LDR      R0,[SP, #+52]
+   \   000001A4   38109DE5           LDR      R1,[SP, #+56]
+   \   000001A8   000090E5           LDR      R0,[R0, #+0]
+   \   000001AC   010050E1           CMP      R0,R1
+   \   000001B0   95FFFF2A           BCS      ??pre_process_data_0
+    174                for (ci = 0, compptr = cinfo->comp_info; ci < cinfo->num_components;
+   \   000001B4   480094E5           LDR      R0,[R4, #+72]
+   \   000001B8   506094E5           LDR      R6,[R4, #+80]
+   \   000001BC   0050A0E3           MOV      R5,#+0
+   \   000001C0   010050E3           CMP      R0,#+1
+   \   000001C4   220000AA           BGE      ??pre_process_data_8
+   \   000001C8   240000EA           B        ??pre_process_data_9
+    175          	   ci++, compptr++) {
+    176          	numrows = (compptr->v_samp_factor * compptr->DCT_v_scaled_size) /
+    177          		  cinfo->min_DCT_v_scaled_size;
+   \                     ??pre_process_data_10:
+   \   000001CC   0C0096E5           LDR      R0,[R6, #+12]
+   \   000001D0   281096E5           LDR      R1,[R6, #+40]
+    178          	expand_bottom_edge(output_buf[ci],
+    179          			   compptr->width_in_blocks * compptr->DCT_h_scaled_size,
+    180          			   (int) (*out_row_group_ctr * numrows),
+    181          			   (int) (out_row_groups_avail * numrows));
+   \   000001D4   242096E5           LDR      R2,[R6, #+36]
+   \   000001D8   910000E0           MUL      R0,R1,R0
+   \   000001DC   141194E5           LDR      R1,[R4, #+276]
+   \   000001E0   ........           _BLF     ??div32_a,??rA??div32_a
+   \   000001E4   38009DE5           LDR      R0,[SP, #+56]
+   \   000001E8   910007E0           MUL      R7,R1,R0
+   \   000001EC   34009DE5           LDR      R0,[SP, #+52]
+   \   000001F0   000090E5           LDR      R0,[R0, #+0]
+   \   000001F4   910000E0           MUL      R0,R1,R0
+   \   000001F8   1C1096E5           LDR      R1,[R6, #+28]
+   \   000001FC   00A0A0E1           MOV      R10,R0
+   \   00000200   920108E0           MUL      R8,R2,R1
+   \   00000204   30109DE5           LDR      R1,[SP, #+48]
+   \   00000208   07005AE1           CMP      R10,R7
+   \   0000020C   059191E7           LDR      R9,[R1, +R5, LSL #+2]
+   \   00000210   0D0000AA           BGE      ??pre_process_data_11
+   \   00000214   01B040E2           SUB      R11,R0,#+1
+   \                     ??pre_process_data_12:
+   \   00000218   0800A0E1           MOV      R0,R8
+   \   0000021C   01002DE9           PUSH     {R0}
+   \   00000220   0A30A0E1           MOV      R3,R10
+   \   00000224   0920A0E1           MOV      R2,R9
+   \   00000228   0B10A0E1           MOV      R1,R11
+   \   0000022C   0100A0E3           MOV      R0,#+1
+   \   00000230   01002DE9           PUSH     {R0}
+   \   00000234   01A08AE2           ADD      R10,R10,#+1
+   \   00000238   0900A0E1           MOV      R0,R9
+   \   0000023C   ........           _BLF     jcopy_sample_rows,??jcopy_sample_rows??rA
+   \   00000240   07005AE1           CMP      R10,R7
+   \   00000244   08D08DE2           ADD      SP,SP,#+8
+   \   00000248   F2FFFFBA           BLT      ??pre_process_data_12
+    182                }
+   \                     ??pre_process_data_11:
+   \   0000024C   015085E2           ADD      R5,R5,#+1
+   \   00000250   586086E2           ADD      R6,R6,#+88
+   \                     ??pre_process_data_8:
+   \   00000254   480094E5           LDR      R0,[R4, #+72]
+   \   00000258   000055E1           CMP      R5,R0
+   \   0000025C   DAFFFFBA           BLT      ??pre_process_data_10
+    183                *out_row_group_ctr = out_row_groups_avail;
+   \                     ??pre_process_data_9:
+   \   00000260   34009DE5           LDR      R0,[SP, #+52]
+   \   00000264   38109DE5           LDR      R1,[SP, #+56]
+   \   00000268   001080E5           STR      R1,[R0, #+0]
+    184                break;			/* can exit outer loop without test */
+    185              }
+    186            }
+    187          }
+   \   0000026C   F78FBDE8           POP      {R0-R2,R4-R11,PC}  ;; return
+    188          
+    189          
+    190          #ifdef CONTEXT_ROWS_SUPPORTED
+    191          
+    192          /*
+    193           * Process some data in the context case.
+    194           */
+    195          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    196          METHODDEF(void)
+    197          pre_process_context (j_compress_ptr cinfo,
+    198          		     JSAMPARRAY input_buf, JDIMENSION *in_row_ctr,
+    199          		     JDIMENSION in_rows_avail,
+    200          		     JSAMPIMAGE output_buf, JDIMENSION *out_row_group_ctr,
+    201          		     JDIMENSION out_row_groups_avail)
+    202          {
+   \                     pre_process_context:
+   \   00000000   FE4F2DE9           PUSH     {R1-R11,LR}
+   \   00000004   04D04DE2           SUB      SP,SP,#+4
+   \   00000008   0040A0E1           MOV      R4,R0
+    203            my_prep_ptr prep = (my_prep_ptr) cinfo->prep;
+    204            int numrows, ci;
+    205            int buf_height = cinfo->max_v_samp_factor * 3;
+   \   0000000C   0C1194E5           LDR      R1,[R4, #+268]
+   \   00000010   7C5194E5           LDR      R5,[R4, #+380]
+   \   00000014   811081E0           ADD      R1,R1,R1, LSL #+1
+   \   00000018   00108DE5           STR      R1,[SP, #+0]
+   \   0000001C   3F0000EA           B        ??pre_process_context_0
+    206            JDIMENSION inrows;
+    207          
+    208            while (*out_row_group_ctr < out_row_groups_avail) {
+    209              if (*in_row_ctr < in_rows_avail) {
+    210                /* Do color conversion to fill the conversion buffer. */
+    211                inrows = in_rows_avail - *in_row_ctr;
+    212                numrows = prep->next_buf_stop - prep->next_buf_row;
+    213                numrows = (int) MIN((JDIMENSION) numrows, inrows);
+    214                (*cinfo->cconvert->color_convert) (cinfo, input_buf + *in_row_ctr,
+    215          					 prep->color_buf,
+    216          					 (JDIMENSION) prep->next_buf_row,
+    217          					 numrows);
+    218                /* Pad at top of image, if first time through */
+    219                if (prep->rows_to_go == cinfo->image_height) {
+    220          	for (ci = 0; ci < cinfo->num_components; ci++) {
+    221          	  int row;
+    222          	  for (row = 1; row <= cinfo->max_v_samp_factor; row++) {
+    223          	    jcopy_sample_rows(prep->color_buf[ci], 0,
+    224          			      prep->color_buf[ci], -row,
+    225          			      1, cinfo->image_width);
+    226          	  }
+    227          	}
+    228                }
+    229                *in_row_ctr += numrows;
+    230                prep->next_buf_row += numrows;
+    231                prep->rows_to_go -= numrows;
+    232              } else {
+    233                /* Return for more data, unless we are at the bottom of the image. */
+    234                if (prep->rows_to_go != 0)
+    235          	break;
+    236                /* When at bottom of image, pad to fill the conversion buffer. */
+    237                if (prep->next_buf_row < prep->next_buf_stop) {
+    238          	for (ci = 0; ci < cinfo->num_components; ci++) {
+    239          	  expand_bottom_edge(prep->color_buf[ci], cinfo->image_width,
+    240          			     prep->next_buf_row, prep->next_buf_stop);
+   \                     ??pre_process_context_1:
+   \   00000020   3C7095E5           LDR      R7,[R5, #+60]
+   \   00000024   340095E5           LDR      R0,[R5, #+52]
+   \   00000028   1C8094E5           LDR      R8,[R4, #+28]
+   \   0000002C   061185E0           ADD      R1,R5,R6, LSL #+2
+   \   00000030   089091E5           LDR      R9,[R1, #+8]
+   \   00000034   00A0A0E1           MOV      R10,R0
+   \   00000038   07005AE1           CMP      R10,R7
+   \   0000003C   0D0000AA           BGE      ??pre_process_context_2
+   \   00000040   01B040E2           SUB      R11,R0,#+1
+   \                     ??pre_process_context_3:
+   \   00000044   0800A0E1           MOV      R0,R8
+   \   00000048   01002DE9           PUSH     {R0}
+   \   0000004C   0A30A0E1           MOV      R3,R10
+   \   00000050   0920A0E1           MOV      R2,R9
+   \   00000054   0B10A0E1           MOV      R1,R11
+   \   00000058   0100A0E3           MOV      R0,#+1
+   \   0000005C   01002DE9           PUSH     {R0}
+   \   00000060   01A08AE2           ADD      R10,R10,#+1
+   \   00000064   0900A0E1           MOV      R0,R9
+   \   00000068   ........           _BLF     jcopy_sample_rows,??jcopy_sample_rows??rA
+   \   0000006C   07005AE1           CMP      R10,R7
+   \   00000070   08D08DE2           ADD      SP,SP,#+8
+   \   00000074   F2FFFFBA           BLT      ??pre_process_context_3
+    241          	}
+   \                     ??pre_process_context_2:
+   \   00000078   016086E2           ADD      R6,R6,#+1
+   \                     ??pre_process_context_4:
+   \   0000007C   480094E5           LDR      R0,[R4, #+72]
+   \   00000080   000056E1           CMP      R6,R0
+   \   00000084   E5FFFFBA           BLT      ??pre_process_context_1
+    242          	prep->next_buf_row = prep->next_buf_stop;
+   \                     ??pre_process_context_5:
+   \   00000088   3C0095E5           LDR      R0,[R5, #+60]
+   \   0000008C   340085E5           STR      R0,[R5, #+52]
+    243                }
+    244              }
+    245              /* If we've gotten enough data, downsample a row group. */
+    246              if (prep->next_buf_row == prep->next_buf_stop) {
+   \                     ??pre_process_context_6:
+   \   00000090   340095E5           LDR      R0,[R5, #+52]
+   \   00000094   3C1095E5           LDR      R1,[R5, #+60]
+   \   00000098   010050E1           CMP      R0,R1
+   \   0000009C   1F00001A           BNE      ??pre_process_context_0
+    247                (*cinfo->downsample->downsample) (cinfo,
+    248          					prep->color_buf,
+    249          					(JDIMENSION) prep->this_row_group,
+    250          					output_buf, *out_row_group_ctr);
+   \   000000A0   38009DE5           LDR      R0,[SP, #+56]
+   \   000000A4   081085E2           ADD      R1,R5,#+8
+   \   000000A8   000090E5           LDR      R0,[R0, #+0]
+   \   000000AC   01002DE9           PUSH     {R0}
+   \   000000B0   8C6194E5           LDR      R6,[R4, #+396]
+   \   000000B4   38309DE5           LDR      R3,[SP, #+56]
+   \   000000B8   382095E5           LDR      R2,[R5, #+56]
+   \   000000BC   046096E5           LDR      R6,[R6, #+4]
+   \   000000C0   0400A0E1           MOV      R0,R4
+   \   000000C4   36FF2FE1           BLX      R6
+    251                (*out_row_group_ctr)++;
+   \   000000C8   3C009DE5           LDR      R0,[SP, #+60]
+   \   000000CC   001090E5           LDR      R1,[R0, #+0]
+   \   000000D0   011081E2           ADD      R1,R1,#+1
+   \   000000D4   001080E5           STR      R1,[R0, #+0]
+    252                /* Advance pointers with wraparound as necessary. */
+    253                prep->this_row_group += cinfo->max_v_samp_factor;
+   \   000000D8   380095E5           LDR      R0,[R5, #+56]
+   \   000000DC   0C1194E5           LDR      R1,[R4, #+268]
+   \   000000E0   000081E0           ADD      R0,R1,R0
+   \   000000E4   380085E5           STR      R0,[R5, #+56]
+    254                if (prep->this_row_group >= buf_height)
+   \   000000E8   381095E5           LDR      R1,[R5, #+56]
+   \   000000EC   04209DE5           LDR      R2,[SP, #+4]
+   \   000000F0   0000A0E3           MOV      R0,#+0
+   \   000000F4   020051E1           CMP      R1,R2
+   \   000000F8   04D08DE2           ADD      SP,SP,#+4
+    255          	prep->this_row_group = 0;
+   \   000000FC   380085A5           STRGE    R0,[R5, #+56]
+    256                if (prep->next_buf_row >= buf_height)
+   \   00000100   341095E5           LDR      R1,[R5, #+52]
+   \   00000104   00209DE5           LDR      R2,[SP, #+0]
+   \   00000108   020051E1           CMP      R1,R2
+    257          	prep->next_buf_row = 0;
+   \   0000010C   340085A5           STRGE    R0,[R5, #+52]
+    258                prep->next_buf_stop = prep->next_buf_row + cinfo->max_v_samp_factor;
+   \   00000110   340095E5           LDR      R0,[R5, #+52]
+   \   00000114   0C1194E5           LDR      R1,[R4, #+268]
+   \   00000118   000081E0           ADD      R0,R1,R0
+   \   0000011C   3C0085E5           STR      R0,[R5, #+60]
+    259              }
+   \                     ??pre_process_context_0:
+   \   00000120   38009DE5           LDR      R0,[SP, #+56]
+   \   00000124   3C109DE5           LDR      R1,[SP, #+60]
+   \   00000128   000090E5           LDR      R0,[R0, #+0]
+   \   0000012C   010050E1           CMP      R0,R1
+   \   00000130   FF8FBD28           POPCS    {R0-R11,PC}
+   \   00000134   08009DE5           LDR      R0,[SP, #+8]
+   \   00000138   0C109DE5           LDR      R1,[SP, #+12]
+   \   0000013C   000090E5           LDR      R0,[R0, #+0]
+   \   00000140   010050E1           CMP      R0,R1
+   \   00000144   3B00002A           BCS      ??pre_process_context_7
+   \   00000148   3C2095E5           LDR      R2,[R5, #+60]
+   \   0000014C   343095E5           LDR      R3,[R5, #+52]
+   \   00000150   001041E0           SUB      R1,R1,R0
+   \   00000154   037042E0           SUB      R7,R2,R3
+   \   00000158   010057E1           CMP      R7,R1
+   \   0000015C   0170A021           MOVCS    R7,R1
+   \   00000160   0710A0E1           MOV      R1,R7
+   \   00000164   02002DE9           PUSH     {R1}
+   \   00000168   886194E5           LDR      R6,[R4, #+392]
+   \   0000016C   343095E5           LDR      R3,[R5, #+52]
+   \   00000170   08109DE5           LDR      R1,[SP, #+8]
+   \   00000174   046096E5           LDR      R6,[R6, #+4]
+   \   00000178   082085E2           ADD      R2,R5,#+8
+   \   0000017C   001181E0           ADD      R1,R1,R0, LSL #+2
+   \   00000180   0400A0E1           MOV      R0,R4
+   \   00000184   36FF2FE1           BLX      R6
+   \   00000188   300095E5           LDR      R0,[R5, #+48]
+   \   0000018C   201094E5           LDR      R1,[R4, #+32]
+   \   00000190   04D08DE2           ADD      SP,SP,#+4
+   \   00000194   010050E1           CMP      R0,R1
+   \   00000198   1B00001A           BNE      ??pre_process_context_8
+   \   0000019C   480094E5           LDR      R0,[R4, #+72]
+   \   000001A0   0060A0E3           MOV      R6,#+0
+   \   000001A4   010050E3           CMP      R0,#+1
+   \   000001A8   140000AA           BGE      ??pre_process_context_9
+   \   000001AC   160000EA           B        ??pre_process_context_8
+   \                     ??pre_process_context_10:
+   \   000001B0   0C0194E5           LDR      R0,[R4, #+268]
+   \   000001B4   0180A0E3           MOV      R8,#+1
+   \   000001B8   010050E3           CMP      R0,#+1
+   \   000001BC   0E0000BA           BLT      ??pre_process_context_11
+   \                     ??pre_process_context_12:
+   \   000001C0   1C1094E5           LDR      R1,[R4, #+28]
+   \   000001C4   060185E0           ADD      R0,R5,R6, LSL #+2
+   \   000001C8   02002DE9           PUSH     {R1}
+   \   000001CC   003068E2           RSB      R3,R8,#+0
+   \   000001D0   018088E2           ADD      R8,R8,#+1
+   \   000001D4   0110A0E3           MOV      R1,#+1
+   \   000001D8   02002DE9           PUSH     {R1}
+   \   000001DC   082090E5           LDR      R2,[R0, #+8]
+   \   000001E0   0010A0E3           MOV      R1,#+0
+   \   000001E4   0200A0E1           MOV      R0,R2
+   \   000001E8   ........           _BLF     jcopy_sample_rows,??jcopy_sample_rows??rA
+   \   000001EC   0C0194E5           LDR      R0,[R4, #+268]
+   \   000001F0   08D08DE2           ADD      SP,SP,#+8
+   \   000001F4   080050E1           CMP      R0,R8
+   \   000001F8   F0FFFFAA           BGE      ??pre_process_context_12
+   \                     ??pre_process_context_11:
+   \   000001FC   016086E2           ADD      R6,R6,#+1
+   \                     ??pre_process_context_9:
+   \   00000200   480094E5           LDR      R0,[R4, #+72]
+   \   00000204   000056E1           CMP      R6,R0
+   \   00000208   E8FFFFBA           BLT      ??pre_process_context_10
+   \                     ??pre_process_context_8:
+   \   0000020C   08009DE5           LDR      R0,[SP, #+8]
+   \   00000210   001090E5           LDR      R1,[R0, #+0]
+   \   00000214   011087E0           ADD      R1,R7,R1
+   \   00000218   001080E5           STR      R1,[R0, #+0]
+   \   0000021C   340095E5           LDR      R0,[R5, #+52]
+   \   00000220   000087E0           ADD      R0,R7,R0
+   \   00000224   340085E5           STR      R0,[R5, #+52]
+   \   00000228   300095E5           LDR      R0,[R5, #+48]
+   \   0000022C   070040E0           SUB      R0,R0,R7
+   \   00000230   300085E5           STR      R0,[R5, #+48]
+   \   00000234   95FFFFEA           B        ??pre_process_context_6
+   \                     ??pre_process_context_7:
+   \   00000238   300095E5           LDR      R0,[R5, #+48]
+   \   0000023C   000050E3           CMP      R0,#+0
+   \   00000240   FF8FBD18           POPNE    {R0-R11,PC}
+   \   00000244   340095E5           LDR      R0,[R5, #+52]
+   \   00000248   3C1095E5           LDR      R1,[R5, #+60]
+   \   0000024C   010050E1           CMP      R0,R1
+   \   00000250   8EFFFFAA           BGE      ??pre_process_context_6
+   \   00000254   480094E5           LDR      R0,[R4, #+72]
+   \   00000258   0060A0E3           MOV      R6,#+0
+   \   0000025C   010050E3           CMP      R0,#+1
+   \   00000260   85FFFFAA           BGE      ??pre_process_context_4
+   \   00000264   87FFFFEA           B        ??pre_process_context_5
+    260            }
+    261          }
+    262          
+    263          
+    264          /*
+    265           * Create the wrapped-around downsampling input buffer needed for context mode.
+    266           */
+    267          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    268          LOCAL(void)
+    269          create_context_buffer (j_compress_ptr cinfo)
+    270          {
+   \                     create_context_buffer:
+   \   00000000   F0472DE9           PUSH     {R4-R10,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    271            my_prep_ptr prep = (my_prep_ptr) cinfo->prep;
+    272            int rgroup_height = cinfo->max_v_samp_factor;
+   \   00000008   0C6194E5           LDR      R6,[R4, #+268]
+    273            int ci, i;
+    274            jpeg_component_info * compptr;
+    275            JSAMPARRAY true_buffer, fake_buffer;
+    276          
+    277            /* Grab enough space for fake row pointers for all the components;
+    278             * we need five row groups' worth of pointers for each component.
+    279             */
+    280            fake_buffer = (JSAMPARRAY)
+    281              (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_IMAGE,
+    282          				(cinfo->num_components * 5 * rgroup_height) *
+    283          				SIZEOF(JSAMPROW));
+   \   0000000C   480094E5           LDR      R0,[R4, #+72]
+   \   00000010   043094E5           LDR      R3,[R4, #+4]
+   \   00000014   7C5194E5           LDR      R5,[R4, #+380]
+   \   00000018   003093E5           LDR      R3,[R3, #+0]
+   \   0000001C   960000E0           MUL      R0,R6,R0
+   \   00000020   1410A0E3           MOV      R1,#+20
+   \   00000024   910002E0           MUL      R2,R1,R0
+   \   00000028   0110A0E3           MOV      R1,#+1
+   \   0000002C   0400A0E1           MOV      R0,R4
+   \   00000030   33FF2FE1           BLX      R3
+    284          
+    285            for (ci = 0, compptr = cinfo->comp_info; ci < cinfo->num_components;
+   \   00000034   509094E5           LDR      R9,[R4, #+80]
+   \   00000038   0070A0E1           MOV      R7,R0
+   \   0000003C   480094E5           LDR      R0,[R4, #+72]
+   \   00000040   0080A0E3           MOV      R8,#+0
+   \   00000044   010050E3           CMP      R0,#+1
+   \   00000048   100000AA           BGE      ??create_context_buffer_0
+    286                 ci++, compptr++) {
+    287              /* Allocate the actual buffer space (3 row groups) for this component.
+    288               * We make the buffer wide enough to allow the downsampler to edge-expand
+    289               * horizontally within the buffer, if it so chooses.
+    290               */
+    291              true_buffer = (*cinfo->mem->alloc_sarray)
+    292                ((j_common_ptr) cinfo, JPOOL_IMAGE,
+    293                 (JDIMENSION) (((long) compptr->width_in_blocks *
+    294          		      cinfo->min_DCT_h_scaled_size *
+    295          		      cinfo->max_h_samp_factor) / compptr->h_samp_factor),
+    296                 (JDIMENSION) (3 * rgroup_height));
+    297              /* Copy true buffer row pointers into the middle of the fake row array */
+    298              MEMCOPY(fake_buffer + rgroup_height, true_buffer,
+    299          	    3 * rgroup_height * SIZEOF(JSAMPROW));
+    300              /* Fill in the above and below wraparound pointers */
+    301              for (i = 0; i < rgroup_height; i++) {
+    302                fake_buffer[i] = true_buffer[2 * rgroup_height + i];
+    303                fake_buffer[4 * rgroup_height + i] = true_buffer[i];
+    304              }
+    305              prep->color_buf[ci] = fake_buffer + rgroup_height;
+    306              fake_buffer += 5 * rgroup_height; /* point to space for next component */
+    307            }
+    308          }
+   \   0000004C   F087BDE8           POP      {R4-R10,PC}      ;; return
+   \                     ??create_context_buffer_1:
+   \   00000050   861080E0           ADD      R1,R0,R6, LSL #+1
+   \   00000054   01119AE7           LDR      R1,[R10, +R1, LSL #+2]
+   \   00000058   001187E7           STR      R1,[R7, +R0, LSL #+2]
+   \   0000005C   00219AE7           LDR      R2,[R10, +R0, LSL #+2]
+   \   00000060   061180E0           ADD      R1,R0,R6, LSL #+2
+   \   00000064   012187E7           STR      R2,[R7, +R1, LSL #+2]
+   \   00000068   010080E2           ADD      R0,R0,#+1
+   \                     ??create_context_buffer_2:
+   \   0000006C   060050E1           CMP      R0,R6
+   \   00000070   F6FFFFBA           BLT      ??create_context_buffer_1
+   \                     ??create_context_buffer_3:
+   \   00000074   080185E0           ADD      R0,R5,R8, LSL #+2
+   \   00000078   061187E0           ADD      R1,R7,R6, LSL #+2
+   \   0000007C   081080E5           STR      R1,[R0, #+8]
+   \   00000080   1400A0E3           MOV      R0,#+20
+   \   00000084   907627E0           MLA      R7,R0,R6,R7
+   \   00000088   018088E2           ADD      R8,R8,#+1
+   \   0000008C   589089E2           ADD      R9,R9,#+88
+   \                     ??create_context_buffer_0:
+   \   00000090   480094E5           LDR      R0,[R4, #+72]
+   \   00000094   000058E1           CMP      R8,R0
+   \   00000098   F087BDA8           POPGE    {R4-R10,PC}
+   \   0000009C   1C0099E5           LDR      R0,[R9, #+28]
+   \   000000A0   101194E5           LDR      R1,[R4, #+272]
+   \   000000A4   04A094E5           LDR      R10,[R4, #+4]
+   \   000000A8   910000E0           MUL      R0,R1,R0
+   \   000000AC   081194E5           LDR      R1,[R4, #+264]
+   \   000000B0   08A09AE5           LDR      R10,[R10, #+8]
+   \   000000B4   910000E0           MUL      R0,R1,R0
+   \   000000B8   081099E5           LDR      R1,[R9, #+8]
+   \   000000BC   863086E0           ADD      R3,R6,R6, LSL #+1
+   \   000000C0   ........           _BLF     ??div32_a,??rA??div32_a
+   \   000000C4   0120A0E1           MOV      R2,R1
+   \   000000C8   0110A0E3           MOV      R1,#+1
+   \   000000CC   0400A0E1           MOV      R0,R4
+   \   000000D0   3AFF2FE1           BLX      R10
+   \   000000D4   00A0A0E1           MOV      R10,R0
+   \   000000D8   0C00A0E3           MOV      R0,#+12
+   \   000000DC   900602E0           MUL      R2,R0,R6
+   \   000000E0   0A10A0E1           MOV      R1,R10
+   \   000000E4   060187E0           ADD      R0,R7,R6, LSL #+2
+   \   000000E8   1E0100EF           SWI      +286
+   \   000000EC   0000A0E3           MOV      R0,#+0
+   \   000000F0   010056E3           CMP      R6,#+1
+   \   000000F4   DCFFFFAA           BGE      ??create_context_buffer_2
+   \   000000F8   DDFFFFEA           B        ??create_context_buffer_3
+    309          
+    310          #endif /* CONTEXT_ROWS_SUPPORTED */
+    311          
+    312          
+    313          /*
+    314           * Initialize preprocessing controller.
+    315           */
+    316          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    317          GLOBAL(void)
+    318          jinit_c_prep_controller (j_compress_ptr cinfo, boolean need_full_buffer)
+    319          {
+   \                     jinit_c_prep_controller:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    320            my_prep_ptr prep;
+    321            int ci;
+    322            jpeg_component_info * compptr;
+    323          
+    324            if (need_full_buffer)		/* safety check */
+   \   00000008   000051E3           CMP      R1,#+0
+   \   0000000C   0600000A           BEQ      ??jinit_c_prep_controller_0
+    325              ERREXIT(cinfo, JERR_BAD_BUFFER_MODE);
+   \   00000010   000094E5           LDR      R0,[R4, #+0]
+   \   00000014   0310A0E3           MOV      R1,#+3
+   \   00000018   141080E5           STR      R1,[R0, #+20]
+   \   0000001C   001094E5           LDR      R1,[R4, #+0]
+   \   00000020   0400A0E1           MOV      R0,R4
+   \   00000024   001091E5           LDR      R1,[R1, #+0]
+   \   00000028   31FF2FE1           BLX      R1
+    326          
+    327            prep = (my_prep_ptr)
+    328              (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_IMAGE,
+    329          				SIZEOF(my_prep_controller));
+   \                     ??jinit_c_prep_controller_0:
+   \   0000002C   043094E5           LDR      R3,[R4, #+4]
+   \   00000030   4020A0E3           MOV      R2,#+64
+   \   00000034   003093E5           LDR      R3,[R3, #+0]
+   \   00000038   0110A0E3           MOV      R1,#+1
+   \   0000003C   0400A0E1           MOV      R0,R4
+   \   00000040   33FF2FE1           BLX      R3
+   \   00000044   0050A0E1           MOV      R5,R0
+    330            cinfo->prep = (struct jpeg_c_prep_controller *) prep;
+    331            prep->pub.start_pass = start_pass_prep;
+   \   00000048   A0009FE5           LDR      R0,??jinit_c_prep_controller_1  ;; start_pass_prep
+   \   0000004C   7C5184E5           STR      R5,[R4, #+380]
+   \   00000050   000085E5           STR      R0,[R5, #+0]
+    332          
+    333            /* Allocate the color conversion buffer.
+    334             * We make the buffer wide enough to allow the downsampler to edge-expand
+    335             * horizontally within the buffer, if it so chooses.
+    336             */
+    337            if (cinfo->downsample->need_context_rows) {
+   \   00000054   8C0194E5           LDR      R0,[R4, #+396]
+   \   00000058   080090E5           LDR      R0,[R0, #+8]
+   \   0000005C   000050E3           CMP      R0,#+0
+   \   00000060   0400000A           BEQ      ??jinit_c_prep_controller_2
+    338              /* Set up to provide context rows */
+    339          #ifdef CONTEXT_ROWS_SUPPORTED
+    340              prep->pub.pre_process_data = pre_process_context;
+   \   00000064   88009FE5           LDR      R0,??jinit_c_prep_controller_1+0x4  ;; pre_process_context
+   \   00000068   040085E5           STR      R0,[R5, #+4]
+    341              create_context_buffer(cinfo);
+   \   0000006C   0400A0E1           MOV      R0,R4
+   \   00000070   ........           BL       create_context_buffer
+   \   00000074   F080BDE8           POP      {R4-R7,PC}
+    342          #else
+    343              ERREXIT(cinfo, JERR_NOT_COMPILED);
+    344          #endif
+    345            } else {
+    346              /* No context, just make it tall enough for one row group */
+    347              prep->pub.pre_process_data = pre_process_data;
+   \                     ??jinit_c_prep_controller_2:
+   \   00000078   78009FE5           LDR      R0,??jinit_c_prep_controller_1+0x8  ;; pre_process_data
+    348              for (ci = 0, compptr = cinfo->comp_info; ci < cinfo->num_components;
+   \   0000007C   0060A0E3           MOV      R6,#+0
+   \   00000080   040085E5           STR      R0,[R5, #+4]
+   \   00000084   480094E5           LDR      R0,[R4, #+72]
+   \   00000088   507094E5           LDR      R7,[R4, #+80]
+   \   0000008C   010050E3           CMP      R0,#+1
+   \   00000090   120000AA           BGE      ??jinit_c_prep_controller_3
+   \   00000094   F080BDE8           POP      {R4-R7,PC}
+    349          	 ci++, compptr++) {
+    350                prep->color_buf[ci] = (*cinfo->mem->alloc_sarray)
+    351          	((j_common_ptr) cinfo, JPOOL_IMAGE,
+    352          	 (JDIMENSION) (((long) compptr->width_in_blocks *
+    353          			cinfo->min_DCT_h_scaled_size *
+    354          			cinfo->max_h_samp_factor) / compptr->h_samp_factor),
+    355          	 (JDIMENSION) cinfo->max_v_samp_factor);
+   \                     ??jinit_c_prep_controller_4:
+   \   00000098   1C0097E5           LDR      R0,[R7, #+28]
+   \   0000009C   101194E5           LDR      R1,[R4, #+272]
+   \   000000A0   0C3194E5           LDR      R3,[R4, #+268]
+   \   000000A4   910000E0           MUL      R0,R1,R0
+   \   000000A8   081194E5           LDR      R1,[R4, #+264]
+   \   000000AC   910000E0           MUL      R0,R1,R0
+   \   000000B0   081097E5           LDR      R1,[R7, #+8]
+    356              }
+   \   000000B4   587087E2           ADD      R7,R7,#+88
+   \   000000B8   ........           _BLF     ??div32_a,??rA??div32_a
+   \   000000BC   04C094E5           LDR      R12,[R4, #+4]
+   \   000000C0   0120A0E1           MOV      R2,R1
+   \   000000C4   08C09CE5           LDR      R12,[R12, #+8]
+   \   000000C8   0110A0E3           MOV      R1,#+1
+   \   000000CC   0400A0E1           MOV      R0,R4
+   \   000000D0   3CFF2FE1           BLX      R12
+   \   000000D4   061185E0           ADD      R1,R5,R6, LSL #+2
+   \   000000D8   080081E5           STR      R0,[R1, #+8]
+   \   000000DC   016086E2           ADD      R6,R6,#+1
+   \                     ??jinit_c_prep_controller_3:
+   \   000000E0   480094E5           LDR      R0,[R4, #+72]
+   \   000000E4   000056E1           CMP      R6,R0
+   \   000000E8   EAFFFFBA           BLT      ??jinit_c_prep_controller_4
+    357            }
+    358          }
+   \   000000EC   F080BDE8           POP      {R4-R7,PC}       ;; return
+   \                     ??jinit_c_prep_controller_1:
+   \   000000F0   ........           DC32     start_pass_prep
+   \   000000F4   ........           DC32     pre_process_context
+   \   000000F8   ........           DC32     pre_process_data
+
+   Maximum stack usage in bytes:
+
+     Function                CSTACK
+     --------                ------
+     create_context_buffer      32
+     jinit_c_prep_controller    20
+     pre_process_context        60
+     pre_process_data           56
+     start_pass_prep            12
+
+
+   Segment part sizes:
+
+     Function/Label          Bytes
+     --------------          -----
+     start_pass_prep           84
+     pre_process_data         624
+     pre_process_context      616
+     create_context_buffer    252
+     jinit_c_prep_controller  252
+      Others                   44
+
+ 
+ 1 872 bytes in segment CODE
+ 
+ 1 828 bytes of CODE memory (+ 44 bytes shared)
+
+Errors: none
+Warnings: 1

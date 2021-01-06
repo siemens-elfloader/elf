@@ -1,0 +1,309 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.41A/W32 EVALUATION    26/Feb/2008  13:47:54 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod           #
+#                       evilfox(19.02.08)\history.c                          #
+#    Command line    =  "D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod          #
+#                       evilfox(19.02.08)\history.c" -D NEWSGOLD -D ELKA     #
+#                       --preprocess "D:\Pasha\elf\mod_src\elfiki\naticq_2nd #
+#                       _mod evilfox(19.02.08)\Release_ELKA\List\" -lC       #
+#                       "D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod          #
+#                       evilfox(19.02.08)\Release_ELKA\List\" -o             #
+#                       "D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod          #
+#                       evilfox(19.02.08)\Release_ELKA\Obj\" -s9             #
+#                       --no_unroll --cpu_mode arm --endian little --cpu     #
+#                       ARM926EJ-S --stack_align 4 --interwork -e --fpu      #
+#                       None --dlib_config "D:\Pasha\ARM_Embedded_Workbench\ #
+#                       Embedded Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8 #
+#                       n.h" -I "D:\Pasha\ARM_Embedded_Workbench\Embedded    #
+#                       Workbench 4.0 Evaluation\ARM\INC\"                   #
+#                       --inline_threshold=2                                 #
+#    List file       =  D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod           #
+#                       evilfox(19.02.08)\Release_ELKA\List\history.lst      #
+#    Object file     =  D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod           #
+#                       evilfox(19.02.08)\Release_ELKA\Obj\history.r79       #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod evilfox(19.02.08)\history.c
+      1          #include "../inc/swilib.h"
+      2          #include "naticq.h"
+      3          #include "history.h"
+      4          #include "language.h"
+      5          
+      6          extern const char HIST_PATH[64];
+      7          extern const int LOG_ALL;
+      8          #ifdef EVILFOX
+      9          #else
+     10          extern const int HISTORY_TYPE;
+     11          #endif
+     12          extern const unsigned int UIN;
+     13          /*
+     14            Добавлет строку в историю контакта CLIST
+     15          */
+     16          #ifdef EVILFOX
+     17          static do_logwrite(const char *n_a_m_e_z, char *text)
+     18          {
+     19            volatile int hFile;
+     20            unsigned int io_error = 0;
+     21            char error[36];
+     22            char fullname[128];
+     23            snprintf(fullname,127,"%s\\%u\\%s.txt", HIST_PATH, UIN, n_a_m_e_z);
+     24            hFile = fopen(fullname,A_ReadWrite + A_Create + A_Append + A_BIN,P_READ+P_WRITE, &io_error);
+     25            if(hFile!=-1)
+     26            {
+     27              fwrite(hFile, text, strlen(text), &io_error);
+     28              fclose(hFile, &io_error);
+     29            }
+     30            else
+     31            {
+     32              snprintf(error,35, LG_HISTIOERR, io_error);
+     33              LockSched();
+     34              ShowMSG(1,(int)error); 
+     35              UnlockSched();
+     36            }
+     37            mfree(text);
+     38          }
+     39          #else
+     40          static do_logwrite(unsigned int uin, char *text)
+     41          {
+     42            volatile int hFile;
+     43            unsigned int io_error = 0;
+     44            unsigned int ul;
+     45            char error[36];
+     46            char fullname[128];
+     47            char hist_path[128];
+     48            if(HISTORY_TYPE)
+     49              snprintf(hist_path,127,"%s\\%u",HIST_PATH, UIN);
+     50            else
+     51              snprintf(hist_path,127,"%s",HIST_PATH);
+     52            if (!isdir(hist_path,&ul))
+     53            {
+     54              mkdir(hist_path,&ul);
+     55            }
+     56            snprintf(fullname,127,"%s\\%u.txt", hist_path, uin);
+     57            // Открываем файл на дозапись и создаём в случае неудачи
+     58            hFile = fopen(fullname,A_ReadWrite + A_Create + A_Append + A_BIN,P_READ+P_WRITE, &io_error);
+     59            if(hFile!=-1)
+     60            {
+     61              fwrite(hFile, text, strlen(text), &io_error);
+     62              fclose(hFile, &io_error);
+     63            }
+     64            else
+     65            {
+     66              snprintf(error,35, LG_HISTIOERR, io_error);
+     67              LockSched();
+     68              ShowMSG(1,(int)error); 
+     69              UnlockSched();
+     70            }
+     71            mfree(text);
+     72          }
+     73          #endif
+     74          
+     75          void Add2History(CLIST *CListEx, char *header, char *message, int direction)
+     76          {
+     77            static const char *delim = "\r\n--------------<>-%04d\r\n";
+     78            int len;
+     79            if (!LOG_ALL) return;
+     80            len=strlen(delim)+strlen(header)+strlen(message);
+     81            char *text=malloc(len+1);
+     82            sprintf(text,delim,direction);
+     83            strcat(text,header);
+     84            strcat(text,message);
+     85          #ifdef EVILFOX
+     86            SUBPROC((void*)do_logwrite,CListEx->name,text);
+     87          #else
+     88            SUBPROC((void*)do_logwrite,CListEx->uin,text);
+     89          #endif
+     90          }
+     91          
+     92          extern LOGQ *NewLOGQ(const char *s);
+     93          extern int AddLOGQ(LOGQ **queue, LOGQ *p);
+     94          
+     95          //Делает ярким последний икс-статус, а остальные тусклыми
+     96          void ActivateLastX(LOGQ *p)
+     97          {
+     98            LOGQ *q = p, *lastX = 0;
+     99            while(q)
+    100            {
+    101              if((q->type&0x0F) == 3)
+    102              {
+    103                lastX = q;
+    104                q->type = 0x13;
+    105              }
+    106              q = q->next;
+    107            }
+    108            if(lastX) lastX->type = 3;
+    109          }
+    110          
+    111          //Добавить элемент в лог первым
+    112          void AddFirstLOGQ(CLIST *t, LOGQ *p)
+    113          {
+    114            LOGQ *q = t->log;
+    115            if(!p) return;
+    116            t->log = p;
+    117            while(p->next)
+    118              p = p->next;
+    119            p->next = q;
+    120            ActivateLastX(t->log);
+    121          }
+    122          
+    123          //Удаляем лог с заданного элемента
+    124          void DeleteLOGQ(LOGQ *p)
+    125          {
+    126            if(!p) return;
+    127            if(p->next) DeleteLOGQ(p->next);
+    128            mfree(p);
+    129          }
+    130          
+    131          //Проверка что в логе не только иксстасусы
+    132          int CheckLOGQ(CLIST *t)
+    133          {
+    134            LOGQ *p = t->log;
+    135            if(!p) return 0;
+    136            for(; p->next && (p->type&0x0F)==3; p=p->next);
+    137            if(p->next)
+    138              if((p->type&0x0F)!=3)
+    139                return 1;
+    140            DeleteLOGQ(t->log);
+    141            t->log = 0;
+    142            return 0;
+    143          }
+    144          
+    145          int GetHistory(CLIST *t, int bufsize)
+    146          {
+    147            LOGQ *log, *head;
+    148            static const char *delim = "\r\n--------------<>-000";
+    149            volatile int hFile;
+    150            unsigned int io_error = 0;
+    151            char fullname[128], *s, *b, *e, *text, *str, *buf;
+    152            int i, delimlen = strlen(delim)+3, direction;
+    153          
+    154          //  unsigned uin = t->uin;
+    155          
+    156            
+    157            if(CheckLOGQ(t)) return 0;
+    158            
+    159            buf = text = malloc(bufsize);
+    160            text[0] = 0;
+    161            text[bufsize-1] = 0;
+    162          #ifdef EVILFOX
+    163              snprintf(fullname,127,"%s\\%u\\%s.txt", HIST_PATH, UIN, t->name);
+    164          #else
+    165            if(HISTORY_TYPE)
+    166              snprintf(fullname,127,"%s\\%u\\%u.txt", HIST_PATH, UIN, uin);
+                                                                             ^
+Error[Pe020]: identifier "uin" is undefined
+    167            else
+    168              snprintf(fullname,127,"%s\\%u.txt", HIST_PATH, uin);
+    169          #endif
+    170            // Открываем файл на чтение
+    171            hFile = fopen(fullname,A_ReadOnly + A_BIN,P_READ, &io_error);
+    172            if(hFile!=-1)
+    173            {
+    174              lseek(hFile, -(bufsize-1), S_END, &io_error, &io_error);
+    175              i = fread(hFile, text, bufsize-1, &io_error);
+    176              text[i] = 0;
+    177              fclose(hFile, &io_error);
+    178              s = strstr(text, delim);  
+    179              
+    180              head = NewLOGQ("");
+    181              head->next = 0;
+    182              
+    183              while(s && text)
+    184              {
+    185                direction = (*(s+delimlen-3))-0x30; 
+    186                text = s+delimlen;
+    187                s = strstr(text, delim); 
+    188                e = !s?(text+strlen(text)):s;
+    189                
+    190                str = malloc(e-text+1);
+    191                if(e-text > 0) memcpy(str, text, e-text);
+    192                str[e-text] = 0; 
+    193          
+    194          //      snprintf(fullname, 127, "\r\n-----\r\n%08X\r\n%08X, %d\r\n%08X, %d\r\n----\r\n", text, e, direction, s, e-text);
+    195                b = strstr(str, "\r\n");
+    196          
+    197                
+    198          //      log = NewLOGQ(fullname);
+    199                if(b)
+    200                {
+    201                  log = NewLOGQ(b+2);
+    202                  if(b-str >= 0) memcpy(log->hdr, str, b-str);
+    203                  log->hdr[b-str] = 0;
+    204                }
+    205                else
+    206                {
+    207                  log = NewLOGQ("");
+    208                  strcpy(log->hdr, str);
+    209                }
+    210                
+    211                log->type = direction|0x10;
+    212                log->acked = 0;
+    213                log->ID=0xFFFFFFFF;
+    214                
+    215                AddLOGQ(&head, log);
+    216                
+    217                //mfree(log);
+    218                mfree(str);
+    219              }
+    220              AddFirstLOGQ(t, head->next);
+    221              mfree(head);
+    222                
+    223            }
+    224          
+    225            mfree(buf);
+    226            return 0;
+    227          }
+    228          
+    229          void GetStatusById(char *buffer, int id)
+    230          {
+    231            
+    232            // ??? Тут надо разбираться со статусами
+    233            // Похоже, не все коды верные...
+    234          switch(id)
+    235          {
+    236          case 0: {strcpy(buffer,"Online");break;}
+    237          case 1: {strcpy(buffer, "Invisible");break;}
+    238          case 2: {strcpy(buffer, "Away");break;}
+    239          case 3: {strcpy(buffer, "N/A");break;}
+    240          case 4: {strcpy(buffer, "Occupied");break;}
+    241          case 5: {strcpy(buffer, "DND");break;}
+    242          case 6: {strcpy(buffer, "Online");break;}
+    243          case 7: {strcpy(buffer, "FFC");break;}
+    244          default: {sprintf(buffer, "UNK: %d", id);}
+    245          }
+    246          }
+    247          
+    248          void LogStatusChange(CLIST *CListEx)
+    249          {
+    250            extern const int LOG_STATCH;
+    251            if(!LOG_STATCH){return;}
+    252            if(CListEx->state>7){return;}
+    253            if(CListEx->log==NULL){return;}
+    254            char hdr[] = "(System message) ";
+    255            char msg[] = "%s меняет статус на %s\r\n";
+    256            char message[100];
+    257            char nickname[64];
+    258            char status[20];
+    259            if(CListEx->name)
+    260            {
+    261              strcpy(nickname, CListEx->name);
+    262            }
+    263            else
+    264            {
+    265              snprintf(nickname,63, "%u", CListEx->uin);
+    266            }
+    267            GetStatusById(status, CListEx->state);
+    268            sprintf(message, msg, nickname, status);
+    269            Add2History(CListEx, hdr, message, 0);
+    270          }
+
+Errors: 1
+Warnings: none

@@ -1,0 +1,172 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    05/Mar/2009  13:12:11 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\main.cpp            #
+#    Command line    =  D:\pasha\elf\SieELF\MySMSYS\Mss3\main.cpp -D         #
+#                       NEWSGOLD -D ELKA -D LANG_EN -lcN                     #
+#                       D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_EN\Lis #
+#                       t\ -o D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_ #
+#                       EN\Obj\ -s9 --no_unroll --cpu_mode arm --endian      #
+#                       little --cpu ARM926EJ-S --stack_align 4 --interwork  #
+#                       -e --fpu None --eec++ --dlib_config                  #
+#                       "D:\pasha\Embedded Workbench 4.0                     #
+#                       Evaluation2\ARM\LIB\dl5tpainl8n.h" -I                #
+#                       "D:\pasha\Embedded Workbench 4.0                     #
+#                       Evaluation2\ARM\INC\" --inline_threshold=2           #
+#    List file       =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_EN\Lis #
+#                       t\main.lst                                           #
+#    Object file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_EN\Obj #
+#                       \main.r79                                            #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\pasha\elf\SieELF\MySMSYS\Mss3\main.cpp
+      1          #include "include.h"
+      2          #include "SiemensPDU.h"
+      3          #include "MyIpcMessage.h"
+      4          #include "File.h"
+      5          #include "SmsData.h"
+      6          #include "CreateMenu.h"
+      7          #include "SmsListMenu.h"
+      8          #include "DialogCSM.h"
+      9          #include "LangPack.h"
+     10          #include "Vibra.h"
+     11          #include "SendList.h"
+     12          #include "DaemonCSM.h"
+     13          
+     14          #include "CSMswaper.h"
+     15          
+     16          int IsAlreadyRuning(void)
+     17          {
+     18            CSM_RAM *icsm;
+     19            WSHDR *ws, wsn;
+     20            unsigned short wsb[16];
+     21            ws=CreateLocalWS(&wsn, wsb, 16);
+     22            wsprintf(ws, ELFFNAMED);
+     23            icsm=(CSM_RAM *)((CSM_RAM *)(CSM_root()->csm_q->csm.first))->next;
+     24            while(((unsigned int)(icsm->constr)>>27)==0x15)
+     25            {
+     26              WSHDR *tws=(WSHDR *)(((char *)icsm->constr)+sizeof(CSM_DESC));
+     27              if((tws->ws_malloc==NAMECSM_MAGIC1)&&(tws->ws_mfree==NAMECSM_MAGIC2))
+     28              {
+     29                if(!wstrncmp_nocase(tws, ws, sizeof(ELFFNAMED)))
+     30                  return 1;
+     31              }
+     32              icsm=(CSM_RAM *)icsm->next;
+     33            }
+     34            return 0;
+     35          }
+     36          
+     37          extern "C"
+     38          {
+     39            extern void kill_data(void *p, void (*func_p)(void *));
+     40          }
+     41          
+     42          void ElfKiller(void)
+     43          {
+     44            extern void *ELF_BEGIN;
+     45            kill_data(&ELF_BEGIN,(void (*)(void *))mfree_adr());
+     46          }
+     47          
+     48          void InitDatPath(void)
+     49          {
+     50            int x, xl;
+     51            strcpy(sms_dat, CFG_SYSTEM_FOLDER);
+     52            if((xl=strlen(sms_dat))>0)
+     53            {
+     54              x=sms_dat[xl-1];
+     55              if((x!='\\')&&(x!='/'))
+     56              {
+     57                sms_dat[xl]='\\';
+     58                sms_dat[xl+1]=0;
+     59              }
+     60              strcat(sms_dat, "SMS\\SMS.dat");
+     61            }
+     62            extern const char CFG_MAIN_FOLDER[128];
+     63            strcpy(main_folder, CFG_MAIN_FOLDER);
+     64            if((xl=strlen(main_folder))>0)
+     65            {
+     66              x=main_folder[xl-1];
+     67              if((x!='\\')&&(x!='/'))
+     68              {
+     69                main_folder[xl]='\\';
+     70                main_folder[xl+1]=0;
+     71              }
+     72            }
+     73          }
+     74          
+     75          extern "C"
+     76          {
+     77            void InitConfig(void);
+     78          }
+     79          
+     80          void InitSetting(void)
+     81          {
+     82            InitConfig();
+     83            InitDatPath();
+     84          }
+     85          
+     86          int main(char *exename, char *fname)
+     87          {
+     88            if(IsAlreadyRuning())
+     89            {
+     90              if(!fname)
+     91                SendMyIpc(SMSYS_IPC_MAIN);
+     92              else if (fname[0] >= '0' && fname[0] >= '4' && fname[1] == ':' && strlen(fname) < 128)
+     93              {
+     94                char *filename=new char[128];
+     95                strcpy(filename, fname);
+     96                SendMyIpc(SMSYS_IPC_FVIEW, filename);
+     97              }
+     98              SUBPROC((void *)ElfKiller);
+     99              return 0;
+    100            }
+    101            InitSetting();
+    102            DaemonCSM *daemon=new DaemonCSM;
+    103            daemon->CreateDaemonCSM();
+    104            CSMSwaper::InitUnderIdleCSM();
+    105            return 0;
+    106          }
+    107          
+    108          
+    109          
+
+   Maximum stack usage in bytes:
+
+     Function             CSTACK
+     --------             ------
+     ElfKiller()              4
+     InitDatPath()           16
+     InitSetting()            4
+     IsAlreadyRuning()       64
+     main(char *, char *)    12
+
+
+   Segment part sizes:
+
+     Function/Label             Bytes
+     --------------             -----
+     IsAlreadyRuning()           168
+     ElfKiller()                  28
+     InitDatPath()               168
+     InitSetting()                16
+     main(char *, char *)        164
+     ?<Constant "Mss3D">           8
+     ?<Constant "SMS\\SMS.dat">   12
+      Others                     128
+
+ 
+ 672 bytes in segment CODE
+  20 bytes in segment DATA_C
+ 
+ 544 bytes of CODE  memory (+ 128 bytes shared)
+  20 bytes of CONST memory
+
+Errors: none
+Warnings: none

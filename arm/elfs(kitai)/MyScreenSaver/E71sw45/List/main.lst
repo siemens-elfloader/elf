@@ -1,0 +1,416 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    31/Mar/2011  14:44:29 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\elfs(kitai)\MyScreenSaver\main.c              #
+#    Command line    =  "C:\arm\elfs(kitai)\MyScreenSaver\main.c" -D         #
+#                       NEWSGOLD -D ELKA -D VKP -lcN                         #
+#                       "C:\arm\elfs(kitai)\MyScreenSaver\E71sw45\List\" -o  #
+#                       "C:\arm\elfs(kitai)\MyScreenSaver\E71sw45\Obj\" -s9  #
+#                       --no_unroll --cpu_mode arm --endian little --cpu     #
+#                       ARM926EJ-S --stack_align 4 --interwork -e --fpu      #
+#                       None -I "C:\arm2\Embedded Workbench 4.0              #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\elfs(kitai)\MyScreenSaver\E71sw45\List\main.l #
+#                       st                                                   #
+#    Object file     =  C:\arm\elfs(kitai)\MyScreenSaver\E71sw45\Obj\main.r7 #
+#                       9                                                    #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\elfs(kitai)\MyScreenSaver\main.c
+      1          #include "..\inc\swilib.h"
+      2          
+      3          #define COPYRIGHT	"MyScreenSaver\n(c)BingK(binghelingxi)"
+      4          #define ELFNAME		"MyScreenSaver"
+      5          #define SCREENW		239
+      6          #define SCREENH		319
+      7          
+      8          #ifdef VKP
+      9          #define PROCESSOR_MODE __thumb
+     10          #else
+     11          #define PROCESSOR_MODE __arm
+     12          #endif
+     13          
+     14          extern void kill_data(void *p, void (*func_p)(void *));
+     15          extern void Update_MissedEventsPtr(void);
+     16          
+     17          const char color_black[4]={0, 0, 0, 100};
+     18          const char color_white[4]={255, 255, 255, 100};
+     19          
+     20          #define TMR_SECOND	216
+     21          #define TIME		3
+     22          #define EXT_BUTTON	0x63
+     23          
+     24          #define RamIsLocked	0xA8DF3458
+     25          
+     26          #define DATE_POS_X	0
+     27          #define DATE_POS_Y	64
+     28          #define TIME_POS_X	0
+     29          #define TIME_POS_Y	120
+     30          #define ME_POS_X	0
+     31          #define ME_POS_Y	230
+     32          
+     33          #define	ICON		0x4DA
+     34          #define	ICON_X		0x10
+     35          #define	ICON_Y		289
+     36          
+     37          #pragma swi_number=0x221
+     38          __swi __arm void SetCpuClockLow(int _2);
+     39          
+     40          #pragma swi_number=0x9E
+     41          __swi __arm int GetMissedEventCount(unsigned int Event);
+     42          
+     43          #pragma swi_number=0x44
+     44          __swi __arm void TempLightOn(int x, int y);
+     45          
+     46          typedef struct
+     47          {
+     48          	CSM_RAM csm;
+     49          	int gui_id;
+     50          }MAIN_CSM;
+     51          
+     52          typedef struct
+     53          {
+     54            GUI gui;
+     55          }MAIN_GUI;
+     56          
+     57          #ifdef  VKP
+     58          __no_init GBSTMR mytmr @ "RAM_TMR";
+     59          __no_init WSHDR *xws @ "RAMP_XWS";
+     60          __no_init int IsKbdLocked @ "RAM_IsKbdLocked";
+     61          __no_init unsigned int csm_id @ "RAM_CSM_ID";
+     62          __no_init unsigned int gui_id @ "RAM_GUI_ID";
+     63          __no_init int missed_events @ "MISSED_EVENS";
+     64          #else
+     65          GBSTMR mytmr;
+     66          WSHDR *xws;
+     67          int IsKbdLocked;
+     68          unsigned int csm_id;
+     69          unsigned int gui_id;
+     70          int missed_events;
+     71          #endif
+     72          
+     73          
+     74          void drawScreen(void)
+     75          {
+     76          #ifdef ELKA
+     77          	DisableIconBar(1);
+     78          #endif
+     79          	DrawRectangle(0, 0, SCREENW, SCREENH, 0, color_black, color_black);
+     80          
+     81          	TTime time;
+     82          	TDate date;
+     83          	GetDateTime(&date, &time);
+     84          	wsprintf(xws, "%d-%02d-%02d", date.year, date.month, date.day);
+     85          	DrawString(xws, DATE_POS_X, DATE_POS_Y, SCREENW, SCREENH, FONT_MEDIUM_ITALIC_BOLD, TEXT_ALIGNMIDDLE, color_white, color_black);
+     86          	
+     87          	wsprintf(xws, "%02d:%02d", time.hour, time.min);
+     88          	DrawString(xws, TIME_POS_X, TIME_POS_Y, SCREENW, SCREENH, FONT_LARGE_ITALIC_BOLD, TEXT_ALIGNMIDDLE, color_white, color_black);
+     89          	
+     90          	wsprintf(xws, "%d Missed Event(s)!", missed_events);
+     91          	DrawString(xws, ME_POS_X, ME_POS_Y, SCREENW, SCREENH, FONT_SMALL, TEXT_ALIGNMIDDLE, color_white, color_black);
+     92          	
+     93          	if(missed_events)
+     94          		DrawImg(ICON_X, ICON_Y, ICON);
+     95          }
+     96          
+     97          void TimerProc(void)
+     98          {
+     99          	GBS_SendMessage(MMI_CEPID, KEY_UP, EXT_BUTTON);
+    100          	Update_MissedEventsPtr();
+    101          	missed_events=GetMissedEventCount(0);
+    102          	if(IsGuiOnTop(gui_id))
+    103          		drawScreen();
+    104          	//else
+    105          	//	CloseCSM(csm_id);
+    106          	SetCpuClockLow(2);
+    107          	GBS_StartTimerProc(&mytmr, TMR_SECOND*TIME, TimerProc);
+    108          }
+    109          
+    110          
+    111          void onRedraw(MAIN_GUI *data)
+    112          {
+    113          	drawScreen();
+    114          }
+    115          
+    116          int OnKey(MAIN_GUI *data, GUI_MSG *msg)
+    117          {
+    118          	if(msg->gbsmsg->msg==LONG_PRESS)
+    119          	{
+    120          		TempLightOn(3, 0x7FFF);
+    121          		if(msg->gbsmsg->submess=='#')
+    122          			return 1;
+    123          	}
+    124          	if(msg->gbsmsg->msg==KEY_DOWN)
+    125          	{
+    126          		if(msg->gbsmsg->submess==LEFT_SOFT)
+    127          		{
+    128          			extern	void OPEN_INBOX(void);
+    129          			if(missed_events)
+    130          			{
+    131          				TempLightOn(3, 0x7FFF);
+    132          				OPEN_INBOX();
+    133          				//return 1;
+    134          			}
+    135          		}
+    136          	}
+    137          	//DirectRedrawGUI();
+    138          	return 0;
+    139          }
+    140          
+    141          void onCreate(MAIN_GUI *data, void *(*malloc_adr)(int))
+    142          {
+    143          	data->gui.state=1;
+    144          }
+    145          
+    146          void onClose(MAIN_GUI *data, void (*mfree_adr)(void *))
+    147          {
+    148          	data->gui.state=0;
+    149          }
+    150          
+    151          void onFocus(MAIN_GUI *data, void *(*malloc_adr)(int), void (*mfree_adr)(void *))
+    152          {
+    153          	DisableIDLETMR();
+    154          	data->gui.state=2;
+    155          }
+    156          
+    157          void onUnfocus(MAIN_GUI *data, void (*mfree_adr)(void *))
+    158          {
+    159          	if(data->gui.state!=2)
+    160          		return;
+    161          	data->gui.state=1;
+    162          }
+    163          
+    164          int method8(void)
+    165          {
+    166          	return(0);
+    167          }
+    168          
+    169          int method9(void)
+    170          {
+    171          	return(0);
+    172          }
+    173          
+    174          const RECT Canvas={0, 0, SCREENW, SCREENH};
+    175          
+    176          const void * const gui_methods[11]=
+    177          {
+    178          	(void *)onRedraw,	//Redraw
+    179          	(void *)onCreate,	//Create
+    180          	(void *)onClose,	//Close
+    181          	(void *)onFocus,	//Focus
+    182          	(void *)onUnfocus,	//Unfocus
+    183          	(void *)OnKey,		//OnKey
+    184          	0,
+    185          	(void *)kill_data,	//Destroy
+    186          	(void *)method8,
+    187          	(void *)method9,
+    188          	0
+    189          };
+    190          void maincsm_oncreate(CSM_RAM *data)
+    191          {
+    192          	*(int *)RamIsLocked=0; //将系统的锁键盘标志置零
+    193          	IsKbdLocked=1;
+    194          	xws=AllocWS(32);
+    195          	MAIN_GUI *main_gui=malloc(sizeof(MAIN_GUI));
+    196          	MAIN_CSM *csm=(MAIN_CSM *)data;
+    197          	zeromem(main_gui,sizeof(MAIN_GUI));
+    198          	main_gui->gui.canvas=(void *)(&Canvas);
+    199          	main_gui->gui.flag30=2;
+    200          	main_gui->gui.methods=(void *)gui_methods;
+    201          	main_gui->gui.item_ll.data_mfree=(void (*)(void *))mfree_adr();	
+    202          	csm->csm.state=0;
+    203          	csm->csm.unk1=0;
+    204          	gui_id=csm->gui_id=CreateGUI(main_gui);
+    205          	GBS_StartTimerProc(&mytmr, TMR_SECOND*TIME, TimerProc);
+    206          }
+    207          
+    208          
+    209          int maincsm_onmessage(CSM_RAM *data, GBS_MSG *msg)
+    210          {
+    211          	MAIN_CSM *csm=(MAIN_CSM*)data;
+    212          	if ((msg->msg==MSG_GUI_DESTROYED)&&((int)msg->data0==csm->gui_id))
+    213          	{
+    214          		csm->csm.state=-3;
+    215          	}
+    216          	if(!IsGuiOnTop(gui_id))
+    217          		CloseCSM(csm_id);
+    218          	return(1);
+    219          }
+    220          
+    221          void Killer(void)
+    222          {
+    223          	TempLightOn(3, 0x7FFF);
+    224          	*(int *)RamIsLocked=0; //将系统的锁键盘标志置零
+    225          	IsKbdLocked=0;
+    226          	GBS_DelTimer(&mytmr);
+    227          	FreeWS(xws);
+    228          	xws=0;
+    229          	csm_id=0;
+    230          	gui_id=0;
+    231          	missed_events=0;
+    232          #ifndef VKP
+    233          	extern void *ELF_BEGIN;
+    234          	extern void kill_data(void *p, void (*func_p)(void *));
+    235          	kill_data(&ELF_BEGIN,(void (*)(void *))mfree_adr());
+    236          #endif
+    237          }
+    238          
+    239          void maincsm_onclose(CSM_RAM *csm)
+    240          {
+    241          	SUBPROC((void *)Killer);
+    242          }
+    243          
+    244          const int minus11=-11;
+    245          const unsigned short maincsm_name_body[16]={13,'M', 'y', 'S', 'c', 'r', 'e', 'e', 'n', 'S', 'a', 'v', 'e', 'r'};
+    246          
+    247          const struct
+    248          {
+    249          	CSM_DESC maincsm;
+    250          	WSHDR maincsm_name;
+    251          }MAINCSM =
+    252          {
+    253          	{
+    254          		maincsm_onmessage,
+    255          		maincsm_oncreate,
+    256          #ifdef NEWSGOLD
+    257          		0,
+    258          		0,
+    259          		0,
+    260          		0,
+    261          #endif
+    262          		maincsm_onclose,
+    263          		sizeof(MAIN_CSM),
+    264          		1,
+    265          		&minus11
+    266          	},
+    267          	{
+    268          		(unsigned short *)maincsm_name_body,
+    269          		NAMECSM_MAGIC1,
+    270          		NAMECSM_MAGIC2,
+    271          		0x0,
+    272          		139
+    273          	}
+    274          };
+    275          
+    276          #ifndef VKP
+    277          void UpdateCSMname(void)
+    278          {
+    279          	wsprintf((WSHDR *)(&MAINCSM.maincsm_name), ELFNAME);
+    280          }
+    281          #endif
+    282          
+    283          int main(void)
+    284          {
+    285          	if(xws)
+    286          		return 0;
+    287          	char dummy[sizeof(MAIN_CSM)];
+    288          #ifndef VKP
+    289          	UpdateCSMname();
+    290          #endif
+    291          	LockSched();
+    292          	csm_id=CreateCSM(&MAINCSM.maincsm,dummy,0);
+    293          	UnlockSched();
+    294          	return 0;
+    295          }
+    296          
+    297          __thumb int new_IsUnlocked(void)
+    298          {
+    299          	if(IsKbdLocked)
+    300          		return 0;
+    301          	return 1;
+    302          }
+    303          
+    304          //#pragma diag_suppress=Pe177
+    305          //__root static const int SWILIB_IsUnlocked @ "SWILIB_IsUnlocked" = (int)new_IsUnlocked;
+    306          //#pragma diag_default=Pe177
+    307          //
+    308          //#pragma diag_suppress=Pe177
+    309          //__root static const int SWILIB_KBDLOCK @ "SWILIB_KBDLOCK" = (int)main;
+    310          //#pragma diag_default=Pe177
+
+   Maximum stack usage in bytes:
+
+     Function          CSTACK
+     --------          ------
+     Killer               12
+     OnKey                12
+     TimerProc             4
+     drawScreen           76
+     main                 48
+     maincsm_onclose       4
+     maincsm_oncreate     16
+     maincsm_onmessage     4
+     method8               0
+     method9               0
+     new_IsUnlocked        4
+     onClose               0
+     onCreate              0
+     onFocus               8
+     onRedraw              4
+     onUnfocus             0
+
+
+   Segment part sizes:
+
+     Function/Label             Bytes
+     --------------             -----
+     ?<Constant "%d-%02d-%02d">   56
+     mytmr                        16
+     xws                           4
+     IsKbdLocked                   4
+     csm_id                        4
+     gui_id                        4
+     missed_events                 4
+     drawScreen                  372
+     TimerProc                    96
+     onRedraw                      4
+     OnKey                       144
+     onCreate                     12
+     onClose                      12
+     onFocus                      24
+     onUnfocus                    20
+     method8                       8
+     method9                       8
+     Canvas                       52
+     maincsm_oncreate            152
+     maincsm_onmessage            84
+     Killer                       92
+     maincsm_onclose              20
+     minus11                       4
+     maincsm_name_body            32
+     MAINCSM                      60
+     main                         72
+     new_IsUnlocked               16
+     ??DataTable11                 4
+     ??DataTable16                 4
+     ??DataTable18                 4
+     ??DataTable20                 4
+     ??DataTable21                 4
+     ??DataTable22                 4
+     ??DataTable23                 4
+     ??DataTable24                 4
+      Others                      92
+
+ 
+ 1 260 bytes in segment CODE
+   204 bytes in segment DATA_C
+     4 bytes in segment MISSED_EVENS
+     4 bytes in segment RAMP_XWS
+     4 bytes in segment RAM_CSM_ID
+     4 bytes in segment RAM_GUI_ID
+     4 bytes in segment RAM_IsKbdLocked
+    16 bytes in segment RAM_TMR
+ 
+ 1 168 bytes of CODE  memory (+ 92 bytes shared)
+   204 bytes of CONST memory
+    36 bytes of DATA  memory
+
+Errors: none
+Warnings: none

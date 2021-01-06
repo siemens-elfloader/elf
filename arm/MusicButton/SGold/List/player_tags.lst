@@ -1,0 +1,168 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    04/Jul/2010  14:49:25 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\MusicButton\player_tags.c                     #
+#    Command line    =  C:\arm\MusicButton\player_tags.c -lC                 #
+#                       C:\arm\MusicButton\SGold\List\ -o                    #
+#                       C:\arm\MusicButton\SGold\Obj\ -s9 --no_unroll        #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None -I "C:\arm2\Embedded Workbench 4.0        #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\MusicButton\SGold\List\player_tags.lst        #
+#    Object file     =  C:\arm\MusicButton\SGold\Obj\player_tags.r79         #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\MusicButton\player_tags.c
+      1          #ifdef NEWSGOLD
+      2          #include "..\inc\swilib.h"
+      3          typedef  unsigned char byte;
+      4          typedef  unsigned short word;
+      5          typedef  unsigned int dword;
+      6          #include "player_tags.h"
+      7          
+      8            int scr_w;
+      9            extern unsigned long  strtoul (const char *nptr,char **endptr,int base); //must overwrite
+     10            extern const char CsmAdr[];
+     11            unsigned int pcsmid=0;
+     12            //extern const unsigned int cX;
+     13            extern const unsigned int cfnt;
+     14            
+     15            void *pcsmadr=NULL;
+     16            WSHDR *wstag=NULL;
+     17            word tagw=0;
+     18          //------------------------------------
+     19          
+     20          
+     21          
+     22          void  initTags(){
+     23            pcsmadr=(void *)strtoul(CsmAdr,NULL,16);
+     24            if (!wstag)    wstag=AllocWS(256);
+     25          };
+     26          //------------------------------------
+     27           void GetTags(){  //Respect to Rst7
+     28            if (pcsmid){
+     29              CSM_RAM *csmp=FindCSMbyID(pcsmid);
+     30              if (csmp){
+     31                WSHDR *fn=((WSHDR **)csmp)[0x2C/4];
+     32          
+     33          
+     34            
+     35                if (!fn)return;
+     36                if (!fn->wsbody) return;
+     37                if (fn->wsbody[0])        ;
+     38          #ifdef ELKA
+     39                  WSHDR **wws=((WSHDR ***)csmp)[(0x18C/4)]-1;
+     40           #else
+     41                  WSHDR **wws=((WSHDR ***)csmp)[(0x170/4)]-1;
+     42          #endif
+     43                if (wws)        {
+     44                  WSHDR *tws;
+     45                  const char unk[]="Unkhown";
+     46                  const char pr[]="%w - %w";
+     47                  if (!(tws=wws[2]));else
+     48                    if (!(tws->wsbody));else
+     49                      if (tws->wsbody[0])      
+     50                        wstrcpy(wstag,tws);
+     51                       else  wsprintf(wstag,"%t",unk);
+     52                  if (!(tws=wws[1]));else
+     53                    if (!(tws->wsbody));else
+     54                      if (tws->wsbody[0])     
+     55                        wsprintf(wstag,pr,wstag,tws);
+     56                       else
+     57                        wstrcpy(wstag,fn);            
+     58          /// new
+     59           
+     60               WSHDR *folder=((WSHDR **)csmp)[0x30/4];      
+     61            WSHDR *fp=((WSHDR **)csmp)[0x12C/4];            //fullpath may be diff on NSG
+     62               
+     63            FILE_PROP wl;
+     64            zeromem(&wl, sizeof(wl));
+     65            wl.type=0x1800;
+     66            wl.filename=fp;
+     67            WSHDR *w_0=AllocWS(0x200);
+     68            WSHDR *w_1=AllocWS(0x10);
+     69            WSHDR *w_2=AllocWS(0x10);  
+     70            WSHDR *w_3=AllocWS(0x100);    
+     71            wl.bitrate_ws=w_1;
+     72            wl.audio_frequency_ws=w_2;  
+     73            wl.duration_mp3_ws=w_3;    
+     74            GetFileProp(&wl,fn,folder);
+     75            if (w_3->wsbody[0]){
+     76              wsprintf (w_0,"%w: %w",wstag,w_3);
+     77              wstrcpy (wstag,w_0);
+     78            }
+     79            if (w_1->wsbody[0]){
+     80              wsprintf (w_0,"%w %w",wstag,w_1);
+     81              wstrcpy (wstag,w_0);
+     82            }
+     83            if (w_2->wsbody[0]){
+     84              wsprintf (w_0,"%w %w",wstag,w_2);
+     85              wstrcpy (wstag,w_0);
+     86            }
+     87          
+     88            FreeWS(w_0);  
+     89            FreeWS(w_1);
+     90            FreeWS(w_2);  
+     91            FreeWS(w_3);                 
+     92                 
+     93                   //Патчим строку на предмет win1251
+     94                  int i=1;
+     95                  int c;
+     96                  tagw=0;
+     97                  while(i<=wstag->wsbody[0])		{
+     98                    c=wstag->wsbody[i];
+     99                    if (c==0xA8) c=0x401;
+    100                    if (c==0xAA) c=0x404;
+    101                    if (c==0xAF) c=0x407;
+    102                    if (c==0xB8) c=0x451;
+    103                    if (c==0xBA) c=0x454;
+    104                    if (c==0xBF) c=0x457;
+    105                    if ((c>=0xC0)&&(c<0x100)) c+=0x350;
+    106                    wstag->wsbody[i++]=c;
+    107                    tagw+=GetSymbolWidth(c,cfnt);
+    108                  }
+    109          
+    110              
+    111                }else;
+    112              }
+    113              else    pcsmid=0;
+    114            }
+    115            else  {
+    116              CSM_RAM *p=((void **)CSM_root()->csm_q)[2];
+    117              while(p)
+    118              {
+    119                if (p->constr==pcsmadr) break;
+    120                p=p->next;
+    121              }
+    122              if (p)
+    123                pcsmid=p->id;
+    124            }
+    125          };  
+    126          
+    127          WSHDR *GetTag()
+    128          {
+    129            return wstag;
+    130          }
+    131          
+    132          #endif
+
+
+   Segment part sizes:
+
+     Function/Label Bytes
+     -------------- -----
+
+ 
+ 
+ 0 bytes of memory
+
+Errors: none
+Warnings: none

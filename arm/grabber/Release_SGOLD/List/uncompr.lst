@@ -1,0 +1,156 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    19/Jan/2011  13:20:30 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\grabber\zlib\uncompr.c                        #
+#    Command line    =  C:\arm\grabber\zlib\uncompr.c -lC                    #
+#                       C:\arm\grabber\Release_SGOLD\List\ -o                #
+#                       C:\arm\grabber\Release_SGOLD\Obj\ -s9 --no_unroll    #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\grabber\Release_SGOLD\List\uncompr.lst        #
+#    Object file     =  C:\arm\grabber\Release_SGOLD\Obj\uncompr.r79         #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\grabber\zlib\uncompr.c
+      1          /* uncompr.c -- decompress a memory buffer
+      2           * Copyright (C) 1995-2002 Jean-loup Gailly.
+      3           * For conditions of distribution and use, see copyright notice in zlib.h 
+      4           */
+      5          
+      6          /* @(#) $Id$ */
+      7          
+      8          #include "zlib.h"
+      9          
+     10          /* ===========================================================================
+     11               Decompresses the source buffer into the destination buffer.  sourceLen is
+     12             the byte length of the source buffer. Upon entry, destLen is the total
+     13             size of the destination buffer, which must be large enough to hold the
+     14             entire uncompressed data. (The size of the uncompressed data must have
+     15             been saved previously by the compressor and transmitted to the decompressor
+     16             by some mechanism outside the scope of this compression library.)
+     17             Upon exit, destLen is the actual size of the compressed buffer.
+     18               This function can be used to decompress a whole file at once if the
+     19             input file is mmap'ed.
+     20          
+     21               uncompress returns Z_OK if success, Z_MEM_ERROR if there was not
+     22             enough memory, Z_BUF_ERROR if there was not enough room in the output
+     23             buffer, or Z_DATA_ERROR if the input data was corrupted.
+     24          */
+
+   \                                 In segment CODE, align 4, keep-with-next
+     25          int ZEXPORT uncompress (dest, destLen, source, sourceLen)
+     26              Bytef *dest;
+     27              uLongf *destLen;
+     28              const Bytef *source;
+     29              uLong sourceLen;
+     30          {
+   \                     uncompress:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   38D04DE2           SUB      SP,SP,#+56
+   \   00000008   0140A0E1           MOV      R4,R1
+     31              z_stream stream;
+     32              int err;
+     33          
+     34              stream.next_in = (Bytef*)source;
+   \   0000000C   00208DE5           STR      R2,[SP, #+0]
+     35              stream.avail_in = (uInt)sourceLen;
+   \   00000010   04308DE5           STR      R3,[SP, #+4]
+     36              /* Check for source > 64K on 16-bit machine: */
+     37              if ((uLong)stream.avail_in != sourceLen) return Z_BUF_ERROR;
+     38          
+     39              stream.next_out = dest;
+   \   00000014   0C008DE5           STR      R0,[SP, #+12]
+     40              stream.avail_out = (uInt)*destLen;
+   \   00000018   001094E5           LDR      R1,[R4, #+0]
+     41              if ((uLong)stream.avail_out != *destLen) return Z_BUF_ERROR;
+     42          
+     43              stream.zalloc = (alloc_func)0;
+   \   0000001C   0000A0E3           MOV      R0,#+0
+   \   00000020   10108DE5           STR      R1,[SP, #+16]
+     44              stream.zfree = (free_func)0;
+     45          
+     46              err = inflateInit(&stream);
+   \   00000024   64109FE5           LDR      R1,??uncompress_0  ;; `?<Constant "1.1.4">`
+   \   00000028   20008DE5           STR      R0,[SP, #+32]
+   \   0000002C   24008DE5           STR      R0,[SP, #+36]
+   \   00000030   3820A0E3           MOV      R2,#+56
+   \   00000034   0D00A0E1           MOV      R0,SP
+   \   00000038   ........           _BLF     inflateInit_,??inflateInit_??rA
+   \   0000003C   0050B0E1           MOVS     R5,R0
+     47              if (err != Z_OK) return err;
+   \   00000040   1000001A           BNE      ??uncompress_1
+     48          
+     49              err = inflate(&stream, Z_FINISH);
+   \   00000044   0410A0E3           MOV      R1,#+4
+   \   00000048   0D00A0E1           MOV      R0,SP
+   \   0000004C   ........           _BLF     inflate,??inflate??rA
+   \   00000050   0050A0E1           MOV      R5,R0
+     50              if (err != Z_STREAM_END) {
+   \   00000054   010055E3           CMP      R5,#+1
+   \   00000058   0600000A           BEQ      ??uncompress_2
+     51                  inflateEnd(&stream);
+   \   0000005C   0D00A0E1           MOV      R0,SP
+   \   00000060   ........           _BLF     inflateEnd,??inflateEnd??rA
+     52                  return err == Z_OK ? Z_BUF_ERROR : err;
+   \   00000064   000055E3           CMP      R5,#+0
+   \   00000068   0450E003           MVNEQ    R5,#+4
+   \   0000006C   0500A0E1           MOV      R0,R5
+   \   00000070   38D08DE2           ADD      SP,SP,#+56
+   \   00000074   3080BDE8           POP      {R4,R5,PC}
+     53              }
+     54              *destLen = stream.total_out;
+   \                     ??uncompress_2:
+   \   00000078   14009DE5           LDR      R0,[SP, #+20]
+   \   0000007C   000084E5           STR      R0,[R4, #+0]
+     55          
+     56              err = inflateEnd(&stream);
+     57              return err;
+   \   00000080   0D00A0E1           MOV      R0,SP
+   \   00000084   ........           _BLF     inflateEnd,??inflateEnd??rA
+   \                     ??uncompress_1:
+   \   00000088   38D08DE2           ADD      SP,SP,#+56       ;; stack cleaning
+   \   0000008C   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??uncompress_0:
+   \   00000090   ........           DC32     `?<Constant "1.1.4">`
+     58          }
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "1.1.4">`:
+   \   00000000   312E312E3400       DC8 "1.1.4"
+   \   00000006   0000               DC8 0, 0
+
+   Maximum stack usage in bytes:
+
+     Function   CSTACK
+     --------   ------
+     uncompress    68
+
+
+   Segment part sizes:
+
+     Function/Label      Bytes
+     --------------      -----
+     uncompress           148
+     ?<Constant "1.1.4">    8
+      Others               40
+
+ 
+ 188 bytes in segment CODE
+   8 bytes in segment DATA_C
+ 
+ 148 bytes of CODE  memory (+ 40 bytes shared)
+   8 bytes of CONST memory
+
+Errors: none
+Warnings: none

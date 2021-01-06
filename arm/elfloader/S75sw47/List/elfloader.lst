@@ -1,0 +1,1190 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    29/Jan/2010  21:28:31 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\elfloader\elfloader.cpp                       #
+#    Command line    =  C:\arm\elfloader\elfloader.cpp -D NDEBUG -D          #
+#                       NEWSGOLD -lC C:\arm\elfloader\S75sw47\List\ -o       #
+#                       C:\arm\elfloader\S75sw47\Obj\ -s9 --no_unroll        #
+#                       --cpu_mode thumb --endian little --cpu ARM926EJ-S    #
+#                       --stack_align 4 --interwork -e --fpu None -I         #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\elfloader\S75sw47\List\elfloader.lst          #
+#    Object file     =  C:\arm\elfloader\S75sw47\Obj\elfloader.r79           #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\elfloader\elfloader.cpp
+      1          //#define wintel	//компелим под винду
+      2          
+      3          #define MAX_PHNUM	10	//максимальное количество програмных сегментов
+      4          
+      5          #ifdef wintel
+      6          #define _CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES 1
+      7          #define _CRT_SECURE_NO_DEPRECATE
+      8          #include "stdlib.h"
+      9          #include "stdio.h"
+     10          #include <iostream>
+     11          using namespace std;
+     12          #define mfree free
+     13          #endif
+     14          
+     15          #ifndef wintel
+     16          #include "..\inc\swilib.h"
+     17          #include "conf_loader.h"
+     18          #endif
+     19          
+     20          typedef unsigned long  Elf32_Addr;	//Unsigned program address 4
+     21          typedef unsigned short Elf32_Half;	//Unsigned medium integer  2
+     22          typedef unsigned long  Elf32_Off; 	//Unsigned file offset     4
+     23          typedef          long  Elf32_Sword; 	//Signed large integer     4
+     24          typedef unsigned long  Elf32_Word; 	//Unsigned large integer   4
+     25          
+     26          //ELF Header
+     27          //e_ident[] Identification Indexes
+     28          #define EI_MAG0    0  //File identification
+     29          #define EI_MAG1    1  //File identification
+     30          #define EI_MAG2    2  //File identification
+     31          #define EI_MAG3    3  //File identification
+     32          #define EI_CLASS   4  //File class
+     33          #define EI_DATA    5  //Data encoding
+     34          #define EI_VERSION 6  //File version
+     35          #define EI_PAD     7  //Start of padding bytes
+     36          #define EI_NIDENT  16 //Size of e_ident[]
+     37          
+     38          typedef struct{
+     39            unsigned char e_ident[EI_NIDENT]; //The initial bytes mark the file as an object file and provide machine-independent data with which to decode and interpret the fileТs contents.
+     40            Elf32_Half e_type;      //This member identifies the object file type.
+     41            Elf32_Half e_machine;   //This memberТs value specifies the required architecture for an individual file.
+     42            Elf32_Word e_version;   //This member identifies the object file version.
+     43            Elf32_Addr e_entry;     //This member gives the virtual address to which the system first transfers control, thus starting the process. If the file has no associated entry point, this member holds zero.
+     44            Elf32_Off  e_phoff;     //This member holds the program header tableТs file offset in bytes. If the file has no program header table, this member holds zero.
+     45            Elf32_Off  e_shoff;     //This member holds the section header tableТs file offset in bytes. If the file has no section header table, this member holds zero.
+     46            Elf32_Word e_flags;     //This member holds processor-specific flags associated with the file. Flag names take the form EF_machine_flag.
+     47            Elf32_Half e_ehsize;    //This member holds the ELF headerТs size in bytes.
+     48            Elf32_Half e_phentsize; //This member holds the size in bytes of one entry in the fileТs program header table; all entries are the same size.
+     49            Elf32_Half e_phnum;     //This member holds the number of entries in the program header table. Thus the product of e_phentsize and e_phnum gives the tableТs size in bytes. If a file has no program header table, e_phnum holds the value zero.
+     50            Elf32_Half e_shentsize; //This member holds a section headerТs size in bytes. A section header is one entry in the section header table; all entries are the same size.
+     51            Elf32_Half e_shnum;     //shnumЧThis member holds the number of entries in the section header table. Thus the product of e_shentsize and e_shnum gives the section header tableТs size in bytes. If a file has no section header table, e_shnum holds the value zero.
+     52            Elf32_Half e_shstrndx;  //This member holds the section header table index of the entry associated with the section name string table. If the file has no section name string table, this member holds the value SHN_UNDEF.
+     53          } Elf32_Ehdr;
+     54          
+     55          //E_typeЧThis member identifies the object file type.
+     56          #define ET_NONE   0        //No file type
+     57          #define ET_REL    1        //Re-locatable file
+     58          #define ET_EXEC   2        //Executable file
+     59          #define ET_DYN    3        //Shared object file
+     60          #define ET_CORE   4        //Core file
+     61          #define ET_LOPROC 0xFF00   //Processor-specific
+     62          #define ET_HIPROC 0xFFFF   //Processor-specific
+     63          
+     64          //E_machineЧThis memberТs value specifies the required architecture for an individual file.
+     65          #define EM_NONE        0  //No machine
+     66          #define EM_M32         1  //AT&T WE 32100
+     67          #define EM_SPARC       2  //SPARC
+     68          #define EM_386         3  //Intel Architecture
+     69          #define EM_68K         4  //Motorola 68000
+     70          #define EM_88K         5  //Motorola 88000
+     71          #define EM_860         7  //Intel 80860
+     72          #define EM_MIPS        8  //MIPS RS3000 Big-Endian
+     73          #define EM_MIPS_RS4_BE 10 //MIPS RS4000 Big-Endian
+     74          #define EM_ARM         40 //ARM/Thumb Architecture
+     75          
+     76          //E_versionЧThis member identifies the object file version.
+     77          #define EV_NONE    0 //Invalid version
+     78          #define EV_CURRENT 1 //Current version
+     79          
+     80          //EI_MAG0 0 to EI_MAG3ЧA fileТs first 4 bytes hold a magic number, identifying the file as an ELF object file. Name Value Meaning
+     81          #define ELFMAG0 0x7f //e_ident[EI_MAG0]
+     82          #define ELFMAG1 'E' //e_ident[EI_MAG1]
+     83          #define ELFMAG2 'L' //e_ident[EI_MAG2]
+     84          #define ELFMAG3 'F' //e_ident[EI_MAG3]
+     85          
+     86          //EI_CLASSЧThe next byte, e_ident[EI_CLASS], identifies the fileТs class, or capacity. Name Value Meaning
+     87          #define ELFCLASSNONE 0 //Invalid class
+     88          #define ELFCLASS32   1 //32-bit objects
+     89          #define ELFCLASS64   2 //64-bit objects
+     90          
+     91          //EI_DATAЧByte e_ident[EI_DATA]specifies the data encoding of all data1 in the object file. The following encodings are currently defined. Name Value Meaning
+     92          #define ELFDATANONE 0 //Invalid data encoding
+     93          #define ELFDATA2LSB 1 //See Data encodings ELFDATA2LSB, below
+     94          #define ELFDATA2MSB 2 //See Data encodings ELFDATA2MSB, below
+     95          
+     96          //Sections
+     97          //Section Header
+     98          typedef struct{
+     99            Elf32_Word sh_name;      //This member specifies the name of the section. Its value is an index into the section header string table section [see section 3.4, String Table below], giving the location of a null-terminated string.
+    100            Elf32_Word sh_type;      //typeЧThis member categorizes the sectionТs contents and semantics. Section types and their descriptions appear in Figure 3-9 below.
+    101            Elf32_Word sh_flags;     //Sections support 1-bit flags that describe miscellaneous attributes. Flag definitions appear in Figure 3-11, below.
+    102            Elf32_Addr sh_addr;      //If the section will appear in the memory image of a process, this member gives the address at which the sectionТs first byte should reside. Otherwise, the member contains 0.
+    103            Elf32_Off  sh_offset;    //This memberТs value gives the byte offset from the beginning of the file to the first byte in the section. One section type, SHT_NOBITS described in Figure 3-9 below, occupies no space in the file, and its sh_offset member locates the conceptual placement in the file.
+    104            Elf32_Word sh_size;      //This member gives the sectionТs size in bytes. Unless the section type is SHT_NOBITS, the section occupies sh_size bytes in the file. A section of type SHT_NOBITS may have a non-zero size, but it occupies no space in the file.
+    105            Elf32_Word sh_link;      //This member holds a section header table index link, whose interpretation depends on the section type. Figure 3-12 below describes the values.
+    106            Elf32_Word sh_info;      //This member holds extra information, whose interpretation depends on the section type. Figure 3-12 below describes the values.
+    107            Elf32_Word sh_addralign; //Some sections have address alignment constraints. For example, if a section holds a doubleword, the system must ensure double-word alignment for the entire section. That is, the value of sh_addr must be congruent to 0, modulo the value of sh_addralign. Currently, only 0 and positive integral powers of two are allowed. Values 0 and 1 mean the section has no alignment constraints.
+    108            Elf32_Word sh_entsize;   //Some sections hold a table of fixed-size entries, such as a symbol table. For such a section, this member gives the size in bytes of each entry. The member contains 0 if the section does not hold a table of fixedsize entries. A section headerТs sh_type member specifies the sectionТs semantics.
+    109          } Elf32_Shdr;
+    110          
+    111          //Special Section Indexes
+    112          #define SHN_UNDEF     0     //This value marks an undefined, missing, irrelevant, or otherwise meaningless section reference. For example, a symbol УdefinedФ relative to section number SHN_UNDEF is an undefined symbol.
+    113          #define SHN_LORESERVE 0xff00 //This value specifies the lower bound of the range of reserved indexes.
+    114          #define SHN_LOPROC    0xff00 //Values in this range are reserved for processor-specific semantics.
+    115          #define SHN_HIPROC    0xff1f //Values in this range are reserved for processor-specific semantics.
+    116          #define SHN_ABS       0xfff1 //This value specifies absolute values for the corresponding reference. For example, symbols defined relative to section number SHN_ABS have absolute values and are not affected by relocation.
+    117          #define SHN_COMMON    0xfff2 //Symbols defined relative to this section are common symbols, such as FORTRAN COMMON or unallocated C external variables.
+    118          #define SHN_HIRESERVE 0xffff //This value specifies the upper bound of the range of reserved indexes. The system reserves indexes between SHN_LORESERVE and SHN_HIRESERVE, inclusive; the values do not refer to the section header table. That is, the section header table does not contain entries for the reserved indexes.
+    119          
+    120          //sh_type
+    121          #define SHT_NULL     0  //This value marks a section header that does not have an associated section. Other members of the section header have undefined values
+    122          #define SHT_PROGBITS 1  //The section holds information defined by the program, whose format and meaning are determined solely by the program.
+    123          #define SHT_SYMTAB   2  //The section holds a symbol table.
+    124          #define SHT_STRTAB   3  //The section holds a string table.
+    125          #define SHT_RELA     4  //The section holds relocation entries with explicit addends, such as type Elf32_Rela for the 32-bit class of object files. An object file may have multiple relocation sections. See Relocation below for details.
+    126          #define SHT_HASH     5  //The section holds a symbol hash table.
+    127          #define SHT_DYNAMIC  6  //The section holds information for dynamic linking.
+    128          #define SHT_NOTE     7  //This section holds information that marks the file in some way.
+    129          #define SHT_NOBITS   8  //A section of this type occupies no space in the file but otherwise resembles SHT_PROGBITS. Although this section contains no bytes, the sh_offset member contains the conceptual file offset.
+    130          #define SHT_REL      9  //The section holds relocation entries without explicit addends, such as type Elf32_Rel for the 32-bit class of object files. An object file may have multiple relocation sections. See Relocation below for details.
+    131          #define SHT_SHLIB    10 //This section type is reserved but has unspecified semantics.
+    132          #define SHT_DYNSYM   11 //The section holds a symbol table.
+    133          #define SHT_LOPROC   0x70000000
+    134          #define SHT_HIPROC   0x7fffffff //Values in this inclusive range are reserved for processor-specific semantics.
+    135          #define SHT_LOUSER   0x80000000
+    136          #define SHT_HIUSER   0xffffffff //Values in this inclusive range are reserved for application programs. Types between SHT_LOUSER and SHT_HIUSER may be used by an application,without conflicting with current or future system-defined section types.
+    137          
+    138          //Section Attribute Flags, sh_flags
+    139          #define SHF_WRITE     1          //The section contains data that should be writable during process execution
+    140          #define SHF_ALLOC     2          //The section occupies memory during process execution. Some control sections do not reside in the memory image of an object file; this attribute is off for those sections
+    141          #define SHF_EXECINSTR 4          //The section contains executable machine instructions.
+    142          #define SHF_MASKPROC  0xf0000000 //Bits in this mask are reserved for processor-specific semantics.
+    143          
+    144          //Program
+    145          //Program Header
+    146          typedef struct{
+    147            Elf32_Word p_type;   //This member tells what kind of segment this array element describes or how to interpret the array element's information. Type values and their meanings are given in Figure 3-21, below.
+    148            Elf32_Off p_offset;  //This member gives the offset from the start of the file at which the first byte of the segment resides.
+    149            Elf32_Addr p_vaddr;  //This member gives the virtual address at which the first byte of the segment resides in memory.
+    150            Elf32_Addr p_paddr;  //On systems for which physical addressing is relevant, this member is reserved for the segment's physical address. This member requires operating system specific information.
+    151            Elf32_Word p_filesz; //This member gives the number of bytes in the file image of the segment; it may be zero.
+    152            Elf32_Word p_memsz;  //This member gives the number of bytes in the memory image of the segment; it may be zero.
+    153            Elf32_Word p_flags;  //This member gives flags relevant to the segment. Defined flag values are given in Figure 3-22, below.
+    154            Elf32_Word p_align;  //Loadable process segments must have congruent values for p_vaddr and p_offset, modulo the page size. This member gives the value to which the segments are aligned in memory and in the file. Values 0 and 1 mean that no alignment is required. Otherwise, p_align should be a positive, integral power of 2, and p_vaddr should equal p_offset, modulo p_align.
+    155          } Elf32_Phdr;
+    156          
+    157          //Defined program header flags
+    158          #define PF_X 1 //The segment may be executed.
+    159          #define PF_W 2 //The segment may be written to.
+    160          #define PF_R 4 //The segment may be read.
+    161          #define PF_MASKPROC 0xf0000000 //Reserved for processor-specific purposes (see 4.6, Program headers).
+    162          
+    163          //Segment Types, p_type
+    164          #define PT_NULL    0 //The array element is unused; other members' values are undefined. This type lets the program header table have ignored entries.
+    165          #define PT_LOAD    1 //The array element specifies a loadable segment, described by p_filesz and p_memsz (for additional explanation, see PT_LOAD below).
+    166          #define PT_DYNAMIC 2 //The array element specifies dynamic linking information. See subsection 4.7.
+    167          #define PT_INTERP  3 //The array element specifies the location and size of a null-terminated path name to invoke as an interpreter.
+    168          #define PT_NOTE    4 //The array element specifies the location and size of auxiliary information.
+    169          #define PT_SHLIB   5 //This segment type is reserved but has unspecified semantics.
+    170          #define PT_PHDR    6 //The array element, if present, specifies the location and size of the program header table itself (for additional explanation, see PT_ PHDR below).
+    171          #define PT_LOPROC  0x70000000 //Values in this inclusive range are reserved for processor-specific semantics.
+    172          #define PT_HIPROC  0x7fffffff
+    173          
+    174          //The dynamic section
+    175          typedef struct{
+    176            Elf32_Sword d_tag;
+    177            Elf32_Word d_val;
+    178          } Elf32_Dyn;
+    179          
+    180          //Dynamic section tags
+    181          #define DT_NULL     0  //Ignored. This entry marks the end of the dynamic array. mandatory
+    182          #define DT_NEEDED   1  //Index in the string table of the name of a needed library. multiple
+    183          #define DT_PLTRELSZ 2  //These entries are unused by versions 1-2 of the ARM EABI. unused
+    184          #define DT_PLTGOT   3
+    185          #define DT_HASH     4  //The offset of the hash table section in the dynamic segment. mandatory
+    186          #define DT_STRTAB   5  //The offset of the string table section in the dynamic segment. mandatory
+    187          #define DT_SYMTAB   6  //The offset of the symbol table section in the dynamic segment. mandatory
+    188          #define DT_RELA     7  //The offset in the dynamic segment of an SHT_RELA relocation section, Its byte size, and the byte size of an ARM RELA-type relocation entry. optional
+    189          #define DT_RELASZ   8
+    190          #define DT_RELAENT  9
+    191          #define DT_STRSZ    10 //The byte size of the string table section. mandatory
+    192          #define DT_SYMENT   11 //The byte size of an ARM symbol table entryЧ16. mandatory
+    193          #define DT_INIT     12 //These entries are unused by versions 1-2 of the ARM EABI. unused
+    194          #define DT_FINI     13
+    195          #define DT_SONAME   14 //The Index in the string table of the name of this shared object. mandatory
+    196          #define DT_RPATH    15 //Unused by the ARM EABI. unused
+    197          #define DT_SYMBOLIC 16
+    198          #define DT_REL      17 //The offset in the dynamic segment of an SHT_REL relocation section, Its byte size, and the byte size of an ARM REL-type relocation entry optional
+    199          #define DT_RELSZ    18
+    200          #define DT_RELENT   19
+    201          #define DT_PLTREL   20 //These entries are unused by versions 1-2 of the ARM EABI. unused
+    202          #define DT_DEBUG    21
+    203          #define DT_TEXTREL  22
+    204          #define DT_JMPREL   23
+    205          #define DT_BIND_NOW 24
+    206          #define DT_LOPROC   0x70000000 //Values in this range are reserved to the ARM EABI. unused
+    207          #define DT_HIPROC   0x7fffffff
+    208          
+    209          //Relocation Entries
+    210          typedef struct{
+    211            Elf32_Addr r_offset;
+    212            Elf32_Word r_info;
+    213          } Elf32_Rel;
+    214          
+    215          typedef struct{
+    216            Elf32_Addr  r_offset;
+    217            Elf32_Word  r_info;
+    218            Elf32_Sword r_addend;
+    219          } Elf32_Rela;
+    220          
+    221          #define ELF32_R_SYM(i) ((i)>>8)
+    222          #define ELF32_R_TYPE(i) ((unsigned char)(i))
+    223          #define ELF32_R_INFO(s,t) (((s)<<8)+(unsigned char)(t))
+    224          
+    225          //ARM relocation types
+    226          #define R_ARM_NONE            0   //Any No relocation. Encodes dependencies between sections.
+    227          #define R_ARM_PC24            1   //ARM B/BL S Ц P + A
+    228          #define R_ARM_ABS32           2   //32-bit word S + A
+    229          #define R_ARM_REL32           3   //32-bit word S Ц P + A
+    230          #define R_ARM_PC13            4   //ARM LDR r, [pc,Е] S Ц P + A
+    231          #define R_ARM_ABS16           5   //16-bit half-word S + A
+    232          #define R_ARM_ABS12           6   //ARM LDR/STR S + A
+    233          #define R_ARM_THM_ABS5        7   //Thumb LDR/STR S + A
+    234          #define R_ARM_ABS8            8   //8-bit byte S + A
+    235          #define R_ARM_SBREL32         9   //32-bit word S Ц B + A
+    236          #define R_ARM_THM_PC22        10  //Thumb BL pair S Ц P+ A
+    237          #define R_ARM_THM_PC8         11  //Thumb LDR r, [pc,Е] S Ц P + A
+    238          #define R_ARM_AMP_VCALL9      12  //AMP VCALL ObsoleteЧSA-1500 only.
+    239          #define R_ARM_SWI24           13  //ARM SWI S + A
+    240          #define R_ARM_THM_SWI8        14  //Thumb SWI S + A
+    241          #define R_ARM_XPC25           15  //ARM BLX S Ц P+ A
+    242          #define R_ARM_THM_XPC22       16  //Thumb BLX pair S Ц P+ A
+    243          #define R_ARM_COPY            20  //32 bit word Copy symbol at dynamic link time.
+    244          #define R_ARM_GLOB_DAT        21  //32 bit word Create GOT entry.
+    245          #define R_ARM_JUMP_SLOT       22  //32 bit word Create PLT entry.
+    246          #define R_ARM_RELATIVE        23  //32 bit word Adjust by program base.
+    247          #define R_ARM_GOTOFF          24  //32 bit word Offset relative to start of GOT.
+    248          #define R_ARM_GOTPC           25  //32 bit word Insert address of GOT.
+    249          #define R_ARM_GOT32           26  //32 bit word Entry in GOT.
+    250          #define R_ARM_PLT32           27  //ARM BL Entry in PLT.
+    251          #define R_ARM_ALU_PCREL_7_0   32  //ARM ADD/SUB (S Ц P + A) & 0x000000FF
+    252          #define R_ARM_ALU_PCREL_15_8  33  //ARM ADD/SUB (S Ц P + A) & 0x0000FF00
+    253          #define R_ARM_ALU_PCREL_23_15 34  //ARM ADD/SUB (S Ц P + A) & 0x00FF0000
+    254          #define R_ARM_LDR_SBREL_11_0  35  //ARM LDR/STR (S Ц B + A) & 0x00000FFF
+    255          #define R_ARM_ALU_SBREL_19_12 36  //ARM ADD/SUB (S Ц B + A) & 0x000FF000
+    256          #define R_ARM_ALU_SBREL_27_20 37  //ARM ADD/SUB (S Ц B + A) & 0x0FF00000
+    257          #define R_ARM_GNU_VTENTRY     100 //32 bit word Record C++ vtable entry.
+    258          #define R_ARM_GNU_VTINHERIT   101 //32 bit word Record C++ member usage.
+    259          #define R_ARM_THM_PC11        102 //Thumb B S Ц P + A
+    260          #define R_ARM_THM_PC9         103 //Thumb B<cond> S Ц P + A
+    261          #define R_ARM_RXPC25          249 //ARM BLX (?S Ц ?P) + A For calls between program segments.
+    262          #define R_ARM_RSBREL32        250 //Word (?S Ц ?SB) + A For an offset from SB, the static base.
+    263          #define R_ARM_THM_RPC22       251 //Thumb BL/BLX pair (?S Ц ?P) + A For calls between program segments.
+    264          #define R_ARM_RREL32          252 //Word (?S Ц ?P) + A For on offset between two segments.
+    265          #define R_ARM_RABS32          253 //Word ?S + A For the address of a location in the target segment.
+    266          #define R_ARM_RPC24           254 //ARM B/BL (?S Ц ?P) + A For calls between program segments.
+    267          #define R_ARM_RBASE           255 //None NoneЧIdentifies the segment being relocated by the following relocation directives.
+    268          
+    269          typedef long TElfEntry(char *, void *,void *,void *);
+    270          
+    271          #ifndef wintel
+    272          __arm zeromem_a(void *d, int l){zeromem(d,l);}
+    273          #else
+    274          void zeromem_a(void *d, int l){memset(d,0, l);}
+    275          #endif
+    276          long elfload(char *filename, void *param1, void *param2, void *param3){
+    277            Elf32_Ehdr ehdr;				                        //заголовок ельфа
+    278            Elf32_Phdr phdrs[MAX_PHNUM];	                                        //заголовки програм
+    279            Elf32_Word dyn[DT_BIND_NOW+1];	                                        //тэги динамической секции
+    280            char *reloc, *base;
+    281            unsigned long minadr=(unsigned long)-1, maxadr=0;//, maxadrsize;
+    282            int n,m;
+    283            
+    284            
+    285            zeromem_a(dyn, sizeof(dyn));
+    286            
+    287            /////////////////////////////////////////
+    288            //WINTEL
+    289          #ifdef wintel
+    290            FILE *fin=NULL;
+    291            if ((fin=fopen(filename,"rb"))==NULL) return -1;			//не открываетс€ ельф
+    292            if (fread(&ehdr,sizeof(Elf32_Ehdr),1,fin)!=1) return -2;	        //не читаетс€ ельф
+    293          #endif
+    294            
+    295            //ARM
+    296          #ifndef wintel
+    297            int fin;
+    298            unsigned int iError, iError2;
+    299            if ((fin=fopen(filename, A_ReadOnly+A_BIN, P_READ, &iError))<0) return -1;	//не открываетс€ ельф
+    300            if (fread(fin, &ehdr, sizeof(Elf32_Ehdr), &iError)!=sizeof(Elf32_Ehdr))	//не читаетс€ ельф
+    301            {fclose(fin, &iError); return -2;}
+    302          #endif
+    303            /////////////////////////////////////////
+    304            
+    305            if (*((long *)ehdr.e_ident)!=0x464C457F){                               //да и не ельф это вовсе
+    306          #ifndef wintel
+    307              fclose(fin, &iError);
+    308          #endif
+    309              return -3;
+    310            }
+    311            
+    312          #ifdef wintel
+    313            cout << "Elf header"<<endl;
+    314            cout << "ehdr.e_entry:"<<ehdr.e_entry<<endl;
+    315            cout << "ehdr.e_phoff:"<<ehdr.e_phoff<<endl;
+    316          #endif
+    317            
+    318            //прочитаем все програмные сегменты и вычислим необходимую область в раме
+    319            if (ehdr.e_phnum>MAX_PHNUM) return -9;					//слишком много програмных сегментов
+    320            for(n=0;n<ehdr.e_phnum;n++){
+    321              ////////////////////////////////////////////////////
+    322              //WINTEL
+    323          #ifdef wintel
+    324              if (fseek(fin,ehdr.e_phoff+n*ehdr.e_phentsize,SEEK_SET)!=0) return -4;	//не сикаетс€ програмный заголовок
+    325              if (fread(&(phdrs[n]),sizeof(Elf32_Phdr),1,fin)!=1) return -5;		//не читаетс€ програмный заголовок
+    326          #endif
+    327              
+    328              //ARM
+    329          #ifndef wintel
+    330              if (lseek(fin, ehdr.e_phoff+n*ehdr.e_phentsize, S_SET, &iError, &iError2)!=ehdr.e_phoff+n*ehdr.e_phentsize)
+    331              {fclose(fin, &iError); return -4;}				//не сикаетс€ програмный заголовок
+    332              if (fread(fin, &phdrs[n], sizeof(Elf32_Phdr), &iError)!=sizeof(Elf32_Phdr))
+    333              {fclose(fin, &iError); return -5;}				//не читаетс€ програмный заголовок
+    334          #endif
+    335              /////////////////////////////////////////////////////
+    336              if (phdrs[n].p_type==PT_LOAD) {
+    337                if (minadr>phdrs[n].p_vaddr) minadr=phdrs[n].p_vaddr;
+    338                if (maxadr<(phdrs[n].p_vaddr+phdrs[n].p_memsz))
+    339                {
+    340          	maxadr=phdrs[n].p_vaddr+phdrs[n].p_memsz;
+    341                }
+    342              }
+    343          #ifdef wintel
+    344              cout << "minadr:"<<hex<<minadr<<endl;
+    345              cout << "maxadr:"<<hex<<maxadr<<endl;
+    346              cout << "Program header"<<endl;
+    347              cout << "phdr.p_type:"<<phdrs[n].p_type<<endl;
+    348              cout << "phdr.p_offset:"<<phdrs[n].p_offset<<endl;
+    349              cout << "phdr.p_vaddr:"<<phdrs[n].p_vaddr<<endl;
+    350              cout << "phdr.p_paddr:"<<phdrs[n].p_paddr<<endl;
+    351              cout << "phdr.p_filesz:"<<phdrs[n].p_filesz<<endl;
+    352              cout << "phdr.p_memsz:"<<phdrs[n].p_memsz<<endl;
+    353          #endif
+    354            }
+    355            
+    356            //выделим эту область и очистим ее
+    357            if ((base=(char *)malloc(maxadr-minadr))==0){		//не выдел€етьс€ пам€ть под ельф
+    358          #ifndef wintel
+    359              fclose(fin, &iError);
+    360          #endif
+    361              return -14;
+    362            }
+    363            //  t_zeromem(base,maxadr-minadr);
+    364            zeromem_a(base,maxadr-minadr);
+    365            for(n=0;n<ehdr.e_phnum;n++){ //  обход всех сегментов
+    366              ////////////////////////////////////////////////////////////////////
+    367              //WINTEL
+    368          #ifdef wintel
+    369              if (fseek(fin,phdrs[n].p_offset,SEEK_SET)!=0) return -6;	//не сикаетс€ динамический сегмент
+    370          #endif
+    371              
+    372              //ARM
+    373          #ifndef wintel
+    374              if (lseek(fin, phdrs[n].p_offset, S_SET, &iError, &iError)!=phdrs[n].p_offset)
+    375              {fclose(fin, &iError); mfree(base); return -6;}		//не сикаетс€ динамический сегмент
+    376          #endif
+    377              /////////////////////////////////////////////////////////////////////
+    378              switch (phdrs[n].p_type){
+    379              case PT_LOAD:
+    380                //загрузим програмные сегменты с размером больше 0
+    381                if (phdrs[n].p_filesz!=0) {
+    382          	/////////////////////////////////////////////////////////////////////
+    383          	//WINTEL
+    384          #ifdef wintel
+    385          	if (fread((void *)&base[phdrs[n].p_vaddr-minadr],phdrs[n].p_filesz,1,fin)!=1) return -11;	//не читаетс€ програмный сегмент
+    386          #endif
+    387          	
+    388          	//ARM
+    389          #ifndef wintel
+    390          	if (fread(fin, &base[phdrs[n].p_vaddr-minadr], phdrs[n].p_filesz, &iError)!= phdrs[n].p_filesz)
+    391          	{fclose(fin, &iError); mfree(base); return -11;}//не читаетс€ програмный сегмент
+    392          #endif
+    393          	///////////////////////////////////////////////////////////////////////
+    394                }
+    395                break;
+    396              case PT_DYNAMIC:
+    397                //прочтем динамическую секцию
+    398                if ((reloc=(char *)malloc(phdrs[n].p_filesz))==0) {//не выдел€етс€ рама под динамический сегмент
+    399          #ifndef wintel
+    400          	fclose(fin, &iError);
+    401          #endif
+    402          	mfree(base);
+    403          	return -7;
+    404                }
+    405                
+    406                ///////////////////////////////////////////////////////////////////////
+    407                //WINTEL
+    408          #ifdef wintel
+    409                cout << "dyn seg: off="<<hex<<phdrs[n].p_offset<<", sz="<<phdrs[n].p_filesz<<endl;
+    410                if (fread(reloc,phdrs[n].p_filesz,1,fin)!=1) {mfree(reloc); return -8;} //не читаетс€ динамический сегмент
+    411          #endif
+    412                
+    413                //ARM
+    414          #ifndef wintel
+    415                if (fread(fin, reloc, phdrs[n].p_filesz, &iError)!=phdrs[n].p_filesz)
+    416                {fclose(fin, &iError); mfree(reloc); mfree (base); return -8;}	//не читаетс€ динамический сегмент
+    417          #endif
+    418                ////////////////////////////////////////////////////////////////////////
+    419                //				memset(dyn,0, sizeof(dyn));
+    420                //вытащим все тэги из динамической секции
+    421                m=0;
+    422                while (((Elf32_Dyn *)reloc)[m].d_tag!=DT_NULL){
+    423          	if (((Elf32_Dyn *)reloc)[m].d_tag<=DT_BIND_NOW) {
+    424          #ifdef wintel
+    425                    cout<<"d_tag="<<((Elf32_Dyn *)reloc)[m].d_tag;
+    426                    cout<<" d_val="<<((Elf32_Dyn *)reloc)[m].d_val<<endl;
+    427          #endif
+    428          	  dyn[((Elf32_Dyn *)reloc)[m].d_tag]=((Elf32_Dyn *)reloc)[m].d_val;
+    429          	}
+    430          	m++;
+    431                }
+    432          #ifdef wintel
+    433                cout << "Dynamic section" << endl;
+    434                for (m = 0; m <= DT_BIND_NOW; m++) {
+    435          	cout << dec << m <<" = "<< hex << dyn[m]<<endl;
+    436                }
+    437                cout<<"dyn[DT_REL]="<<dyn[DT_REL]<<", dyn[DT_RELA]="<<dyn[DT_RELA]<<endl;
+    438                cout<<"dyn[DT_RELSZ]="<<dyn[DT_RELSZ]<<", dyn[DT_RELASZ]="<<dyn[DT_RELASZ]<<endl;
+    439          #endif
+    440                
+    441                m=0;
+    442                //выполним релокацию REL
+    443                if (dyn[DT_RELSZ]!=0) {
+    444          	while (m*sizeof(Elf32_Rel)<dyn[DT_RELSZ]){
+    445          #ifdef wintel
+    446          	  cout<<"rel: of="<<hex<<((Elf32_Rel *)(reloc+dyn[DT_REL]-phdrs[n].p_vaddr))[m].r_offset
+    447          	    <<" , sym_idx="<<ELF32_R_SYM(((Elf32_Rel *)(reloc+dyn[DT_REL]-phdrs[n].p_vaddr))[m].r_info)
+    448                        <<" , rel_type="<<dec<<(int) ELF32_R_TYPE(((Elf32_Rel *)(reloc+dyn[DT_REL]-phdrs[n].p_vaddr))[m].r_info)<<endl;
+    449          #endif
+    450                    Elf32_Word ri=ELF32_R_TYPE(((Elf32_Rel *)(reloc+dyn[DT_REL]-phdrs[n].p_vaddr))[m].r_info);
+    451                    if (ri!=R_ARM_RBASE)
+    452                    {
+    453                      if (ri==R_ARM_RABS32)
+    454                      {
+    455                        *((long*)(base+((Elf32_Rel *)(reloc+dyn[DT_REL]-phdrs[n].p_vaddr))[m].r_offset))+=(long)base-minadr;
+    456                      }
+    457                      else
+    458                        switch(ri){
+    459                          
+    460                        case R_ARM_NONE: break; // пустой релокейшен
+    461                        
+    462                        case R_ARM_ABS32:
+    463          #ifdef wintel
+    464                          cout << "base="<<hex<<(long)base<< endl;
+    465                          cout << "of="<<hex<<((Elf32_Rel *)(reloc+dyn[DT_REL]-phdrs[n].p_vaddr))[m].r_offset-minadr<<endl;
+    466          #endif
+    467                          *((long*)(base+((Elf32_Rel *)(reloc+dyn[DT_REL]-phdrs[n].p_vaddr))[m].r_offset-minadr))+=(long)base;
+    468                          break;
+    469                          
+    470                        case R_ARM_RELATIVE: // вообще говор€ не minadr а начало сегмента содержащего символ
+    471                          *((long*)(base+((Elf32_Rel *)(reloc+dyn[DT_REL]-phdrs[n].p_vaddr))[m].r_offset-minadr))+=(long)base-minadr;
+    472                          break; // ignore
+    473                          
+    474                          //	  case R_ARM_RABS32:
+    475                          //	    *((long*)(base+((Elf32_Rel *)(reloc+dyn[DT_REL]-phdrs[n].p_vaddr))[m].r_offset))+=(long)base-minadr;
+    476                          //            break;
+    477                          
+    478                          //              case R_ARM_RBASE: break;
+    479                        default: 	//неизвестный тип релокации
+    480          #ifdef wintel
+    481                          cout << "Invalid reloc type: " <<dec<<(unsigned)ELF32_R_TYPE(((Elf32_Rel *)(reloc+dyn[DT_REL]-phdrs[n].p_vaddr))[m].r_info) << endl;
+    482          #else
+    483                          fclose(fin, &iError);
+    484          #endif
+    485                          mfree(base);
+    486                          mfree(reloc);
+    487                          return -13;
+    488                        }
+    489                    }
+    490          	  m++;
+    491          	}
+    492                }
+    493          #ifdef wintel
+    494                else
+    495                {
+    496                  cout << "No relocation information dyn[DT_RELSZ]=0" << endl;
+    497                }
+    498          #endif
+    499                mfree(reloc);
+    500                break;
+    501              default:	//неизвестный тип програмного сегмента
+    502          #ifndef wintel
+    503                fclose(fin, &iError);
+    504          #endif
+    505                mfree(base);
+    506                return -12;
+    507              }
+    508            }
+    509          #ifndef wintel
+    510            fclose(fin, &iError);
+    511            {
+    512              extern __arm void ExecuteIMB(void);
+    513              ExecuteIMB();	
+    514            }
+    515            ((TElfEntry *)(base+ehdr.e_entry-minadr))(filename,param1,param2,param3);
+    516            //	mfree(base);
+    517            return 0;
+    518          #endif
+    519          #ifdef wintel
+    520            FILE fout;
+    521            char foutbuff[11];
+    522            sprintf(foutbuff,"0x%08x",base);
+    523            if ((fin=fopen(foutbuff,"wb"))==NULL) return -1000;
+    524            if (fwrite(base,maxadr-minadr,1,fin)!=1) return -1001; // vit
+    525            return 0;
+    526          #endif
+    527          }
+    528          
+    529          #ifdef wintel
+    530          int main(int argc, char* argv[]){
+    531            if(argc<2)
+    532            {
+    533              cout << "no .elf specified"<<endl;
+    534              return -1;
+    535            }
+    536            
+    537            cout << elfload(argv[1],0,0,0);
+    538            return 1;
+    539          }
+    540          #endif
+    541          #ifndef wintel
+    542          int elfloader_onload(WSHDR *filename, WSHDR *ext, void *param){
+    543            char fn[128];
+    544            ws_2str(filename,fn,126);
+    545            if(elfload(fn,param,0,0)) return 0; else return 1;
+    546          }
+    547          
+    548          //=======================================================================
+    549          //
+    550          //=======================================================================
+    551          extern void(*OldOnClose)(void *);
+    552          extern void(*OldOnCreate)(void *);
+    553          #ifdef NEWSGOLD
+    554          extern void(*OldShowMsg)(int, int);
+    555          #else
+    556          extern void(*OldTxtOpen)(WSHDR*, WSHDR*);
+    557          #endif
+    558          
+    559          
+    560          
+    561          
+    562          
+    563          
+    564          //-----------------------------------------------------------------------
+    565          
+    566          #ifdef NEWSGOLD
+    567          //#define HELPER_CEPID 0x4339
+    568          #define HELPER_CEPID 0x440A
+    569          #else
+    570          //#define HELPER_CEPID 0x4331
+    571          #define HELPER_CEPID 0x4407
+    572          
+    573          #endif
+    574          #define MSG_HELPER_RUN 0x0001
+    575          
+    576          __arm void proc_HELPER(void)
+    577          {
+    578            GBS_MSG msg;
+    579            if (GBS_RecActDstMessage(&msg))
+    580            {
+    581              if (msg.msg==MSG_HELPER_RUN)
+    582              {
+    583                if (msg.data0)
+    584                {
+    585          	((void (*)(int, void *))(msg.data0))(msg.submess,msg.data1);
+    586                }
+    587              }
+    588              else
+    589              {
+    590                GBS_SendMessage(MMI_CEPID,MSG_HELPER_TRANSLATOR,msg.pid_from,msg.msg,msg.submess);
+    591              }
+    592            }
+    593          }
+    594          
+    595          __arm void CreateHELPER_PROC(void)
+    596          {
+    597            static const char name[]="HELPER";
+    598            CreateGBSproc(HELPER_CEPID, name, proc_HELPER, 0x80, 0);
+    599          }
+    600          
+    601          __arm void REDRAW_impl(void)
+    602          {
+    603            LockSched();
+    604          #ifdef NEWSGOLD
+    605            PendedRedrawGUI();
+    606          #else
+    607            PendedRedrawGUI();
+    608            GBS_SendMessage(MMI_CEPID,0x90);
+    609          #endif
+    610            UnlockSched();
+    611          }
+    612          
+    613          __arm void SUBPROC_impl(void *f, int p2, void *p1)
+    614          {
+    615            GBS_SendMessage(HELPER_CEPID,MSG_HELPER_RUN,p2,f,p1);
+    616          }
+    617          
+    618          __thumb void SEQKILLER_impl(void *data, void(*next_in_seq)(void *), void *data_to_kill)
+    619          {
+    620            next_in_seq(data);
+    621            mfree(data_to_kill);
+    622          }
+    623          
+    624          __arm void MyIDLECSMonClose(void *data)
+    625          {
+    626            extern BXR1(void *, void (*)(void *));
+    627            KillGBSproc(HELPER_CEPID);
+    628            BXR1(data,OldOnClose);
+    629            //  OldOnClose(data);
+    630            //  asm("NOP\n");
+    631          }
+    632          
+    633          __arm void LoadDaemons(void)
+    634          {
+    635            DIR_ENTRY de;
+    636            extern char folder_d[256];
+    637            unsigned int err;
+    638            unsigned int pathlen;
+    639            pathlen=strlen(folder_d);
+    640            strcat(folder_d,"*.elf");
+    641            if (FindFirstFile(&de,folder_d,&err))
+    642            {
+    643              do
+    644              {
+    645                //strcpy(name,path);
+    646                folder_d[pathlen]=0;
+    647                strcat(folder_d,de.file_name);
+    648                elfload(folder_d,0,0,0);
+    649              }
+    650              while(FindNextFile(&de,&err));
+    651            }
+    652            FindClose(&de,&err);
+    653          }
+    654          
+    655          
+    656          __no_init void *(*pLIB_TOP)[];
+    657          extern void *Library[];
+    658          
+    659          int get_file_size(const char * fname)
+    660          {
+    661            FSTATS fs;
+    662            unsigned int err;
+    663            if (GetFileStats(fname,&fs,&err)==-1) return (-1);
+    664            else return (fs.size);
+    665          }
+    666          
+    667          __arm void LoadLibrary(void)
+    668          {
+    669            extern char swi_blib[64];
+    670            void *(*lt)[]=pLIB_TOP;
+    671          #define LIB_EMPTY ((void *)-1L)
+    672            unsigned int ul;
+    673            int sz;
+    674            int f;
+    675            if (lt)
+    676            {
+    677              pLIB_TOP=NULL;
+    678              mfree(lt);
+    679              lt=NULL;
+    680            }
+    681            if ((sz=get_file_size(swi_blib))==-1) return;
+    682            if (sz!=16384)
+    683            {
+    684              ShowMSG(1,(int)"Illegal library size!");
+    685              return;
+    686            }
+    687            f=fopen(swi_blib,A_ReadOnly+A_BIN, P_READ, &ul);
+    688            if (f==-1) return;
+    689            lt=malloc(16384);
+    690            if (fread(f,lt,sz,&ul)!=sz)
+    691            {
+    692              fclose(f,&ul);
+    693              ShowMSG(1,(int)"Can't read library!");
+    694            LERR:
+    695              mfree(lt);
+    696              return;
+    697            }
+    698            fclose(f,&ul);
+    699            f=0;
+    700            do
+    701            {
+    702              if (((*lt)[f]!=LIB_EMPTY)&&(Library[f]!=LIB_EMPTY))
+    703              {
+    704                if ((*lt)[f]!=Library[f])
+    705                {
+    706          	char s[50];
+    707          	sprintf(s,"Function %d conflict!",f);
+    708          	ShowMSG(1,(int)s);
+    709          	goto LERR;
+    710                }
+    711              }
+    712              if ((*lt)[f]==LIB_EMPTY)
+    713              {
+    714                (*lt)[f]=Library[f];
+    715              }
+    716              f++;
+    717            }
+    718            while(f<4096);
+    719            pLIB_TOP=lt;
+    720          #undef LIB_EMPTY
+    721          }
+    722          extern void InitPngBitMap(void);
+    723          
+    724          __no_init char smallicons_str[32];
+    725          __no_init char bigicons_str[32];
+    726          
+    727          __arm int mktree(char* path)
+    728          {
+    729                  unsigned int err;
+    730          	if (isdir(path, &err)) return 1;
+    731          	int len = strlen(path);
+    732          	char c;
+    733          	char buf[128];
+    734          
+    735          	for(int ii=0;ii<len;ii++)
+    736          	{
+    737          		c = path[ii];
+    738          		if (c=='\\')
+    739          		{
+    740          			buf[ii]=0;
+    741          			mkdir(buf, &err);
+    742          		}  
+    743          		buf[ii]=c;
+    744          	}
+    745          	return mkdir(path, &err);
+    746          }
+    747          __arm void start();
+    748          __arm void create_folder()
+    749          {
+    750            mktree("0:\\ZBin\\Elfpack\\");
+    751            start();
+    752          }
+    753          
+    754          __arm void loading()
+    755          {
+    756            extern char folder_d2[256];
+    757            LoadLibrary();
+    758            static const int smallicons[2]={(int)smallicons_str,0};
+    759            static const int bigicons[2]={(int)bigicons_str,0};
+    760          InitPngBitMap();
+    761           #ifdef NEWSGOLD
+    762            static const REGEXPLEXT elf_reg=
+    763            {
+    764              "elf",
+    765              0x55,
+    766              0xFF,
+    767              8, // аталог Misc
+    768              MENU_FLAG2,
+    769              smallicons,
+    770              bigicons,
+    771              (int)"Open",    //LGP "ќткрыть"
+    772              (int)"AltOpen", //LGP "ќпции"
+    773              LGP_DOIT_PIC,
+    774              (void *)elfloader_onload,
+    775              0
+    776            };
+    777          #else
+    778            static const REGEXPLEXT elf_reg=
+    779            {
+    780              "elf",
+    781              0x55,
+    782              0xFF,
+    783              7,
+    784              MENU_FLAG2,
+    785              smallicons,
+    786              bigicons,
+    787              (void *)elfloader_onload,
+    788              0
+    789            };
+    790          #endif
+    791            extern char folder_e[128];
+    792            strcpy(smallicons_str,folder_e);
+    793            strcpy(bigicons_str,folder_e);
+    794            strcat(smallicons_str,"elf_small.png");
+    795            strcat(bigicons_str,"elf_big.png");
+    796            RegExplorerExt(&elf_reg);
+    797            if(*RamPressedKey()!='*')
+    798            {SUBPROC((void*)LoadDaemons);}
+    799          }
+    800          
+    801          __arm void start()
+    802          {
+    803          #ifdef NEWSGOLD
+    804            if (LoadConfigData("4:\\ZBin\\Elfpack\\ElfPack.bcfg")<0)
+    805            {
+    806          #endif
+    807              if(LoadConfigData("0:\\ZBin\\ElfPack\\ElfPack.bcfg")<0)
+    808              {
+    809                if (LoadConfigData("1:\\ZBin\\Elfpack\\ElfPack.bcfg")<0)
+    810            {
+    811              if (LoadConfigData("2:\\ZBin\\Elfpack\\ElfPack.bcfg")<0)
+    812            {
+    813             create_folder();
+    814            }
+    815            else{loading();}
+    816            }
+    817             else{loading();}
+    818              }
+    819               else{loading();}
+    820              #ifdef NEWSGOLD
+    821              }
+    822           else{loading();}
+    823            #endif
+    824          }
+    825          
+    826          __arm void MyIDLECSMonCreate(void *data)
+    827          {
+    828            CreateHELPER_PROC();
+    829            start();
+    830            extern BXR1(void *, void (*)(void *));
+    831            BXR1(data,OldOnCreate);
+    832          }
+    833          
+    834          unsigned int char8to16(int c)
+    835          {
+    836            if (c==0xA8) c=0x401;
+    837            if (c==0xAA) c=0x404;
+    838            if (c==0xAF) c=0x407;
+    839            if (c==0xB8) c=0x451;
+    840            if (c==0xBA) c=0x454;
+    841            if (c==0xBF) c=0x457;
+    842            if (c==0xB2) c=0x406;
+    843            if (c==0xB3) c=0x456;
+    844            if ((c>=0xC0)&&(c<0x100)) c+=0x350;
+    845            return(c);
+    846          }
+    847          
+    848          void ascii2ws(char *s, WSHDR *ws)
+    849          {
+    850            int c;
+    851            while((c=*s++))
+    852            {
+    853              wsAppendChar(ws,char8to16(c));
+    854            }
+    855          }
+    856          #ifdef NEWSGOLD
+    857          __arm void ESI(WSHDR *ws, int dummy, char *s)
+    858          #else
+    859          __arm void ESI(char *s, WSHDR *ws)
+    860          #endif
+    861          {
+    862            if (((unsigned int)s>>28)==0xA) //“олько строки из области RAM/FLASH
+    863            {
+    864              CutWSTR(ws,0); 
+    865              ascii2ws(s,ws);
+    866            }
+    867            else
+    868            {
+    869              wsprintf(ws,"|%d|",s);
+    870            }
+    871          }
+    872          
+    873          /*int toupper(int c)
+    874          {
+    875          if ((c>='a')&&(c<='z')) c+='A'-'a';
+    876          return(c);
+    877          }*/
+    878          
+    879          //static const char extfile[]=DEFAULT_DISK ":\\ZBin\\etc\\extension.cfg";
+    880          
+    881          __arm void DoUnknownFileType(WSHDR *filename)
+    882          {
+    883            WSHDR *wsmime=AllocWS(15);
+    884            wsprintf(wsmime,"txt");
+    885            ExecuteFile(filename,wsmime,0);
+    886            FreeWS(wsmime);
+    887          }
+    888          
+    889          #ifdef NEWSGOLD 
+    890          __no_init int *EXT2_AREA;
+    891          #ifdef ELKA
+    892          __no_init int EXT2_CNT @ "REGEXPL_CNT";
+    893          #endif
+    894          
+    895          #else
+    896          __no_init TREGEXPLEXT *EXT2_AREA;
+    897          __no_init int EXT2_CNT @ "REGEXPL_CNT";
+    898          #endif
+    899          
+    900          #ifdef NEWSGOLD 
+    901          #ifdef ELKA
+    902          #else
+    903          __arm int *GET_EXT2_TABLE(void)
+    904          {
+    905            int *p=EXT2_AREA;
+    906            if (p)
+    907            {
+    908              return(p+1);
+    909            }
+    910            p=malloc(4);
+    911            *p=0;
+    912            return ((EXT2_AREA=p)+1);
+    913          }
+    914          #endif
+    915          #endif  
+    916          
+    917          #ifdef NEWSGOLD 
+    918          #ifdef ELKA
+    919          __arm int *EXT2_REALLOC(void)
+    920          {
+    921            int size;
+    922            size=sizeof(REGEXPLEXT);
+    923            int *p;
+    924            int *p2;
+    925            int n;
+    926            LockSched();
+    927            n=EXT2_CNT;
+    928            p=EXT2_AREA;
+    929            p2=malloc((n+1)*size);
+    930            if (p) 
+    931            {    
+    932              memcpy(p2,p,n*size);
+    933              mfree(p);
+    934            }
+    935            EXT2_CNT=n+1;
+    936            EXT2_AREA=p2;
+    937            p2+=(n*(size/sizeof(int)));
+    938            UnlockSched();
+    939            return (p2);
+    940          }
+    941          #else
+    942          __arm int *EXT2_REALLOC(void)
+    943          {
+    944            int size;
+    945            size=sizeof(REGEXPLEXT);
+    946            int *p;
+    947            int *p2;
+    948            int n;
+    949            LockSched();
+    950            n=*(p=EXT2_AREA);
+    951            p2=malloc((n+1)*size+4);
+    952            memcpy(p2,p,n*size+4);
+    953            *p2=n+1;
+    954            mfree(p);
+    955            EXT2_AREA=p2;
+    956            p2+=(n*(size/sizeof(int)))+1;
+    957            UnlockSched();
+    958            return (p2);
+    959          }
+    960          #endif
+    961          #else
+    962          __arm TREGEXPLEXT *EXT2_REALLOC(void)
+    963          {
+    964            TREGEXPLEXT *p,*p2;
+    965            int n;
+    966            LockSched();
+    967            n=EXT2_CNT;
+    968            p=EXT2_AREA;
+    969            p2=malloc((n+1)*sizeof(TREGEXPLEXT));
+    970            zeromem(p2,(n+1)*sizeof(TREGEXPLEXT));
+    971            if (p) 
+    972            {    
+    973              memcpy(p2,p,n*sizeof(TREGEXPLEXT));
+    974              mfree(p);
+    975            }
+    976            EXT2_CNT=n+1;
+    977            EXT2_AREA=p2;
+    978            UnlockSched();
+    979            return (p2+n);
+    980          }
+    981          
+    982          
+    983          #endif
+    984          
+    985          
+    986          
+    987          #ifdef NEWSGOLD
+    988          __thumb MyShowMSG(int p1, int p2)
+    989          {
+    990          #ifdef ELKA
+    991            if (p2!=0x1DD1)
+    992          #else
+    993              if (p2!=(0x1DCC+5))
+    994          #endif    
+    995              {
+    996                OldShowMsg(p1,p2);
+    997                return;
+    998              }
+    999            asm("MOVS R0,R6\n");
+   1000            DoUnknownFileType((WSHDR *)p1);
+   1001          }
+   1002          #else
+   1003          
+   1004          __arm void PropertyPatch(WSHDR *unk_foldername, WSHDR *unk_filename)
+   1005          {
+   1006            WSHDR *ws;
+   1007            ws=AllocWS(255);
+   1008            wstrcpy(ws,unk_foldername);
+   1009            wsAppendChar(ws,'\\');
+   1010            wstrcat (ws,unk_filename);
+   1011            DoUnknownFileType(ws);
+   1012            FreeWS(ws);
+   1013          }
+   1014          
+   1015          #endif
+   1016          
+   1017          __arm void FUNC_ABORT(int f)
+   1018          {
+   1019            char s[32];
+   1020            extern void StoreErrInfoAndAbort(int code,const char *module_name,int type,int unk3);
+   1021            extern void StoreErrString(const char *);
+   1022            sprintf(s,"%d(%03X)",f,f);
+   1023            StoreErrString(s);
+   1024            loopback2();
+   1025            StoreErrInfoAndAbort(0xFFFF,"\1\1No function in lib\xA1",2,2);
+   1026            
+   1027          }
+   1028          
+   1029          __arm void NO_FUNC(int f)
+   1030          {
+   1031            char s[64];
+   1032            sprintf(s,"No function on lib %d(%03X)",f,f);
+   1033            ShowMSG(1,(int)s);
+   1034          }
+   1035          
+   1036          //ѕатчи
+   1037          __arm int SetThumbnailIcon(void * r0, char *r1) //(c) den_po
+   1038          {
+   1039            int retcode=0;
+   1040            long* x=r0;
+   1041            x=(long*)x[1];
+   1042          
+   1043            char name[128];
+   1044            char dir[192];
+   1045            wstrcpy(name,(char*)x[0]);//name+ext
+                           ^
+Error[Pe167]: argument of type "char *" is incompatible with parameter of type
+          "struct <unnamed> *"
+
+    wstrcpy(name,(char*)x[0]);//name+ext
+                 ^
+"C:\arm\elfloader\elfloader.cpp",1045  Error[Pe167]: argument of type "char *"
+          is incompatible with parameter of type "struct <unnamed> *"
+   1046            
+   1047            wstrcpy(wstrrchr(name,L'.'),_T("_big."));
+                                    ^
+Error[Pe167]: argument of type "char *" is incompatible with parameter of type
+          "struct <unnamed> *"
+
+    wstrcpy(wstrrchr(name,L'.'),_T("_big."));
+                              ^
+"C:\arm\elfloader\elfloader.cpp",1047  Error[Pe165]: too few arguments in
+          function call
+
+    wstrcpy(wstrrchr(name,L'.'),_T("_big."));
+            ^
+"C:\arm\elfloader\elfloader.cpp",1047  Error[Pe167]: argument of type "short"
+          is incompatible with parameter of type "struct <unnamed> *"
+
+    wstrcpy(wstrrchr(name,L'.'),_T("_big."));
+                                ^
+"C:\arm\elfloader\elfloader.cpp",1047  Warning[Pe223]: function "_T" declared
+          implicitly
+
+    wstrcpy(wstrrchr(name,L'.'),_T("_big."));
+                                ^
+"C:\arm\elfloader\elfloader.cpp",1047  Error[Pe167]: argument of type "int" is
+          incompatible with parameter of type "struct <unnamed> *"
+   1048            wstrcpy(wstrrchr(name,L'.'),_T(".png"));
+                                    ^
+Error[Pe167]: argument of type "char *" is incompatible with parameter of type
+          "struct <unnamed> *"
+
+    wstrcpy(wstrrchr(name,L'.'),_T(".png"));
+                              ^
+"C:\arm\elfloader\elfloader.cpp",1048  Error[Pe165]: too few arguments in
+          function call
+
+    wstrcpy(wstrrchr(name,L'.'),_T(".png"));
+            ^
+"C:\arm\elfloader\elfloader.cpp",1048  Error[Pe167]: argument of type "short"
+          is incompatible with parameter of type "struct <unnamed> *"
+
+    wstrcpy(wstrrchr(name,L'.'),_T(".png"));
+                                ^
+"C:\arm\elfloader\elfloader.cpp",1048  Error[Pe167]: argument of type "int" is
+          incompatible with parameter of type "struct <unnamed> *"
+   1049          
+   1050            wstrcpy(dir,GetDir(DIR_ELFS_CONFIG|MEM_INTERNAL));
+                           ^
+Error[Pe167]: argument of type "char *" is incompatible with parameter of type
+          "struct <unnamed> *"
+
+    wstrcpy(dir,GetDir(DIR_ELFS_CONFIG|MEM_INTERNAL));
+                ^
+"C:\arm\elfloader\elfloader.cpp",1050  Warning[Pe223]: function "GetDir"
+          declared implicitly
+
+    wstrcpy(dir,GetDir(DIR_ELFS_CONFIG|MEM_INTERNAL));
+                       ^
+"C:\arm\elfloader\elfloader.cpp",1050  Error[Pe020]: identifier
+          "DIR_ELFS_CONFIG" is undefined
+
+    wstrcpy(dir,GetDir(DIR_ELFS_CONFIG|MEM_INTERNAL));
+                                       ^
+"C:\arm\elfloader\elfloader.cpp",1050  Error[Pe020]: identifier "MEM_INTERNAL"
+          is undefined
+
+    wstrcpy(dir,GetDir(DIR_ELFS_CONFIG|MEM_INTERNAL));
+                ^
+"C:\arm\elfloader\elfloader.cpp",1050  Error[Pe167]: argument of type "int" is
+          incompatible with parameter of type "struct <unnamed> *"
+   1051            wstrcat(dir,(char*)L"/ELF icons/");
+                           ^
+Error[Pe167]: argument of type "char *" is incompatible with parameter of type
+          "struct <unnamed> *"
+
+    wstrcat(dir,(char*)L"/ELF icons/");
+                ^
+"C:\arm\elfloader\elfloader.cpp",1051  Error[Pe167]: argument of type "char *"
+          is incompatible with parameter of type "struct <unnamed> *"
+   1052          
+   1053            retcode=RegisterImage(dir, name);
+                           ^
+Warning[Pe223]: function "RegisterImage" declared implicitly
+   1054            if(!retcode || retcode==0xFFFF)return SetSmallIcon(r0,r1);
+                                                         ^
+Warning[Pe223]: function "SetSmallIcon" declared implicitly
+   1055            *r1=retcode;
+   1056            return 0;
+   1057          }
+   1058          #pragma diag_suppress=Pe177
+   1059          
+   1060          __root static const int NEW_ONCREATE @ "PATCH_ONCREATE" = (int)MyIDLECSMonCreate;
+   1061          
+   1062          __root static const int NEW_ONCLOSE @ "PATCH_ONCLOSE" = (int)MyIDLECSMonClose;
+   1063          
+   1064          #ifdef NEWSGOLD
+   1065          __root static const int NEW_SHOWMSG @ "PATCH_SHOWMSG_BLF" = (int)MyShowMSG;
+   1066          #endif
+   1067          
+   1068          __root static const int SWILIB_FUNC171 @ "SWILIB_FUNC171" = (int)SUBPROC_impl;
+   1069          
+   1070          __root static const int SWILIB_FUNC172 @ "SWILIB_FUNC172" = (int)REDRAW_impl;
+   1071          
+   1072          __root static const int SWILIB_FUNC19C @ "SWILIB_FUNC19C" = (int)SEQKILLER_impl;
+   1073          #pragma diag_default=Pe177
+   1074          #endif
+   1075          
+   1076          
+   1077          
+   1078          
+   1079          
+   1080          
+
+Errors: 16
+Warnings: 4

@@ -1,0 +1,1233 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    03/Jun/2011  00:51:20 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\elfloader\png.c                               #
+#    Command line    =  C:\arm\elfloader\png.c -D NDEBUG -lCN                #
+#                       C:\arm\elfloader\SK65sw50\List\ -lb                  #
+#                       C:\arm\elfloader\SK65sw50\List\ -o                   #
+#                       C:\arm\elfloader\SK65sw50\Obj\ -s9 --no_unroll       #
+#                       --cpu_mode thumb --endian little --cpu ARM926EJ-S    #
+#                       --stack_align 4 --interwork -e --fpu None -I         #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\elfloader\SK65sw50\List\png.lst               #
+#    Object file     =  C:\arm\elfloader\SK65sw50\Obj\png.r79                #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\elfloader\png.c
+      1          #include "..\inc\swilib.h"
+      2          #include "..\inc\pnglist.h"
+      3          
+      4          extern unsigned int DEFAULT_COLOR;
+      5          extern unsigned int ALPHA_THRESHOLD;
+      6          extern unsigned int CACHE_PNG;
+      7          
+      8          
+      9          #define number 8
+     10          
+
+   \                                 In segment DATA_C, align 1, align-sorted
+     11          const char Pointer[1]={0xFF};
+   \                     Pointer:
+   \   00000000   FF                 DC8 255
+
+   \                                 In segment DATA_C, align 4, align-sorted
+     12          const IMGHDR empty_img = {0,0,0x1,(char *)Pointer};
+   \                     empty_img:
+   \   00000000   0000               DC8 0, 0
+   \   00000002   0100               DC16 1
+   \   00000004   ........           DC32 Pointer
+     13          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     14          void* xmalloc(int x,int n)
+     15          {
+   \                     xmalloc:
+   \   00000000   00B5               PUSH     {LR}
+   \   00000002   0800               MOVS     R0,R1
+     16            return malloc(n);
+   \   00000004   14DF               SVC      +20
+   \   00000006   00BD               POP      {PC}             ;; return
+     17          }
+     18          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     19          void xmfree(int x,void* ptr)
+     20          {
+   \                     xmfree:
+   \   00000000   00B5               PUSH     {LR}
+   \   00000002   0800               MOVS     R0,R1
+     21            mfree(ptr);
+   \   00000004   15DF               SVC      +21
+     22          }
+   \   00000006   00BD               POP      {PC}             ;; return
+     23          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     24          __arm void read_data_fn(png_structp png_ptr, png_bytep data, png_size_t length)
+     25          {
+   \                     read_data_fn:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   04D04DE2           SUB      SP,SP,#+4
+   \   00000008   0140A0E1           MOV      R4,R1
+   \   0000000C   0250A0E1           MOV      R5,R2
+     26            unsigned int err;
+     27            int f;
+     28            f=(int)png_get_io_ptr(png_ptr);
+   \   00000010   5E0100EF           SWI      +350
+     29            fread(f, data, length, &err);
+   \   00000014   0D30A0E1           MOV      R3,SP
+   \   00000018   0520A0E1           MOV      R2,R5
+   \   0000001C   0410A0E1           MOV      R1,R4
+   \   00000020   0B0000EF           SWI      +11
+     30          }
+   \   00000024   3180BDE8           POP      {R0,R4,R5,PC}    ;; return
+     31          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     32          __arm IMGHDR* create_imghdr(const char *fname, int type)
+     33          {
+   \                     create_imghdr:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+   \   00000004   28D04DE2           SUB      SP,SP,#+40
+   \   00000008   0150A0E1           MOV      R5,R1
+     34            int f;
+     35            char buf[number];
+     36            unsigned int err;
+     37            struct PP
+     38            {
+     39              char *row;
+     40              char *img;
+     41              IMGHDR * img_h;
+     42            } pp;
+     43            IMGHDR * img_hc;
+     44            png_structp png_ptr=NULL;
+   \   0000000C   0060A0E3           MOV      R6,#+0
+   \   00000010   00608DE5           STR      R6,[SP, #+0]
+     45            png_infop info_ptr=NULL;
+   \   00000014   0C608DE5           STR      R6,[SP, #+12]
+     46            png_uint_32 rowbytes;
+     47            
+     48            if ((f=fopen(fname, A_ReadOnly+A_BIN, P_READ, &err))==-1) return 0;
+   \   00000018   14308DE2           ADD      R3,SP,#+20
+   \   0000001C   8020A0E3           MOV      R2,#+128
+   \   00000020   801CA0E3           MOV      R1,#+32768
+   \   00000024   0A0000EF           SWI      +10
+   \   00000028   0040A0E1           MOV      R4,R0
+   \   0000002C   010070E3           CMN      R0,#+1
+   \   00000030   0301000A           BEQ      ??create_imghdr_0
+     49            pp.row=NULL;
+   \                     ??create_imghdr_1:
+   \   00000034   0080A0E3           MOV      R8,#+0
+     50            pp.img=NULL;
+   \   00000038   0670A0E1           MOV      R7,R6
+     51            pp.img_h=NULL;
+   \   0000003C   0690A0E1           MOV      R9,R6
+     52            
+     53            if (fread(f, &buf, number, &err)!=number) goto L_CLOSE_FILE;
+   \   00000040   14308DE2           ADD      R3,SP,#+20
+   \   00000044   0820A0E3           MOV      R2,#+8
+   \   00000048   20108DE2           ADD      R1,SP,#+32
+   \   0000004C   0B0000EF           SWI      +11
+   \   00000050   080050E3           CMP      R0,#+8
+   \   00000054   F100001A           BNE      ??create_imghdr_2
+     54            if  (!png_check_sig((png_bytep)buf,number)) goto  L_CLOSE_FILE;
+   \   00000058   0810A0E3           MOV      R1,#+8
+   \   0000005C   20008DE2           ADD      R0,SP,#+32
+   \   00000060   B20100EF           SWI      +434
+   \   00000064   000050E3           CMP      R0,#+0
+   \   00000068   EC00000A           BEQ      ??create_imghdr_2
+     55            
+     56            png_ptr = png_create_read_struct_2("1.2.5", (png_voidp)0, 0, 0, (png_voidp)0,(png_malloc_ptr)xmalloc,(png_free_ptr)xmfree);
+   \   0000006C   88049FE5           LDR      R0,??create_imghdr_3  ;; xmfree
+   \   00000070   01002DE9           PUSH     {R0}
+   \   00000074   84049FE5           LDR      R0,??create_imghdr_3+0x4  ;; xmalloc
+   \   00000078   01002DE9           PUSH     {R0}
+   \   0000007C   0000A0E3           MOV      R0,#+0
+   \   00000080   01002DE9           PUSH     {R0}
+   \   00000084   0030A0E1           MOV      R3,R0
+   \   00000088   0020A0E1           MOV      R2,R0
+   \   0000008C   0010A0E1           MOV      R1,R0
+   \   00000090   6C049FE5           LDR      R0,??create_imghdr_3+0x8  ;; `?<Constant "1.2.5">`
+   \   00000094   A80100EF           SWI      +424
+   \   00000098   0C008DE5           STR      R0,[SP, #+12]
+     57            if (!png_ptr) goto L_CLOSE_FILE;
+   \   0000009C   000050E3           CMP      R0,#+0
+   \   000000A0   0CD08DE2           ADD      SP,SP,#+12
+   \   000000A4   DD00000A           BEQ      ??create_imghdr_2
+     58            
+     59            info_ptr = png_create_info_struct(png_ptr);
+   \   000000A8   560100EF           SWI      +342
+   \   000000AC   0C008DE5           STR      R0,[SP, #+12]
+     60            if (!info_ptr)
+   \   000000B0   000050E3           CMP      R0,#+0
+   \   000000B4   0400001A           BNE      ??create_imghdr_4
+     61            {
+     62              png_destroy_read_struct(&png_ptr, (png_infopp)NULL, (png_infopp)NULL);
+   \   000000B8   0020A0E3           MOV      R2,#+0
+   \   000000BC   0210A0E1           MOV      R1,R2
+   \                     ??create_imghdr_5:
+   \   000000C0   0D00A0E1           MOV      R0,SP
+   \   000000C4   570100EF           SWI      +343
+     63              goto L_CLOSE_FILE;
+   \   000000C8   D40000EA           B        ??create_imghdr_2
+     64            }
+     65            if (setjmp(png_jmpbuf(png_ptr)))
+   \                     ??create_imghdr_4:
+   \   000000CC   00009DE5           LDR      R0,[SP, #+0]
+   \   000000D0   620100EF           SWI      +354
+   \   000000D4   000050E3           CMP      R0,#+0
+     66            {
+     67              png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)NULL);
+   \   000000D8   0020A013           MOVNE    R2,#+0
+   \   000000DC   0C108D12           ADDNE    R1,SP,#+12
+   \   000000E0   F6FFFF1A           BNE      ??create_imghdr_5
+     68              goto L_CLOSE_FILE;
+     69            }
+     70            
+     71            png_set_read_fn(png_ptr, (void *)f, read_data_fn);
+   \   000000E4   1C249FE5           LDR      R2,??create_imghdr_3+0xC  ;; read_data_fn
+   \   000000E8   00009DE5           LDR      R0,[SP, #+0]
+   \   000000EC   0410A0E1           MOV      R1,R4
+   \   000000F0   A90100EF           SWI      +425
+     72            
+     73            png_set_sig_bytes(png_ptr, number);
+   \   000000F4   00009DE5           LDR      R0,[SP, #+0]
+   \   000000F8   0810A0E3           MOV      R1,#+8
+   \   000000FC   580100EF           SWI      +344
+     74            
+     75            png_read_info(png_ptr, info_ptr);
+   \   00000100   0C109DE5           LDR      R1,[SP, #+12]
+   \   00000104   00009DE5           LDR      R0,[SP, #+0]
+   \   00000108   590100EF           SWI      +345
+     76            
+     77            png_uint_32 width, height;
+     78            int bit_depth, color_type;
+     79            
+     80            png_get_IHDR(png_ptr, info_ptr, &width, &height, &bit_depth, &color_type, 0, 0, 0);
+   \   0000010C   0000A0E3           MOV      R0,#+0
+   \   00000110   01002DE9           PUSH     {R0}
+   \   00000114   01002DE9           PUSH     {R0}
+   \   00000118   01002DE9           PUSH     {R0}
+   \   0000011C   1C008DE2           ADD      R0,SP,#+28
+   \   00000120   01002DE9           PUSH     {R0}
+   \   00000124   28008DE2           ADD      R0,SP,#+40
+   \   00000128   01002DE9           PUSH     {R0}
+   \   0000012C   20109DE5           LDR      R1,[SP, #+32]
+   \   00000130   1C308DE2           ADD      R3,SP,#+28
+   \   00000134   14009DE5           LDR      R0,[SP, #+20]
+   \   00000138   18208DE2           ADD      R2,SP,#+24
+   \   0000013C   5A0100EF           SWI      +346
+     81            
+     82            if (type==0)
+   \   00000140   000055E3           CMP      R5,#+0
+   \   00000144   14D08DE2           ADD      SP,SP,#+20
+   \   00000148   0500001A           BNE      ??create_imghdr_6
+     83            {
+     84              if (color_type == PNG_COLOR_TYPE_GRAY) 
+   \   0000014C   10009DE5           LDR      R0,[SP, #+16]
+   \   00000150   000050E3           CMP      R0,#+0
+     85                type=PNG_1;
+     86              else type=DEFAULT_COLOR+1;
+   \   00000154   B0039F15           LDRNE    R0,??create_imghdr_3+0x10  ;; DEFAULT_COLOR
+   \   00000158   FF50A003           MOVEQ    R5,#+255
+   \   0000015C   00009015           LDRNE    R0,[R0, #+0]
+   \   00000160   01508012           ADDNE    R5,R0,#+1
+     87            }
+     88            
+     89            if (bit_depth < 8) png_set_gray_1_2_4_to_8(png_ptr);
+   \                     ??create_imghdr_6:
+   \   00000164   18009DE5           LDR      R0,[SP, #+24]
+   \   00000168   080050E3           CMP      R0,#+8
+   \   0000016C   010000AA           BGE      ??create_imghdr_7
+   \   00000170   00009DE5           LDR      R0,[SP, #+0]
+   \   00000174   D60100EF           SWI      +470
+     90              
+     91            if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS))
+   \                     ??create_imghdr_7:
+   \   00000178   00009DE5           LDR      R0,[SP, #+0]
+   \   0000017C   0C109DE5           LDR      R1,[SP, #+12]
+   \   00000180   1020A0E3           MOV      R2,#+16
+   \   00000184   AC0100EF           SWI      +428
+   \   00000188   000050E3           CMP      R0,#+0
+   \   0000018C   0100000A           BEQ      ??create_imghdr_8
+     92              png_set_tRNS_to_alpha(png_ptr); 
+   \   00000190   00009DE5           LDR      R0,[SP, #+0]
+   \   00000194   AD0100EF           SWI      +429
+     93            
+     94            if (bit_depth == 16) png_set_strip_16(png_ptr);
+   \                     ??create_imghdr_8:
+   \   00000198   18009DE5           LDR      R0,[SP, #+24]
+   \   0000019C   100050E3           CMP      R0,#+16
+   \   000001A0   0100001A           BNE      ??create_imghdr_9
+   \   000001A4   00009DE5           LDR      R0,[SP, #+0]
+   \   000001A8   AF0100EF           SWI      +431
+     95            
+     96            if (bit_depth < 8) png_set_packing(png_ptr);
+   \                     ??create_imghdr_9:
+   \   000001AC   18009DE5           LDR      R0,[SP, #+24]
+   \   000001B0   080050E3           CMP      R0,#+8
+   \   000001B4   010000AA           BGE      ??create_imghdr_10
+   \   000001B8   00009DE5           LDR      R0,[SP, #+0]
+   \   000001BC   B00100EF           SWI      +432
+     97            
+     98            if (color_type == PNG_COLOR_TYPE_PALETTE)
+   \                     ??create_imghdr_10:
+   \   000001C0   10009DE5           LDR      R0,[SP, #+16]
+   \   000001C4   030050E3           CMP      R0,#+3
+   \   000001C8   0100001A           BNE      ??create_imghdr_11
+     99              png_set_palette_to_rgb(png_ptr);
+   \   000001CC   00009DE5           LDR      R0,[SP, #+0]
+   \   000001D0   AB0100EF           SWI      +427
+    100            
+    101            if (color_type == PNG_COLOR_TYPE_GRAY_ALPHA || color_type == PNG_COLOR_TYPE_GRAY)
+   \                     ??create_imghdr_11:
+   \   000001D4   10009DE5           LDR      R0,[SP, #+16]
+   \   000001D8   040050E3           CMP      R0,#+4
+   \   000001DC   00005013           CMPNE    R0,#+0
+   \   000001E0   0100001A           BNE      ??create_imghdr_12
+    102              png_set_gray_to_rgb(png_ptr);
+   \   000001E4   00009DE5           LDR      R0,[SP, #+0]
+   \   000001E8   B10100EF           SWI      +433
+    103            
+    104            png_set_filler(png_ptr,0xFF,PNG_FILLER_AFTER);
+   \                     ??create_imghdr_12:
+   \   000001EC   00009DE5           LDR      R0,[SP, #+0]
+   \   000001F0   0120A0E3           MOV      R2,#+1
+   \   000001F4   FF10A0E3           MOV      R1,#+255
+   \   000001F8   AE0100EF           SWI      +430
+    105            png_read_update_info(png_ptr, info_ptr);
+   \   000001FC   0C109DE5           LDR      R1,[SP, #+12]
+   \   00000200   00009DE5           LDR      R0,[SP, #+0]
+   \   00000204   AA0100EF           SWI      +426
+    106            
+    107            rowbytes = png_get_rowbytes(png_ptr, info_ptr);
+   \   00000208   00009DE5           LDR      R0,[SP, #+0]
+   \   0000020C   0C109DE5           LDR      R1,[SP, #+12]
+   \   00000210   5F0100EF           SWI      +351
+    108            
+    109            pp.row=malloc(rowbytes);
+   \   00000214   140000EF           SWI      +20
+   \   00000218   0080A0E1           MOV      R8,R0
+    110            pp.img_h=img_hc=malloc(sizeof(IMGHDR));
+   \   0000021C   0800A0E3           MOV      R0,#+8
+   \   00000220   140000EF           SWI      +20
+   \   00000224   1C008DE5           STR      R0,[SP, #+28]
+   \   00000228   0090A0E1           MOV      R9,R0
+    111            
+    112            if (type==PNG_1)
+   \   0000022C   04009DE5           LDR      R0,[SP, #+4]
+   \   00000230   FF0055E3           CMP      R5,#+255
+   \   00000234   2F00001A           BNE      ??create_imghdr_13
+    113            {
+    114              int rowc_w=(width+7)>>3;
+   \   00000238   070080E2           ADD      R0,R0,#+7
+   \   0000023C   A051A0E1           LSR      R5,R0,#+3
+    115              int size=height*rowc_w;
+   \   00000240   08009DE5           LDR      R0,[SP, #+8]
+   \   00000244   95000BE0           MUL      R11,R5,R0
+    116              unsigned char *iimg=(unsigned char *)(pp.img=malloc(size));
+   \   00000248   0B00A0E1           MOV      R0,R11
+   \   0000024C   140000EF           SWI      +20
+   \   00000250   0070A0E1           MOV      R7,R0
+    117              zeromem(iimg,size);
+   \   00000254   0B10A0E1           MOV      R1,R11
+   \   00000258   1D0100EF           SWI      +285
+    118              for (unsigned int y = 0; y<height; y++)
+   \   0000025C   08009DE5           LDR      R0,[SP, #+8]
+   \   00000260   07A0A0E1           MOV      R10,R7
+   \   00000264   00B0A0E3           MOV      R11,#+0
+   \   00000268   000050E3           CMP      R0,#+0
+   \   0000026C   1400001A           BNE      ??create_imghdr_14
+    119              {
+    120                png_read_row(png_ptr, (png_bytep)pp.row, NULL);
+    121                for (unsigned int x = 0; x<width; x++)
+    122                {
+    123                  if (!pp.row[x*4+0] && !pp.row[x*4+1] && !pp.row[x*4+2])
+    124                    iimg[x>>3]|=(0x80>>(x&7));
+    125                }
+    126                iimg+=rowc_w;
+    127              }
+    128              pp.img_h->bpnum=1;
+   \                     ??create_imghdr_15:
+   \   00000270   0100A0E3           MOV      R0,#+1
+   \   00000274   5A0000EA           B        ??create_imghdr_16
+   \                     ??create_imghdr_17:
+   \   00000278   001188E0           ADD      R1,R8,R0, LSL #+2
+   \   0000027C   0020D1E5           LDRB     R2,[R1, #+0]
+   \   00000280   000052E3           CMP      R2,#+0
+   \   00000284   0120D105           LDRBEQ   R2,[R1, #+1]
+   \   00000288   00005203           CMPEQ    R2,#+0
+   \   0000028C   0210D105           LDRBEQ   R1,[R1, #+2]
+   \   00000290   00005103           CMPEQ    R1,#+0
+   \   00000294   0400001A           BNE      ??create_imghdr_18
+   \   00000298   A0118AE0           ADD      R1,R10,R0, LSR #+3
+   \   0000029C   0020D1E5           LDRB     R2,[R1, #+0]
+   \   000002A0   07C000E2           AND      R12,R0,#0x7
+   \   000002A4   332C82E1           ORR      R2,R2,R3, LSR R12
+   \   000002A8   0020C1E5           STRB     R2,[R1, #+0]
+   \                     ??create_imghdr_18:
+   \   000002AC   010080E2           ADD      R0,R0,#+1
+   \                     ??create_imghdr_19:
+   \   000002B0   04109DE5           LDR      R1,[SP, #+4]
+   \   000002B4   010050E1           CMP      R0,R1
+   \   000002B8   EEFFFF3A           BCC      ??create_imghdr_17
+   \                     ??create_imghdr_20:
+   \   000002BC   0AA085E0           ADD      R10,R5,R10
+   \   000002C0   01B08BE2           ADD      R11,R11,#+1
+   \                     ??create_imghdr_14:
+   \   000002C4   08009DE5           LDR      R0,[SP, #+8]
+   \   000002C8   00005BE1           CMP      R11,R0
+   \   000002CC   E7FFFF2A           BCS      ??create_imghdr_15
+   \   000002D0   00009DE5           LDR      R0,[SP, #+0]
+   \   000002D4   0020A0E3           MOV      R2,#+0
+   \   000002D8   0810A0E1           MOV      R1,R8
+   \   000002DC   600100EF           SWI      +352
+   \   000002E0   04109DE5           LDR      R1,[SP, #+4]
+   \   000002E4   0600A0E1           MOV      R0,R6
+   \   000002E8   000051E3           CMP      R1,#+0
+   \   000002EC   8030A0E3           MOV      R3,#+128
+   \   000002F0   EEFFFF1A           BNE      ??create_imghdr_19
+   \   000002F4   F0FFFFEA           B        ??create_imghdr_20
+    129            }
+    130            else
+    131            {
+    132              switch (type)
+   \                     ??create_imghdr_13:
+   \   000002F8   08109DE5           LDR      R1,[SP, #+8]
+   \   000002FC   0CA29FE5           LDR      R10,??create_imghdr_3+0x14  ;; ALPHA_THRESHOLD
+   \   00000300   910000E0           MUL      R0,R1,R0
+   \   00000304   015055E2           SUBS     R5,R5,#+1
+   \   00000308   0200000A           BEQ      ??create_imghdr_21
+   \   0000030C   015055E2           SUBS     R5,R5,#+1
+   \   00000310   2A00000A           BEQ      ??create_imghdr_22
+   \   00000314   330000EA           B        ??create_imghdr_23
+    133              {
+    134              case PNG_8:
+    135                {
+    136                  unsigned char *iimg=(unsigned char *)(pp.img=malloc(width*height));
+   \                     ??create_imghdr_21:
+   \   00000318   140000EF           SWI      +20
+   \   0000031C   0070A0E1           MOV      R7,R0
+    137                  for (unsigned int y = 0; y<height; y++)
+   \   00000320   08009DE5           LDR      R0,[SP, #+8]
+   \   00000324   0750A0E1           MOV      R5,R7
+   \   00000328   00B0A0E3           MOV      R11,#+0
+   \   0000032C   000050E3           CMP      R0,#+0
+   \   00000330   0200001A           BNE      ??create_imghdr_24
+    138                  {
+    139                    png_read_row(png_ptr, (png_bytep)pp.row, NULL);
+    140                    for (unsigned int x = 0; x<width; x++)
+    141                    {
+    142                      if (pp.row[x*4+3]<ALPHA_THRESHOLD)
+    143                        *iimg++=0xC0;
+    144                      else
+    145                      {
+    146                        unsigned char c=(pp.row[x*4+0] & 0xE0);
+    147                        c|=((pp.row[x*4+1]>>3)&0x1C);
+    148                        c|=((pp.row[x*4+2]>>6)&0x3);
+    149                        *iimg++=c;
+    150                      }
+    151                    }
+    152                  }
+    153                  pp.img_h->bpnum=5;
+   \                     ??create_imghdr_25:
+   \   00000334   0500A0E3           MOV      R0,#+5
+   \   00000338   290000EA           B        ??create_imghdr_16
+   \                     ??create_imghdr_26:
+   \   0000033C   01B08BE2           ADD      R11,R11,#+1
+   \                     ??create_imghdr_24:
+   \   00000340   08009DE5           LDR      R0,[SP, #+8]
+   \   00000344   00005BE1           CMP      R11,R0
+   \   00000348   F9FFFF2A           BCS      ??create_imghdr_25
+   \   0000034C   00009DE5           LDR      R0,[SP, #+0]
+   \   00000350   0020A0E3           MOV      R2,#+0
+   \   00000354   0810A0E1           MOV      R1,R8
+   \   00000358   600100EF           SWI      +352
+   \   0000035C   04109DE5           LDR      R1,[SP, #+4]
+   \   00000360   0600A0E1           MOV      R0,R6
+   \   00000364   000051E3           CMP      R1,#+0
+   \   00000368   1CC0A0E3           MOV      R12,#+28
+   \   0000036C   0900001A           BNE      ??create_imghdr_27
+   \   00000370   F1FFFFEA           B        ??create_imghdr_26
+   \                     ??create_imghdr_28:
+   \   00000374   0020D1E5           LDRB     R2,[R1, #+0]
+   \   00000378   0130D1E5           LDRB     R3,[R1, #+1]
+   \   0000037C   0210D1E5           LDRB     R1,[R1, #+2]
+   \   00000380   E02002E2           AND      R2,R2,#0xE0
+   \   00000384   A3310CE0           AND      R3,R12,R3, LSR #+3
+   \   00000388   022083E1           ORR      R2,R3,R2
+   \   0000038C   211382E1           ORR      R1,R2,R1, LSR #+6
+   \                     ??create_imghdr_29:
+   \   00000390   ........           STRB     R1,[R5], #+1
+   \   00000394   010080E2           ADD      R0,R0,#+1
+   \                     ??create_imghdr_27:
+   \   00000398   04109DE5           LDR      R1,[SP, #+4]
+   \   0000039C   010050E1           CMP      R0,R1
+   \   000003A0   E5FFFF2A           BCS      ??create_imghdr_26
+   \   000003A4   00309AE5           LDR      R3,[R10, #+0]
+   \   000003A8   001188E0           ADD      R1,R8,R0, LSL #+2
+   \   000003AC   0320D1E5           LDRB     R2,[R1, #+3]
+   \   000003B0   030052E1           CMP      R2,R3
+   \   000003B4   EEFFFF2A           BCS      ??create_imghdr_28
+   \   000003B8   C010A0E3           MOV      R1,#+192
+   \   000003BC   F3FFFFEA           B        ??create_imghdr_29
+    154                  break;
+    155                }
+    156              case PNG_16:
+    157                {
+    158                  unsigned short *iimg=(unsigned short *)(pp.img=malloc(width*height*2));
+   \                     ??create_imghdr_22:
+   \   000003C0   8000A0E1           LSL      R0,R0,#+1
+   \   000003C4   140000EF           SWI      +20
+   \   000003C8   0070A0E1           MOV      R7,R0
+    159                  for (unsigned int y = 0; y<height; y++)
+   \   000003CC   08009DE5           LDR      R0,[SP, #+8]
+   \   000003D0   0750A0E1           MOV      R5,R7
+   \   000003D4   00B0A0E3           MOV      R11,#+0
+   \   000003D8   000050E3           CMP      R0,#+0
+   \   000003DC   1C00001A           BNE      ??create_imghdr_30
+    160                  {
+    161                    png_read_row(png_ptr, (png_bytep)pp.row, NULL);
+    162                    for (unsigned int x = 0; x<width; x++)
+    163                    {
+    164                      if (pp.row[x*4+3]<ALPHA_THRESHOLD)
+    165                        *iimg++=0xE000;
+    166                      else
+    167                      {
+    168                        unsigned int c=((pp.row[x*4+0]<<8)&0xF800);
+    169                        c|=((pp.row[x*4+1]<<3)&0x7E0);
+    170                        c|=((pp.row[x*4+2]>>3)&0x1F);
+    171                        *iimg++=c;
+    172                      }
+    173                    }
+    174                  }
+    175                  pp.img_h->bpnum=8;
+   \                     ??create_imghdr_31:
+   \   000003E0   0800A0E3           MOV      R0,#+8
+   \                     ??create_imghdr_16:
+   \   000003E4   B200C9E1           STRH     R0,[R9, #+2]
+    176                  break;
+    177                }
+    178          #if NEWSGOLD || X75
+    179              case PNG_24:
+    180                {
+    181                  unsigned char *iimg=(unsigned char *)(pp.img=malloc((width*height)<<2));
+    182                  for (unsigned int y = 0; y<height; y++)
+    183                  {
+    184                    png_read_row(png_ptr, (png_bytep)pp.row, NULL);
+    185                    for (unsigned int x = 0; x<width; x++)
+    186                    {
+    187          	    unsigned int c;
+    188                      *iimg++=pp.row[x*4+2];
+    189                      *iimg++=pp.row[x*4+1];
+    190                      *iimg++=pp.row[x*4+0];
+    191          	    c=pp.row[x*4+3];
+    192          //	    if (c>=128) c++;
+    193          //	    c*=100;
+    194          //	    c>>=8;
+    195                      *iimg++=c;//(pp.row[x*4+3]*100)/0xFF;
+    196                    }
+    197                  }
+    198                  pp.img_h->bpnum=0xA;
+    199                  break;
+    200                }
+    201          #endif
+    202              }
+    203            }
+    204            pp.img_h->w=width;
+   \                     ??create_imghdr_23:
+   \   000003E8   04009DE5           LDR      R0,[SP, #+4]
+   \   000003EC   0000C9E5           STRB     R0,[R9, #+0]
+    205            pp.img_h->h=height;
+   \   000003F0   08009DE5           LDR      R0,[SP, #+8]
+   \   000003F4   0100C9E5           STRB     R0,[R9, #+1]
+    206            //pp->img_h->zero=0;
+    207            pp.img_h->bitmap=pp.img;
+   \   000003F8   047089E5           STR      R7,[R9, #+4]
+    208            
+    209            png_read_end(png_ptr, info_ptr);
+   \   000003FC   0C109DE5           LDR      R1,[SP, #+12]
+   \   00000400   00009DE5           LDR      R0,[SP, #+0]
+   \   00000404   5D0100EF           SWI      +349
+    210            png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)NULL);
+   \   00000408   0020A0E3           MOV      R2,#+0
+   \   0000040C   0C108DE2           ADD      R1,SP,#+12
+   \   00000410   0D00A0E1           MOV      R0,SP
+   \   00000414   570100EF           SWI      +343
+    211            if (!pp.img)
+   \   00000418   000057E3           CMP      R7,#+0
+   \   0000041C   2E00001A           BNE      ??create_imghdr_32
+    212            {
+    213            L_CLOSE_FILE:
+    214              mfree(pp.row);
+   \                     ??create_imghdr_2:
+   \   00000420   0800A0E1           MOV      R0,R8
+   \   00000424   150000EF           SWI      +21
+    215              mfree(pp.img);
+   \   00000428   0700A0E1           MOV      R0,R7
+   \   0000042C   150000EF           SWI      +21
+    216              mfree(pp.img_h);
+   \   00000430   0900A0E1           MOV      R0,R9
+   \   00000434   150000EF           SWI      +21
+    217              fclose(f, &err);
+   \   00000438   14108DE2           ADD      R1,SP,#+20
+   \   0000043C   0400A0E1           MOV      R0,R4
+   \   00000440   0D0000EF           SWI      +13
+    218              return NULL;
+   \                     ??create_imghdr_0:
+   \   00000444   0000A0E3           MOV      R0,#+0
+   \   00000448   28D08DE2           ADD      SP,SP,#+40
+   \   0000044C   F08FBDE8           POP      {R4-R11,PC}
+    219            }
+   \                     ??create_imghdr_33:
+   \   00000450   01B08BE2           ADD      R11,R11,#+1
+   \                     ??create_imghdr_30:
+   \   00000454   08009DE5           LDR      R0,[SP, #+8]
+   \   00000458   00005BE1           CMP      R11,R0
+   \   0000045C   DFFFFF2A           BCS      ??create_imghdr_31
+   \   00000460   00009DE5           LDR      R0,[SP, #+0]
+   \   00000464   0020A0E3           MOV      R2,#+0
+   \   00000468   0810A0E1           MOV      R1,R8
+   \   0000046C   600100EF           SWI      +352
+   \   00000470   04109DE5           LDR      R1,[SP, #+4]
+   \   00000474   0600A0E1           MOV      R0,R6
+   \   00000478   000051E3           CMP      R1,#+0
+   \   0000047C   7ECEA0E3           MOV      R12,#+2016
+   \   00000480   0B00001A           BNE      ??create_imghdr_34
+   \   00000484   F1FFFFEA           B        ??create_imghdr_33
+   \                     ??create_imghdr_35:
+   \   00000488   0020D1E5           LDRB     R2,[R1, #+0]
+   \   0000048C   F83CA0E3           MOV      R3,#+63488
+   \   00000490   022403E0           AND      R2,R3,R2, LSL #+8
+   \   00000494   0130D1E5           LDRB     R3,[R1, #+1]
+   \   00000498   0210D1E5           LDRB     R1,[R1, #+2]
+   \   0000049C   83310CE0           AND      R3,R12,R3, LSL #+3
+   \   000004A0   022083E1           ORR      R2,R3,R2
+   \   000004A4   A111A0E1           LSR      R1,R1,#+3
+   \   000004A8   021081E1           ORR      R1,R1,R2
+   \                     ??create_imghdr_36:
+   \   000004AC   ........           STRH     R1,[R5], #+2
+   \   000004B0   010080E2           ADD      R0,R0,#+1
+   \                     ??create_imghdr_34:
+   \   000004B4   04109DE5           LDR      R1,[SP, #+4]
+   \   000004B8   010050E1           CMP      R0,R1
+   \   000004BC   E3FFFF2A           BCS      ??create_imghdr_33
+   \   000004C0   00309AE5           LDR      R3,[R10, #+0]
+   \   000004C4   001188E0           ADD      R1,R8,R0, LSL #+2
+   \   000004C8   0320D1E5           LDRB     R2,[R1, #+3]
+   \   000004CC   030052E1           CMP      R2,R3
+   \   000004D0   ECFFFF2A           BCS      ??create_imghdr_35
+   \   000004D4   E01CA0E3           MOV      R1,#+57344
+   \   000004D8   F3FFFFEA           B        ??create_imghdr_36
+    220            mfree(pp.row);
+   \                     ??create_imghdr_32:
+   \   000004DC   0800A0E1           MOV      R0,R8
+   \   000004E0   150000EF           SWI      +21
+    221            fclose(f, &err);
+   \   000004E4   14108DE2           ADD      R1,SP,#+20
+   \   000004E8   0400A0E1           MOV      R0,R4
+   \   000004EC   0D0000EF           SWI      +13
+    222            return (img_hc);
+   \   000004F0   1C009DE5           LDR      R0,[SP, #+28]
+   \   000004F4   28D08DE2           ADD      SP,SP,#+40
+   \   000004F8   F08FBDE8           POP      {R4-R11,PC}      ;; return
+   \                     ??create_imghdr_3:
+   \   000004FC   ........           DC32     xmfree
+   \   00000500   ........           DC32     xmalloc
+   \   00000504   ........           DC32     `?<Constant "1.2.5">`
+   \   00000508   ........           DC32     read_data_fn
+   \   0000050C   ........           DC32     DEFAULT_COLOR
+   \   00000510   ........           DC32     ALPHA_THRESHOLD
+    223          }
+    224          
+
+   \                                 In segment DATA_N, align 4, align-sorted
+    225          volatile __no_init PNGTOP_DESC pngtop; 
+   \                     pngtop:
+   \   00000000                      DS8 12
+    226          
+    227          #pragma inline
+    228          int tolower(int C)
+    229          {
+    230            if ((C>='A' && C<='Z')) C-='A'-'a';
+    231            return(C);
+    232          }
+    233          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    234          char* strcpy_tolow(char *s1,const char *s2)
+    235          {
+   \                     strcpy_tolow:
+   \   00000000   0A78               LDRB     R2,[R1, #+0]
+   \   00000002   002A               CMP      R2,#+0
+   \   00000004   0BD0               BEQ      ??strcpy_tolow_0
+    236            while(*s2)
+    237            {
+    238              *s1++=tolower(*s2++);   
+   \                     ??strcpy_tolow_1:
+   \   00000006   0A78               LDRB     R2,[R1, #+0]
+   \   00000008   412A               CMP      R2,#+65
+   \   0000000A   02DB               BLT      ??strcpy_tolow_2
+   \   0000000C   5B2A               CMP      R2,#+91
+   \   0000000E   00DA               BGE      ??strcpy_tolow_2
+   \   00000010   2032               ADDS     R2,R2,#+32
+   \                     ??strcpy_tolow_2:
+   \   00000012   491C               ADDS     R1,R1,#+1
+   \   00000014   0270               STRB     R2,[R0, #+0]
+    239            }
+   \   00000016   0A78               LDRB     R2,[R1, #+0]
+   \   00000018   401C               ADDS     R0,R0,#+1
+   \   0000001A   002A               CMP      R2,#+0
+   \   0000001C   F3D1               BNE      ??strcpy_tolow_1
+    240            *s1=0;
+   \                     ??strcpy_tolow_0:
+   \   0000001E   0021               MOVS     R1,#+0
+   \   00000020   0170               STRB     R1,[R0, #+0]
+    241            return s1;
+   \   00000022   7047               BX       LR
+    242          }
+    243          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    244          __arm void print10(char *s, unsigned int v)
+    245          {
+    246            unsigned int buf=0xF;
+   \                     print10:
+   \   00000000   8C309FE5           LDR      R3,??print10_0   ;; 0xffffffffcccccccd
+   \   00000004   10002DE9           PUSH     {R4}
+   \   00000008   0F20A0E3           MOV      R2,#+15
+   \   0000000C   0A0051E3           CMP      R1,#+10
+   \   00000010   0A00003A           BCC      ??print10_1
+    247            while(v>=10)
+    248            {
+    249              buf=(buf<<4)|(v%10);
+   \                     ??print10_2:
+   \   00000014   93C184E0           UMULL    R12,R4,R3,R1
+   \   00000018   0AC0A0E3           MOV      R12,#+10
+   \   0000001C   A441A0E1           LSR      R4,R4,#+3
+   \   00000020   9C0404E0           MUL      R4,R12,R4
+   \   00000024   044041E0           SUB      R4,R1,R4
+   \   00000028   022284E1           ORR      R2,R4,R2, LSL #+4
+    250              v/=10;
+   \   0000002C   93418CE0           UMULL    R4,R12,R3,R1
+   \   00000030   ACC1A0E1           LSR      R12,R12,#+3
+   \   00000034   0C10A0E1           MOV      R1,R12
+    251            }
+   \   00000038   0A0051E3           CMP      R1,#+10
+   \   0000003C   F4FFFF2A           BCS      ??print10_2
+    252            *s++=v+'0';
+   \                     ??print10_1:
+   \   00000040   301081E2           ADD      R1,R1,#+48
+   \   00000044   ........           STRB     R1,[R0], #+1
+   \   00000048   020000EA           B        ??print10_3
+    253            while((v=buf&0x0F)<10) {*s++=v+'0'; buf>>=4;}
+   \                     ??print10_4:
+   \   0000004C   301081E2           ADD      R1,R1,#+48
+   \   00000050   ........           STRB     R1,[R0], #+1
+   \   00000054   2222A0E1           LSR      R2,R2,#+4
+   \                     ??print10_3:
+   \   00000058   0F1002E2           AND      R1,R2,#0xF
+   \   0000005C   0A0051E3           CMP      R1,#+10
+   \   00000060   F9FFFF3A           BCC      ??print10_4
+    254            *s++='.';
+   \   00000064   2E10A0E3           MOV      R1,#+46
+   \   00000068   ........           STRB     R1,[R0], #+1
+    255            *s++='p';
+   \   0000006C   7010A0E3           MOV      R1,#+112
+   \   00000070   ........           STRB     R1,[R0], #+1
+    256            *s++='n';
+   \   00000074   6E10A0E3           MOV      R1,#+110
+   \   00000078   ........           STRB     R1,[R0], #+1
+    257            *s++='g';
+   \   0000007C   6710A0E3           MOV      R1,#+103
+   \   00000080   ........           STRB     R1,[R0], #+1
+    258            *s='\0';
+   \   00000084   0010A0E3           MOV      R1,#+0
+   \   00000088   0010C0E5           STRB     R1,[R0, #+0]
+    259          }
+   \   0000008C   1000BDE8           POP      {R4}
+   \   00000090   1EFF2FE1           BX       LR               ;; return
+   \                     ??print10_0:
+   \   00000094   CDCCCCCC           DC32     0xffffffffcccccccd
+    260          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    261          __arm IMGHDR *find_png_in_cache(char *png_name)
+    262          {
+   \                     find_png_in_cache:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+    263            PNGLIST *pl;
+    264            PNGLIST *pl_prev;
+    265            LockSched();
+    266            pl=(PNGLIST *)(&(pngtop.pltop));
+   \   00000004   ........           LDR      R5,??DataTable1  ;; pngtop
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   0560A0E1           MOV      R6,R5
+   \   00000010   460100EF           SWI      +326
+    267            pl_prev=NULL;  
+   \   00000014   0070A0E3           MOV      R7,#+0
+   \   00000018   000000EA           B        ??find_png_in_cache_0
+    268            while((pl=pl->next))
+    269            {
+    270              if (!strcmp(pl->pngname,png_name))
+    271              {
+    272                //Найден, переносим в начало и выходим
+    273                if (pl_prev)
+    274                {
+    275          	//Только если не в самом начале
+    276          	pl_prev->next=pl->next; //Удалили из найденого места
+    277          	pl->next=(PNGLIST *)(pngtop.pltop); //Следующий - весь список
+    278          	pngtop.pltop=pl; //А первый в списке - найденый
+    279                }
+    280                UnlockSched();
+    281                return(pl->img);
+    282              }
+    283              pl_prev=pl; //Текущий обработанный - теперь предыдущий
+   \                     ??find_png_in_cache_1:
+   \   0000001C   0670A0E1           MOV      R7,R6
+   \                     ??find_png_in_cache_0:
+   \   00000020   006096E5           LDR      R6,[R6, #+0]
+   \   00000024   000056E3           CMP      R6,#+0
+   \   00000028   0E00000A           BEQ      ??find_png_in_cache_2
+   \   0000002C   040096E5           LDR      R0,[R6, #+4]
+   \   00000030   0410A0E1           MOV      R1,R4
+   \   00000034   190000EF           SWI      +25
+   \   00000038   000050E3           CMP      R0,#+0
+   \   0000003C   F6FFFF1A           BNE      ??find_png_in_cache_1
+   \   00000040   000057E3           CMP      R7,#+0
+   \   00000044   0400000A           BEQ      ??find_png_in_cache_3
+   \   00000048   000096E5           LDR      R0,[R6, #+0]
+   \   0000004C   000087E5           STR      R0,[R7, #+0]
+   \   00000050   000095E5           LDR      R0,[R5, #+0]
+   \   00000054   000086E5           STR      R0,[R6, #+0]
+   \   00000058   006085E5           STR      R6,[R5, #+0]
+   \                     ??find_png_in_cache_3:
+   \   0000005C   470100EF           SWI      +327
+   \   00000060   080096E5           LDR      R0,[R6, #+8]
+   \   00000064   F080BDE8           POP      {R4-R7,PC}
+    284            }
+    285            UnlockSched();
+   \                     ??find_png_in_cache_2:
+   \   00000068   470100EF           SWI      +327
+    286            return (0);
+   \   0000006C   0000A0E3           MOV      R0,#+0
+   \   00000070   F080BDE8           POP      {R4-R7,PC}       ;; return
+    287          }
+    288          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    289          __arm IMGHDR* PatchGetPIT(unsigned int pic)
+    290          {
+   \                     PatchGetPIT:
+   \   00000000   F0472DE9           PUSH     {R4-R10,LR}
+    291            IMGHDR * img;
+    292            extern  char folder_i[128];
+    293            //strcpy(DEFAULT_FOLDER,folder_i);
+    294            unsigned int i;
+    295            char fname[256];
+    296            PNGLIST *pl;
+    297            PNGLIST *pl_prev;
+    298            PNGLIST *cur;
+    299            unsigned int mask80;
+    300            unsigned int mask40;
+    301            char *bp;
+    302            if ((pic>>28)==0xA)
+   \   00000004   ........           LDR      R4,??DataTable1  ;; pngtop
+   \   00000008   40DF4DE2           SUB      SP,SP,#+256
+   \   0000000C   0050A0E1           MOV      R5,R0
+   \   00000010   250EA0E1           LSR      R0,R5,#+28
+   \   00000014   0A0050E3           CMP      R0,#+10
+   \   00000018   0E00001A           BNE      ??PatchGetPIT_0
+    303            {
+    304              strcpy_tolow(fname,(char*)pic);
+   \   0000001C   0510A0E1           MOV      R1,R5
+   \   00000020   0D00A0E1           MOV      R0,SP
+   \   00000024   ........           BLX      strcpy_tolow
+    305              img=find_png_in_cache(fname);
+   \   00000028   0D00A0E1           MOV      R0,SP
+   \   0000002C   ........           BL       find_png_in_cache
+   \   00000030   0050B0E1           MOVS     R5,R0
+    306              if (img) return (img);
+   \   00000034   0000000A           BEQ      ??PatchGetPIT_1
+   \                     ??PatchGetPIT_2:
+   \   00000038   4D0000EA           B        ??PatchGetPIT_3
+    307              img=create_imghdr(fname,0);
+   \                     ??PatchGetPIT_1:
+   \   0000003C   0010A0E3           MOV      R1,#+0
+   \   00000040   0D00A0E1           MOV      R0,SP
+   \   00000044   ........           BL       create_imghdr
+   \   00000048   0050B0E1           MOVS     R5,R0
+    308              if (!img) return ((IMGHDR *)&empty_img);
+   \   0000004C   5500001A           BNE      ??PatchGetPIT_4
+   \   00000050   0C029FE5           LDR      R0,??PatchGetPIT_5  ;; empty_img
+   \   00000054   470000EA           B        ??PatchGetPIT_6
+    309              
+    310            
+    311            }
+    312            else
+    313            {
+    314              //Ищем в списке динамических иконок
+    315              {
+    316                DYNPNGICONLIST *dynp;
+    317                LockSched();
+   \                     ??PatchGetPIT_0:
+   \   00000058   460100EF           SWI      +326
+    318                dynp=pngtop.dyn_pltop;
+   \   0000005C   080094E5           LDR      R0,[R4, #+8]
+   \   00000060   000000EA           B        ??PatchGetPIT_7
+    319                while(dynp)
+    320                {
+    321          	if (dynp->icon==pic)
+    322          	{
+    323          	  IMGHDR *i=dynp->img;
+    324          	  if (i)
+    325          	  {
+    326          	    UnlockSched();
+    327          	    return(i);
+    328          	  }	  
+    329          	}
+    330          	dynp=dynp->next;
+   \                     ??PatchGetPIT_8:
+   \   00000064   000090E5           LDR      R0,[R0, #+0]
+   \                     ??PatchGetPIT_7:
+   \   00000068   000050E3           CMP      R0,#+0
+   \   0000006C   0800000A           BEQ      ??PatchGetPIT_9
+   \   00000070   041090E5           LDR      R1,[R0, #+4]
+   \   00000074   050051E1           CMP      R1,R5
+   \   00000078   F9FFFF1A           BNE      ??PatchGetPIT_8
+   \   0000007C   086090E5           LDR      R6,[R0, #+8]
+   \   00000080   000056E3           CMP      R6,#+0
+   \   00000084   F6FFFF0A           BEQ      ??PatchGetPIT_8
+   \   00000088   470100EF           SWI      +327
+   \   0000008C   0600A0E1           MOV      R0,R6
+   \   00000090   380000EA           B        ??PatchGetPIT_6
+    331                }
+    332                UnlockSched();
+   \                     ??PatchGetPIT_9:
+   \   00000094   470100EF           SWI      +327
+    333              }
+    334              if ((pngtop.bitmap) && (pic<20000))
+   \   00000098   040094E5           LDR      R0,[R4, #+4]
+   \   0000009C   000050E3           CMP      R0,#+0
+   \   000000A0   6D00000A           BEQ      ??PatchGetPIT_10
+   \   000000A4   2000A0E3           MOV      R0,#+32
+   \   000000A8   4E0C80E3           ORR      R0,R0,#0x4E00
+   \   000000AC   000055E1           CMP      R5,R0
+   \   000000B0   1A00002A           BCS      ??PatchGetPIT_11
+    335              {
+    336                mask40=(mask80=0x80UL>>((pic&3)<<1))>>1;
+   \   000000B4   8000A0E3           MOV      R0,#+128
+    337                bp=pngtop.bitmap+(pic>>2);
+    338                if ((i=*bp)&mask80)  // Есть запись в битмапе
+   \   000000B8   A8A19FE5           LDR      R10,??PatchGetPIT_5+0x4  ;; folder_i
+   \   000000BC   031005E2           AND      R1,R5,#0x3
+   \   000000C0   8110A0E1           LSL      R1,R1,#+1
+   \   000000C4   3091A0E1           LSR      R9,R0,R1
+   \   000000C8   040094E5           LDR      R0,[R4, #+4]
+   \   000000CC   A960A0E1           LSR      R6,R9,#+1
+   \   000000D0   257180E0           ADD      R7,R0,R5, LSR #+2
+   \   000000D4   0080D7E5           LDRB     R8,[R7, #+0]
+   \   000000D8   080019E1           TST      R9,R8
+   \   000000DC   1100000A           BEQ      ??PatchGetPIT_12
+    339                {
+    340                  if (i&mask40)  
+   \   000000E0   080016E1           TST      R6,R8
+   \   000000E4   0D00000A           BEQ      ??PatchGetPIT_11
+    341                  {
+    342                    char *next=strcpy_tolow(fname,folder_i); // Картинка вроде как есть на диске
+   \   000000E8   0A10A0E1           MOV      R1,R10
+   \   000000EC   0D00A0E1           MOV      R0,SP
+   \   000000F0   ........           BLX      strcpy_tolow
+    343          	  print10(next,pic);
+   \   000000F4   0510A0E1           MOV      R1,R5
+   \   000000F8   ........           BL       print10
+    344                    img=find_png_in_cache(fname);
+   \   000000FC   0D00A0E1           MOV      R0,SP
+   \   00000100   ........           BL       find_png_in_cache
+   \   00000104   0050B0E1           MOVS     R5,R0
+    345                    if (img) return (img);
+   \   00000108   1900001A           BNE      ??PatchGetPIT_3
+    346                    img=create_imghdr(fname,0);   
+   \   0000010C   0010A0E3           MOV      R1,#+0
+   \   00000110   0D00A0E1           MOV      R0,SP
+   \   00000114   ........           BL       create_imghdr
+   \   00000118   0050A0E1           MOV      R5,R0
+   \   0000011C   210000EA           B        ??PatchGetPIT_4
+    347                     
+    348                  } 
+    349                  else return(0);                                // Картинки нет - выходим
+   \                     ??PatchGetPIT_11:
+   \   00000120   0000A0E3           MOV      R0,#+0
+   \   00000124   130000EA           B        ??PatchGetPIT_6
+    350                }
+    351                else 
+    352                {
+    353          	LockSched();
+   \                     ??PatchGetPIT_12:
+   \   00000128   460100EF           SWI      +326
+    354          	*bp|=mask80; // Записи нет, ставим флаг что есть
+   \   0000012C   0000D7E5           LDRB     R0,[R7, #+0]
+   \   00000130   000089E1           ORR      R0,R9,R0
+   \   00000134   0000C7E5           STRB     R0,[R7, #+0]
+    355          	UnlockSched();
+   \   00000138   470100EF           SWI      +327
+    356                  char *next=strcpy_tolow(fname,folder_i);
+   \   0000013C   0A10A0E1           MOV      R1,R10
+   \   00000140   0D00A0E1           MOV      R0,SP
+   \   00000144   ........           BLX      strcpy_tolow
+    357          	print10(next,pic);
+   \   00000148   0510A0E1           MOV      R1,R5
+   \   0000014C   ........           BL       print10
+    358                  img=find_png_in_cache(fname);
+   \   00000150   0D00A0E1           MOV      R0,SP
+   \   00000154   ........           BL       find_png_in_cache
+   \   00000158   0050B0E1           MOVS     R5,R0
+    359                  if (img)
+   \   0000015C   0700000A           BEQ      ??PatchGetPIT_13
+    360                  {
+    361          	  LockSched();
+   \   00000160   460100EF           SWI      +326
+    362          	  *bp|=mask40;
+   \   00000164   0000D7E5           LDRB     R0,[R7, #+0]
+   \   00000168   000086E1           ORR      R0,R6,R0
+   \   0000016C   0000C7E5           STRB     R0,[R7, #+0]
+    363          	  UnlockSched();
+   \   00000170   470100EF           SWI      +327
+    364                    return (img);
+   \                     ??PatchGetPIT_3:
+   \   00000174   0500A0E1           MOV      R0,R5
+   \                     ??PatchGetPIT_6:
+   \   00000178   40DF8DE2           ADD      SP,SP,#+256
+   \   0000017C   F087BDE8           POP      {R4-R10,PC}
+    365                  }
+    366                  img=create_imghdr(fname,0);                 // Пробуем создать
+   \                     ??PatchGetPIT_13:
+   \   00000180   0010A0E3           MOV      R1,#+0
+   \   00000184   0D00A0E1           MOV      R0,SP
+   \   00000188   ........           BL       create_imghdr
+   \   0000018C   0050B0E1           MOVS     R5,R0
+    367                  if (img)
+   \   00000190   E2FFFF0A           BEQ      ??PatchGetPIT_11
+    368                  {
+    369          	  LockSched();
+   \   00000194   460100EF           SWI      +326
+    370          	  *bp|=mask40;
+   \   00000198   0000D7E5           LDRB     R0,[R7, #+0]
+   \   0000019C   000086E1           ORR      R0,R6,R0
+   \   000001A0   0000C7E5           STRB     R0,[R7, #+0]
+    371          	  UnlockSched();
+   \   000001A4   470100EF           SWI      +327
+    372                  }
+    373                  else
+    374                    
+    375                 return (0);
+    376               
+    377                   }
+    378              }
+    379              else return(0);
+    380            }
+    381            //Ничего не нашли, теперь пробуем добавить
+    382            
+    383            //if (!img) return (0); //Нечего добавлять
+    384            cur=malloc(sizeof(PNGLIST)); //Создаем элемент списка
+   \                     ??PatchGetPIT_4:
+   \   000001A8   0C00A0E3           MOV      R0,#+12
+   \   000001AC   140000EF           SWI      +20
+   \   000001B0   0060A0E1           MOV      R6,R0
+    385            cur->pngname=malloc(strlen(fname)+1);
+   \   000001B4   0D00A0E1           MOV      R0,SP
+   \   000001B8   1B0000EF           SWI      +27
+   \   000001BC   010080E2           ADD      R0,R0,#+1
+   \   000001C0   140000EF           SWI      +20
+   \   000001C4   040086E5           STR      R0,[R6, #+4]
+    386            strcpy(cur->pngname,fname);
+   \   000001C8   0D10A0E1           MOV      R1,SP
+   \   000001CC   1A0000EF           SWI      +26
+    387            cur->img=img;
+   \   000001D0   085086E5           STR      R5,[R6, #+8]
+    388            i=0; //Это количество элементов в списке
+    389            LockSched();
+   \   000001D4   460100EF           SWI      +326
+    390            cur->next=(PNGLIST *)(pngtop.pltop); //Следующий - весь список
+   \   000001D8   000094E5           LDR      R0,[R4, #+0]
+   \   000001DC   0050A0E3           MOV      R5,#+0
+   \   000001E0   0080A0E3           MOV      R8,#+0
+   \   000001E4   000086E5           STR      R0,[R6, #+0]
+    391            pngtop.pltop=cur; //Первый в списке - новый элемент
+   \   000001E8   006084E5           STR      R6,[R4, #+0]
+    392            //Теперь подрезаем конец
+    393            pl=(PNGLIST *)(&(pngtop.pltop));
+    394            do
+    395            {
+    396              pl_prev=pl;
+   \                     ??PatchGetPIT_14:
+   \   000001EC   0400A0E1           MOV      R0,R4
+    397              pl=pl->next;
+   \   000001F0   004094E5           LDR      R4,[R4, #+0]
+    398              if (!pl)
+   \   000001F4   000054E3           CMP      R4,#+0
+   \   000001F8   0100001A           BNE      ??PatchGetPIT_15
+    399              {
+    400                //Закончились элементы раньше
+    401                UnlockSched();
+   \   000001FC   470100EF           SWI      +327
+    402                return(cur->img);
+   \   00000200   140000EA           B        ??PatchGetPIT_16
+    403              }
+    404              i++;
+    405            }
+    406            while(i<=CACHE_PNG); //Пока количество элементов меньше допустимого
+   \                     ??PatchGetPIT_15:
+   \   00000204   60109FE5           LDR      R1,??PatchGetPIT_5+0x8  ;; CACHE_PNG
+   \   00000208   018088E2           ADD      R8,R8,#+1
+   \   0000020C   001091E5           LDR      R1,[R1, #+0]
+   \   00000210   080051E1           CMP      R1,R8
+   \   00000214   F4FFFF2A           BCS      ??PatchGetPIT_14
+    407            pl_prev->next=NULL; //Обрежем список
+   \   00000218   005080E5           STR      R5,[R0, #+0]
+    408            UnlockSched();
+   \   0000021C   470100EF           SWI      +327
+    409            //Остальное можно сделать с разлоченной многозадачностью
+    410            do
+    411            {
+    412              //Удаляем текущий
+    413              if (pl->img)
+   \                     ??PatchGetPIT_17:
+   \   00000220   080094E5           LDR      R0,[R4, #+8]
+   \   00000224   000050E3           CMP      R0,#+0
+   \   00000228   0300000A           BEQ      ??PatchGetPIT_18
+    414              { 
+    415                mfree(pl->img->bitmap);
+   \   0000022C   040090E5           LDR      R0,[R0, #+4]
+   \   00000230   150000EF           SWI      +21
+    416                mfree(pl->img);
+   \   00000234   080094E5           LDR      R0,[R4, #+8]
+   \   00000238   150000EF           SWI      +21
+    417              }
+    418              mfree(pl->pngname);
+   \                     ??PatchGetPIT_18:
+   \   0000023C   040094E5           LDR      R0,[R4, #+4]
+   \   00000240   150000EF           SWI      +21
+    419              pl_prev=pl;
+   \   00000244   0400A0E1           MOV      R0,R4
+    420              pl=pl->next;
+   \   00000248   004094E5           LDR      R4,[R4, #+0]
+    421              mfree(pl_prev);
+   \   0000024C   150000EF           SWI      +21
+    422            }
+    423            while(pl); //Пока есть элементы, освобождаем их
+   \   00000250   000054E3           CMP      R4,#+0
+   \   00000254   F1FFFF1A           BNE      ??PatchGetPIT_17
+    424            return(cur->img);
+   \                     ??PatchGetPIT_16:
+   \   00000258   080096E5           LDR      R0,[R6, #+8]
+   \                     ??PatchGetPIT_10:
+   \   0000025C   40DF8DE2           ADD      SP,SP,#+256      ;; stack cleaning
+   \   00000260   F087BDE8           POP      {R4-R10,PC}      ;; return
+   \                     ??PatchGetPIT_5:
+   \   00000264   ........           DC32     empty_img
+   \   00000268   ........           DC32     folder_i
+   \   0000026C   ........           DC32     CACHE_PNG
+    425          }
+    426          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    427          __arm void InitPngBitMap(void)
+    428          {
+   \                     InitPngBitMap:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+    429            if (!pngtop.bitmap)
+   \   00000004   2C509FE5           LDR      R5,??InitPngBitMap_0  ;; pngtop
+   \   00000008   8840A0E3           MOV      R4,#+136
+   \   0000000C   040095E5           LDR      R0,[R5, #+4]
+   \   00000010   4C4D84E3           ORR      R4,R4,#0x1300
+   \   00000014   000050E3           CMP      R0,#+0
+   \   00000018   0200001A           BNE      ??InitPngBitMap_1
+    430            {
+    431              pngtop.bitmap=malloc(20000/8*2);
+   \   0000001C   0400A0E1           MOV      R0,R4
+   \   00000020   140000EF           SWI      +20
+   \   00000024   040085E5           STR      R0,[R5, #+4]
+    432            }
+    433            zeromem((void*)(pngtop.bitmap),20000/8*2);
+   \                     ??InitPngBitMap_1:
+   \   00000028   040095E5           LDR      R0,[R5, #+4]
+   \   0000002C   0410A0E1           MOV      R1,R4
+   \   00000030   1D0100EF           SWI      +285
+    434          }
+   \   00000034   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??InitPngBitMap_0:
+   \   00000038   ........           DC32     pngtop
+    435          
+    436          #pragma diag_suppress=Pe177
+
+   \                                 In segment SWILIB_FUNC1E9, align 4, align-sorted, root
+   \   00000000   ........           DC32 create_imghdr
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable1:
+   \   00000000   ........           DC32     pngtop
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "1.2.5">`:
+   \   00000000   312E322E3500       DC8 "1.2.5"
+   \   00000006   0000               DC8 0, 0
+    437          __root static const int SWILIB_FUNC1E9 @ "SWILIB_FUNC1E9" = (int)create_imghdr;
+    438          #pragma diag_default=Pe177
+
+   Maximum stack usage in bytes:
+
+     Function          CSTACK
+     --------          ------
+     InitPngBitMap        12
+     PatchGetPIT         288
+     create_imghdr        96
+     find_png_in_cache    20
+     print10               4
+     read_data_fn         16
+     strcpy_tolow          4
+     xmalloc               4
+     xmfree                4
+
+
+   Segment part sizes:
+
+     Function/Label      Bytes
+     --------------      -----
+     Pointer                1
+     empty_img              8
+     xmalloc                8
+     xmfree                 8
+     read_data_fn          40
+     create_imghdr       1300
+     pngtop                12
+     strcpy_tolow          36
+     print10              152
+     find_png_in_cache    116
+     PatchGetPIT          624
+     InitPngBitMap         60
+     SWILIB_FUNC1E9         4
+     ??DataTable1           4
+     ?<Constant "1.2.5">    8
+      Others               48
+
+ 
+ 2 396 bytes in segment CODE
+    17 bytes in segment DATA_C
+    12 bytes in segment DATA_N
+     4 bytes in segment SWILIB_FUNC1E9
+ 
+ 2 348 bytes of CODE  memory (+ 48 bytes shared)
+    21 bytes of CONST memory
+    12 bytes of DATA  memory
+
+Errors: none
+Warnings: none

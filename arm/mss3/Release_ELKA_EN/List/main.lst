@@ -1,0 +1,1426 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    13/Jan/2011  22:52:16 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\mss3\main.c                                   #
+#    Command line    =  C:\arm\mss3\main.c -D NEWSGOLD -D ELKA -D LANG_EN    #
+#                       -D NO_CS -lC C:\arm\mss3\Release_ELKA_EN\List\ -o    #
+#                       C:\arm\mss3\Release_ELKA_EN\Obj\ -s9 --no_unroll     #
+#                       --cpu_mode arm --endian little --cpu ARM926EJ-S      #
+#                       --stack_align 4 --interwork -e --fpu None            #
+#                       --dlib_config "C:\arm2\Embedded Workbench 4.0        #
+#                       Evaluation\ARM\LIB\dl5tpainl8n.h" -I                 #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\mss3\Release_ELKA_EN\List\main.lst            #
+#    Object file     =  C:\arm\mss3\Release_ELKA_EN\Obj\main.r79             #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\mss3\main.c
+      1          #include "..\inc\swilib.h"
+      2          #include "..\inc\playsound.h"
+      3          #include "MySMSYS_ipc.h"
+      4          #include "adrList.h"
+      5          #include "rect_patcher.h"
+      6          #include "sms_dat.h"
+      7          #include "smsList.h"
+      8          #include "language.h"
+      9          #include "edGui.h"
+     10          
+     11          #include "main.h"
+     12          #include "createMenu.h"
+     13          
+     14          #include "guiIdMan.h"
+     15          
+     16          #include "popGui.h"
+     17          #include "config_data.h"
+     18          #include "conf_loader.h"
+     19          
+     20          #include "NewDatReader.h"
+     21          #include "string_works.h"
+     22          #include "iconpack.h"
+     23          #include "key_hook.h"
+     24          #include "CSMswaper.h"
+     25          #include "TabGui.h"
+     26          
+     27          extern void kill_data(void *p, void (*func_p)(void *));
+     28          
+     29          unsigned int DAEMON_CSM_ID=0;
+     30          unsigned int DIALOG_CSM_ID=0;
+     31          unsigned int DIALOG_GUI_ID=0;
+     32          
+     33          unsigned int SNEDSMS_CSM_ID=0;
+     34          
+     35          typedef struct
+     36          {
+     37          	CSM_DESC csmd;
+     38          	WSHDR name;
+     39          }DLGCSM_DESC;
+     40          typedef struct
+     41          {
+     42          	unsigned int csm_id;
+     43          	int code;
+     44          	char *fname;
+     45          }IPC_DATA_DAEMON;
+     46          
+     47          typedef struct
+     48          {
+     49          	int ipc_msg;
+     50          }IPC_DATA_DLG;
+     51          
+     52          #define MAX_DLG 32
+     53          
+     54          typedef struct
+     55          {
+     56            CSM_RAM csm;
+     57          }DEAMON_CSM;
+     58          
+     59          int IPC_SUB_MSG=0;
+     60          int SMS_INDEX=0;
+     61          IPC_REQ daemon_ipc=
+     62          {
+     63          	my_ipc_name,
+     64          	my_ipc_name,
+     65          	NULL
+     66          };
+     67          IPC_DATA_DAEMON ipc_data_daemon;
+     68          
+     69          IPC_REQ dlg_ipc=
+     70          {
+     71          	my_ipc_name,
+     72          	my_ipc_name,
+     73          	NULL
+     74          };
+     75          IPC_DATA_DLG ipc_data_dlg;
+     76          const int minus11=-11;
+     77          
+     78          char *num_from_ipc=0;
+     79          char *text_utf8=0;
+     80          int opmsg_id=0;
+     81          WSHDR *text_ws=0;
+     82          
+     83          int is_fview=0;
+     84          char filename[128]={0};
+     85          int new_sms_n=0;
+     86          char sms_dat[128];
+     87          char ems_admin_dat[128];
+     88          //---------------------------------------
+     89          //csm_id man
+     90          
+     91          unsigned int DlgCsmIDs[MAX_DLG];
+     92          
+     93          void dlgIDsInit(void)
+     94          {
+     95          	int i=0;
+     96          	for(;i<MAX_DLG;i++)
+     97          		DlgCsmIDs[i]=0;
+     98          }
+     99          
+    100          int addCSMid(unsigned int *id_pool, unsigned int id)
+    101          {
+    102          	int i=0;
+    103          	for(;i<MAX_DLG;i++)
+    104          	{
+    105          		if(id_pool[i]==0)
+    106          		{
+    107          			id_pool[i]=id;
+    108          			return i;
+    109          		}
+    110          	}
+    111          	return -1;
+    112          }
+    113          void addCSMidForced0(unsigned int *id_pool, unsigned int id)
+    114          {
+    115          	CloseCSM(id_pool[0]);
+    116          	id_pool[0]=id;
+    117          }
+    118          void delCSMid(unsigned int *id_pool, unsigned int id)
+    119          {
+    120          	int i=0;
+    121          	for(;i<MAX_DLG;i++)
+    122          	{
+    123          		if(id_pool[i]==id)
+    124          		{
+    125          			id_pool[i]=0;
+    126          			return;
+    127          		}
+    128          	}
+    129          }
+    130          
+    131          void closeAllDlgCSM(unsigned int *id_pool)
+    132          {
+    133          	int i=0;
+    134          	for(;i<MAX_DLG;i++)
+    135          	{
+    136          		if(id_pool[i]!=0)
+    137          		{
+    138          			CloseCSM(id_pool[i]);
+    139          			id_pool[i]=0;
+    140          		}
+    141          	}
+    142          }
+    143          
+    144          int IsNoDlg(unsigned int *id_pool)
+    145          {
+    146          	int i=0;
+    147          	for(;i<MAX_DLG;i++)
+    148          	{
+    149          		if(id_pool[i])
+    150          			return 0;
+    151          	}
+    152          	return 1;
+    153          }
+    154          
+    155          int IsCsmExist(void *dlg_csm)
+    156          {
+    157            int i=0;
+    158            unsigned int id;
+    159            for(;i<MAX_DLG;i++)
+    160            {
+    161              if((id=DlgCsmIDs[i]))
+    162              {
+    163                if(FindCSMbyID(id)==dlg_csm)
+    164          	return 1;
+    165              }
+    166            }
+    167            return 0;
+    168          }
+    169          
+    170          int IsHaveDlgGuiOnTop(void)
+    171          {
+    172            int i=0;
+    173            unsigned int id;
+    174            DLG_CSM *dlg_csm;
+    175            SGUI_ID *gs;
+    176            for(;i<MAX_DLG;i++)
+    177            {
+    178              if((id=DlgCsmIDs[i]))
+    179              {
+    180                if((dlg_csm=(DLG_CSM *)FindCSMbyID(id)))
+    181                {
+    182          	gs=(SGUI_ID *)(dlg_csm->gstop);
+    183          	while(gs)
+    184          	{
+    185          	  if(IsGuiOnTop(gs->id)) return 1;
+    186          	  gs=gs->next;
+    187          	}
+    188                }
+    189              }
+    190            }
+    191            return 0;
+    192          }
+    193          
+    194          int isTheLastDlg(unsigned int *id_pool, unsigned int id)
+    195          {
+    196          	return 0;
+    197          }
+    198          
+    199          //---------------------------------------
+    200          
+    201          const IPC_REQ smp_ipc=
+    202          {
+    203            my_ipc_name,
+    204            my_ipc_name,
+    205            NULL
+    206          };
+    207          
+    208          void SendSimpleIpcMsg(int submess)
+    209          {
+    210            GBS_SendMessage(MMI_CEPID,MSG_IPC,submess,&smp_ipc);
+    211          }
+    212          //---------------------------------------
+    213          //main menu
+    214          const int main_menusoftkeys[]={0,1,2};
+    215          SOFTKEY_DESC main_menu_sk[]=
+    216          {
+    217            {0x0018,0x0000,(int)LGP_NULL},
+    218            {0x0001,0x0000,(int)LGP_NULL},
+    219            {0x003D,0x0000,(int)LGP_DOIT_PIC}
+    220          };
+    221          
+    222          
+    223          const SOFTKEYSTAB main_menu_skt=
+    224          {
+    225            main_menu_sk,0
+    226          };
+    227          HEADER_DESC main_menuhdr={0,0,0,0,NULL,(int)LGP_NULL,LGP_NULL};
+    228          #define MAIN_MENU_N 6
+    229          
+    230          void mm_newsms(GUI *gui)
+    231          {
+    232          	DLG_CSM *dlg_csm=MenuGetUserPointer(gui);
+    233          	newSMS(dlg_csm);
+    234          }
+    235          
+    236          void mm_insms_n(GUI *gui)
+    237          {
+    238          	DLG_CSM *dlg_csm=MenuGetUserPointer(gui);
+    239          	showSMSList(dlg_csm, TYPE_IN_N);
+    240          }
+    241          
+    242          void mm_insms_r(GUI *gui)
+    243          {
+    244          	DLG_CSM *dlg_csm=MenuGetUserPointer(gui);
+    245          	showSMSList(dlg_csm, TYPE_IN_R);
+    246          }
+    247          
+    248          void mm_insms_all(GUI *gui)
+    249          {
+    250          	DLG_CSM *dlg_csm=MenuGetUserPointer(gui);
+    251          	showSMSList(dlg_csm, TYPE_IN_ALL);
+    252          }
+    253          
+    254          void mm_outsms(GUI *gui)
+    255          {
+    256          	DLG_CSM *dlg_csm=MenuGetUserPointer(gui);
+    257          	showSMSList(dlg_csm, TYPE_OUT);
+    258          }
+    259          
+    260          void mm_draftsms(GUI *gui)
+    261          {
+    262          	DLG_CSM *dlg_csm=MenuGetUserPointer(gui);
+    263          	showSMSList(dlg_csm, TYPE_DRAFT);
+    264          }
+    265          /*
+    266          void mm_allsms(GUI *gui)
+    267          {
+    268          	DLG_CSM *dlg_csm=MenuGetUserPointer(gui);
+    269          	showSMSList(dlg_csm, 0);
+    270          }
+    271          */
+    272          unsigned int CreateOthMenu(void *dlg_csm);
+    273          
+    274          void mm_oth(GUI *gui)
+    275          {
+    276            DLG_CSM *dlg_csm=MenuGetUserPointer(gui);
+    277            CreateOthMenu(dlg_csm);
+    278          }
+    279          
+    280          
+    281          int MENU_TEXT[MAIN_MENU_N]=
+    282          {
+    283            LGP_NULL,
+    284            LGP_NULL,
+    285            LGP_NULL,
+    286            LGP_NULL,
+    287            LGP_NULL,
+    288            //LGP_NULL,
+    289            LGP_NULL
+    290          };
+    291          
+    292          const MENUPROCS_DESC procs_mmenu[MAIN_MENU_N]=
+    293          {
+    294            mm_newsms,
+    295            mm_insms_n,
+    296            mm_insms_all,
+    297            mm_outsms,
+    298            mm_draftsms,
+    299            //mm_allsms,
+    300            mm_oth,
+    301          };
+    302          
+    303          int MM_ITEM_ICONS[]={0x564,0x564,0x564,0x564,0x564,0x564,0x564,0};
+    304          int MM_HDR_ICONS[]={0x5C5, 0};
+    305          
+    306          int main_menu_onkey(void *data, GUI_MSG *msg)
+    307          {
+    308          #pragma swi_number=0x44
+    309          __swi __arm void TempLightOn(int x, int y);
+    310            int n;
+    311            if(!IsUnlocked()) TempLightOn(3, 0x7FFF);
+    312          
+    313            if((msg->keys==0x1)/* || (msg->keys==0x28)*/)
+    314            {
+    315              void *dlg_csm=MenuGetUserPointer(data);
+    316              popGS(dlg_csm);
+    317              return 1;
+    318            }
+    319            if((msg->keys==0x18)||(msg->keys==0x3D)/*||(msg->keys==0x27)*/)
+    320            {
+    321              n=GetCurMenuItem(data);
+    322            DO_P:
+    323              if(n<0 || n>=MAIN_MENU_N)
+    324                return 0;
+    325              procs_mmenu[n](data);
+    326              return 0;
+    327            }
+    328            if(msg->gbsmsg->msg==KEY_DOWN)
+    329            {
+    330              n=msg->gbsmsg->submess;
+    331              if(n>='1' && n<='9')
+    332              {
+    333                n-='1';
+    334                goto DO_P;
+    335              }
+    336              if(n=='*')
+    337              {
+    338                extern int ShowCount(void); //ed_gui.c
+    339                UpdateDlgCsmName(MenuGetUserPointer(data), lgp.LGP_STATISTICS);
+    340                ShowCount();
+    341              }
+    342            }
+    343            return 0;
+    344          }
+    345          
+    346          const char MM_FORMAT[]="%t%c%d";
+    347          void main_menu_itemhndl(void *data, int curitem, void *user_pointer)
+    348          {
+    349            void *item=AllocMenuItem(data);
+    350            WSHDR *ws=AllocMenuWS(data, 150);
+    351            switch(curitem)
+    352            {
+    353            //case 6:
+    354            case 5:
+    355            case 0:
+    356              wsprintf(ws, PERCENT_T, MENU_TEXT[curitem]);
+    357              break;
+    358            case 1:
+    359              wsprintf(ws, MM_FORMAT, MENU_TEXT[curitem], 0xE01D, getCountByType(TYPE_IN_N));
+    360              break;
+    361            case 2:
+    362              wsprintf(ws, MM_FORMAT, MENU_TEXT[curitem], 0xE01D, getCountByType(TYPE_IN_ALL));
+    363              break;
+    364            case 3:
+    365              wsprintf(ws, MM_FORMAT, MENU_TEXT[curitem], 0xE01D, getCountByType(TYPE_OUT));
+    366              break;
+    367            case 4:
+    368              wsprintf(ws, MM_FORMAT, MENU_TEXT[curitem], 0xE01D, getCountByType(TYPE_DRAFT));
+    369              break;
+    370            //case 5:
+    371            //  wsprintf(ws, MM_FORMAT, MENU_TEXT[curitem], 0xE01D, getCountByType(0));
+    372            //  break;
+    373            default:
+    374              wsprintf(ws, PERCENT_T, lgp.LGP_ERR);
+    375              break;
+    376            }
+    377            SetMenuItemIconArray(data, item, MM_ITEM_ICONS);
+    378            SetMenuItemIcon(data, curitem, curitem);
+    379            SetMenuItemText(data, item, ws, curitem);
+    380          }
+    381          void main_menu_ghook(void *gui, int cmd)
+    382          {
+    383            if(cmd==5)
+    384            {
+    385              void *dlg_csm=MenuGetUserPointer(gui);
+    386              UpdateDlgCsmName(dlg_csm, lgp.LGP_MSS_MAINMENU);
+    387            }
+    388            if(cmd==7)
+    389            {
+    390              SetHeaderIcon(GetHeaderPointer(gui), MM_HDR_ICONS, malloc_adr(), mfree_adr());
+                     ^
+Warning[Pe223]: function "SetHeaderIcon" declared implicitly
+    391            }
+    392            if(cmd==0xA)
+    393            {
+    394              DisableIDLETMR();
+    395            }
+    396          }
+    397          const MENU_DESC main_menu=
+    398          {
+    399            8,main_menu_onkey,main_menu_ghook,NULL,
+    400            main_menusoftkeys,
+    401            &main_menu_skt,
+    402            0x11,//
+    403            main_menu_itemhndl,
+    404            NULL,//main_menuitems,//menuitems,
+    405            NULL, //main_menuprocs,//menuprocs,
+    406            MAIN_MENU_N
+    407          };
+    408          
+    409          int CreateMainMenu(DLG_CSM *dlg_csm)
+    410          {
+    411            int id;
+    412            patch_header(&main_menuhdr);
+    413            id=CreateSLMenu(&main_menu, &main_menuhdr, 0, MAIN_MENU_N, dlg_csm);
+    414            pushGS(dlg_csm, id);
+    415            return id;
+    416          }
+    417          
+    418          //--------------------------------------------------
+    419          
+    420          int dialogcsm_onmessage(CSM_RAM *data,GBS_MSG* msg)
+    421          {
+    422          	DLG_CSM *csm=(DLG_CSM *)data;
+    423          	if(msg->msg==MSG_GUI_DESTROYED)
+    424          	{
+    425          		if((int)msg->data0==csm->gui_id)
+    426          			data->state=-3;
+    427          	}
+    428          	return 1;
+    429          }
+    430          
+    431          static unsigned short dialogcsm_name_body[32]={7,'M','y','S','M','S','Y','S'};
+    432          void UpdateDlgCsmName(DLG_CSM *csm, const char *lgp)
+    433          {
+    434            DLGCSM_DESC *dcd=csm->csm.constr;
+    435            WSHDR *name=&dcd->name;
+    436            if(!name->wsbody || name->wsbody==dialogcsm_name_body)
+    437              name->wsbody=malloc(32*sizeof(short));
+    438            wsprintf(name, PERCENT_T, lgp);
+    439          }
+    440          
+    441          static void dialogcsm_oncreate(CSM_RAM *data)
+    442          {
+    443            DLG_CSM *csm=(DLG_CSM *)data;
+    444            csm->gstop=0;
+    445          /*  if(
+    446               (IPC_SUB_MSG!=SMSYS_IPC_FVIEW)
+    447                 &&(IPC_SUB_MSG!=SMSYS_IPC_NEWSMS)
+    448          	 &&(IPC_SUB_MSG!=SMSYS_IPC_NEWSMS_NUM)
+    449          	   &&(IPC_SUB_MSG!=SMSYS_IPC_SEND_UTF8)
+    450          	     &&(IPC_SUB_MSG!=SMSYS_IPC_NEW_IN_WIN)
+    451          	       )
+    452            {
+    453              readAllSMS();
+    454            }*/
+    455            switch(IPC_SUB_MSG)
+    456            {
+    457            case MY_SMSYS_IPC_START:
+    458            case SMSYS_IPC_MAIN:
+    459              //csm->gui_id=CreateMainMenu(csm);
+    460              csm->gui_id=CreateTabMenu(csm);
+    461              break;
+    462            case SMSYS_IPC_NEWSMS:
+    463              csm->gui_id=newSMS(csm);
+    464              break;
+    465            case SMSYS_IPC_IN_NEW:
+    466              csm->gui_id=showSMSList(csm, TYPE_IN_N);
+    467              break;
+    468            case SMSYS_IPC_IN_RD:
+    469              csm->gui_id=showSMSList(csm, TYPE_IN_R);
+    470              break;
+    471            case SMSYS_IPC_OUT:
+    472              csm->gui_id=showSMSList(csm, TYPE_OUT);
+    473              break;
+    474            case SMSYS_IPC_DRAFT:
+    475              csm->gui_id=showSMSList(csm, TYPE_DRAFT);
+    476              break;
+    477            case SMSYS_IPC_ALL:
+    478              csm->gui_id=showSMSList(csm, 0);
+    479              break;
+    480            case SMSYS_IPC_TLAST:
+    481              if(!(csm->gui_id=viewTheLastNew(csm)))
+    482                data->state=-3;//csm->gui_id=CreateTabMenu(csm);
+    483                //csm->gui_id=CreateMainMenu(csm);
+    484              break;
+    485            case SMSYS_IPC_IN_ALL:
+    486              csm->gui_id=showSMSList(csm, TYPE_IN_ALL);
+    487              break;
+    488            case SMSYS_IPC_NEW_IN_WIN:
+    489              if(!(csm->gui_id=StartIncomingWin(csm)))
+    490                data->state=-3; //close
+    491              break;
+    492            case SMSYS_IPC_NEWSMS_NUM:
+    493              if((!num_from_ipc)||(!(csm->gui_id=newSMSWithNum(csm, num_from_ipc))))
+    494                data->state=-3;//csm->gui_id=CreateTabMenu(csm);//csm->gui_id=CreateMainMenu(csm);
+    495              num_from_ipc=0;
+    496              break;
+    497            case SMSYS_IPC_SEND_UTF8:
+    498              if((!text_utf8)||(!(csm->gui_id=newSMSWithUtf8Text(csm, text_utf8))))
+    499                data->state=-3;//csm->gui_id=CreateTabMenu(csm);//csm->gui_id=CreateMainMenu(csm);
+    500              text_utf8=0;
+    501              break;
+    502            case SMSYS_IPC_QN_OPMSG:
+    503            case SMSYS_IPC_QR_OPMSG:
+    504            case SMSYS_IPC_VIEW_OPMSG:
+    505            case SMSYS_IPC_REPLY_OPMSG:
+    506              if(!(csm->gui_id=DoByOpmsgId(csm, IPC_SUB_MSG, opmsg_id)))
+    507                data->state=-3;//csm->gui_id=CreateTabMenu(csm);//csm->gui_id=CreateMainMenu(csm);
+    508              opmsg_id=0;
+    509              break;
+    510            case SMSYS_IPC_SEND_WS:
+    511              if(!text_ws || !(csm->gui_id=CreateSmsWS(csm, text_ws)))
+    512                data->state=-3;
+    513              text_ws=0;
+    514              break;
+    515            case SMSYS_IPC_FVIEW:
+    516              if (!strlen(filename) || !(csm->gui_id=ViewFile(csm, filename)))
+    517                data->state=-3; //close
+    518              //{
+    519              //  readAllSMS();
+    520              //  csm->gui_id=CreateMainMenu(csm);
+    521              //}
+    522              filename[0]=0;
+    523              break;
+    524            default:
+    525              data->state=-3;//csm->gui_id=CreateTabMenu(csm);//csm->gui_id=CreateMainMenu(csm);
+    526            }
+    527            if(addCSMid(DlgCsmIDs, csm->csm.id)<0)
+    528              addCSMidForced0(DlgCsmIDs, csm->csm.id);
+    529          }
+    530          
+    531          void FreeCsmd(void *csmd)
+    532          {
+    533          	mfree(csmd);
+    534          }
+    535          static void dialogcsm_onclose(CSM_RAM *data)
+    536          {
+    537            DLG_CSM *dlg_csm=(DLG_CSM *)data;
+    538            DLGCSM_DESC *dcd=dlg_csm->csm.constr;
+    539            delCSMid(DlgCsmIDs, dlg_csm->csm.id);
+    540            if(dcd->name.wsbody!=dialogcsm_name_body && dcd->name.wsbody!=0)
+    541              mfree(dcd->name.wsbody);
+    542            mfree(dcd);
+    543          }
+    544          
+    545          const DLGCSM_DESC DIALOGCSM =
+    546          {
+    547            {
+    548              dialogcsm_onmessage,
+    549              dialogcsm_oncreate,
+    550          #ifdef NEWSGOLD
+    551              0,
+    552              0,
+    553              0,
+    554              0,
+    555          #endif
+    556              dialogcsm_onclose,
+    557              sizeof(DLG_CSM),
+    558              1,
+    559              &minus11
+    560            },
+    561            {
+    562              dialogcsm_name_body,
+    563              NAMECSM_MAGIC1,
+    564              NAMECSM_MAGIC2,
+    565              0x0,
+    566              31
+    567            }
+    568          };
+    569          
+    570          
+    571          GBSTMR ld_tmr;
+    572          
+    573          int is_readall=0;
+    574          extern int CheckAll(void);
+    575          unsigned int CreateDialogCSM(void)
+    576          {
+    577            DLG_CSM dlg_csm;
+    578            DLGCSM_DESC *dcd=malloc(sizeof(DLGCSM_DESC));
+    579            zeromem(&dlg_csm, sizeof(DLG_CSM));
+    580            memcpy(dcd, &DIALOGCSM, sizeof(DLGCSM_DESC));
+    581            if(!cltop) SUBPROC((void *)ConstructListN);
+    582            if(IPC_SUB_MSG!=SMSYS_IPC_FVIEW)
+    583            {
+    584              if(sdltop)
+    585              {
+    586                if(!is_readall) SUBPROC((void *)CheckAll);
+    587              }
+    588              else
+    589              {
+    590                GBS_DelTimer(&ld_tmr);
+    591                SUBPROC((void *)ReadAllSmsN);
+    592              }
+    593            }
+    594            //if(sdltop && IPC_SUB_MSG!=SMSYS_IPC_FVIEW) SUBPROC((void *)CheckAll);
+    595            //if(!sdltop && IPC_SUB_MSG!=SMSYS_IPC_FVIEW) SUBPROC((void *)readAllSMS);
+    596            LoadLangPack();
+    597            LoadIconPack();
+    598            return (CreateCSM(&dcd->csmd,&dlg_csm,2));
+    599          }
+    600          
+    601          
+    602          const IPC_REQ my_ipc_n=
+    603          {
+    604          	my_ipc_name,
+    605          	my_ipc_name,
+    606          	NULL
+    607          };
+    608          
+    609          GBSTMR chk_tmr;
+    610          int tindex=0;
+    611          int isnewp=0;
+    612          //extern int ReadThisSms(int index);
+    613          //GBSTMR n_update_tmr;
+    614          /*
+    615          void CheckNewProc(void)
+    616          {
+    617            if(IsHaveNewSMS())
+    618            {
+    619              GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_NEW_IN_WIN,&my_ipc_n);
+    620            }
+    621          }
+    622          */
+    623          void DoNewProc(void)
+    624          {
+    625            if(tindex)
+    626            {
+    627              ReadThisSms(tindex, 1);
+    628              tindex=0;
+    629            }
+    630            if(CFG_ENA_NOTIFY) GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_NEW_IN_WIN,&my_ipc_n);
+    631            else if(!IsNoDlg(DlgCsmIDs))
+    632            {
+    633              //readAllSMS();
+    634              if(IsHaveDlgGuiOnTop()) RefreshGUI();
+    635            }
+    636            isnewp=0;
+    637          }
+    638          
+    639          extern short PLAY_ID;
+    640          /*
+    641          void UpdateNProc(void)
+    642          {
+    643          	new_sms_n=(SmsDataRoot())->cnt_in_new_sms_dat;
+    644          	if((!IsHaveNewSMS())&&(CFG_ENA_NOTIFY))
+    645          	{
+    646          		SetVibration(0);
+    647          		if(PLAY_ID)
+    648          		{
+    649          			PlayMelody_StopPlayback(PLAY_ID);
+    650          			PLAY_ID=0;
+    651          		}
+    652          	}
+    653          }
+    654          */
+    655          
+    656          void UpdateNProc(void)
+    657          {
+    658            if(!IsNoDlg(DlgCsmIDs))
+    659            {
+    660              //readAllSMS();
+    661              if(tindex)
+    662              {
+    663                ReadThisSms(tindex, 1);
+    664                tindex=0;
+    665              }
+    666              if(IsHaveDlgGuiOnTop())
+    667              {
+    668                RefreshGUI();
+    669                GBS_SendMessage(MMI_CEPID,KEY_DOWN,0x63); //update screen
+    670              }
+    671            }
+    672          }
+    673          
+    674          #pragma inline=forced
+    675          int toupper(int c)
+    676          {
+    677            if ((c>='a')&&(c<='z')) c+='A'-'a';
+    678            return(c);
+    679          }
+    680          #pragma inline
+    681          int strcmp_nocase(const char *s1,const char *s2)
+    682          {
+    683            int i;
+    684            int c;
+    685            while(!(i=(c=toupper(*s1++))-toupper(*s2++))) if (!c) break;
+    686            return(i);
+    687          }
+    688          /*
+    689          int GetIcon(void)
+    690          {
+    691            int is_file=0, c;
+    692            const char *p=CFG_ICONNEW_PATH;
+    693            while((c=*p++))
+    694            {
+    695              if(c<'0' || c>'9')
+    696              {
+    697                is_file=1;
+    698                break;
+    699              }
+    700            }
+    701            p=CFG_ICONNEW_PATH;
+    702            if(is_file)
+    703            {
+    704              if(IsFileExist(p))
+    705                return (int)p;
+    706            }
+    707            else
+    708              return (str2int(p));
+    709            return 0;
+    710          }
+    711          */
+    712          void InitDatPath(void)
+    713          {
+    714            int x, xl;
+    715            strcpy(sms_dat, CFG_SYSTEM_FOLDER);
+    716            if((xl=strlen(sms_dat))>0)
+    717              x=sms_dat[xl-1];
+    718            if((x!='\\')&&(x!='/'))
+    719            {
+    720              sms_dat[xl]='\\';
+    721              sms_dat[xl+1]=0;
+    722            }
+    723            strcat(sms_dat, "SMS\\SMS.dat");
+    724            strcpy(ems_admin_dat, CFG_SYSTEM_FOLDER);
+    725            if((xl=strlen(ems_admin_dat))>0)
+    726              x=ems_admin_dat[xl-1];
+    727            if((x!='\\')&&(x!='/'))
+    728            {
+    729              ems_admin_dat[xl]='\\';
+    730              ems_admin_dat[xl+1]=0;
+    731            }
+    732            strcat(ems_admin_dat, "SMS\\EMS_Admin.dat");
+    733          }
+    734          
+    735          //int NEW_SMS_ICON;
+    736          void InitSetting(void)
+    737          {
+    738            InitConfig();
+    739            InitDatPath();
+    740          //  NEW_SMS_ICON=GetIcon();
+    741          }
+    742          
+    743          #ifdef ELKA
+    744          
+    745          #pragma swi_number=0x36
+    746          __swi __arm void SLI_SetState(unsigned char state);
+    747          
+    748          GBSTMR sli_tmr;
+    749          int sli_cnt=0;
+    750          int sli_sta=0;
+    751          
+    752          
+    753          void STOP_SLI(void)
+    754          {
+    755            GBS_DelTimer(&sli_tmr);
+    756            sli_cnt=0;
+    757            sli_sta=0;
+    758            SLI_SetState(0);
+    759          }
+    760          
+    761          void SLI_PROC(void)
+    762          {
+    763            if(sli_cnt==1) SLI_SetState(0);
+    764            else if(sli_cnt==0) SLI_SetState(1);
+    765            
+    766            if(sli_cnt>5) sli_cnt=0;
+    767            else sli_cnt++;
+    768            if(new_sms_n>0) GBS_StartTimerProc(&sli_tmr, 216/6, SLI_PROC);
+    769            else STOP_SLI();
+    770          }
+    771          
+    772          #endif
+    773          
+    774          
+    775          int IsSSOnTop(void)
+    776          {
+    777          //  extern SS_RAM *GetScreenSaverRam(void);
+    778            SS_RAM *ss_ram;
+                   ^
+Error[Pe020]: identifier "SS_RAM" is undefined
+
+    SS_RAM *ss_ram;
+            ^
+"C:\arm\mss3\main.c",778  Error[Pe020]: identifier "ss_ram" is undefined
+    779            if(!(ss_ram=GetScreenSaverRAM())) return 0;
+                               ^
+Warning[Pe223]: function "GetScreenSaverRAM" declared implicitly
+    780            if((ss_ram->ss_gui_id) && IsGuiOnTop(ss_ram->ss_gui_id))
+    781              return 1;
+    782            if((ss_ram->keylock_gui_id) && IsGuiOnTop(ss_ram->keylock_gui_id))
+    783              return 1;
+    784            return 0;
+    785          }
+    786          
+    787          
+    788          int daemoncsm_onmessage(CSM_RAM *data,GBS_MSG* msg)
+    789          {
+    790          #ifdef NEWSGOLD
+    791          
+    792          #ifdef ELKA
+    793          #define MSG_EMS_FFS_WRITE 0x6105
+    794          #else
+    795          #define MSG_EMS_FFS_WRITE 0x61CB
+    796          #endif
+    797          
+    798          #ifdef ELKA
+    799          #define MSG_EMS_INCOMING 0x6106 //ELKA,来自smsman
+    800          #else
+    801          #define MSG_EMS_INCOMING 0x61CC
+    802          #define MSG_EMS_INCOMING_2 0x61D6
+    803          #endif
+    804          
+    805          #endif 
+    806          //0x61CC ?? SMS_incoming
+    807          //如果使用Browser-killer之类的补丁,将不会有新信息弹出窗口,使用这个MSG可以进行检查是否来新短信了
+    808          
+    809          #ifdef ELKA
+    810          	//if(/*(CFG_ENA_NOTIFY)&&*/(msg->msg==MSG_EMS_INCOMING)&&IsHaveNewSMS())
+    811          #else
+    812          	//if(/*(CFG_ENA_NOTIFY)&&*/(msg->msg==MSG_EMS_INCOMING)&&IsHaveNewSMS())
+    813          //	if((CFG_ENA_NOTIFY)&&(msg->msg==MSG_EMS_INCOMING_2))
+    814          //	if((CFG_ENA_NOTIFY)&&((msg->msg==MSG_EMS_INCOMING) || (msg->msg==MSG_EMS_INCOMING_2)))
+    815          #endif
+    816          	//{
+    817          	//  if(!IsTimerProc(&chk_tmr)) //接收到MSG半秒之后开始检查,直接开始检查会死机.
+    818          	//    GBS_StartTimerProc(&chk_tmr, 216/2, DoNewProc);
+    819          	//    //GBS_StartTimerProc(&chk_tmr, 216/2, CheckNewProc);
+    820          	//}
+    821          	if(msg->msg==MSG_EMS_FFS_WRITE)
+    822          	{
+    823          	  int x;
+    824          	  if((int)msg->data1!=0x8)
+    825          	  {
+    826          	    if(IsThisSmsNewIn((int)msg->data0))// SUBPROC((void *)DoNewProc);
+    827          	    {
+    828          	      if(IsTimerProc(&chk_tmr)) GBS_DelTimer(&chk_tmr);
+    829          	      isnewp=1;
+    830          	      tindex=(int)msg->data0;
+    831          	      GBS_StartTimerProc(&chk_tmr, 216/2, DoNewProc);
+    832          	    }
+    833          	  }
+    834          	  else/* if((int)msg->data1==0x8 && !IsNoDlg(DlgCsmIDs))*/
+    835          	  {
+    836          	    if((x=CheckThisSMS((int)msg->data0)))
+    837          	    {
+    838          	      if(x==1)
+    839          	      {
+    840          		if(!IsTimerProc(&chk_tmr) || !isnewp)
+    841          		{
+    842          		  GBS_DelTimer(&chk_tmr);
+    843          		  tindex=(int)msg->data0;
+    844          		  GBS_StartTimerProc(&chk_tmr, 216/2, UpdateNProc);
+    845          		}
+    846          		//SUBPROC((void *)UpdateNProc);
+    847          		//if(!IsTimerProc(&n_update_tmr)/* && !IsTimerProc(&chk_tmr)*/)
+    848          		//  GBS_StartTimerProc(&n_update_tmr, 216*2/3, UpdateNProc);
+    849          	      }
+    850          	      else if(x==2)
+    851          	      {
+    852          		if(IsHaveDlgGuiOnTop()) RefreshGUI();
+    853          	      }
+    854          	    }
+    855          	  }
+    856          	  
+    857          	  //new_sms_n=(SmsDataRoot())->cnt_in_new_sms_dat;
+    858          	  //if(!new_sms_n) 
+    859          	  new_sms_n=getCountByType(TYPE_IN_N);
+    860          	  if((CFG_ENA_NOTIFY)&&(!new_sms_n)) //主要用于simoco链接手机时会读取所有短信并将其设置为已读
+    861          	  {
+    862          	    SetVibration(0);
+    863          	    if(PLAY_ID)
+    864          	    {
+    865          	      PlayMelody_StopPlayback(PLAY_ID);
+    866          	      PLAY_ID=0;
+    867          	    }
+    868          	  }
+    869          #ifdef ELKA
+    870          	  if(CFG_ENA_SLI)
+    871          	  {
+    872          	    if(new_sms_n>0)
+    873          	    {
+    874          	      sli_sta=1;
+    875          	      SLI_PROC();
+    876          	    }
+    877          	    else if(sli_sta) STOP_SLI();
+    878          	  }
+    879          #endif
+    880          	  //char str[64];
+    881          	  //sprintf(str, "submess:0x%X\ndata0:0x%08X\ndata1:0x%08X", msg->submess, msg->data0, msg->data1);
+    882          	  //ShowMSG(0, (int)str);
+    883          	  //WSHDR *ws=AllocWS(64);
+    884          	  //wsprintf(ws, "submess:0x%X\ndata0:0x%08X\ndata1:0x%08X", msg->submess, msg->data0, msg->data1);
+    885          	  //ShowMSG_ws(0, ws);
+    886          	  //        submess,data0,data1
+    887          	  //NEW in 97,index,0x408
+    888          	  //set to read 97,index,0x8
+    889          	  //del 97,index,0x8
+    890          	  //if(!IsTimerProc(&n_update_tmr) && !IsTimerProc(&chk_tmr))
+    891          	  //  GBS_StartTimerProc(&n_update_tmr, 216, UpdateNProc);
+    892          	}
+    893          	if(msg->msg==MSG_RECONFIGURE_REQ)
+    894          	{
+    895          	  extern const char *successed_config_filename;
+    896          	  if(!strcmp_nocase(successed_config_filename,(char *)msg->data0))
+    897          	  {
+    898          	    InitSetting();
+    899          	    ShowMSG(1,(int)lgp.LGP_CONFIG_UPDATE);
+    900          	    if(!cltop) SUBPROC((void *)ConstructListN);
+    901          	    if(!sdltop) SUBPROC((void *)ReadAllSmsN);
+    902          	  }
+    903          	}
+    904          	if(PLAY_ID && (msg->msg==MSG_INCOMMING_CALL || IsCalling()))
+    905          	{
+    906          	  PlayMelody_StopPlayback(PLAY_ID);
+    907          	  PLAY_ID=0;
+    908          	}
+    909          	if(msg->msg==MSG_PLAYFILE_REPORT && PLAY_ID) 
+    910          	{
+    911          	  GBS_PSOUND_MSG *pmsg=(GBS_PSOUND_MSG *)msg;
+    912          	  if(pmsg->handler==PLAY_ID)
+    913          	  {
+    914          	    int z=pmsg->cmd;
+    915          	    if(z==M_SAE_PLAYBACK_ERROR || z==M_SAE_PLAYBACK_DONE)
+    916          	      PLAY_ID=0;
+    917          	  }
+    918          	}
+    919          	if(msg->msg==MSG_IPC)
+    920          	{
+    921          	  IPC_REQ *ipc;
+    922          	  if((ipc=(IPC_REQ *)msg->data0))
+    923          	  {
+    924          	    if(!strcmp(ipc->name_to, my_ipc_name))
+    925          	    {
+    926          	      if(msg->submess==MY_SMSYS_IPC_START)
+    927          	      {
+    928          		IPC_DATA_DAEMON *ipcd=(IPC_DATA_DAEMON *)ipc->data;
+    929          		if((ipcd)&&(ipcd->csm_id!=DAEMON_CSM_ID))
+    930          		{
+    931          		  switch(ipcd->code)
+    932          		  {
+    933          		  case MY_SMSYS_CREATE:
+    934          		    {
+    935          		      daemon_ipc.data=&ipc_data_daemon;
+    936          		      ipc_data_daemon.csm_id=ipcd->csm_id;
+    937          		      ipc_data_daemon.code=MY_SMSYS_CLOSE;
+    938          		      ipc_data_daemon.fname=0;
+    939          		      GBS_SendMessage(MMI_CEPID,MSG_IPC,MY_SMSYS_IPC_START,&daemon_ipc);
+    940          		      IPC_SUB_MSG=MY_SMSYS_IPC_START;
+    941          		      CreateDialogCSM();
+    942          		    }
+    943          		    break;
+    944          		  case MY_SMSYS_CLOSE:
+    945          		    CloseCSM(ipcd->csm_id);
+    946          		    break;
+    947          		  case MY_SMSYS_FVIEW:
+    948          		    daemon_ipc.data=&ipc_data_daemon;
+    949          		    ipc_data_daemon.csm_id=ipcd->csm_id;
+    950          		    ipc_data_daemon.code=MY_SMSYS_CLOSE;
+    951          		    ipc_data_daemon.fname=0;
+    952          		    if(ipcd->fname)
+    953          		      strcpy(filename, ipcd->fname);
+    954          		    else
+    955          		      filename[0]=0;
+    956          		    GBS_SendMessage(MMI_CEPID,MSG_IPC,MY_SMSYS_IPC_START,&daemon_ipc);
+    957          		    IPC_SUB_MSG=SMSYS_IPC_FVIEW;
+    958          		    CreateDialogCSM();
+    959          		    break;
+    960          		  }
+    961          		}
+    962          	      }
+    963          	      else if((msg->submess > 0)&&(msg->submess <= SMSYS_IPC_MSG_MAX))
+    964          	      {
+    965          		IPC_SUB_MSG=msg->submess;
+    966          		CreateDialogCSM();
+    967          	      }
+    968          	      else if(msg->submess == SMSYS_IPC_ARCHIVE)
+    969          	      {
+    970          		SUBPROC((void *)OpenArchive);
+    971          	      }
+    972          	      else if(msg->submess == SMSYS_IPC_NEW_IN_WIN)
+    973          	      {
+    974          		IPC_SUB_MSG=msg->submess;
+    975          		CreateDialogCSM();
+    976          	      }
+    977          	      else if(msg->submess == SMSYS_IPC_NEWSMS_NUM)
+    978          	      {
+    979          		num_from_ipc=(char *)ipc->data;
+    980          		IPC_SUB_MSG=msg->submess;
+    981          		CreateDialogCSM();
+    982          	      }
+    983          	      else if(msg->submess == SMSYS_IPC_SEND_UTF8)
+    984          	      {
+    985          		text_utf8=(char *)ipc->data;
+    986          		IPC_SUB_MSG=msg->submess;
+    987          		CreateDialogCSM();
+    988          	      }
+    989          	      else if((msg->submess >= SMSYS_IPC_VIEW_OPMSG)&&(msg->submess <= SMSYS_IPC_QN_OPMSG))
+    990          	      {
+    991          		opmsg_id=(int)ipc->data;
+    992          		IPC_SUB_MSG=msg->submess;
+    993          		CreateDialogCSM();
+    994          	      }
+    995          	      else if(msg->submess==SMSYS_IPC_SEND_WS)
+    996          	      {
+    997          		text_ws=(WSHDR *)ipc->data;
+    998          		IPC_SUB_MSG=msg->submess;
+    999          		CreateDialogCSM();
+   1000          	      }
+   1001          	      else if(msg->submess == SMSYS_IPC_FVIEW)
+   1002          	      {
+   1003          		IPC_SUB_MSG=SMSYS_IPC_FVIEW;
+   1004          		if(ipc->data)
+   1005          		{
+   1006          		  strcpy(filename, (char *)ipc->data);
+   1007          		  mfree(ipc->data);
+   1008          		}
+   1009          		else
+   1010          		  filename[0]=0;
+   1011          		CreateDialogCSM();
+   1012          	      }
+   1013          	      else if(msg->submess == SMSYS_IPC_UPDATE_CLIST)
+   1014          	      {
+   1015          		SUBPROC((void *)ConstructList);
+   1016          	      }
+   1017          	      else if(msg->submess == SMSYS_IPC_SMS_DATA_UPDATE)
+   1018          	      {
+   1019          		if(IsHaveDlgGuiOnTop()) RefreshGUI();
+   1020          	      }
+   1021          	    }
+   1022          	  }
+   1023          	}
+   1024          	if(msg->msg==MSG_CSM_DESTROYED)
+   1025          	{
+   1026          	  if(SNEDSMS_CSM_ID)
+   1027          	  {
+   1028          	    if((int)msg->data0==SNEDSMS_CSM_ID)
+   1029          	      SNEDSMS_CSM_ID=0;
+   1030          	    else if(!FindCSMbyID(SNEDSMS_CSM_ID))
+   1031          	      SNEDSMS_CSM_ID=0;
+   1032          	  }
+   1033          	}
+   1034          	CSM_RAM *icsm=FindCSMbyID(CSM_root()->idle_id);
+   1035          	if((new_sms_n>0)&& (CFG_ENA_NEWSMS_ICON)/* && (NEW_SMS_ICON)*/)
+   1036          	{
+   1037          #define idlegui_id (((int *)icsm)[DISPLACE_OF_IDLEGUI_ID/4])
+   1038          	  if(IsGuiOnTop(idlegui_id) || IsSSOnTop())
+   1039          	  {
+   1040          	    GUI *igui=GetTopGUI();
+   1041          	    if(igui)
+   1042          	    {
+   1043          	      DrawImg(CFG_ICONNEW_POS_X, CFG_ICONNEW_POS_Y, ip.dis_smsnew);
+   1044          	    }
+   1045          	  }
+   1046          	}
+   1047          	return 1;
+   1048          }
+   1049          
+   1050          void LdProc(void)
+   1051          {
+   1052            if(!cltop) SUBPROC((void *)ConstructListN);
+   1053            if(!sdltop) SUBPROC((void *)ReadAllSmsN);
+   1054          }
+   1055          //extern int MyKeyHook(int submsg, int msg);
+   1056          //extern void restore_allss_methods(void);
+   1057          //extern void replace_allss_methods(void);
+   1058          //extern void isexit_ss(void);
+   1059          void daemoncsm_oncreate(CSM_RAM *data)
+   1060          {
+   1061            daemon_ipc.data=&ipc_data_daemon;
+   1062            ipc_data_daemon.csm_id=DAEMON_CSM_ID;
+   1063            if(is_fview&&strlen(filename))
+   1064            {
+   1065              ipc_data_daemon.code=MY_SMSYS_FVIEW;
+   1066              ipc_data_daemon.fname=filename;
+   1067            }
+   1068            else
+   1069            {
+   1070              ipc_data_daemon.code=MY_SMSYS_CREATE;
+   1071              ipc_data_daemon.fname=0;
+   1072            }
+   1073            GBS_SendMessage(MMI_CEPID,MSG_IPC,MY_SMSYS_IPC_START,&daemon_ipc);
+   1074            AddKeybMsgHook((void *)MyKeyHook);
+   1075            GBS_StartTimerProc(&ld_tmr, 216*2, LdProc);
+   1076          }
+   1077          
+   1078          void ElfKiller(void)
+   1079          {
+   1080            extern void *ELF_BEGIN;
+   1081            kill_data(&ELF_BEGIN,(void (*)(void *))mfree_adr());
+   1082          }
+   1083          
+   1084          void daemoncsm_onclose(CSM_RAM *csm)
+   1085          {
+   1086            //restore_allss_methods();
+   1087            GBS_DelTimer(&chk_tmr);
+   1088            GBS_DelTimer(&ld_tmr);
+   1089            RemoveKeybMsgHook((void *)MyKeyHook);
+   1090            closeAllDlgCSM(DlgCsmIDs);
+   1091            FreeCLIST();
+   1092            freeSDList();
+   1093          #ifdef ELKA
+   1094            STOP_SLI();
+   1095          #endif
+   1096            //GBS_DelTimer(&n_update_tmr);
+   1097            FreeLangPack();
+   1098            FreeIconPack();
+   1099            SUBPROC((void *)ElfKiller);
+   1100          }
+   1101          
+   1102          static unsigned short daemoncsm_name_body[32];
+   1103          
+   1104          #define ICONBAR
+   1105          #ifdef ICONBAR
+   1106          
+   1107          void addIconBar(short* num)
+   1108          {
+   1109          #pragma swi_number=0x27 
+   1110          __swi __arm void AddIconToIconBar(int pic, short *num);
+   1111            if(CFG_ENA_IB)
+   1112            {
+   1113          	if(SNEDSMS_CSM_ID) AddIconToIconBar(CFG_ICONSNED_IB, num);
+   1114          	else if(new_sms_n>0) AddIconToIconBar(CFG_ICON_IB, num);
+   1115            }
+   1116          }
+   1117          
+   1118          
+   1119          typedef struct
+   1120          {
+   1121            char check_name[8];
+   1122            int addr;
+   1123          }ICONBAR_H;
+   1124          #endif
+   1125          static const struct
+   1126          {
+   1127            CSM_DESC daemoncsm;
+   1128            WSHDR daemoncsm_name;
+   1129          #ifdef ICONBAR
+   1130            ICONBAR_H iconbar_handler;
+   1131          #endif
+   1132          }DAEMONCSM =
+   1133          {
+   1134            {
+   1135              daemoncsm_onmessage,
+   1136              daemoncsm_oncreate,
+   1137          #ifdef NEWSGOLD
+   1138              0,
+   1139              0,
+   1140              0,
+   1141              0,
+   1142          #endif
+   1143              daemoncsm_onclose,
+   1144              sizeof(DEAMON_CSM),
+   1145              1,
+   1146              &minus11
+   1147            },
+   1148            {
+   1149              daemoncsm_name_body,
+   1150              NAMECSM_MAGIC1,
+   1151              NAMECSM_MAGIC2,
+   1152              0x0,
+   1153              31
+   1154            }
+   1155          #ifdef ICONBAR
+   1156            ,
+   1157            {
+   1158              "IconBar",
+   1159              (int)addIconBar
+   1160            }
+   1161          #endif
+   1162          };
+   1163          
+   1164          void UpdateDaemonCSMname(void)
+   1165          {
+   1166            wsprintf((WSHDR *)(&DAEMONCSM.daemoncsm_name),ELFNAME_D);
+   1167          }
+   1168          
+   1169          int main(char *exename, char *fname)
+   1170          {
+   1171            DEAMON_CSM d_csm;
+   1172            CSM_RAM *save_cmpc;
+   1173            CSMROOT *csmr=CSM_root();
+   1174            zeromem(&d_csm, sizeof(DEAMON_CSM));
+   1175            UpdateDaemonCSMname();
+   1176            dlgIDsInit();
+   1177            InitSetting();
+   1178            ZeroIconPack();
+   1179            LoadIconPack();
+   1180            LoadLangPack();
+   1181            if(fname)
+   1182            {
+   1183              if ( fname[0] < '0' || fname[0] > '4' || fname[1] != ':' || strlen(fname) > 128 )
+   1184              {
+   1185                SUBPROC((void *)ElfKiller);
+   1186                return 0;
+   1187              }
+   1188              strcpy(filename, fname);
+   1189              is_fview=1;
+   1190            }
+   1191            LockSched();
+   1192            save_cmpc=csmr->csm_q->current_msg_processing_csm;
+   1193            csmr->csm_q->current_msg_processing_csm=csmr->csm_q->csm.first;
+   1194            DAEMON_CSM_ID=CreateCSM(&DAEMONCSM.daemoncsm,&d_csm,0);
+   1195            csmr->csm_q->current_msg_processing_csm=save_cmpc;
+   1196            UnlockSched();
+   1197            // for swaper
+   1198            InitUnderIdleCSM();
+   1199          #ifdef ICONBAR
+   1200            //SetIconBarHandler();
+   1201          #endif
+   1202            return 0;
+   1203          }
+   1204          
+   1205          //--------------------------------------------------------
+   1206          //Others Menu
+   1207          #define OTH_MENU_N 8
+   1208          /*
+   1209          const SOFTKEY_DESC oth_menu_sk[]=
+   1210          {
+   1211            {0x0018,0x0000,(int)LGP_SELECT},
+   1212            {0x0001,0x0000,(int)LGP_BACK},
+   1213            {0x003D,0x0000,(int)LGP_DOIT_PIC}
+   1214          };
+   1215          */
+   1216          
+   1217          extern SOFTKEY_DESC ed_menu_sk[];
+   1218          const SOFTKEYSTAB oth_menu_skt=
+   1219          {
+   1220            ed_menu_sk,0
+   1221            //oth_menu_sk,0
+   1222          };
+   1223          
+   1224          void OpenConfig(void)
+   1225          {
+   1226            extern const char *successed_config_filename;
+   1227            WSHDR *file=AllocWS(128);
+   1228            str_2ws(file, successed_config_filename, 128);
+   1229            ExecuteFile(file, 0, 0);
+   1230            FreeWS(file);
+   1231          }
+   1232          
+   1233          void oth_menu_config(GUI *data)
+   1234          {
+   1235            GeneralFuncF1(1);
+   1236            OpenConfig();
+   1237          }
+   1238          
+   1239          void oth_save_one_txt(GUI *data)
+   1240          {
+   1241            GeneralFuncF1(1);
+   1242            PathInputDlg(INPUT_EXP_TXT, 0);
+   1243          }
+   1244          
+   1245          void oth_move_all_mss(GUI *data)
+   1246          {
+   1247            int k;
+   1248            char msg[64];
+   1249            GeneralFuncF1(1);
+   1250            k=MoveAllMssToArchive();
+   1251            sprintf(msg, lgp.LGP_MOVE_MSSARCHIVER_N, k);
+   1252            ShowMSG(1, (int)msg);
+   1253          }
+   1254          
+   1255          
+   1256          void oth_open_archive(GUI *data)
+   1257          {
+   1258            GeneralFuncF1(1);
+   1259            OpenArchive();
+   1260          }
+   1261          
+   1262          void oth_about(GUI *data)
+   1263          {
+   1264            GeneralFuncF1(1);
+   1265            ShowMSG_noff(1, COPY_RIGHT);
+   1266          }
+   1267          
+   1268          void oth_cov_dat_txt(GUI *data)
+   1269          {
+   1270            GeneralFuncF1(1);
+   1271            PathInputDlg(INPUT_COV_DAT, 0);
+   1272          }
+   1273          /*
+   1274          void oth_save_all_as_file(GUI *data)
+   1275          {
+   1276            char msg[64];
+   1277            GeneralFuncF1(1);
+   1278            sprintf(msg, STR_SAF_N, SaveAllAsFile());
+   1279            ShowMSG(1, (int)msg);;
+   1280          }
+   1281          */
+   1282          
+   1283          void oth_del_all(GUI *data) //mss
+   1284          {
+   1285            GeneralFuncF1(1);
+   1286            extern void delallproc(void);// ed_gui.c
+   1287            delallproc();
+   1288          }
+   1289          
+   1290          void oth_show_count(GUI *data) //mss
+   1291          {
+   1292            DLG_CSM *dlg_csm=MenuGetUserPointer(data);
+   1293            GeneralFuncF1(1);
+   1294            extern int ShowCount(void); //ed_gui.c
+   1295            UpdateDlgCsmName(dlg_csm, lgp.LGP_STATISTICS);
+   1296            ShowCount();
+   1297          }
+   1298          
+   1299          
+   1300          const MENUPROCS_DESC oth_menuprocs[OTH_MENU_N]=
+   1301          {
+   1302            oth_menu_config,
+   1303            oth_open_archive,
+   1304            oth_save_one_txt,
+   1305            oth_move_all_mss,
+   1306            oth_cov_dat_txt,
+   1307            oth_del_all,
+   1308            oth_show_count,
+   1309            oth_about,
+   1310          };
+   1311          
+   1312          MENUITEM_DESC oth_menuitems[OTH_MENU_N]=
+   1313          {
+   1314            {NULL,(int)LGP_NULL,	LGP_NULL, 0, NULL, MENU_FLAG3, MENU_FLAG2},
+   1315            {NULL,(int)LGP_NULL,	LGP_NULL, 0, NULL, MENU_FLAG3, MENU_FLAG2},
+   1316            {NULL,(int)LGP_NULL,	LGP_NULL, 0, NULL, MENU_FLAG3, MENU_FLAG2},
+   1317            {NULL,(int)LGP_NULL,	LGP_NULL, 0, NULL, MENU_FLAG3, MENU_FLAG2},
+   1318            {NULL,(int)LGP_NULL,	LGP_NULL, 0, NULL, MENU_FLAG3, MENU_FLAG2},
+   1319            {NULL,(int)LGP_NULL,	LGP_NULL, 0, NULL, MENU_FLAG3, MENU_FLAG2},
+   1320            {NULL,(int)LGP_NULL,	LGP_NULL, 0, NULL, MENU_FLAG3, MENU_FLAG2},
+   1321            {NULL,(int)LGP_NULL,	LGP_NULL, 0, NULL, MENU_FLAG3, MENU_FLAG2},
+   1322          };
+   1323          
+   1324          void oth_menu_ghook(void *data, int cmd)
+   1325          {
+   1326            if(cmd==5)
+   1327            {
+   1328              DLG_CSM *dlg_csm=MenuGetUserPointer(data);
+   1329              UpdateDlgCsmName(dlg_csm, lgp.LGP_OTHERS);
+   1330            }
+   1331          }
+   1332          const MENU_DESC oth_menu=
+   1333          {
+   1334            8,NULL,oth_menu_ghook,NULL,
+   1335            main_menusoftkeys,
+   1336            &oth_menu_skt,
+   1337            0x10,//Right align
+   1338            NULL,
+   1339            oth_menuitems,//menuitems,
+   1340            oth_menuprocs,//menuprocs,
+   1341            OTH_MENU_N
+   1342          };
+   1343          
+   1344          HEADER_DESC oth_menuhdr={0,0,0,0,NULL,(int)LGP_NULL,LGP_NULL};
+   1345          
+   1346          unsigned int CreateOthMenu(void *dlg_csm)
+   1347          {
+   1348            patch_header(&oth_menuhdr);
+   1349            return (CreateSLMenu(&oth_menu, &oth_menuhdr, 0, OTH_MENU_N, dlg_csm));
+   1350          }
+   1351          
+   1352          //open archive
+   1353          void OpenArchive(void)
+   1354          {
+   1355            int len, c;
+   1356            char folder[128];
+   1357            unsigned int err;
+   1358            NativeExplorerData data;
+   1359            WSHDR *ws, wsn;
+   1360            unsigned short wsb[128];
+   1361            ws=CreateLocalWS(&wsn, wsb, 128);
+   1362            strcpy(folder, CFG_MAIN_FOLDER);
+   1363            len=strlen(folder);
+   1364            c=folder[len-1];
+   1365            if(c!='\\' && c!='/')
+   1366            {
+   1367              folder[len]='\\';
+   1368              folder[len+1]=0;
+   1369            }
+   1370            if(!isdir(folder, &err))
+   1371              mkdir(folder, &err);
+   1372            strcat(folder, FLDR_ARCHIVE);
+   1373            if(!isdir(folder, &err))
+   1374              mkdir(folder, &err);
+   1375            if(!isdir(folder, &err))
+   1376              return;
+   1377            str_2ws(ws, folder, 128);
+   1378            zeromem(&data,sizeof(NativeExplorerData));
+   1379            data.mode=0;
+   1380            data.dir_enum=0x26;
+   1381            data.path_to_file=ws;
+   1382            data.is_exact_dir=1;
+   1383            data.full_filename=ws;
+   1384            data.unk9=1;
+   1385            StartNativeExplorer(&data);
+   1386          }
+   1387          
+   1388          
+
+Errors: 2
+Warnings: 2

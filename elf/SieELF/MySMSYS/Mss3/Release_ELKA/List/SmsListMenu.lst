@@ -1,0 +1,604 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    07/May/2009  10:45:39 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\SmsListMenu.cpp     #
+#    Command line    =  D:\pasha\elf\SieELF\MySMSYS\Mss3\SmsListMenu.cpp -D  #
+#                       NEWSGOLD -D ELKA -D LANG_CN -lcN                     #
+#                       D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\List\  #
+#                       -o D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\Obj #
+#                       \ -s9 --no_unroll --cpu_mode arm --endian little     #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --eec++ --dlib_config "D:\pasha\Embedded  #
+#                       Workbench 4.0 Evaluation2\ARM\LIB\dl5tpainl8n.h" -I  #
+#                       "D:\pasha\Embedded Workbench 4.0                     #
+#                       Evaluation2\ARM\INC\" --inline_threshold=2           #
+#    List file       =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\List\S #
+#                       msListMenu.lst                                       #
+#    Object file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\Obj\Sm #
+#                       sListMenu.r79                                        #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\pasha\elf\SieELF\MySMSYS\Mss3\SmsListMenu.cpp
+      1          #include "include.h"
+      2          
+      3          #include "SiemensPDU.h"
+      4          #include "MyIpcMessage.h"
+      5          #include "File.h"
+      6          #include "SmsData.h"
+      7          #include "CreateMenu.h"
+      8          #include "SmsListMenu.h"
+      9          #include "TabGUI.h"
+     10          
+     11          #include "AdrList.h"
+     12          #include "NumList.h"
+     13          #include "EditGUI.h"
+     14          
+     15          #include "PopupGUI.h"
+     16          
+     17          #include "NativeAddressbook.h"
+     18          #include "CodeShow.h"
+     19          
+     20          SOFTKEY_DESC sms_menu_sk[]=
+     21          {
+     22            {0x0018,0x0000,(int)LGP_NULL},
+     23            {0x0001,0x0000,(int)LGP_NULL},
+     24            {0x003D,0x0000,(int)LGP_DOIT_PIC}
+     25          };
+     26          
+     27          const SOFTKEYSTAB sms_menu_skt=
+     28          {
+     29            sms_menu_sk,0
+     30          };
+     31          
+     32          const HEADER_DESC sms_menuhdr={0,0,0,0,NULL,LGP_NULL,LGP_NULL};
+     33          
+     34          SmsListMenu::~SmsListMenu()
+     35          {
+     36          }
+     37          
+     38          SmsListMenu::SmsListMenu()
+     39          {
+     40            menu.flag=8;
+     41            menu.onkey=OnKey;
+     42            menu.ghook=GHook;
+     43            menu.proc3=NULL;
+     44            menu.softkeys=softkeys;
+     45            menu.softkeystab=&sms_menu_skt;
+     46            menu.flags2=0x11; //icon
+     47            menu.itemproc=ItemProc;
+     48            menu.items=NULL;
+     49            menu.procs=NULL;
+     50            menu.n_items=0;
+     51            menu.n_lines=1; //2
+     52          }
+     53          
+     54          int SmsListMenu::OnKey(void *data, GUI_MSG *msg)
+     55          {
+     56            SmsListMenu *slm=(SmsListMenu *)MenuGetUserPointer(data);
+     57            int cur=GetCurMenuItem(data);
+     58            SDLIST *sdl=SMSDATA->FindSDL(slm->type, cur);
+     59            if(msg->keys==1)
+     60              return 1;
+     61            if(!sdl) return 0;
+     62            if(msg->keys==0x3D)
+     63            {
+     64              {
+     65                EditGUI *edg=new EditGUI;
+     66                edg->CreateEditGUI(slm->dlg_csm, sdl, ED_VIEW, slm->type, 0);
+     67              }
+     68            }
+     69            else if (msg->keys==0x5)
+     70            {
+     71              {
+     72                EditGUI *edg=new EditGUI;
+     73                edg->CreateEditGUI(slm->dlg_csm, sdl, ED_REPLY, slm->type, 0);
+     74              }
+     75            }
+     76            else if (msg->keys==0x18)
+     77            {
+     78              {
+     79                SmsOptionMenu *sop=new SmsOptionMenu;
+     80                sop->CreateSmsOptionMenu(slm->dlg_csm, slm->gui_id, slm->type, sdl);
+     81              }
+     82            }
+     83            else if (msg->keys==0x14)
+     84            {
+     85          #ifdef LANG_CN
+     86              unsigned short wscsb[32];
+     87              WSHDR *wmsg, *wscs, _wscs;
+     88              wmsg=AllocWS(150);
+     89              wscs=CreateLocalWS(&_wscs, wscsb, 32);
+     90              CodeShow::GetProvAndCity(wscs->wsbody, sdl->number);
+     91              wsprintf(wmsg, "%s\n%t:\n%w",
+     92                sdl->number,
+     93                LGP->lgp.LGP_CODESHOW,
+     94                wscs
+     95                );
+     96              MyShowMsg::MyShow(1, wmsg);
+     97          #else
+     98              MyShowMsg::MyShow(1, sdl->number);
+     99          #endif
+    100              //{
+    101              //  ShowMSG(1, (int)(sdl->number));
+    102              //}
+    103            }
+    104            if(msg->gbsmsg->msg==KEY_DOWN)
+    105            {
+    106              int key=msg->gbsmsg->submess;
+    107              if(key=='7') //delete
+    108              {
+    109                if(SMSDATA->DeleteMessage(sdl))
+    110                {
+    111          	slm->ReCreateMe(data);
+    112          	return 1;
+    113                }
+    114              }
+    115              else if (key=='4') //move to archive
+    116              {
+    117                if (SMSDATA->MoveToArchive(sdl))
+    118                {
+    119          	slm->ReCreateMe(data);
+    120          	return 1;
+    121                }
+    122              }
+    123            }
+    124            return 0;
+    125          }
+    126          
+    127          int SLM_HDR_LGPS[]={LGP_NULL,LGP_NULL,LGP_NULL,LGP_NULL,LGP_NULL,LGP_NULL,LGP_NULL};
+    128          
+    129          void SmsListMenu::GHook(void *data, int cmd)
+    130          {
+    131            SmsListMenu *slm=(SmsListMenu *)MenuGetUserPointer(data);
+    132            if(cmd==0xA)
+    133            {
+    134              int n=SMSDATA->GetSMSCount(slm->type);
+    135              int cur=GetCurMenuItem(data);
+    136              if(cur>=n) SetCursorToMenuItem(data, 0);
+    137              Menu_SetItemCountDyn(data, n);
+    138              DisableIDLETMR();
+    139            }
+    140            else if(cmd==0x2)
+    141            {
+    142              WSHDR *hdr_t=AllocWS(64);
+    143              void *hdr_p=GetHeaderPointer(data);
+    144              void *ma=malloc_adr();
+    145              void *mf=mfree_adr();
+    146              wsprintf(hdr_t, PERCENT_T, SLM_HDR_LGPS[slm->type<6?slm->type:0]);
+    147              SetHeaderText(hdr_p, hdr_t, ma, mf);
+    148            }
+    149            else if(cmd==0x3)
+    150            {
+    151              delete slm;
+    152            }
+    153            else if (cmd==0x5)
+    154            {
+    155              const char *lgpN;
+    156              switch(slm->type)
+    157              {
+    158              case 0:
+    159                lgpN=LGP->lgp.LGP_ALL;
+    160                break;
+    161              case TYPE_IN_R:
+    162                lgpN=LGP->lgp.LGP_IN_R;
+    163                break;
+    164              case TYPE_IN_N:
+    165                lgpN=LGP->lgp.LGP_IN_N;
+    166                break;
+    167              case TYPE_SENT:
+    168                lgpN=LGP->lgp.LGP_SENT;
+    169                break;
+    170              case TYPE_DRAFT:
+    171                lgpN=LGP->lgp.LGP_DRAFT;
+    172                break;
+    173              case TYPE_IN_ALL:
+    174                lgpN=LGP->lgp.LGP_IN_A;
+    175                break;
+    176              case TYPE_FILTER:
+    177                lgpN=LGP->lgp.LGP_FILTER;
+    178                break;
+    179              default:
+    180                lgpN=0;
+    181              }
+    182              slm->UpdateCSMName(slm->dlg_csm, (int)lgpN);
+    183            }
+    184          }
+    185          
+    186          #define MENU_MAX_TXT 50
+    187          int SLM_ICONS[8]={ICON_BLANK, ICON_BLANK, ICON_BLANK, ICON_BLANK, ICON_BLANK, ICON_BLANK, ICON_BLANK, 0};
+    188          void SmsListMenu::ItemProc(void *data, int curitem, void *user_pointer)
+    189          {
+    190            SDLIST *sdl;
+    191            void *item=AllocMLMenuItem(data);
+    192            WSHDR *ws1=AllocMenuWS(data, MENU_MAX_TXT);
+    193            WSHDR *ws2=AllocMenuWS(data, 150);
+    194            SmsListMenu *slm=(SmsListMenu *)MenuGetUserPointer(data);
+    195            if((sdl=SMSDATA->FindSDL(slm->type, curitem)))
+    196            {
+    197              if(sdl->text) wstrncpy(ws1, sdl->text, MENU_MAX_TXT);
+    198              else goto SL_ERR;
+    199              if(!strlen(sdl->number))
+    200                CutWSTR(ws2, 0);
+    201              else
+    202              {
+    203                if(!ADRLST->FindName(ws2, sdl->number))
+    204          	wsprintf(ws2, PERCENT_S, sdl->number);
+    205              }
+    206            }
+    207            else
+    208            {
+    209            SL_ERR:
+    210              wsprintf(ws1, PERCENT_T, LGP->lgp.LGP_ERR);
+    211              CutWSTR(ws2, 0);
+    212            }
+    213            SetMenuItemIconArray(data, item, SLM_ICONS);
+    214            SetMenuItemIcon(data, curitem, (sdl)?(sdl->type):0);
+    215            SetMLMenuItemText(data, item, ws1, ws2, curitem);
+    216          }
+    217          
+    218          int SmsListMenu::CreateSmsListMenu(int type, int is_tab, DLG_CSM *dlg_csm)
+    219          {
+    220            this->type=type;
+    221            this->is_tab=is_tab;
+    222            this->dlg_csm=dlg_csm;
+    223            this->gui_id=CreateMenu(&menu, &sms_menuhdr, 0, SMSDATA->GetSMSCount(type), this);
+    224            return this->gui_id;
+    225          }
+    226          /*
+    227          void *SmsListMenu::GetSmsListMenuGUI(int type, int is_tab, DLG_CSM *dlg_csm)
+    228          {
+    229            void *m_gui;
+    230            void *ma=malloc_adr();
+    231            void *mf=mfree_adr();
+    232            this->type=type;
+    233            this->dlg_csm=dlg_csm;
+    234            this->gui_id=0;
+    235            this->is_tab=is_tab;
+    236            m_gui=GetMultiLinesMenuGUI(ma, mf);
+    237            SetMenuToGUI(m_gui, &this->menu);
+    238            SetMenuItemCount(m_gui, SMSDATA->GetSMSCount(type));
+    239            MenuSetUserPointer(m_gui, this);
+    240            SetCursorToMenuItem(m_gui, 0);
+    241            patch_header(&sms_menuhdr);
+    242            SetHeaderToMenu(m_gui, &sms_menuhdr, ma);
+    243            return m_gui;
+    244          }
+    245          */
+    246          void * SmsListMenu::GetSmsListMenuGUI(int type, int is_tab, DLG_CSM *dlg_csm, int cur)
+    247          {
+    248            void *m_gui;
+    249            void *ma=malloc_adr();
+    250            void *mf=mfree_adr();
+    251            this->type=type;
+    252            this->dlg_csm=dlg_csm;
+    253            this->gui_id=0;
+    254            this->is_tab=is_tab;
+    255            m_gui=GetMultiLinesMenuGUI(ma, mf);
+    256            SetMenuToGUI(m_gui, &this->menu);
+    257            SetMenuItemCount(m_gui, SMSDATA->GetSMSCount(type));
+    258            MenuSetUserPointer(m_gui, this);
+    259            SetCursorToMenuItem(m_gui, cur);
+    260            patch_header(&sms_menuhdr);
+    261            SetHeaderToMenu(m_gui, &sms_menuhdr, ma);
+    262            return m_gui;
+    263          }
+    264          /*
+    265          SOFTKEY_DESC sop_menu_sk[]=
+    266          {
+    267            {0x0018,0x0000,(int)LGP_NULL},
+    268            {0x0001,0x0000,(int)LGP_NULL},
+    269            {0x003D,0x0000,(int)LGP_DOIT_PIC}
+    270          };
+    271          
+    272          const SOFTKEYSTAB sop_menu_skt=
+    273          {
+    274            sop_menu_sk,0
+    275          };
+    276          */
+    277          const HEADER_DESC sop_menuhdr={0,0,0,0,NULL,LGP_NULL,LGP_NULL};
+    278          
+    279          #define SOP_MENU_ITEM_N 7
+    280          SmsOptionMenu::SmsOptionMenu()
+    281          {
+    282            this->menu.flag=8;
+    283            this->menu.onkey=this->OnKey;
+    284            this->menu.ghook=this->GHook;
+    285            this->menu.proc3=NULL;
+    286            this->menu.softkeys=softkeys;
+    287            this->menu.softkeystab=&sel_menu_skt;
+    288            this->menu.flags2=0x11; //icon
+    289            this->menu.itemproc=this->ItemProc;
+    290            this->menu.items=NULL;
+    291            this->menu.procs=NULL;
+    292            this->menu.n_items=0;
+    293          }
+    294          
+    295          SmsOptionMenu::~SmsOptionMenu()
+    296          {
+    297          }
+    298          
+    299          int SmsOptionMenu::OnKey(void *data, GUI_MSG *msg)
+    300          {
+    301            SmsOptionMenu *sop=(SmsOptionMenu *)MenuGetUserPointer(data);
+    302            int cur=GetCurMenuItem(data);
+    303            if(msg->keys==1)
+    304              return 1;
+    305            if(msg->keys==0x3D || msg->keys==0x18)
+    306            {
+    307          DO_OP:
+    308              switch(cur)
+    309              {
+    310              case 0:
+    311                {
+    312          	EditGUI *edg=new EditGUI;
+    313          	edg->CreateEditGUI(sop->dlg_csm, sop->sdl, ED_REPLY, sop->list_type, 0);
+    314                }
+    315                break;
+    316              case 1:
+    317                {
+    318          	EditGUI *edg=new EditGUI;
+    319          	edg->CreateEditGUI(sop->dlg_csm, sop->sdl, ED_EDIT, sop->list_type, 0);
+    320                }
+    321                break;
+    322              case 2:
+    323                SMSDATA->DeleteMessage(sop->sdl);
+    324                break;
+    325              case 3:
+    326                if (sop->sdl)
+    327                {
+    328          	NAbCSM *nab=new NAbCSM;
+    329          	nab->CreateNAbCSM(NULL, 0, sop->sdl->number, NAB_SAVE);
+    330                }
+    331                break;
+    332              case 4:
+    333                if (sop->sdl
+    334          	&& strlen(sop->sdl->number)
+    335          	)
+    336                {
+    337          	MakeVoiceCall(sop->sdl->number,0x10,0x2FFF);
+    338                }
+    339                break;
+    340              case 5:
+    341                SMSDATA->MoveToArchive(sop->sdl);
+    342                break;
+    343              case 6:
+    344                if(!sop->slm_id) GeneralFunc_flag1(sop->dlg_csm->gui_id, 1);
+    345                else GeneralFunc_flag1(sop->slm_id, 1);
+    346                break;
+    347              }
+    348              return 1;
+    349            }
+    350            if(msg->gbsmsg->msg==KEY_DOWN)
+    351            {
+    352              cur=msg->gbsmsg->submess;
+    353              if(cur>='1' && cur<='9')
+    354              {
+    355                cur-='1';
+    356                goto DO_OP;
+    357              }
+    358            }
+    359            return 0;
+    360          }
+    361          
+    362          void SmsOptionMenu::GHook(void *data, int cmd)
+    363          {
+    364            SmsOptionMenu *sop=(SmsOptionMenu *)MenuGetUserPointer(data);
+    365            if(cmd==0xA)
+    366            {
+    367              DisableIDLETMR();
+    368            }
+    369            else if (cmd==0x3)
+    370            {
+    371              delete sop;
+    372            }
+    373            else if (cmd==0x2)
+    374            {
+    375              WSHDR *hdr_t=AllocWS(32);
+    376              wsprintf(hdr_t, PERCENT_T, LGP->lgp.LGP_OPTIONS);
+    377              SetHeaderText(GetHeaderPointer(data), hdr_t, malloc_adr(), mfree_adr());
+    378            }
+    379          }
+    380          
+    381          int SOP_ITEM_LGPS[SOP_MENU_ITEM_N]=
+    382          {
+    383            LGP_NULL, //reply
+    384              LGP_NULL, //edit
+    385              LGP_NULL, //delete
+    386              LGP_SAVE_TO_AB,
+    387              LGP_NULL, //call
+    388              LGP_NULL, //move to archive
+    389              LGP_NULL, //leave
+    390          };
+    391          
+    392          const int SOP_ITEM_ICONS[]={ICON_BLANK,0};
+    393          void SmsOptionMenu::ItemProc(void *data, int curitem, void *user_pointer)
+    394          {
+    395            void *item=AllocMenuItem(data);
+    396            WSHDR *ws=AllocMenuWS(data, 150);
+    397            wsprintf(ws, PERCENT_T, SOP_ITEM_LGPS[curitem]);
+    398            SetMenuItemIconArray(data, item, SOP_ITEM_ICONS);
+    399            SetMenuItemIcon(data, curitem, 0);
+    400            SetMenuItemText(data, item, ws, curitem);
+    401          }
+    402          
+    403          int SmsOptionMenu::CreateSmsOptionMenu(DLG_CSM *dlg_csm, int slm_id, int list_type, SDLIST *sdl)
+    404          {
+    405            this->dlg_csm=dlg_csm;
+    406            this->sdl=sdl;
+    407            this->slm_id=slm_id;
+    408            this->list_type=list_type;
+    409            return CreateMenu30or2(&this->menu, &sop_menuhdr, 0, SOP_MENU_ITEM_N, this);
+    410          }
+    411          
+    412          
+    413          
+    414          
+    415          void SmsListMenu::UpdateCSMName(DLG_CSM *dlg_csm, int lgp)
+    416          {
+    417            wsprintf(&((DLGCSM_DESC *)dlg_csm->csm_ram.constr)->csm_name, PERCENT_T, lgp);
+    418          }
+    419          
+    420          /*
+    421          int SmsListMenu::ReCreateMe(void *data)
+    422          {
+    423            int cur;
+    424            SmsListMenu *slm;
+    425            if(!data)
+    426              return 0;
+    427            cur=GetCurMenuItem(data);
+    428            slm=new SmsListMenu;
+    429            slm->dlg_csm=this->dlg_csm;
+    430            slm->is_tab=this->is_tab;
+    431            slm->type=this->type;
+    432            slm->gui_id=CreateMenu(&slm->menu, &sms_menuhdr, cur, SMSDATA->GetSMSCount(slm->type), slm);
+    433            return slm->gui_id;
+    434          }
+    435          
+    436          int SmsListMenu::ReCreateTab(void *data)
+    437          {
+    438          }
+    439          */
+    440          
+    441          void SmsListMenu::ReCreateMe(void *data)
+    442          {
+    443            if(this->is_tab)
+    444            {
+    445              int id=0;
+    446              TabGUI tab;
+    447              id=tab.ReCreateTabGUI(this->dlg_csm);
+    448              if(id) this->dlg_csm->gui_id=id;
+    449            }
+    450            else
+    451            {
+    452              //SmsListMenu *sl=new SmsListMenu;
+    453              //id=sl->CreateSmsListMenu(this->type, GetCurMenuItem(data), this->dlg_csm);
+    454              SmsListMenu *sl=new SmsListMenu;
+    455              sl->type=this->type;
+    456              sl->is_tab=this->is_tab;
+    457              sl->dlg_csm=this->dlg_csm;
+    458              sl->gui_id=CreateMenu(&sl->menu, &sms_menuhdr, GetCurMenuItem(data), SMSDATA->GetSMSCount(this->type), sl);
+    459              if(this->dlg_csm->gui_id == this->gui_id && sl->gui_id)
+    460                this->dlg_csm->gui_id=sl->gui_id;
+    461            }
+    462          }
+
+   Maximum stack usage in bytes:
+
+     Function                       CSTACK
+     --------                       ------
+     SmsListMenu::CreateSmsListMenu(int, int, DLG_CSM *)
+                                       12
+     SmsListMenu::GHook(void *, int)
+                                       28
+     SmsListMenu::GetSmsListMenuGUI(int, int, DLG_CSM *, int)
+                                       28
+     SmsListMenu::ItemProc(void *, int, void *)
+                                       32
+     SmsListMenu::OnKey(void *, GUI_MSG *)
+                                      124
+     SmsListMenu::ReCreateMe(void *)
+                                       28
+     SmsListMenu::SmsListMenu()         0
+     SmsListMenu::UpdateCSMName(DLG_CSM *, int)
+                                        4
+     SmsListMenu::delete ~SmsListMenu(SmsListMenu *)
+                                        4
+     SmsListMenu::new SmsListMenu()     4
+     SmsListMenu::~SmsListMenu()        0
+     SmsOptionMenu::CreateSmsOptionMenu(DLG_CSM *, int, int, _SDLIST *)
+                                        8
+     SmsOptionMenu::GHook(void *, int)
+                                       20
+     SmsOptionMenu::ItemProc(void *, int, void *)
+                                       20
+     SmsOptionMenu::OnKey(void *, GUI_MSG *)
+                                       24
+     SmsOptionMenu::SmsOptionMenu()     0
+     SmsOptionMenu::delete ~SmsOptionMenu(SmsOptionMenu *)
+                                        4
+     SmsOptionMenu::new SmsOptionMenu()
+                                        4
+     SmsOptionMenu::~SmsOptionMenu()
+                                        0
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     sms_menu_sk                      24
+     sms_menu_skt                      8
+     sms_menuhdr                      20
+     SmsListMenu::~SmsListMenu()       4
+     SmsListMenu::SmsListMenu()      104
+     SmsListMenu::OnKey(void *, GUI_MSG *)
+                                     428
+     SLM_HDR_LGPS                     28
+     SmsListMenu::GHook(void *, int)
+                                     372
+     SLM_ICONS                        32
+     SmsListMenu::ItemProc(void *, int, void *)
+                                     296
+     SmsListMenu::CreateSmsListMenu(int, int, DLG_CSM *)
+                                      68
+     SmsListMenu::GetSmsListMenuGUI(int, int, DLG_CSM *, int)
+                                     196
+     sop_menuhdr                      20
+     SmsOptionMenu::SmsOptionMenu()   96
+     SmsOptionMenu::~SmsOptionMenu()
+                                       4
+     SmsOptionMenu::OnKey(void *, GUI_MSG *)
+                                     380
+     SmsOptionMenu::GHook(void *, int)
+                                     144
+     SOP_ITEM_LGPS                    28
+     SOP_ITEM_ICONS                    8
+     SmsOptionMenu::ItemProc(void *, int, void *)
+                                     120
+     SmsOptionMenu::CreateSmsOptionMenu(DLG_CSM *, int, int, _SDLIST *)
+                                      56
+     SmsListMenu::UpdateCSMName(DLG_CSM *, int)
+                                      28
+     SmsListMenu::ReCreateMe(void *)
+                                     200
+     ?<Initializer for sms_menu_sk>   24
+     ?<Initializer for SLM_HDR_LGPS>
+                                      28
+     ?<Initializer for SLM_ICONS>     32
+     ?<Initializer for SOP_ITEM_LGPS>
+                                      28
+     ?<Constant "%s\n%t:\n%w">        12
+     SmsOptionMenu::new SmsOptionMenu()
+                                      28
+     SmsListMenu::delete ~SmsListMenu(SmsListMenu *)
+                                      20
+     SmsOptionMenu::delete ~SmsOptionMenu(SmsOptionMenu *)
+                                      20
+     SmsListMenu::new SmsListMenu()   28
+     ??DataTable13                     4
+     ??DataTable16                     4
+     ??DataTable18                     4
+     ??DataTable19                     4
+     ??DataTable20                     4
+      Others                         304
+
+ 
+ 2 904 bytes in segment CODE
+    68 bytes in segment DATA_C
+   112 bytes in segment DATA_I
+   112 bytes in segment DATA_ID
+    12 bytes in segment INITTAB
+ 
+ 2 612 bytes of CODE  memory (+ 304 bytes shared)
+   180 bytes of CONST memory
+   112 bytes of DATA  memory
+
+Errors: none
+Warnings: none

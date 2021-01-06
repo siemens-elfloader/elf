@@ -1,0 +1,182 @@
+illum(dev) = *(GetIlluminationDataTable() + 152*dev + 3)
+где dev: 0-экран, 1-клава, 2-динсвет, 4-фонарик
+
+Как использовать функцию SUBPROC? скажем так:
+SUBPROC((void *)ElfKiller);
+
+кстати при отрисовке интерфейса полезно использовать LockSched(); //блок многозадачности
+DrawImg(0,0,406);
+UnlockSched(); //разблокировка обратно
+рисует быстрее.
+
+чтобы нарисовать png в эльфпаке 2.0 надо всего написать:
+DrawImg(x,y,(int) "0:\\ZBin\\my_pic.png");
+
+если писать wsprintf (ws, "%t", 245); то отрисовывается строка ленгпака с номером 245
+
+Чтоб задать цвет в RGB надо написать
+char cl={225,15,30,100};
+//Первый параметр красный, второй зеленый, третий синий, четвертый прозрачность в %
+а потом вместо
+GetColorAdrByColorIndex(2) написать cl
+
+если надо сложить 2 строки: strcat(dest,src) где dest это строка в которую надо присоединить строку src
+можно примерно так:
+sprintf(res,"%t%d",name,num[i]);
+
+как вывести картинку(ну функцию я знаю) из каталога этогоже запущеного эльфа
+char*pos;
+char dir[50];
+pos=strrchr(exename, "\")+1;
+memcpy(dir,exename,strlen(exename)-strlen(pos));
+strcat(dir,"pic.png");DrawImg(0,0,(int)dir);
+вроде так я сам еще не пробывал написал без проверки запихнуть это надо в функцию main, char dir[50] обьявить как глобальную переменную (в начале файла)
+
+Geka[1632]
+18 Мар, 22:17
+так, для всех объясняю...
+последний раз...
+в опциях "config_data.c" ставим галку "override inherited settings", дальше идем "output", "Segment base name" ставим в 2-х полях "CONFIG"...
+
+народ, подскажите плиз, как сделать чтоб зльф не закрывался сам по истечении 2х минут?
+
+ 
+titron[590]
+20 Мар, 21:00
+Отключить IDLE-таймер:
+Добавить строчку:
+DisableIDLETMR();
+
+~Jhellico
+kluchnik пишет:
+как можно удалить какой либо файл
+ 
+unsigned int err;
+char fname[256];
+...
+unlink(fname, &err);
+
+
+kluchnik
+цитата:
+как можно из файла прочитать данные с заданным смещением и размером?заранее спасибо.
+ 
+Примерно так (читаем 256 байт из файла по смещению 0x40):
+unsigned int err;
+char fname[256];
+int f;
+char *buffer;
+...
+if ((f = fopen(fname, A_BIN+A_ReadOnly, P_READ, &err)) != -1)
+{ buffer = malloc(0x100);
+lseek(f, 0x40, S_SET, &err, &err);
+fread(f, buffer, 0x100, &err);
+fclose(f, &err);
+...
+}
+
+GetAccessoryType
+(с) avkiev
+Возвращает в R0 тип подключённого акксессуара:
+1 - CarKit Comfort
+2 - CK Comfort MK2
+3 - CarKit Portable
+4 - CarKit Easy
+5 - CK Linefit ATC
+6 - CarKit LineFit
+7 - CK LineFit MK2
+8 - CarKit Professional
+9 - CarKit Voice
+10 - CK Voice MK2
+11 - Car Data-Adaptor
+12 - Desktop Charger
+13 - Standard Charger
+14 - Data Cable
+15 - USB Data Cable
+16 - Data Cable USB-USB
+18 - Headset mono
+19 - Headset stereo
+20 - Clip-on Flash
+21 - TTY x55
+22 - TTY
+23 - JAVA(tm) Device
+24 - EMO Device
+25 - Clip-It LED
+26 - FM Radio
+27 - MP3 Player
+29 - Mobile Music Set
+30 - Music Cable
+32 - Boot-Box
+45 - unsupported accessory
+46 - unknown accessory
+
+//================================
+snemeis
+int strh2int(char* str) 
+{ 
+   int n,c=0; 
+   while(*str!='\0') 
+   { 
+      if(*str>='a') n=*str-('A'-('9'+1))-('a'-'A'); 
+      else if(*str>='A') n=*str-('A'-('9'+1)); 
+          else n=*str; 
+          c=c*16+(n-'0'); 
+          str++; 
+   } 
+   return c; 
+} 
+	
+
+
+//=====================================
+int ShowMenu()
+{
+CSM_RAM *icsm=FindCSMbyID(CSM_root()->idle_id); //так как idle csm сверху, начинаю с него и вниз
+do
+{
+CSM_DESC *desc=icsm->constr; //это вроде () и есть адрес
+char s[9]; //строка
+sprintf(s,"%08X",desc); //пишу в нее это адрес
+
+//if(icsm) это на всякий случай чтоб не пикало
+//strcmp - сравниваю адрес с тем что в конфиге
+if((icsm) && !strcmp(s, javacsm))
+{
+ShowNativeMenu();
+return(1);
+}
+}
+while(icsm=icsm->prev); //icsm->prev - указатель на предыдущий csm
+//сравнивать с тем что в конфиге пока он есть
+return(0);
+}
+
+msg->keys==0x01 RED_BUTTON
+		   0x04 LEFT_SOFT
+	       0x14 '*'
+	       0x15 '#'
+	
+//////////////////////
+Geka[1632]
+24 Янв, 21:58
+
+получить текущий уровень подсветки: illum(dev) = *(GetIlluminationDataTable() + 152*dev + 3)
+где dev: 0-экран, 1-клава, 2-динсвет, 4-фонарик
+
+ 
+Stasilok[792]
+24 Янв, 23:12
+Geka пишет:
+
+получить текущий уровень подсветки: illum(dev) = *(GetIlluminationDataTable() + 152*dev + 3)
+где dev: 0-экран, 1-клава, 2-динсвет, 4-фонарик"
+Интересно написано, но а пояснить теперь что это такое, всмысле что, где и в каком виде вернёт эта загадочная запись?
+
+ 
+Geka[1632]
+25 Янв, 1:47
+Текущая подсветка дисплея = *(GetIlluminationDataTable ()+ 3)
+текущая подсветка клавы = *(GetIlluminationDataTable() + 152 + 3)
+
+ 
+//////////////////////

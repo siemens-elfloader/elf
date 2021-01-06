@@ -1,0 +1,497 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    19/Jan/2011  13:20:33 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\grabber\zlib\inffast.c                        #
+#    Command line    =  C:\arm\grabber\zlib\inffast.c -lC                    #
+#                       C:\arm\grabber\Release_SGOLD\List\ -o                #
+#                       C:\arm\grabber\Release_SGOLD\Obj\ -s9 --no_unroll    #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\grabber\Release_SGOLD\List\inffast.lst        #
+#    Object file     =  C:\arm\grabber\Release_SGOLD\Obj\inffast.r79         #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\grabber\zlib\inffast.c
+      1          /* inffast.c -- process literals and length/distance pairs fast
+      2           * Copyright (C) 1995-2002 Mark Adler
+      3           * For conditions of distribution and use, see copyright notice in zlib.h 
+      4           */
+      5          
+      6          #include "zutil.h"
+      7          #include "inftrees.h"
+      8          #include "infblock.h"
+      9          #include "infcodes.h"
+     10          #include "infutil.h"
+     11          #include "inffast.h"
+     12          
+     13          struct inflate_codes_state {int dummy;}; /* for buggy compilers */
+     14          
+     15          /* simplify the use of the inflate_huft type with some defines */
+     16          #define exop word.what.Exop
+     17          #define bits word.what.Bits
+     18          
+     19          /* macros for bit input with no checking and for returning unused bytes */
+     20          #define GRABBITS(j) {while(k<(j)){b|=((uLong)NEXTBYTE)<<k;k+=8;}}
+     21          #define UNGRAB {c=z->avail_in-n;c=(k>>3)<c?k>>3:c;n+=c;p-=c;k-=c<<3;}
+     22          
+     23          /* Called with number of bytes left to write in window at least 258
+     24             (the maximum string length) and number of input bytes available
+     25             at least ten.  The ten bytes are six bytes for the longest length/
+     26             distance pair plus four bytes for overloading the bit buffer. */
+     27          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     28          int inflate_fast(bl, bd, tl, td, s, z)
+     29          uInt bl, bd;
+     30          inflate_huft *tl;
+     31          inflate_huft *td; /* need separate declaration for Borland C++ */
+     32          inflate_blocks_statef *s;
+     33          z_streamp z;
+     34          {
+   \                     inflate_fast:
+   \   00000000   FC4F2DE9           PUSH     {R2-R11,LR}
+     35            inflate_huft *t;      /* temporary pointer */
+     36            uInt e;               /* extra bits or operation */
+     37            uLong b;              /* bit buffer */
+     38            uInt k;               /* bits in bit buffer */
+     39            Bytef *p;             /* input data pointer */
+     40            uInt n;               /* bytes available there */
+     41            Bytef *q;             /* output window write pointer */
+     42            uInt m;               /* bytes to end of window or read pointer */
+     43            uInt ml;              /* mask for literal/length tree */
+     44            uInt md;              /* mask for distance tree */
+     45            uInt c;               /* bytes to copy */
+     46            uInt d;               /* distance back to copy from */
+     47            Bytef *r;             /* copy source pointer */
+     48          
+     49            /* load input, output, bit values */
+     50            LOAD
+     51          
+     52            /* initialize masks */
+     53            ml = inflate_mask[bl];
+   \   00000004   54639FE5           LDR      R6,??inflate_fast_0  ;; inflate_mask
+   \   00000008   14D04DE2           SUB      SP,SP,#+20
+   \   0000000C   40209DE5           LDR      R2,[SP, #+64]
+   \   00000010   44309DE5           LDR      R3,[SP, #+68]
+   \   00000014   344092E5           LDR      R4,[R2, #+52]
+   \   00000018   305092E5           LDR      R5,[R2, #+48]
+   \   0000001C   000196E7           LDR      R0,[R6, +R0, LSL #+2]
+   \   00000020   00C093E5           LDR      R12,[R3, #+0]
+   \   00000024   047093E5           LDR      R7,[R3, #+4]
+   \   00000028   208092E5           LDR      R8,[R2, #+32]
+   \   0000002C   1C9092E5           LDR      R9,[R2, #+28]
+   \   00000030   050054E1           CMP      R4,R5
+   \   00000034   2C509225           LDRCS    R5,[R2, #+44]
+   \   00000038   0C008DE5           STR      R0,[SP, #+12]
+     54            md = inflate_mask[bd];
+   \   0000003C   011196E7           LDR      R1,[R6, +R1, LSL #+2]
+   \   00000040   04504530           SUBCC    R5,R5,R4
+   \   00000044   01504532           SUBCC    R5,R5,#+1
+   \   00000048   04504520           SUBCS    R5,R5,R4
+   \   0000004C   10108DE5           STR      R1,[SP, #+16]
+   \   00000050   030000EA           B        ??inflate_fast_1
+     55          
+     56            /* do until not enough input or output space for fast loop */
+     57            do {                          /* assume called with m >= 258 && n >= 10 */
+     58              /* get literal/length code */
+     59              GRABBITS(20)                /* max bits for literal/length code */
+   \                     ??inflate_fast_2:
+   \   00000054   ........           LDRB     R0,[R12], #+1
+   \   00000058   017047E2           SUB      R7,R7,#+1
+   \   0000005C   108988E1           ORR      R8,R8,R0, LSL R9
+   \   00000060   089089E2           ADD      R9,R9,#+8
+   \                     ??inflate_fast_1:
+   \   00000064   140059E3           CMP      R9,#+20
+   \   00000068   F9FFFF3A           BCC      ??inflate_fast_2
+     60              if ((e = (t = tl + ((uInt)b & ml))->exop) == 0)
+   \   0000006C   0C009DE5           LDR      R0,[SP, #+12]
+   \   00000070   14109DE5           LDR      R1,[SP, #+20]
+   \   00000074   080000E0           AND      R0,R0,R8
+   \   00000078   80A181E0           ADD      R10,R1,R0, LSL #+3
+   \   0000007C   0000DAE5           LDRB     R0,[R10, #+0]
+   \   00000080   011045E2           SUB      R1,R5,#+1
+   \                     ??inflate_fast_3:
+   \   00000084   000050E3           CMP      R0,#+0
+   \   00000088   2100001A           BNE      ??inflate_fast_4
+     61              {
+     62                DUMPBITS(t->bits)
+   \   0000008C   0100DAE5           LDRB     R0,[R10, #+1]
+   \   00000090   3880A0E1           LSR      R8,R8,R0
+   \   00000094   009049E0           SUB      R9,R9,R0
+     63                Tracevv((stderr, t->base >= 0x20 && t->base < 0x7f ?
+     64                          "inflate:         * literal '%c'\n" :
+     65                          "inflate:         * literal 0x%02x\n", t->base));
+     66                *q++ = (Byte)t->base;
+   \   00000098   04009AE5           LDR      R0,[R10, #+4]
+     67                m--;
+   \   0000009C   0150A0E1           MOV      R5,R1
+   \   000000A0   ........           STRB     R0,[R4], #+1
+     68                continue;
+     69              }
+     70              do {
+     71                DUMPBITS(t->bits)
+     72                if (e & 16)
+     73                {
+     74                  /* get extra bits for length */
+     75                  e &= 15;
+     76                  c = t->base + ((uInt)b & inflate_mask[e]);
+     77                  DUMPBITS(e)
+     78                  Tracevv((stderr, "inflate:         * length %u\n", c));
+     79          
+     80                  /* decode distance base of block to copy */
+     81                  GRABBITS(15);           /* max bits for distance code */
+     82                  e = (t = td + ((uInt)b & md))->exop;
+     83                  do {
+     84                    DUMPBITS(t->bits)
+     85                    if (e & 16)
+     86                    {
+     87                      /* get extra bits to add to distance base */
+     88                      e &= 15;
+     89                      GRABBITS(e)         /* get extra bits (up to 13) */
+     90                      d = t->base + ((uInt)b & inflate_mask[e]);
+     91                      DUMPBITS(e)
+     92                      Tracevv((stderr, "inflate:         * distance %u\n", d));
+     93          
+     94                      /* do the copy */
+     95                      m -= c;
+     96                      r = q - d;
+     97                      if (r < s->window)                  /* wrap if needed */
+     98                      {
+     99                        do {
+    100                          r += s->end - s->window;        /* force pointer in window */
+    101                        } while (r < s->window);          /* covers invalid distances */
+    102                        e = (uInt)(s->end - r); // JL 03/24/2002 - silenced a warning about typeconversion
+    103                        if (c > e)
+    104                        {
+    105                          c -= e;                         /* wrapped copy */
+    106                          do {
+    107                              *q++ = *r++;
+    108                          } while (--e);
+    109                          r = s->window;
+    110                          do {
+    111                              *q++ = *r++;
+    112                          } while (--c);
+    113                        }
+    114                        else                              /* normal copy */
+    115                        {
+    116                          *q++ = *r++;  c--;
+    117                          *q++ = *r++;  c--;
+    118                          do {
+    119                              *q++ = *r++;
+    120                          } while (--c);
+    121                        }
+    122                      }
+    123                      else                                /* normal copy */
+    124                      {
+    125                        *q++ = *r++;  c--;
+    126                        *q++ = *r++;  c--;
+    127                        do {
+    128                          *q++ = *r++;
+    129                        } while (--c);
+    130                      }
+    131                      break;
+    132                    }
+    133                    else if ((e & 64) == 0)
+    134                    {
+    135                      t += t->base;
+    136                      e = (t += ((uInt)b & inflate_mask[e]))->exop;
+    137                    }
+    138                    else
+    139                    {
+    140                      z->msg = (char*)"invalid distance code";
+    141                      UNGRAB
+    142                      UPDATE
+    143                      return Z_DATA_ERROR;
+    144                    }
+    145                  } while (1);
+    146                  break;
+    147                }
+    148                if ((e & 64) == 0)
+    149                {
+    150                  t += t->base;
+    151                  if ((e = (t += ((uInt)b & inflate_mask[e]))->exop) == 0)
+    152                  {
+    153                    DUMPBITS(t->bits)
+    154                    Tracevv((stderr, t->base >= 0x20 && t->base < 0x7f ?
+    155                              "inflate:         * literal '%c'\n" :
+    156                              "inflate:         * literal 0x%02x\n", t->base));
+    157                    *q++ = (Byte)t->base;
+    158                    m--;
+    159                    break;
+    160                  }
+    161                }
+    162                else if (e & 32)
+    163                {
+    164                  Tracevv((stderr, "inflate:         * end of block\n"));
+    165                  UNGRAB
+    166                  UPDATE
+    167                  return Z_STREAM_END;
+    168                }
+    169                else
+    170                {
+    171                  z->msg = (char*)"invalid literal/length code";
+    172                  UNGRAB
+    173                  UPDATE
+    174                  return Z_DATA_ERROR;
+    175                }
+    176              } while (1);
+    177            } while (m >= 258 && n >= 10);
+   \                     ??inflate_fast_5:
+   \   000000A4   0200A0E3           MOV      R0,#+2
+   \   000000A8   400F80E3           ORR      R0,R0,#0x100
+   \   000000AC   000055E1           CMP      R5,R0
+   \   000000B0   0A005723           CMPCS    R7,#+10
+   \   000000B4   EAFFFF2A           BCS      ??inflate_fast_1
+    178          
+    179            /* not enough input or output--restore pointers and return */
+    180            UNGRAB
+   \   000000B8   040093E5           LDR      R0,[R3, #+4]
+    181            UPDATE
+   \   000000BC   208082E5           STR      R8,[R2, #+32]
+   \   000000C0   071040E0           SUB      R1,R0,R7
+   \   000000C4   A901A0E1           LSR      R0,R9,#+3
+   \   000000C8   010050E1           CMP      R0,R1
+   \   000000CC   0010A031           MOVCC    R1,R0
+   \   000000D0   0100A0E1           MOV      R0,R1
+   \   000000D4   815149E0           SUB      R5,R9,R1, LSL #+3
+   \   000000D8   1C5082E5           STR      R5,[R2, #+28]
+   \   000000DC   071081E0           ADD      R1,R1,R7
+   \   000000E0   041083E5           STR      R1,[R3, #+4]
+   \   000000E4   081093E5           LDR      R1,[R3, #+8]
+   \   000000E8   005093E5           LDR      R5,[R3, #+0]
+   \   000000EC   000060E2           RSB      R0,R0,#+0
+   \   000000F0   0C0080E0           ADD      R0,R0,R12
+   \   000000F4   011080E0           ADD      R1,R0,R1
+   \   000000F8   051041E0           SUB      R1,R1,R5
+   \   000000FC   081083E5           STR      R1,[R3, #+8]
+   \   00000100   000083E5           STR      R0,[R3, #+0]
+   \   00000104   344082E5           STR      R4,[R2, #+52]
+    182            return Z_OK;
+   \   00000108   0000A0E3           MOV      R0,#+0
+   \   0000010C   1CD08DE2           ADD      SP,SP,#+28
+   \   00000110   F08FBDE8           POP      {R4-R11,PC}      ;; return
+   \                     ??inflate_fast_4:
+   \   00000114   01B0DAE5           LDRB     R11,[R10, #+1]
+   \   00000118   100010E3           TST      R0,#0x10
+   \   0000011C   388BA0E1           LSR      R8,R8,R11
+   \   00000120   0B9049E0           SUB      R9,R9,R11
+   \   00000124   6900000A           BEQ      ??inflate_fast_6
+   \   00000128   04109AE5           LDR      R1,[R10, #+4]
+   \   0000012C   0F0000E2           AND      R0,R0,#0xF
+   \   00000130   00A196E7           LDR      R10,[R6, +R0, LSL #+2]
+   \   00000134   009049E0           SUB      R9,R9,R0
+   \   00000138   08A00AE0           AND      R10,R10,R8
+   \   0000013C   01108AE0           ADD      R1,R10,R1
+   \   00000140   3880A0E1           LSR      R8,R8,R0
+   \   00000144   0F0059E3           CMP      R9,#+15
+   \   00000148   0500002A           BCS      ??inflate_fast_7
+   \                     ??inflate_fast_8:
+   \   0000014C   ........           LDRB     R0,[R12], #+1
+   \   00000150   017047E2           SUB      R7,R7,#+1
+   \   00000154   108988E1           ORR      R8,R8,R0, LSL R9
+   \   00000158   089089E2           ADD      R9,R9,#+8
+   \   0000015C   0F0059E3           CMP      R9,#+15
+   \   00000160   F9FFFF3A           BCC      ??inflate_fast_8
+   \                     ??inflate_fast_7:
+   \   00000164   10009DE5           LDR      R0,[SP, #+16]
+   \   00000168   18A09DE5           LDR      R10,[SP, #+24]
+   \   0000016C   080000E0           AND      R0,R0,R8
+   \   00000170   030000EA           B        ??inflate_fast_9
+   \                     ??inflate_fast_10:
+   \   00000174   000196E7           LDR      R0,[R6, +R0, LSL #+2]
+   \   00000178   04B09AE5           LDR      R11,[R10, #+4]
+   \   0000017C   080000E0           AND      R0,R0,R8
+   \   00000180   8BA18AE0           ADD      R10,R10,R11, LSL #+3
+   \                     ??inflate_fast_9:
+   \   00000184   80A18AE0           ADD      R10,R10,R0, LSL #+3
+   \   00000188   0000DAE5           LDRB     R0,[R10, #+0]
+   \   0000018C   01B0DAE5           LDRB     R11,[R10, #+1]
+   \   00000190   100010E3           TST      R0,#0x10
+   \   00000194   388BA0E1           LSR      R8,R8,R11
+   \   00000198   0B9049E0           SUB      R9,R9,R11
+   \   0000019C   3100000A           BEQ      ??inflate_fast_11
+   \   000001A0   0F0000E2           AND      R0,R0,#0xF
+   \   000001A4   000059E1           CMP      R9,R0
+   \   000001A8   0500002A           BCS      ??inflate_fast_12
+   \                     ??inflate_fast_13:
+   \   000001AC   ........           LDRB     R11,[R12], #+1
+   \   000001B0   017047E2           SUB      R7,R7,#+1
+   \   000001B4   1B8988E1           ORR      R8,R8,R11, LSL R9
+   \   000001B8   089089E2           ADD      R9,R9,#+8
+   \   000001BC   000059E1           CMP      R9,R0
+   \   000001C0   F9FFFF3A           BCC      ??inflate_fast_13
+   \                     ??inflate_fast_12:
+   \   000001C4   04A09AE5           LDR      R10,[R10, #+4]
+   \   000001C8   00B196E7           LDR      R11,[R6, +R0, LSL #+2]
+   \   000001CC   009049E0           SUB      R9,R9,R0
+   \   000001D0   08B00BE0           AND      R11,R11,R8
+   \   000001D4   0AA08BE0           ADD      R10,R11,R10
+   \   000001D8   3880A0E1           LSR      R8,R8,R0
+   \   000001DC   00006AE2           RSB      R0,R10,#+0
+   \   000001E0   04A080E0           ADD      R10,R0,R4
+   \   000001E4   280092E5           LDR      R0,[R2, #+40]
+   \   000001E8   015045E0           SUB      R5,R5,R1
+   \   000001EC   00005AE1           CMP      R10,R0
+   \   000001F0   1200002A           BCS      ??inflate_fast_14
+   \                     ??inflate_fast_15:
+   \   000001F4   2CB092E5           LDR      R11,[R2, #+44]
+   \   000001F8   00E04BE0           SUB      LR,R11,R0
+   \   000001FC   0AA08EE0           ADD      R10,LR,R10
+   \   00000200   00005AE1           CMP      R10,R0
+   \   00000204   FAFFFF3A           BCC      ??inflate_fast_15
+   \   00000208   0A004BE0           SUB      R0,R11,R10
+   \   0000020C   010050E1           CMP      R0,R1
+   \   00000210   0A00002A           BCS      ??inflate_fast_14
+   \   00000214   001041E0           SUB      R1,R1,R0
+   \                     ??inflate_fast_16:
+   \   00000218   ........           LDRB     R11,[R10], #+1
+   \   0000021C   010050E2           SUBS     R0,R0,#+1
+   \   00000220   ........           STRB     R11,[R4], #+1
+   \   00000224   FBFFFF1A           BNE      ??inflate_fast_16
+   \   00000228   28A092E5           LDR      R10,[R2, #+40]
+   \                     ??inflate_fast_17:
+   \   0000022C   ........           LDRB     R0,[R10], #+1
+   \   00000230   011051E2           SUBS     R1,R1,#+1
+   \   00000234   ........           STRB     R0,[R4], #+1
+   \   00000238   FBFFFF1A           BNE      ??inflate_fast_17
+   \   0000023C   98FFFFEA           B        ??inflate_fast_5
+   \                     ??inflate_fast_14:
+   \   00000240   ........           LDRB     R0,[R10], #+1
+   \   00000244   021041E2           SUB      R1,R1,#+2
+   \   00000248   ........           STRB     R0,[R4], #+1
+   \   0000024C   ........           LDRB     R0,[R10], #+1
+   \   00000250   ........           STRB     R0,[R4], #+1
+   \                     ??inflate_fast_18:
+   \   00000254   ........           LDRB     R0,[R10], #+1
+   \   00000258   011051E2           SUBS     R1,R1,#+1
+   \   0000025C   ........           STRB     R0,[R4], #+1
+   \   00000260   FBFFFF1A           BNE      ??inflate_fast_18
+   \   00000264   8EFFFFEA           B        ??inflate_fast_5
+   \                     ??inflate_fast_11:
+   \   00000268   400010E3           TST      R0,#0x40
+   \   0000026C   C0FFFF0A           BEQ      ??inflate_fast_10
+   \   00000270   041093E5           LDR      R1,[R3, #+4]
+   \   00000274   E8009FE5           LDR      R0,??inflate_fast_0+0x4  ;; `?<Constant "invalid distance code">`
+   \   00000278   071041E0           SUB      R1,R1,R7
+   \   0000027C   A951A0E1           LSR      R5,R9,#+3
+   \                     ??inflate_fast_19:
+   \   00000280   010055E1           CMP      R5,R1
+   \   00000284   0510A031           MOVCC    R1,R5
+   \   00000288   180083E5           STR      R0,[R3, #+24]
+   \   0000028C   0100A0E1           MOV      R0,R1
+   \   00000290   208082E5           STR      R8,[R2, #+32]
+   \   00000294   815149E0           SUB      R5,R9,R1, LSL #+3
+   \   00000298   1C5082E5           STR      R5,[R2, #+28]
+   \   0000029C   071081E0           ADD      R1,R1,R7
+   \   000002A0   041083E5           STR      R1,[R3, #+4]
+   \   000002A4   081093E5           LDR      R1,[R3, #+8]
+   \   000002A8   005093E5           LDR      R5,[R3, #+0]
+   \   000002AC   000060E2           RSB      R0,R0,#+0
+   \   000002B0   0C0080E0           ADD      R0,R0,R12
+   \   000002B4   011080E0           ADD      R1,R0,R1
+   \   000002B8   051041E0           SUB      R1,R1,R5
+   \   000002BC   081083E5           STR      R1,[R3, #+8]
+   \   000002C0   000083E5           STR      R0,[R3, #+0]
+   \   000002C4   344082E5           STR      R4,[R2, #+52]
+   \   000002C8   0200E0E3           MVN      R0,#+2
+   \   000002CC   1F0000EA           B        ??inflate_fast_20
+   \                     ??inflate_fast_6:
+   \   000002D0   400010E3           TST      R0,#0x40
+   \   000002D4   0600001A           BNE      ??inflate_fast_21
+   \   000002D8   000196E7           LDR      R0,[R6, +R0, LSL #+2]
+   \   000002DC   04B09AE5           LDR      R11,[R10, #+4]
+   \   000002E0   080000E0           AND      R0,R0,R8
+   \   000002E4   8BA18AE0           ADD      R10,R10,R11, LSL #+3
+   \   000002E8   80A18AE0           ADD      R10,R10,R0, LSL #+3
+   \   000002EC   0000DAE5           LDRB     R0,[R10, #+0]
+   \   000002F0   63FFFFEA           B        ??inflate_fast_3
+   \                     ??inflate_fast_21:
+   \   000002F4   041093E5           LDR      R1,[R3, #+4]
+   \   000002F8   A951A0E1           LSR      R5,R9,#+3
+   \   000002FC   071041E0           SUB      R1,R1,R7
+   \   00000300   200010E3           TST      R0,#0x20
+   \   00000304   1300000A           BEQ      ??inflate_fast_22
+   \   00000308   010055E1           CMP      R5,R1
+   \   0000030C   0510A031           MOVCC    R1,R5
+   \   00000310   0100A0E1           MOV      R0,R1
+   \   00000314   208082E5           STR      R8,[R2, #+32]
+   \   00000318   815149E0           SUB      R5,R9,R1, LSL #+3
+   \   0000031C   1C5082E5           STR      R5,[R2, #+28]
+   \   00000320   071081E0           ADD      R1,R1,R7
+   \   00000324   041083E5           STR      R1,[R3, #+4]
+   \   00000328   081093E5           LDR      R1,[R3, #+8]
+   \   0000032C   005093E5           LDR      R5,[R3, #+0]
+   \   00000330   000060E2           RSB      R0,R0,#+0
+   \   00000334   0C0080E0           ADD      R0,R0,R12
+   \   00000338   011080E0           ADD      R1,R0,R1
+   \   0000033C   051041E0           SUB      R1,R1,R5
+   \   00000340   081083E5           STR      R1,[R3, #+8]
+   \   00000344   000083E5           STR      R0,[R3, #+0]
+   \   00000348   344082E5           STR      R4,[R2, #+52]
+   \   0000034C   0100A0E3           MOV      R0,#+1
+   \                     ??inflate_fast_20:
+   \   00000350   1CD08DE2           ADD      SP,SP,#+28
+   \   00000354   F08FBDE8           POP      {R4-R11,PC}
+   \                     ??inflate_fast_22:
+   \   00000358   08009FE5           LDR      R0,??inflate_fast_0+0x8  ;; `?<Constant "invalid literal/lengt...">`
+   \   0000035C   C7FFFFEA           B        ??inflate_fast_19
+   \                     ??inflate_fast_0:
+   \   00000360   ........           DC32     inflate_mask
+   \   00000364   ........           DC32     `?<Constant "invalid distance code">`
+   \   00000368   ........           DC32     `?<Constant "invalid literal/lengt...">`
+    183          }
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "invalid distance code">`:
+   \   00000000   696E76616C69       DC8 "invalid distance code"
+   \              642064697374
+   \              616E63652063
+   \              6F646500    
+   \   00000016   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "invalid literal/lengt...">`:
+   \   00000000   696E76616C69       DC8 "invalid literal/length code"
+   \              64206C697465
+   \              72616C2F6C65
+   \              6E6774682063
+   \              6F646500    
+
+   Maximum stack usage in bytes:
+
+     Function     CSTACK
+     --------     ------
+     inflate_fast    64
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     inflate_fast                    876
+     ?<Constant "invalid distance code">
+                                      24
+     ?<Constant "invalid literal/lengt...">
+                                      28
+      Others                           4
+
+ 
+ 880 bytes in segment CODE
+  52 bytes in segment DATA_C
+ 
+ 876 bytes of CODE  memory (+ 4 bytes shared)
+  52 bytes of CONST memory
+
+Errors: none
+Warnings: none

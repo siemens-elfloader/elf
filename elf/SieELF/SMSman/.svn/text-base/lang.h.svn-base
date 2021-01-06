@@ -1,0 +1,66 @@
+#ifndef _LANG
+  #define _LANG
+
+#ifdef ENG
+	const char LG_SEL_NUM[]="Select number",
+ LG_ANSWER[]="Answer",
+ LG_CREATE[]="Create new",
+ LG_NEW_SMS[]="New sms",
+ LG_NEW_IN[]="New SMS!",
+ LG_NONUM[]="No number",
+ LG_ADRBOOK[]="Adressbook",
+ LG_ADRBOOKD[]="Adressbook(%d)",
+ LG_EMPTY[]="Empty",
+ LG_CANSEL[]="Cancel",
+ LG_SEND[]="Send",
+ LG_SENDQ[]="Send?",
+ LG_LETTERS[]="letters",
+ LG_QUIT[]="Exit",
+ LG_ENT_NUM[] = "Input number!",
+ LG_ENT_TEXT[] = "Input message!",
+ LG_MESS[] = "Message",
+ LG_TO[] = "To:",
+ LG_FROM[] = "From:",
+ LG_INBOX[] = "Inbox",
+ LG_OUTBOX[] = "Outbox",
+ LG_INCOM[] = "Inbox",
+ LG_OUTCOM[] = "Outbox",
+ LG_DRAFT[] = "Draft",
+ LG_STATISTIC[] = "Statistics",
+ LG_SETTINGS[] = "Settings",
+ LG_OPEN_ERR[] = "error while open",
+ LG_TRANSLIT[] = "Translit";
+#endif
+
+#ifdef ZH
+	const char LG_SEL_NUM[]="选择号码",
+ LG_ANSWER[]="回复",
+ LG_CREATE[]="创建新短信",
+ LG_NEW_SMS[]="新短信",
+ LG_NEW_IN[]="新短信!",
+ LG_NONUM[]="无号码",
+ LG_ADRBOOK[]="通讯录",
+ LG_ADRBOOKD[]="通讯录(%d)",
+ LG_EMPTY[]="空白",
+ LG_CANSEL[]="取消",
+ LG_SEND[]="发送",
+ LG_SENDQ[]="发送?",
+ LG_LETTERS[]="个文字",
+ LG_QUIT[]="退出",
+ LG_ENT_NUM[] = "请输入号码!",
+ LG_ENT_TEXT[] = "请输入短信!",
+ LG_MESS[] = "内容",
+ LG_TO[] = "收件人:",
+ LG_FROM[] = "寄件人:",
+ LG_INBOX[] = "收件箱",
+ LG_OUTBOX[] = "已发送",
+ LG_INCOM[] = "收件箱",
+ LG_OUTCOM[] = "发件箱",
+ LG_DRAFT[] = "草稿",
+ LG_STATISTIC[] = "统计",
+ LG_SETTINGS[] = "设置",
+ LG_OPEN_ERR[] = "打开时发生错误",
+ LG_TRANSLIT[] = "音译";
+#endif
+
+#endif //_LANG

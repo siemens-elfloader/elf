@@ -1,0 +1,156 @@
+;* Dynamic replacing of Provider and Subprovider name v16 *
+;(c) avkiev
+;(r) Bennie, arsh0r
+
+;(!) Master
+;(!) new SWI-hook since RamCurrentTrack is located in AD address room
+
+/*
+The names of the Provider and Subprovider are replaced with dynamic changed string.
+There are eight cyclic buffers (4 for Provider and 4 for Subprovider), which define content of the screen.
+First buffer defines strings in mainscreen mode, keyunlocked.
+Second - in mainscreen mode, keylocked.
+Third - in player mode, keyunlocked.
+Fourth - in player mode, keylocked.
+Replacing string consist of two parts, separated with Space.
+Example N1: buffer begins with 34h.
+It means, that ProviderName will changed with results of
+function N3 and function N4, separated by Space.
+In our example it will be "Time + Date".
+If next byte is 06h, then next string will be "Date".
+It's cycle, 8 times, after this cycle we again return to byte 34h
+Example N2: if you want always "Time+Temperature" fill this area with 3Bh.
+Avaliable functions:
+
+Code:
+
++---+-------------------------+-----------------+------+-------------------------------------+
+| N | Description             | Format          |Length| Comment                             |
++---+-------------------------+-----------------+------+-------------------------------------+
+| 0 | Empty                   |                 | 0    |                                     |
+| 1 | Unicode-string 1        |                 |      |                                     |
+| 2 | Profile name            |                 |      |                                     |
+| 3 | Time                    | 15:56           | 5    |                                     |
+| 4 | Date                    | 11.02.2005      | 10   |                                     |
+| 5 | Date                    | 02/11/2005      | 10   |                                     |
+| 6 | Date                    | Fr, 11 Feb 2005 | 15   |                                     |
+| 7 | Date                    | February, 11    |      |                                     |
+| 8 | ID3 of current track    |                 |      |                                     |
+| 9 | Day of the week         | Wednesday       |      |                                     |
+| A | Accumulator             | 3,685 = 70%     | 11,12| Voltage and capacity of accu        |
+| B | Temperature             | 31,9'C          | 6    |                                     |
+| C | Provider                | UMC             |      |                                     |
+| D | Net level               | -65 dB          | 6,7  |"-" - 900, "=" - 1800                |
+| E | Net info                | 844:05513:1010  | 15   |CH:CI-LAC - Current channel,cell,LAC |
+| F | Misc\GPS\LAC\CI-LAC.tmo | Kreschatik, 27  |      |Position                             |
++---+-------------------------+-----------------+------+-------------------------------------+
+*/
+
+;03ECD3C: 0xA08FC087 0xA0061601 ; S75v47 - Provider
+;030236C: 301CFFF750FDEA79311C 004B9847,0xA0061611,C046 ; S75v47 - Subprovider
+;0302354: 00 FF ; S75v47 - Subprovider in Profile0
+
+;07F9434: 0xA08C926B 0xA0061601 ; E71v41 - Provider
+;05C320C: 301CFFF749FDEA79311C 004B9847,0xA0061611,C046 ; E71v41 - Subprovider
+;05C31F4: 00 FF ; E71v41 - Subprovider in Profile0
+
+07F9E3C: 0xA08C9EF7 0xA0061601 ; E71v45 - Provider
+05C306E: 301CFFF748FDEA79311C C046,004B9847,0xA0061611 ; E71v45 - Subprovider
+05C3066: 00 FF ; E71v45 - Subprovider in Profile0
+
+#pragma enable old_equal_ff
+0061600: 01B500F012F808BC01D1181C41DF00BD
+0061610: 00B5301C022300F009F801D1301C8DDF
+0061620: EA79311C08BC043398470123F9B50468
+0061630: E848C4DF3DD0061C0830011C0831B4DF
+0061640: 301C0830B5DFF075019F012F04D1F07C
+0061650: 013007210840F074F55DFF2D29D0002D
+0061660: 09D17FDF4500B9006D1843DF2D1AED00
+0061670: F07C4019355CCADF071CF0790130011C
+0061680: 021C031C0FB42B0904D000F013F82023
+0061690: 023423800F232B4000F00CF804B00098
+00616A0: 0068241A6408F1798C4200D90C1C0480
+00616B0: 0120FABD00B55B009F4400BDFDE70DE0
+00616C0: 0FE018E01FE028E031E048E053E081E0
+00616D0: 87E09FE0B9E0C2E0D3E0E2E0301C5830
+00616E0: 33E1208811B401A88DDF03BC22882080
+00616F0: 5200A41800BD307C00F035F93A230234
+0061700: 2380707C30E100F02DF92E2302342380
+0061710: 307B00F028F92E231DE0307B00F023F9
+0061720: 2F230234238000F01DF92F2313E0E5DF
+0061730: 0D30F17D00F010F92C2363802023A380
+0061740: 043400F00FF9202302342380E5DF317B
+0061750: 00F002F9202302342380308904E1EDDF
+0061760: 317B00F0F9F80A3C2C2363802023A380
+0061770: 0434707BF8E07FDF012828D1DDDF0021
+0061780: 435E0233FF3301D10230DEE035210901
+0061790: F279013203780130802B0DD303B47CA0
+00617A0: 023802300188002904D09942F9D1038C
+00617B0: 01995B1A03BC5B1802342380002B01D0
+00617C0: 013AE7D1023C2388202BFBD000BD01B0
+00617D0: 357958E7F07D411C072900D10021EEDF
+00617E0: BBE00020092106DF023400F0BCF8083C
+00617F0: 608820802C20608020236381E3813D23
+0061800: A3810E34C8DF008800F0ADF825230234
+0061810: 238000BD0120032106DF0A210902AA31
+0061820: 401A0322B156401803D52D2302342380
+0061830: 404200F098F820882C2323806080B023
+0061840: A3804323E380063400BD30B425886846
+0061850: 002141DF208825804000241821BD2D23
+0061860: 3988FF2900D33D2302342380B87900F0
+0061870: 7AF8202363806423A3804223E3800634
+0061880: 00BD7A88002AFBD0BB88388831B401A8
+0061890: 311C78312588A0DF2088258040002418
+00618A0: 26BD7B88002B4CD0BA888AB0009201A8
+00618B0: 311C883116DF01A8694611DF0CD40098
+00618C0: 01884900023000234352043000F03CF8
+00618D0: 009815DF0AB000BD8BB06B4608B4B379
+00618E0: 002B2DD0002304936846311CA8317A88
+00618F0: BB88A0DF01A801880A1C023003885A40
+0061900: 0139FAD142800DA85C2131DF051C0021
+0061910: 29700DA8694610DF5C2129700DA80321
+0061920: 09020131012212026B460ADF051C01A9
+0061930: 0A88023252006B460CDF281C69460DDF
+0061940: 16B001B075799EE600B50388002B08D0
+0061950: 023002342380F8E700B54018A11C07DF
+0061960: 8C1E00BD707B00B581DF0A2804D302B4
+0061970: FFF7F9FF02BC02E03030023420803031
+0061980: 0234218000BD
+
+0061990: 0x0C4,0x0D6,0x0DC,0x0E4,0x0F6,0x0FC,0x0DF,0x000,0x000,0x000,0x0000
+00619B0: 0x0C4,0x0D6,0x0DC,0x0E4,0x0F6,0x0FC,0x0DF,0x000,0x000,0x000
+
+00619D0: 0xB1C2D3E4,0x0000AB04,0000000000000000,"\
+{p=`Dynamic Provider` ver=16 cp=avkiev id=AB04}\
+{info `0 - Empty\n1 - String 1\n2 - Profile\n3 - 15:56\n","\
+4 - 11.02.2005\n5 - 02/11/2005\n6 - Fr, 11 Feb 2005\n","\
+7 - February, 11\n8 - ID3 tag\n9 - Wednesday\n","\
+A - 3,685 = 70%\nB - 31,9°C\nC - Provider\nD - -65 dB\n","\
+E - Net info\nF - CI-LAC.tmo`}","\
+{1 h UseInString1}\
+{2 h UseInString2}\
+{3 b TempAdjust r=-50..50 v=15}\
+{4 h UseIfNoMP3 v=0F}\
+{5 h UseIfNoTMO v=0E}\
+{6 cb CreateNewTMO v=1}\
+{7 b MaxLen v=22}","\
+{24 h Normal1 ml=8 v=3406BACD3406BACD}\
+{32 h Locked1 ml=8 v=3406BACD3406BACD}\
+{40 h MP3.Normal1 ml=8 v=3406BACD3406BACD}\
+{48 h MP3.Locked1 ml=8 v=3406BACD3406BACD}","\
+{56 h Normal2 ml=8 v=0F020F020F020F02}\
+{64 h Locked2 ml=8 v=0F020F020F020F02}\
+{72 h MP3.Normal2 ml=8 v=0802080208020802}\
+{80 h MP3.Locked2 ml=8 v=0802080208020802}","\
+{88 u StringFun1 v=string}\
+{120 s `CI-LAC:CH` v=`%05u-%04u:%03u`}\
+{136 s GPS ml=31 v=`0:\\Misc\\GPS\\%i\\%i-%i.tmo`}\
+{168 s NewCell v=`0 cell:%u-%u`}\
+",00
+#pragma disable old_equal_ff
+
+;Don't show voltage of accum
+00616D0: 87 98
+
+;use IsScreensaver instead of IsUnlocked
+006166A: 43 42

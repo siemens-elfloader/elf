@@ -1,0 +1,98 @@
+#include <swilib.h>
+#include "bmplib.h"
+#include "..\mylib.h"
+
+inline unsigned short to_argb1555(unsigned short rgb565) {
+        // :[  ]
+        return  ((rgb565 & 0xffe0)>>1) & (rgb565 | 0xffe0) & (0x7fff | (rgb565 == 0 << 15);    // O_O
+}
+
+int SaveBMP(const char *rastrum, const int width, const int height, const char *palette, const unsigned int palette_size, const unsigned int bit_count, const unsigned int compression)
+{
+  if(rastrum==NULL || !width || !height || bit_count>32)
+    return -1;  
+    
+  unsigned int err;
+  int fp=fopen("0:\\1.bmp", A_ReadWrite+A_Create+A_Truncate,P_READ+P_WRITE, &err);
+  
+  if(fp==-1) return -1;
+  
+  unsigned int bitsize=width*height*bit_count/8;
+  unsigned int headsize=sizeof(BITMAPFILEHEADER);
+  unsigned int infosize=sizeof(BITMAPINFOHEADER);
+  //head
+  BITMAPFILEHEADER header;
+  zeromem(&header, headsize);
+   
+  header.bfType=BF_TYPE;
+  header.bfSize=headsize+infosize+bitsize+palette_size;
+  //header.bfReserved1=0;
+  //header.bfReserved2=0;
+  header.bfOffBits=headsize+infosize+palette_size;
+  int i=fwrite(fp, &header, headsize, &err);    
+  //headinfo 
+  BITMAPINFOHEADER info;
+  zeromem(&info, infosize);
+  info.biSize=infosize;
+  info.biWidth=width;
+  info.biHeight=-height;
+  info.biPlanes=1;
+  info.biBitCount=bit_count;
+  info.biCompression=compression;
+  /*info.biSizeImage=0;//if bi.compression==0
+   info.biXPelsPerMeter=0xB40;
+   info.biYPelsPerMeter=0xB40;
+   info.biClrUsed=0;
+   info.biClrImportant=0;*/
+  fwrite(fp, &info, infosize, &err);
+  
+  if(palette&&palette_size) fwrite(fp, palette, palette_size, &err);
+
+  char *buf=malloc(bitsize);
+  buf=rastrum;
+  for(int i=0; i<bitsize; i+=4)
+    buf[i]=to_argb1555(buf[i]);
+  
+  fwrite(fp, buf, bitsize, &err);
+  
+  
+  fclose(fp, &err);
+  return 1;
+}
+
+
+
+char *SieRastrumDecod(const char *rastrum, const int permission)
+{
+  char *bitmap=NULL;
+  if(rastrum!=NULL)
+  {
+    const int maxlen=permission*2;
+    bitmap=malloc(permission*4);
+    int rlen=0; //read img->bitmap
+    int wlen=0;//write to bitmap
+    while(wlen<maxlen)
+    {
+      if(rastrum[rlen]<=0x7F)//0x7f  (0xFF0xFF)
+      {
+        for(int i=0; i<rastrum[rlen]; i++, wlen+=2)
+        {
+	  memcpy(bitmap+wlen, rastrum+rlen+1, 2);
+        }
+        rlen+=3;
+      }
+      else //0x80 0xFF0xFF0xFF...(0x80)
+      {
+	unsigned int offset=(0xFF-rastrum[rlen])*2+2;
+	memcpy(bitmap+wlen, rastrum+rlen+1, offset);
+	wlen+=offset;
+	rlen+=offset+1;
+      }
+    }
+      char msg[128];
+  sprintf(msg, "rlen=%d wlen=%d\nmaxlen=%d)", rlen, wlen ,maxlen);
+  ShowMSG(1, (int)msg);
+  }
+  return bitmap;
+}
+

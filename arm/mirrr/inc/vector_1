@@ -1,0 +1,1608 @@
+// vector standard header -*-c++-*-
+#ifndef _VECTOR_
+#define _VECTOR_
+
+#ifndef _SYSTEM_BUILD
+#pragma system_include
+#endif
+
+#include <memory>
+#include <stdexcept>
+#include <ichooser>
+
+#ifndef _VECTOR_SHARED_IMPL
+#define _VECTOR_SHARED_IMPL 0
+#endif
+
+_STD_BEGIN
+#pragma language = save
+#pragma language = extended
+template<typename _Alloc>
+class __memory_of(typename _Alloc::value_type) _Vector_value
+  : public _ClassUtil::_AllocHolder<_Alloc,
+                                    !_ClassUtil::_IsZeroSize<_Alloc>::_Result>
+{
+public:
+  typedef typename _Alloc::template rebind<
+                   typename _TypeUtil::_CopyMemory<typename _Alloc::value_type,
+                                                   unsigned char>::_Type
+                                          >::other _UcalTy;
+  typedef typename _UcalTy::pointer _Bptr;
+  typedef typename _UcalTy::size_type size_type;
+  typedef typename _Alloc::pointer pointer;
+
+  _Vector_value() { }
+  _Vector_value(_Alloc a)
+    : _ClassUtil::_AllocHolder<_Alloc, 
+                               !_ClassUtil::_IsZeroSize<_Alloc>::_Result>(a)
+  {
+  }
+
+  void _Zero()
+  {
+    _Myfirst = 0;
+    _Mylast  = 0;
+    _Myend   = 0;
+  }
+
+  void _Swap(_Vector_value & _Right)
+  {
+    /*_STD*/ swap(_Myfirst, _Right._Myfirst);
+    /*_STD*/ swap(_Mylast, _Right._Mylast);
+    /*_STD*/ swap(_Myend, _Right._Myend); 
+  }
+
+  bool _Buy(size_type _Capacity)
+  {       // allocate array with _Capacity elements
+    _Zero();
+    _UcalTy _Ucal(this->_Alval());
+    if (_Capacity == 0)
+      return false;
+    else if (_Ucal.max_size() < _Capacity)
+      _Xlen();        // result too long
+    else
+    {       // nonempty array, allocate storage
+      _Myfirst = _Ucal.allocate(_Capacity);
+      _Mylast = _Myfirst;
+      _Myend = static_cast<_Bptr>(_Myfirst) + _Capacity;
+    }
+    return true;
+  }
+
+  //  _Alloc       & _Alval()       { return *this; }
+  //  _Alloc const & _Alval() const { return *this; }
+
+  static _Bptr _ToBptr(pointer _X) { return static_cast<_Bptr>(_X); }
+
+  _Bptr _Bfirst() const { return static_cast<_Bptr>(_Myfirst); }
+  _Bptr _Blast () const { return static_cast<_Bptr>(_Mylast); }
+  _Bptr _Bend  () const { return static_cast<_Bptr>(_Myend); }
+
+  size_type _Bsize() const
+  {
+    return _Blast() - _Bfirst();
+  }
+
+  size_type _Bcapacity() const
+  {
+    return _Bend() - _Bfirst();
+  }
+
+  template<size_t _Sz>
+  size_type _Capacity() const
+  {
+    return _Bcapacity() / _Sz;
+  }
+
+  template<size_t _Sz>
+  size_type _Size() const
+  {
+    return _Bsize() / _Sz;
+  }
+
+  void _Xlen() const
+  {       // report a length_error
+    _THROW(length_error, "vector<T> too long"); 
+  }
+
+  void _Xran() const
+  {       // report an out_of_range error
+    _THROW(out_of_range, "invalid vector<T> subscript"); 
+  }
+
+  pointer _Myfirst;
+  pointer _Mylast;
+  pointer _Myend;
+};
+
+template<typename _Ty, typename _Alloc>
+class __memory_of(_Ty) _Vector_impl :
+  public _Vector_value<typename _Alloc::template rebind<
+                              typename _TypeUtil::_CopyMemory<_Ty, void>::_Type
+                                                       >::other
+                      >
+{
+public:
+  typedef typename _Alloc::template rebind<
+               typename _TypeUtil::_CopyMemory<_Ty, void>::_Type>::other
+          _VoidAlloc;
+  typedef _Vector_value<_VoidAlloc> _Base;
+  typedef typename _Base::_Bptr _Bptr;
+  typedef typename _Alloc::template rebind<_Ty>::other _Alty;
+  typedef typename _Alty::size_type size_type;
+  typedef typename _Base::pointer _VoidPtr;
+  typedef typename _Alty::pointer pointer;
+  typedef typename _Alty::const_pointer const_pointer;
+  typedef typename _TypeUtil::_StripMemory<_Ty>::_Type   _BareTy;
+  typedef typename _TypeUtil::_ParameterType<_Ty>::_Type _ParamTy;
+
+  _Vector_impl()
+  {
+  }
+
+  _Vector_impl(_Alloc a)
+    : _Base(_VoidAlloc(a))
+  {
+  }
+
+  _Alty _Altyval() const { return _Alty(this->_Alval()); }
+
+  void _Construct(_Vector_impl const & _Right)
+  {
+    this->_Zero();
+    _Assign(_Right);
+  }
+
+  template<typename _Ty1>
+  void _Construct(size_type _Count, const _Ty1& _Val)
+  {       // construct from _Count * _Val
+    typedef typename _TypeUtil::_CopyMemory<_Ty1, _BareTy>::_Type _BT;
+    _Construct_n0(_Count, (const _BT &)_Val);
+  }
+
+  void _EraseAll()
+  {
+    _Destroy(this->_Mytyfirst(), this->_Mytylast());
+    this->_Mylast = this->_Myfirst; 
+  }
+
+  void _Tidy0()
+  {       // free all storage
+    if (this->_Myfirst != 0)
+    {       // something to free, destroy and deallocate it
+      _EraseAll();
+      this->_Altyval().deallocate(_Mytyfirst(), _Mytyend() - _Mytyfirst());
+    }
+  }
+  void _Tidy()
+  {       // free all storage
+    _Tidy0();
+    this->_Zero();
+  }
+
+  void _Destroy(pointer _First, pointer _Last)
+  {       // destroy [_First, _Last) using allocator
+    if (__has_destructor(_Ty))
+    {
+      _Alty _Al(this->_Altyval());
+      _Destroy_range(_First, _Last, _Al);
+    }
+  }
+
+  void _Assign(_Vector_impl const & _Right)
+  {
+    if (this == &_Right)
+      ;       // nothing to do
+    else if (_Right.size() == 0)
+      _Tidy();        // new sequence empty, free storage
+    else if (_Right.size() <= size())
+    {       // enough elements, copy new and destroy old
+      pointer _Ptr =
+                  copy(_Right._Mytyfirst(), _Right._Mytylast(), _Mytyfirst());
+      _Destroy(_Ptr, _Mytylast());
+      this->_Mylast = _Mytyfirst() + _Right.size(); 
+    }
+    else if (_Right.size() <= capacity())
+    {       // enough room, copy and construct new
+      if (   __construction_by_bitwise_copy_allowed(_Ty)
+          && __assignment_by_bitwise_copy_allowed(_Ty))
+      {
+        this->_Mylast =
+                _Ucopy(_Right._Mytyfirst(), _Right._Mytylast(), _Mytyfirst()); 
+      }
+      else
+      {
+        pointer _Where = _Right._Mytyfirst() + size();
+        copy(_Right._Mytyfirst(), _Where, _Mytyfirst());
+        this->_Mylast = _Ucopy(_Where, _Right._Mytylast(), _Mytylast()); 
+      }
+    }
+    else
+    {       // not enough room, allocate new array and construct new
+      if (this->_Myfirst != 0)
+      { // discard old array
+        _Destroy(_Mytyfirst(), _Mytylast());
+        this->_Altyval().deallocate(_Mytyfirst(), _Mytyend() - _Mytyfirst()); 
+      }
+      if (this->_Buy(_Right.template _Size<1>()))
+        this->_Mylast =
+               _Ucopy(_Right._Mytyfirst(), _Right._Mytylast(), _Mytyfirst());
+    }
+  }
+
+#pragma basic_template_matching
+  template<class _Ty1>
+  void _Assign_n(size_type _Count, _Ty1 const & _Val)
+  {
+    typedef typename _TypeUtil::_CopyMemory<_Ty1, _BareTy>::_Type _BT;
+    _Assign_n0(_Count, reinterpret_cast<_BT const &>(_Val));
+  }
+
+#pragma basic_template_matching
+  template<class _Ty1>
+  pointer _Insert(pointer _Where, _Ty1 const & _Val)
+  {       // insert _Val at _Where
+    typedef typename _TypeUtil::_CopyMemory<_Ty1, _BareTy>::_Type _BT;
+    return _Insert0(_Where, reinterpret_cast<_BT const &>(_Val));
+  }
+
+#pragma basic_template_matching
+  template<class _Ty1>
+  void _Insert_n(pointer _Where, size_type _Count, _Ty1 const & _Val)
+  {       // insert _Count * _Val at _Where
+    typedef typename _TypeUtil::_CopyMemory<_Ty1, _BareTy>::_Type _BT;
+    typename _ClassUtil::_TmpHolder<_Ty>::_Type
+                                     _Tmp(reinterpret_cast<_BT const &>(_Val));
+    _Insert_n0(_Where, _Count, _Tmp);
+  }
+
+  pointer _Erase(pointer _Where)
+  {
+    copy(_Where + 1, _Mytylast(), _Where);
+    _Destroy(_Mytylast() - 1, _Mytylast());
+    this->_Mylast = _Mytylast() - 1;
+    return _Where;
+  }
+
+  pointer _Erase(pointer _First, pointer _Last)
+  {
+    if (_First != _Last)
+    {       // worth doing, copy down over hole
+      pointer _Ptr = copy(_Last, _Mytylast(), _First);
+      _Destroy(_Ptr, _Mytylast());
+      this->_Mylast = _Ptr; 
+    }
+    return (_First);
+  }
+
+  void _Reserve(size_type _Count)
+  {
+    _Alty _Al(this->_Alval());
+    if (_Al.max_size() < _Count)
+      this->_Xlen();        // result too long
+    else if (capacity() < _Count)
+    {       // not enough room, reallocate
+      pointer _Ptr = this->_Altyval().allocate(_Count);
+
+      _TRY_BEGIN
+      _Ucopy(_Mytyfirst(), _Mytylast(), _Ptr);
+      _CATCH_ALL
+      this->_Altyval().deallocate(_Ptr, _Count);
+      _RERAISE;
+      _CATCH_END
+
+      size_type _Size = size();
+      if (this->_Myfirst != 0)
+      { // destroy and deallocate old array
+        _Destroy(_Mytyfirst(), _Mytylast());
+        this->_Altyval().deallocate(_Mytyfirst(), _Mytyend() - _Mytyfirst()); 
+      }
+      this->_Myend = _Ptr + _Count;
+      this->_Mylast = _Ptr + _Size;
+      this->_Myfirst = _Ptr; 
+    }
+  }
+
+#pragma basic_template_matching
+  template<typename _Ty1>
+  void _Push_back(_Ty1 const & _Val)
+  {
+    typedef typename _TypeUtil::_CopyMemory<_Ty1, _BareTy>::_Type _BT;
+    _Push_back0(*reinterpret_cast<_BT const *>(&_Val));
+  }
+
+  bool empty() const
+  {
+    return this->_Bsize() == 0;
+  }
+
+  void _Pop_back()
+  {
+    if (!empty())
+    {       // erase last element
+      _Destroy(_Mytylast() - 1, _Mytylast());
+      this->_Mylast = _Mytylast() - 1;
+    }
+  }
+
+  void _Swap(_Vector_impl & _Right)
+  {
+    if (this->_Alval() == _Right._Alval())
+      _Base::_Swap(_Right);
+    else
+    {
+      typename _ClassUtil::_TmpHolder<_Vector_impl>::_Type _Tmp(*this);
+      _Assign(_Right);
+      _Right._Assign(_Tmp);
+    }
+  }
+
+  pointer _Mytyfirst() const
+  {
+    return static_cast<pointer>(this->_Myfirst);
+  }
+  pointer _Mytylast() const
+  {
+    return static_cast<pointer>(this->_Mylast);
+  }
+  pointer _Mytyend() const
+  {
+    return static_cast<pointer>(this->_Myend);
+  }
+
+  pointer _Make_room(pointer _Where, size_type _Count)
+  {       // Make room for _Count values at _Where
+    size_type _Cap = capacity();
+    _Alty _Al(this->_Alval());
+    size_type _Sz = size();
+
+    if (_Count == 0)
+      ;
+    else if (_Al.max_size() - _Sz < _Count)
+      this->_Xlen();        // result too long
+    else if (_Cap < _Sz + _Count)
+    {       // not enough room, reallocate
+      // try to grow by 50%
+      _Cap = _Al.max_size() - _Cap / 2 < _Cap ? 0 : _Cap + _Cap / 2;
+      if (_Cap < _Sz + _Count)
+        _Cap = _Sz + _Count;
+      pointer _Newvec = _Al.allocate(_Cap);
+      pointer _Ptr = _Newvec;
+      pointer _Ptr1, _Ptr2;
+
+      _TRY_BEGIN
+      _Ptr1 = _Ucopy(_Mytyfirst(), _Where, _Newvec); // copy prefix
+      _Ptr2 = _Ptr1 + _Count;                        // Room for new stuff
+      _Ptr = _Ucopy(_Where, _Mytylast(), _Ptr2); // copy suffix
+      _CATCH_ALL
+      _Destroy(_Newvec, _Ptr1);
+      _Destroy(_Ptr2, _Ptr);
+      _Al.deallocate(_Newvec, _Cap);
+      _RERAISE;
+      _CATCH_END
+
+      _Count += _Sz;
+      _Tidy0();
+      this->_Myend = _Newvec + _Cap;
+      this->_Mylast = _Newvec + _Count;
+      this->_Myfirst = _Newvec; 
+      _Where = _Ptr1;
+    }
+    else if (   __assignment_by_bitwise_copy_allowed(*_Where)
+             && !__has_destructor(*_Where))
+    {
+      // Assignment needs no special care
+      copy_backward(_Where, _Mytylast(), _Mytylast() + _Count); // copy suffix
+      this->_Mylast = _Mytylast() + _Count;
+    }
+    else if ((size_type)(_Mytylast() - _Where) < _Count)
+    {       // new stuff spills off end
+      _Ucopy(_Where, _Mytylast(), _Where + _Count); // copy suffix
+      _Destroy(_Where, _Mytylast());
+      this->_Mylast = _Mytylast() + _Count;
+    }
+    else
+    {       // new stuff can all be assigned
+      pointer _Oldend = _Mytylast();
+      this->_Mylast = _Ucopy(_Oldend - _Count, _Oldend,
+                             _Mytylast());       // copy suffix
+      copy_backward(_Where, _Oldend - _Count, _Oldend);       // copy hole
+      _Destroy(_Where, _Where + _Count);
+    }
+    return _Where;
+  }
+
+private:
+  size_type size() const { return this->template _Size<sizeof(_Ty)>(); }
+  size_type capacity() const { return this->template _Capacity<sizeof(_Ty)>(); }
+
+  void _Construct_n0(size_type _Count, _ParamTy _Val)
+  {       // construct from _Count * _Val
+    if (this->_Buy(_Count * sizeof(_Ty)))
+    {   // nonzero, fill it
+      _TRY_BEGIN
+      this->_Mylast = _Ufill(this->_Mytyfirst(), _Count, _Val);
+      _CATCH_ALL
+      _Tidy();
+      _RERAISE;
+      _CATCH_END
+    }
+  }
+
+  pointer _Insert0(pointer _Where, _ParamTy _Val)
+  {       // insert _Val at _Where
+    size_type _Off = this->_Myfirst == 0
+      ? 0 : this->_ToBptr(_Where) - this->_Bfirst();
+    _Insert_n(_Where, (size_type)1, _Val);
+    return pointer(this->_Bfirst() + _Off);
+  }
+
+  bool _InVector(_Ty const * _Where) const
+  {
+    return    _Where >= _Mytyfirst()
+           && _Where < _Mytylast()
+           && _Mytyfirst() + (_Where - _Mytyfirst()) == _Where;
+  }
+  bool _InVector(...) const
+  {
+    // Anything that cannot call the other overload cannot possibly be in the
+    // vector.
+    return false;
+  }
+
+  void _Insert_n0(pointer _Where, size_type _Count, _ParamTy _Val)
+  {       // insert _Count * _Val at _Where
+    _Where = _Make_room(_Where, _Count);
+    _Ufill(_Where, _Count, _Val);
+  }
+
+  void _Assign_n0(size_type _Count, _ParamTy _Val)
+  {
+    typename _ClassUtil::_TmpHolder<_Ty>::_Type _Tmp(_Val);
+    _EraseAll();
+    _Insert_n0(_Mytyfirst(), _Count, _Tmp);
+  }
+
+  void _Push_back0(_ParamTy _Val)
+  {
+    if (this->_Mylast < this->_Myend)
+      this->_Mylast = _Ufill(this->_Mytylast(), 1, _Val);
+    else
+      _Insert(this->_Mytylast(), _Val); 
+  }
+
+  _VoidPtr _Ufill(pointer _Ptr, size_type _Count, _ParamTy _Val)
+  {       // copy initializing _Count * _Val, using allocator
+    _Alty _Al(this->_Alval());
+    _Uninitialized_fill_n(_Ptr, _Count, _Val, _Al);
+    return (_Ptr + _Count); 
+  }
+
+  pointer _Ucopy(const_pointer _First, const_pointer _Last, pointer _Ptr)
+  {       // copy initializing [_First, _Last), using allocator
+    _Alty _Al(this->_Alval());
+    return (_Uninitialized_copy(_First, _Last, _Ptr, _Al)); 
+  }
+};
+
+
+// TEMPLATE CLASS vector
+template<class _Ty, class _Ax = allocator<_Ty> >
+class __memory_of(_Ty) vector
+{       // varying size array of values
+  typedef typename _TypeUtil::_ParameterType<_Ty>::_Type _ParamTy;
+public:
+  typedef vector<_Ty, _Ax> _Myt;
+#if _VECTOR_SHARED_IMPL
+  typedef typename _Impl_chooser<_Ty, _Ax, _Vector_impl>::_Type _Impl;
+#else // ! _VECTOR_SHARED_IMPL
+  typedef _Vector_impl<_Ty, _Ax> _Impl;
+#endif //  _VECTOR_SHARED_IMPL
+  typedef /*typename _Impl::_Alty*/_Ax _Alloc;
+  typedef _Alloc allocator_type;
+  typedef typename _Alloc::size_type size_type;
+  typedef typename _Alloc::difference_type difference_type;
+  typedef typename _Alloc::pointer _Tptr;
+  typedef typename _Alloc::const_pointer _Ctptr;
+  typedef _Tptr pointer;
+  typedef _Ctptr const_pointer;
+  typedef typename _Alloc::reference reference;
+  typedef typename _Alloc::const_reference const_reference;
+#pragma important_typedef
+  typedef typename _Alloc::value_type value_type;
+  typedef _Tptr iterator;
+  typedef _Ctptr const_iterator;
+  typedef _STD reverse_iterator<iterator>
+  reverse_iterator;
+  typedef _STD reverse_iterator<const_iterator>
+  const_reverse_iterator;
+
+  vector()
+    : _MyImpl()
+  {       // construct empty vector
+    _MyImpl._Zero();
+  }
+
+  explicit vector(const _Alloc& _Al)
+    : _MyImpl(_Al)
+  {       // construct empty vector with allocator
+    _MyImpl._Zero();
+  }
+
+  explicit vector(size_type _Count)
+    : _MyImpl()
+  {       // construct from _Count * _Ty()
+    typedef typename _ClassUtil::_TmpHolder<_Ty>::_Type _TmpType;
+    _TmpType _Tmp = _TmpType(); // Make sure base types get zeroed
+    _ParamTy _Tmp2(_Tmp);
+    _MyImpl._Construct(_Count, _Tmp2);
+  }
+
+  vector(size_type _Count, _ParamTy _Val)
+    : _MyImpl()
+  {       // construct from _Count * _Val
+    _MyImpl._Construct(_Count, _Val); 
+  }
+
+  vector(size_type _Count, _ParamTy _Val, const _Alloc& _Al)
+    : _MyImpl(_Al)
+  {       // construct from _Count * _Val, with allocator
+    _MyImpl._Construct(_Count, _Val); 
+  }
+
+  vector(const _Myt& _Right)
+    : _MyImpl(_Right._MyImpl._Altyval())
+  {       // construct by copying _Right
+    _MyImpl._Construct(_Right._MyImpl);
+  }
+
+#pragma basic_template_matching
+  template<class _Iter>
+  vector(_Iter _First,
+         _ALLOW_ONLY_ITERATORS(_Iter, _Iter) _Last)
+    : _MyImpl()
+  {       // construct from [_First, _Last)
+    _Construct(_First, _Last);
+  }
+
+#pragma basic_template_matching
+  template<class _Iter>
+  vector(_Iter _First,
+         _ALLOW_ONLY_ITERATORS(_Iter, _Iter) _Last,
+         const _Alloc& _Al)
+    : _MyImpl(_Al)
+  {       // construct from [_First, _Last), with allocator
+    _Construct(_First, _Last); 
+  }
+
+  ~vector()
+  {       // destroy the object
+    _MyImpl._Tidy(); 
+  }
+
+  _Myt& operator=(const _Myt& _Right)
+  {       // assign _Right
+    _MyImpl._Assign(_Right._MyImpl);
+    return (*this); 
+  }
+
+  void reserve(size_type _Count)
+  {       // determine new minimum length of allocated storage
+    _MyImpl._Reserve(_Count);
+  }
+
+  size_type capacity() const
+  {       // return current length of allocated storage
+    return _MyImpl.template _Capacity<sizeof(_Ty)>();
+  }
+
+  iterator begin()
+  {       // return iterator for beginning of mutable sequence
+    return (iterator(_MyImpl._Myfirst)); 
+  }
+
+  const_iterator begin() const
+  {       // return iterator for beginning of nonmutable sequence
+    return (const_iterator(_MyImpl._Myfirst)); 
+  }
+
+  iterator end()
+  {       // return iterator for end of mutable sequence
+    return (iterator(_MyImpl._Mylast)); 
+  }
+
+  const_iterator end() const
+  {       // return iterator for end of nonmutable sequence
+    return (const_iterator(_MyImpl._Mylast)); 
+  }
+
+  reverse_iterator rbegin()
+  {       // return iterator for beginning of reversed mutable sequence
+    return (reverse_iterator(end())); 
+  }
+
+  const_reverse_iterator rbegin() const
+  {       // return iterator for beginning of reversed nonmutable sequence
+    return (const_reverse_iterator(end())); 
+  }
+
+  reverse_iterator rend()
+  {       // return iterator for end of reversed mutable sequence
+    return (reverse_iterator(begin())); 
+  }
+
+  const_reverse_iterator rend() const
+  {       // return iterator for end of reversed nonmutable sequence
+    return (const_reverse_iterator(begin())); 
+  }
+
+  void resize(size_type _Newsize)
+  {       // determine new length, padding with _Ty() elements as needed
+    if (size() < _Newsize)
+      _Append(_Newsize, typename _ClassUtil::_TmpHolder<_Ty>::_Type());
+    else if (_Newsize < size())
+      erase(begin() + _Newsize, end()); 
+  }
+
+  void resize(size_type _Newsize, _ParamTy _Val)
+  {       // determine new length, padding with _Val elements as needed
+    if (size() < _Newsize)
+      _Append(_Newsize, _Val);
+    else if (_Newsize < size())
+      erase(begin() + _Newsize, end()); 
+  }
+
+  size_type size() const
+  {       // return length of sequence
+    return _MyImpl.template _Size<sizeof(_Ty)>();
+  }
+
+  size_type max_size() const
+  {       // return maximum possible length of sequence
+    return (_MyImpl._Altyval().max_size()); 
+  }
+
+  bool empty() const
+  {       // test if sequence is empty
+    return (size() == 0); 
+  }
+
+  _Alloc get_allocator() const
+  {       // return allocator object for values
+    return (_MyImpl._Alval()); 
+  }
+
+  const_reference at(size_type _Off) const
+  {       // subscript nonmutable sequence with checking
+    if (size() <= _Off)
+      _MyImpl._Xran();
+    return (*(begin() + _Off)); 
+  }
+
+  reference at(size_type _Off)
+  {       // subscript mutable sequence with checking
+    if (size() <= _Off)
+      _MyImpl._Xran();
+    return (*(begin() + _Off)); 
+  }
+
+  reference operator[](size_type _Off)
+  {       // subscript mutable sequence
+    return (*(begin() + _Off)); 
+  }
+
+  const_reference operator[](size_type _Off) const
+  {       // subscript nonmutable sequence
+    return (*(begin() + _Off)); 
+  }
+
+  reference front()
+  {       // return first element of mutable sequence
+    return (*begin()); 
+  }
+
+  const_reference front() const
+  {       // return first element of nonmutable sequence
+    return (*begin()); 
+  }
+
+  reference back()
+  {       // return last element of mutable sequence
+    return (*(end() - 1)); 
+  }
+
+  const_reference back() const
+  {       // return last element of nonmutable sequence
+    return (*(end() - 1)); 
+  }
+
+  void push_back(_ParamTy _Val)
+  {       // insert element at end
+    _MyImpl._Push_back(_Val);
+  }
+
+  void pop_back()
+  {       // erase element at end
+    _MyImpl._Pop_back();
+  }
+
+#pragma basic_template_matching
+  template<class _Iter>
+  _ALLOW_ONLY_ITERATORS(_Iter, void)
+  assign(_Iter _First, _Iter _Last)
+  {       // assign [_First, _Last)
+    _MyImpl._EraseAll();
+    _Insert(begin(), _First, _Last, _Iter_cat(_First));
+  }
+
+  void assign(size_type _Count, _ParamTy _Val)
+  {       // assign _Count * _Val
+    _MyImpl._Assign_n(_Count, _Val); 
+  }
+
+  iterator insert(iterator _Where, _ParamTy _Val)
+  {       // insert _Val at _Where
+    return _I(_MyImpl._Insert(_P(_Where), _Val));
+  }
+
+  void insert(iterator _Where, size_type _Count, _ParamTy _Val)
+  {       // insert _Count * _Val at _Where
+    _MyImpl._Insert_n(_P(_Where), _Count, _Val); 
+  }
+
+#pragma basic_template_matching
+  template<class _Iter>
+  _ALLOW_ONLY_ITERATORS(_Iter, void)
+  insert(iterator _Where, _Iter _First, _Iter _Last)
+  {       // insert [_First, _Last) at _Where
+    _Insert(_Where, _First, _Last, _Iter_cat(_First)); 
+  }
+
+  iterator erase(iterator _Where)
+  {       // erase element at where
+    return _I(_MyImpl._Erase(_P(_Where)));
+  }
+
+#pragma basic_template_matching
+  iterator erase(iterator _First, iterator _Last)
+  {       // erase [_First, _Last)
+    return _I(_MyImpl._Erase(_P(_First), _P(_Last)));
+  }
+
+  void clear()
+  {       // erase all
+    _MyImpl._Tidy(); 
+  }
+
+  void swap(_Myt& _Right)
+  {       // exchange contents with _Right
+    _MyImpl._Swap(_Right._MyImpl);
+  }
+
+private:
+#pragma basic_template_matching
+  template<typename _Iter>
+  _ALLOW_ONLY_ITERATORS(_Iter, void)
+  _Construct(_Iter _First, _Iter _Last)
+  {
+    _Construct0(_First, _Last, _Iter_cat(_First));
+  }
+
+#pragma basic_template_matching
+  template<typename _Iter>
+  void _Construct0(_Iter _First, _Iter _Last, input_iterator_tag _T)
+  {
+    _MyImpl._Zero();
+    _Insert(begin(), _First, _Last, _T);
+  }
+
+#pragma basic_template_matching
+  template<typename _Iter>
+  void _Construct0(_Iter _First, _Iter _Last, random_access_iterator_tag)
+  {
+    size_type _Count = distance(_First, _Last);
+    _MyImpl._Buy(_Count * sizeof(_Ty));
+    _Ucopy(_First, _Last, begin());
+    _MyImpl._Mylast = _MyImpl._Mytyfirst() + _Count;
+  }
+
+#pragma basic_template_matching
+  template<typename _Iter>
+  iterator _Ucopy(_Iter _First, _Iter _Last, iterator _Ptr)
+  {       // copy initializing [_First, _Last), using allocator
+    _Alloc _Al(get_allocator());
+    return (_Uninitialized_copy(_First, _Last, _Ptr, _Al));
+  }
+
+  void _Append(size_type _Newsize, _ParamTy _Val)
+  {
+    _MyImpl._Insert_n(_MyImpl._Mytylast(), _Newsize - size(), _Val);
+  }
+
+#pragma basic_template_matching
+  template<class _Iter>
+  void _Insert(iterator _Where, _Iter _First, _Iter _Last, input_iterator_tag)
+  {
+    for (; _First != _Last; ++_First, ++_Where)
+      _Where = insert(_Where, *_First);
+  }
+
+#pragma basic_template_matching
+  template<class _Iter>
+  void _Insert(iterator _Where, _Iter _First, _Iter _Last,
+               forward_iterator_tag)
+  {
+    size_type _Count = distance(_First, _Last);
+    _Where = _I(_MyImpl._Make_room(_P(_Where), _Count));
+    _Ucopy(_First, _Last, _Where);
+  }
+
+  typename _Impl::pointer _P(iterator _W)
+  {
+    return (typename _Impl::pointer)_W;
+  }
+
+  iterator _I(typename _Impl::pointer _P)
+  {
+    return (iterator)_P;
+  }
+
+  _Impl _MyImpl;
+};
+#pragma language = restore
+
+// vector TEMPLATE FUNCTIONS
+template<class _Ty, class _Alloc> inline
+bool operator==(const vector<_Ty, _Alloc>& _Left,
+                const vector<_Ty, _Alloc>& _Right)
+{       // test for vector equality
+        return (_Left.size() == _Right.size()
+                && equal(_Left.begin(), _Left.end(), _Right.begin())); }
+
+template<class _Ty, class _Alloc> inline
+bool operator!=(const vector<_Ty, _Alloc>& _Left,
+                const vector<_Ty, _Alloc>& _Right)
+{       // test for vector inequality
+  return (!(_Left == _Right)); 
+}
+
+template<class _Ty, class _Alloc> inline
+bool operator<(const vector<_Ty, _Alloc>& _Left,
+               const vector<_Ty, _Alloc>& _Right)
+{       // test if _Left < _Right for vectors
+  return (lexicographical_compare(_Left.begin(), _Left.end(),
+                                  _Right.begin(), _Right.end())); 
+}
+
+template<class _Ty, class _Alloc> inline
+bool operator>(const vector<_Ty, _Alloc>& _Left,
+               const vector<_Ty, _Alloc>& _Right)
+{       // test if _Left > _Right for vectors
+  return (_Right < _Left); 
+}
+
+template<class _Ty, class _Alloc> inline
+bool operator<=(const vector<_Ty, _Alloc>& _Left,
+                const vector<_Ty, _Alloc>& _Right)
+{       // test if _Left <= _Right for vectors
+  return (!(_Right < _Left)); 
+}
+
+template<class _Ty, class _Alloc> inline
+bool operator>=(const vector<_Ty, _Alloc>& _Left,
+                const vector<_Ty, _Alloc>& _Right)
+{       // test if _Left >= _Right for vectors
+  return (!(_Left < _Right)); 
+}
+
+template<class _Ty, class _Alloc> inline
+void swap(vector<_Ty, _Alloc>& _Left, vector<_Ty, _Alloc>& _Right)
+{       // swap _Left and _Right vectors
+  _Left.swap(_Right); 
+}
+
+// CLASS vector<bool>
+typedef unsigned _Vbase;        // word type for vector<bool> representation
+const int _VBITS = 8 * sizeof (_Vbase); // at least CHAR_BITS bits per word
+
+template<class _Alloc>
+class vector<_Bool, _Alloc>
+{       // varying size array of bits
+public:
+  typedef typename _Alloc::size_type size_type;
+  typedef typename _Alloc::difference_type _Dift;
+  typedef _STD vector<_Vbase,
+    typename _Alloc::template rebind<_Vbase>::other>
+  _Vbtype;
+  typedef _STD vector<_Bool, _Alloc> _Myt;
+  typedef _Dift difference_type;
+  typedef _Bool _Ty;
+  typedef _Alloc allocator_type;
+
+  // CLASS reference
+  class reference
+  {       // reference to a bit within a base word
+  public:
+    reference()
+      : _Mask(0), _Myptr(0)
+    {}      // construct with null word pointer
+
+    reference(size_t _Off, _Vbase *_Ptr)
+      : _Mask((_Vbase)(1 << _Off)), _Myptr(_Ptr)
+    {}      // construct with bit offset _Off in word *_Ptr
+
+    reference& operator=(const reference& _Right)
+    {       // assign reference _Right to bit
+      return (*this = bool(_Right)); 
+    }
+
+    reference& operator=(bool _Val)
+    {       // assign _Val to bit
+      if (_Val)
+        *_Myptr |= _Mask;
+      else
+        *_Myptr &= ~_Mask;
+      return (*this); 
+    }
+
+    void flip()
+    {       // toggle the bit
+      *_Myptr ^= _Mask; 
+    }
+
+    bool operator~() const
+    {       // test if bit is reset
+      return (!bool(*this)); 
+    }
+
+    operator bool() const
+    {       // test if bit is set
+      return ((*_Myptr & _Mask) != 0);
+    }
+
+  protected:
+    _Vbase _Mask;   // bit selection mask
+    _Vbase *_Myptr; // pointer to base word
+  };
+
+  typedef reference _Reft;
+  typedef bool const_reference;
+  typedef bool value_type;
+
+  // CLASS const_iterator
+  class const_iterator
+    : public _Ranit<_Bool, _Dift, const_reference *, const_reference>
+  {       // iterator for nonmutable vector<bool>
+  public:
+    typedef random_access_iterator_tag iterator_category;
+    typedef _Bool value_type;
+    typedef _Dift difference_type;
+    typedef const_reference *pointer;
+    typedef const_reference reference;
+
+    const_iterator()
+      : _Myoff(0), _Myptr(0)
+    {}      // construct with null pointer
+
+    const_iterator(size_t _Off,
+                   typename _Vbtype::const_iterator _Where)
+                        : _Myoff(_Off), _Myptr(_Where)
+    {}      // construct with offset _Off at iterator _Where
+
+    const_reference operator*() const
+    {       // return designated object
+      return (_Reft(_Myoff, (_Vbase *)_Myptr)); 
+    }
+
+    const_iterator& operator++()
+    {       // preincrement
+      _Inc();
+      return (*this); 
+    }
+
+    const_iterator operator++(int)
+    {       // postincrement
+      const_iterator _Tmp = *this;
+      _Inc();
+      return (_Tmp); 
+    }
+
+    const_iterator& operator--()
+    {       // predecrement
+      _Dec();
+      return (*this); 
+    }
+
+    const_iterator operator--(int)
+    {       // postdecrement
+      const_iterator _Tmp = *this;
+      _Dec();
+      return (_Tmp); 
+    }
+
+    const_iterator& operator+=(difference_type _Off)
+    {       // increment by integer
+      _Myoff += _Off;
+      _Myptr += _Myoff / _VBITS;
+      _Myoff %= _VBITS;
+      return (*this); 
+    }
+
+    const_iterator operator+(difference_type _Off) const
+    {       // return this + integer
+      const_iterator _Tmp = *this;
+      return (_Tmp += _Off); 
+    }
+
+    const_iterator& operator-=(difference_type _Off)
+    {       // decrement by integer
+      return (*this += -_Off); 
+    }
+
+    const_iterator operator-(difference_type _Off) const
+    {       // return this - integer
+      const_iterator _Tmp = *this;
+      return (_Tmp -= _Off); 
+    }
+
+    difference_type operator-(const const_iterator _Right) const
+    {       // return difference of iterators
+      return (_VBITS * (_Myptr - _Right._Myptr)
+              + (difference_type)_Myoff
+              - (difference_type)_Right._Myoff); 
+    }
+
+    const_reference operator[](difference_type _Off) const
+    {       // subscript
+      return (*(*this + _Off)); 
+    }
+
+    bool operator==(const const_iterator& _Right) const
+    {       // test for iterator equality
+      return (_Myptr == _Right._Myptr && _Myoff == _Right._Myoff); 
+    }
+
+    bool operator!=(const const_iterator& _Right) const
+    {       // test for iterator inequality
+      return (!(*this == _Right)); 
+    }
+
+    bool operator<(const const_iterator& _Right) const
+    {       // test if this < _Right
+      return (_Myptr < _Right._Myptr
+              || _Myptr == _Right._Myptr && _Myoff < _Right._Myoff); 
+    }
+
+    bool operator>(const const_iterator& _Right) const
+    {       // test if this > _Right
+      return (_Right < *this); 
+    }
+
+    bool operator<=(const const_iterator& _Right) const
+    {       // test if this <= _Right
+      return (!(_Right < *this)); 
+    }
+
+    bool operator>=(const const_iterator& _Right) const
+    {       // test if this >= _Right
+      return (!(*this < _Right)); 
+    }
+
+    friend const_iterator operator+(difference_type _Off,
+                                    const const_iterator& _Right)
+    {       // return iterator + integer
+      return (_Right + _Off); 
+    }
+
+  protected:
+    void _Dec()
+    {       // decrement bit position
+      if (_Myoff != 0)
+        --_Myoff;
+      else
+        _Myoff = _VBITS - 1, --_Myptr; 
+    }
+
+    void _Inc()
+    {       // increment bit position
+      if (_Myoff < _VBITS - 1)
+        ++_Myoff;
+      else
+        _Myoff = 0, ++_Myptr; 
+    }
+
+    size_t _Myoff;  // offset of bit in word
+    const _Vbase *_Myptr;   // pointer to base of word array
+  };
+
+  // CLASS iterator
+  class iterator
+    : public const_iterator
+  {       // iterator for mutable vector<bool>
+  public:
+    typedef random_access_iterator_tag iterator_category;
+    typedef _Bool value_type;
+    typedef _Dift difference_type;
+    typedef _Reft *pointer;
+    typedef _Reft reference;
+
+    iterator()
+      : const_iterator()
+    {}      // construct with null pointer
+
+    iterator(size_t _Off, typename _Vbtype::iterator _Where)
+      : const_iterator(_Off, _Where)
+    {}      // construct with offset _Off at iterator _Where
+
+    reference operator*() const
+    {       // return designated object
+      return (_Reft(this->_Myoff, (_Vbase *)this->_Myptr)); 
+    }
+
+    iterator& operator++()
+    {       // preincrement
+      this->_Inc();
+      return (*this); 
+    }
+
+    iterator operator++(int)
+    {       // postincrement
+      iterator _Tmp = *this;
+      this->_Inc();
+      return (_Tmp); 
+    }
+
+    iterator& operator--()
+    {       // predecrement
+      this->_Dec();
+      return (*this); 
+    }
+
+    iterator operator--(int)
+    {       // postdecrement
+      iterator _Tmp = *this;
+      this->_Dec();
+      return (_Tmp); 
+    }
+
+    iterator& operator+=(difference_type _Off)
+    {       // increment by integer
+      this->_Myoff += _Off;
+      this->_Myptr += this->_Myoff / _VBITS;
+      this->_Myoff %= _VBITS;
+      return (*this); 
+    }
+
+    iterator operator+(difference_type _Off) const
+    {       // return this + integer
+      iterator _Tmp = *this;
+      return (_Tmp += _Off); 
+    }
+
+    iterator& operator-=(difference_type _Off)
+    {       // decrement by integer
+      return (*this += -_Off); 
+    }
+
+    iterator operator-(difference_type _Off) const
+    {       // return this - integer
+      iterator _Tmp = *this;
+      return (_Tmp -= _Off); 
+    }
+
+    difference_type operator-(const iterator _Right) const
+    {       // return difference of iterators
+      return (_VBITS * (this->_Myptr - _Right._Myptr)
+              + (difference_type)this->_Myoff
+              - (difference_type)_Right._Myoff); 
+    }
+
+    reference operator[](difference_type _Off) const
+    {       // subscript
+      return (*(*this + _Off)); 
+    }
+
+    friend iterator operator+(difference_type _Off,
+                              const iterator& _Right)
+    {       // return iterator + integer
+      return (_Right + _Off); 
+    }
+  };
+
+  typedef iterator pointer;
+  typedef const_iterator const_pointer;
+  typedef _STD reverse_iterator<iterator> reverse_iterator;
+  typedef _STD reverse_iterator<const_iterator> const_reverse_iterator;
+
+  vector()
+    : _Mysize(0), _Myvec()
+  {}      // construct empty vector
+
+  explicit vector(const _Alloc& _Al)
+    : _Mysize(0), _Myvec(_Al)
+  {}      // construct empty vector, with allocator
+
+  explicit vector(size_type _Count, bool _Val = false)
+    : _Mysize(0), _Myvec(_Nw(_Count), (_Vbase)(_Val ? -1 : 0))
+  {       // construct from _Count * _Val
+    _Trim(_Count); 
+  }
+
+  vector(size_type _Count, bool _Val, const _Alloc& _Al)
+    : _Mysize(0), _Myvec(_Nw(_Count), (_Vbase)(_Val ? -1 : 0), _Al)
+  {       // construct from _Count * _Val, with allocator
+    _Trim(_Count); 
+  }
+
+  template<class _Iter>
+  vector(_Iter _First,
+         _ALLOW_ONLY_ITERATORS(_Iter, _Iter) _Last)
+    : _Mysize(0), _Myvec()
+  {       // construct from [_First, _Last)
+    _BConstruct(_First, _Last, _Iter_cat(_First)); 
+  }
+
+  template<class _Iter>
+  vector(_Iter _First,
+         _ALLOW_ONLY_ITERATORS(_Iter, _Iter) _Last,
+         const _Alloc& _Al)
+    : _Mysize(0), _Myvec(_Al)
+  {       // construct from [_First, _Last), with allocator
+    _BConstruct(_First, _Last, _Iter_cat(_First)); 
+  }
+
+  template<class _Iter>
+  void _BConstruct(_Iter _First, _Iter _Last, input_iterator_tag)
+  {       // initialize from [_First, _Last), input iterators
+    insert(begin(), _First, _Last); 
+  }
+
+  ~vector()
+  {       // destroy the object
+    _Mysize = 0; 
+  }
+
+  void reserve(size_type _Count)
+  {       // determine new minimum length of allocated storage
+    _Myvec.reserve(_Nw(_Count)); 
+  }
+
+  size_type capacity() const
+  {       // return current length of allocated storage
+    return (_Myvec.capacity() * _VBITS); 
+  }
+
+  iterator begin()
+  {       // return iterator for beginning of mutable sequence
+    return (iterator(0, _Myvec.begin())); 
+  }
+
+  const_iterator begin() const
+  {       // return iterator for beginning of nonmutable sequence
+    return (const_iterator(0, _Myvec.begin())); 
+  }
+
+  iterator end()
+  {       // return iterator for end of mutable sequence
+    iterator _Tmp = begin();
+    if (0 < _Mysize)
+      _Tmp += _Mysize;
+    return (_Tmp); 
+  }
+
+  const_iterator end() const
+  {       // return iterator for end of nonmutable sequence
+    const_iterator _Tmp = begin();
+    if (0 < _Mysize)
+      _Tmp += _Mysize;
+    return (_Tmp); 
+  }
+
+  reverse_iterator rbegin()
+  {       // return iterator for beginning of reversed mutable sequence
+    return (reverse_iterator(end())); 
+  }
+
+  const_reverse_iterator rbegin() const
+  {       // return iterator for beginning of reversed nonmutable sequence
+    return (const_reverse_iterator(end())); 
+  }
+
+  reverse_iterator rend()
+  {       // return iterator for end of reversed mutable sequence
+    return (reverse_iterator(begin())); 
+  }
+
+  const_reverse_iterator rend() const
+  {       // return iterator for end of reversed nonmutable sequence
+    return (const_reverse_iterator(begin())); 
+  }
+
+  void resize(size_type _Newsize, bool _Val = false)
+  {       // determine new length, padding with _Val elements as needed
+    if (size() < _Newsize)
+      _Insert_n(end(), _Newsize - size(), _Val);
+    else if (_Newsize < size())
+      erase(begin() + _Newsize, end()); 
+  }
+
+  size_type size() const
+  {       // return length of sequence
+    return (_Mysize); 
+  }
+
+  size_type max_size() const
+  {       // return maximum possible length of sequence
+    const size_type _Maxsize = _Myvec.max_size();
+    return (_Maxsize < (size_type)(-1) / _VBITS
+            ? _Maxsize * _VBITS : (size_type)(-1)); 
+  }
+
+  bool empty() const
+  {       // test if sequence is empty
+    return (size() == 0); 
+  }
+
+  _Alloc get_allocator() const
+  {       // return allocator object for values
+    return (_Myvec.get_allocator()); 
+  }
+
+  const_reference at(size_type _Off) const
+  {       // subscript nonmutable sequence with checking
+    if (size() <= _Off)
+      _Xran();
+    return (*(begin() + _Off)); 
+  }
+
+  reference at(size_type _Off)
+  {       // subscript mutable sequence with checking
+    if (size() <= _Off)
+      _Xran();
+    return (*(begin() + _Off)); 
+  }
+
+  const_reference operator[](size_type _Off) const
+  {       // subscript nonmutable sequence
+    return (*(begin() + _Off)); 
+  }
+
+  reference operator[](size_type _Off)
+  {       // subscript mutable sequence
+    return (*(begin() + _Off)); 
+  }
+
+  reference front()
+  {       // return first element of mutable sequence
+    return (*begin()); 
+  }
+
+  const_reference front() const
+  {       // return first element of nonmutable sequence
+    return (*begin()); 
+  }
+
+  reference back()
+  {       // return last element of mutable sequence
+    return (*(end() - 1)); 
+  }
+
+  const_reference back() const
+  {       // return last element of nonmutable sequence
+    return (*(end() - 1)); 
+  }
+
+  void push_back(bool _Val)
+  {       // insert element at end
+    insert(end(), _Val); 
+  }
+
+  void pop_back()
+  {       // erase element at end
+    if (!empty())
+      erase(end() - 1); 
+  }
+
+  template<class _Iter>
+  _ALLOW_ONLY_ITERATORS(_Iter, void)
+  assign(_Iter _First, _Iter _Last)
+  {       // assign [_First, _Last)
+    erase(begin(), end());
+    insert(begin(), _First, _Last); 
+  }
+
+  void assign(size_type _Count, bool _Val)
+  {       // assign _Count * _Val
+    _Assign_n(_Count, _Val); 
+  }
+
+  iterator insert(iterator _Where, bool _Val)
+  {       // insert _Val at _Where
+    size_type _Off = _Where - begin();
+    _Insert_n(_Where, (size_type)1, _Val);
+    return (begin() + _Off); 
+  }
+
+  void insert(iterator _Where, size_type _Count, bool _Val)
+  {       // insert _Count * _Val at _Where
+    _Insert_n(_Where, _Count, _Val); 
+  }
+
+  template<class _Iter>
+  _ALLOW_ONLY_ITERATORS(_Iter, void)
+  insert(iterator _Where, _Iter _First, _Iter _Last)
+  {       // insert [_First, _Last) at _Where
+    _Insert(_Where, _First, _Last, _Iter_cat(_First)); 
+  }
+
+  template<class _Iter>
+  void _Insert(iterator _Where, _Iter _First, _Iter _Last,
+               input_iterator_tag)
+  {       // insert [_First, _Last) at _Where, input iterators
+    size_type _Off = _Where - begin();
+
+    for (; _First != _Last; ++_First, ++_Off)
+      insert(begin() + _Off, *_First); 
+  }
+
+  template<class _Iter>
+  void _Insert(iterator _Where, _Iter _First, _Iter _Last,
+               forward_iterator_tag)
+  {       // insert [_First, _Last) at _Where, forward iterators
+    size_type _Capacity = distance(_First, _Last);
+
+    if (_Capacity == 0)
+      ;
+    else if (max_size() - size() < _Capacity)
+      _Xlen();        // result too long
+    else
+    {       // worth doing
+      if (size() == 0)
+      {       // originally empty, just make room
+        _Myvec.resize(_Nw(size() + _Capacity), 0);
+        _Where = begin(); 
+      }
+      else
+      {       // make room and copy down suffix
+        size_type _Off = _Where - begin();
+        _Myvec.resize(_Nw(size() + _Capacity), 0);
+        _Where = begin() + _Off;
+        copy_backward(_Where, end(), end() + _Capacity); 
+      }
+
+      copy(_First, _Last, _Where);    // add new stuff
+      _Mysize += _Capacity; 
+    }
+  }
+
+  iterator erase(iterator _Where)
+  {       // erase element at _Where
+    copy(_Where + 1, end(), _Where);
+    _Trim(_Mysize - 1);
+    return (_Where); 
+  }
+
+  iterator erase(iterator _First, iterator _Last)
+  {       // erase [_First, _Last)
+    iterator _Next = copy(_Last, end(), _First);
+    _Trim(_Next - begin());
+    return (_First); 
+  }
+
+  void clear()
+  {       // erase all elements
+    erase(begin(), end()); 
+  }
+
+  void flip()
+  {       // toggle all elements
+    for (typename _Vbtype::iterator _Next = _Myvec.begin();
+         _Next != _Myvec.end(); ++_Next)
+      *_Next = (_Vbase)~*_Next;
+    _Trim(_Mysize); 
+  }
+
+  void swap(_Myt& _Right)
+  {       // exchange contents with right
+    _STD swap(_Mysize, _Right._Mysize);
+    _Myvec.swap(_Right._Myvec); 
+  }
+
+  static void swap(reference _Left, reference _Right)
+  {       // swap _Left and _Right vector<bool> elements
+    bool _Val = _Left;
+    _Left = _Right;
+    _Right = _Val; 
+  }
+
+protected:
+  void _Assign_n(size_type _Count, bool _Val)
+  {       // assign _Count * _Val
+    erase(begin(), end());
+    _Insert_n(begin(), _Count, _Val); 
+  }
+
+  void _Insert_n(iterator _Where, size_type _Count, bool _Val)
+  {       // insert _Count * _Val at _Where
+    if (_Count == 0)
+      ;
+    else if (max_size() - size() < _Count)
+      _Xlen();        // result too long
+    else
+    {       // worth doing
+      if (size() == 0)
+      {       // originally empty, just make room
+        _Myvec.resize(_Nw(size() + _Count), 0);
+        _Where = begin(); 
+      }
+      else
+      {       // make room and copy down suffix
+        size_type _Off = _Where - begin();
+        _Myvec.resize(_Nw(size() + _Count), 0);
+        _Where = begin() + _Off;
+        copy_backward(_Where, end(), end() + _Count); 
+      }
+
+      fill(_Where, _Where + _Count, _Val);    // add new stuff
+      _Mysize += _Count; 
+    }
+  }
+
+  static size_type _Nw(size_type _Count)
+  {       // return number of base words from number of bits
+    return ((_Count + _VBITS - 1) / _VBITS); 
+  }
+
+  void _Trim(size_type _Size)
+  {       // trim base vector to exact length in bits
+    if (max_size() < _Size)
+      _Xlen();        // result too long
+    size_type _Words = _Nw(_Size);
+
+    if (_Words < _Myvec.size())
+      _Myvec.erase(_Myvec.begin() + _Words, _Myvec.end());
+    _Mysize = _Size;
+    _Size %= _VBITS;
+    if (0 < _Size)
+      _Myvec[_Words - 1] &= (_Vbase)((1 << _Size) - 1); 
+  }
+
+  void _Xlen() const
+  {       // report a length_error
+    _THROW(length_error, "vector<bool> too long"); 
+  }
+
+  void _Xran() const
+  {       // throw an out_of_range error
+    _THROW(out_of_range, "invalid vector<bool> subscript"); 
+  }
+
+  size_type _Mysize;      // current length of sequence
+  _Vbtype _Myvec; // base vector of words
+};
+
+typedef vector<bool, allocator<bool> > _Bvector;
+_STD_END
+#endif /* _VECTOR_ */
+
+/*
+ * Copyright (c) 1992-2002 by P.J. Plauger.  ALL RIGHTS RESERVED.
+ * Consult your license regarding permissions and restrictions.
+ */
+
+/*
+ * This file is derived from software bearing the following
+ * restrictions:
+ *
+ * Copyright (c) 1994
+ * Hewlett-Packard Company
+ *
+ * Permission to use, copy, modify, distribute and sell this
+ * software and its documentation for any purpose is hereby
+ * granted without fee, provided that the above copyright notice
+ * appear in all copies and that both that copyright notice and
+ * this permission notice appear in supporting documentation.
+ * Hewlett-Packard Company makes no representations about the
+ * suitability of this software for any purpose. It is provided
+ * "as is" without express or implied warranty.
+V3.12:0576 */

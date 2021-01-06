@@ -1,0 +1,2345 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    30/Jun/2010  14:35:10 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\elfloader\elfloader.cpp                       #
+#    Command line    =  C:\arm\elfloader\elfloader.cpp -D NDEBUG -D X75      #
+#                       -lCN C:\arm\elfloader\S65v58\List\ -lb               #
+#                       C:\arm\elfloader\S65v58\List\ -o                     #
+#                       C:\arm\elfloader\S65v58\Obj\ -s9 --no_unroll         #
+#                       --cpu_mode thumb --endian little --cpu ARM926EJ-S    #
+#                       --stack_align 4 --interwork -e --fpu None -I         #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\elfloader\S65v58\List\elfloader.lst           #
+#    Object file     =  C:\arm\elfloader\S65v58\Obj\elfloader.r79            #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\elfloader\elfloader.cpp
+      1          //#define wintel	//компелим под винду
+      2          
+      3          #define MAX_PHNUM	10	//максимальное количество програмных сегментов
+      4          
+      5          #ifdef wintel
+      6          #define _CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES 1
+      7          #define _CRT_SECURE_NO_DEPRECATE
+      8          #include "stdlib.h"
+      9          #include "stdio.h"
+     10          #include <iostream>
+     11          using namespace std;
+     12          #define mfree free
+     13          #endif
+     14          
+     15          #ifndef wintel
+     16          #include "..\inc\swilib.h"
+     17          #include "conf_loader.h"
+     18          #endif
+     19          
+     20          typedef unsigned long  Elf32_Addr;	//Unsigned program address 4
+     21          typedef unsigned short Elf32_Half;	//Unsigned medium integer  2
+     22          typedef unsigned long  Elf32_Off; 	//Unsigned file offset     4
+     23          typedef          long  Elf32_Sword; 	//Signed large integer     4
+     24          typedef unsigned long  Elf32_Word; 	//Unsigned large integer   4
+     25          
+     26          //ELF Header
+     27          //e_ident[] Identification Indexes
+     28          #define EI_MAG0    0  //File identification
+     29          #define EI_MAG1    1  //File identification
+     30          #define EI_MAG2    2  //File identification
+     31          #define EI_MAG3    3  //File identification
+     32          #define EI_CLASS   4  //File class
+     33          #define EI_DATA    5  //Data encoding
+     34          #define EI_VERSION 6  //File version
+     35          #define EI_PAD     7  //Start of padding bytes
+     36          #define EI_NIDENT  16 //Size of e_ident[]
+     37          
+     38          typedef struct{
+     39            unsigned char e_ident[EI_NIDENT]; //The initial bytes mark the file as an object file and provide machine-independent data with which to decode and interpret the fileТs contents.
+     40            Elf32_Half e_type;      //This member identifies the object file type.
+     41            Elf32_Half e_machine;   //This memberТs value specifies the required architecture for an individual file.
+     42            Elf32_Word e_version;   //This member identifies the object file version.
+     43            Elf32_Addr e_entry;     //This member gives the virtual address to which the system first transfers control, thus starting the process. If the file has no associated entry point, this member holds zero.
+     44            Elf32_Off  e_phoff;     //This member holds the program header tableТs file offset in bytes. If the file has no program header table, this member holds zero.
+     45            Elf32_Off  e_shoff;     //This member holds the section header tableТs file offset in bytes. If the file has no section header table, this member holds zero.
+     46            Elf32_Word e_flags;     //This member holds processor-specific flags associated with the file. Flag names take the form EF_machine_flag.
+     47            Elf32_Half e_ehsize;    //This member holds the ELF headerТs size in bytes.
+     48            Elf32_Half e_phentsize; //This member holds the size in bytes of one entry in the fileТs program header table; all entries are the same size.
+     49            Elf32_Half e_phnum;     //This member holds the number of entries in the program header table. Thus the product of e_phentsize and e_phnum gives the tableТs size in bytes. If a file has no program header table, e_phnum holds the value zero.
+     50            Elf32_Half e_shentsize; //This member holds a section headerТs size in bytes. A section header is one entry in the section header table; all entries are the same size.
+     51            Elf32_Half e_shnum;     //shnumЧThis member holds the number of entries in the section header table. Thus the product of e_shentsize and e_shnum gives the section header tableТs size in bytes. If a file has no section header table, e_shnum holds the value zero.
+     52            Elf32_Half e_shstrndx;  //This member holds the section header table index of the entry associated with the section name string table. If the file has no section name string table, this member holds the value SHN_UNDEF.
+     53          } Elf32_Ehdr;
+     54          
+     55          //E_typeЧThis member identifies the object file type.
+     56          #define ET_NONE   0        //No file type
+     57          #define ET_REL    1        //Re-locatable file
+     58          #define ET_EXEC   2        //Executable file
+     59          #define ET_DYN    3        //Shared object file
+     60          #define ET_CORE   4        //Core file
+     61          #define ET_LOPROC 0xFF00   //Processor-specific
+     62          #define ET_HIPROC 0xFFFF   //Processor-specific
+     63          
+     64          //E_machineЧThis memberТs value specifies the required architecture for an individual file.
+     65          #define EM_NONE        0  //No machine
+     66          #define EM_M32         1  //AT&T WE 32100
+     67          #define EM_SPARC       2  //SPARC
+     68          #define EM_386         3  //Intel Architecture
+     69          #define EM_68K         4  //Motorola 68000
+     70          #define EM_88K         5  //Motorola 88000
+     71          #define EM_860         7  //Intel 80860
+     72          #define EM_MIPS        8  //MIPS RS3000 Big-Endian
+     73          #define EM_MIPS_RS4_BE 10 //MIPS RS4000 Big-Endian
+     74          #define EM_ARM         40 //ARM/Thumb Architecture
+     75          
+     76          //E_versionЧThis member identifies the object file version.
+     77          #define EV_NONE    0 //Invalid version
+     78          #define EV_CURRENT 1 //Current version
+     79          
+     80          //EI_MAG0 0 to EI_MAG3ЧA fileТs first 4 bytes hold a magic number, identifying the file as an ELF object file. Name Value Meaning
+     81          #define ELFMAG0 0x7f //e_ident[EI_MAG0]
+     82          #define ELFMAG1 'E' //e_ident[EI_MAG1]
+     83          #define ELFMAG2 'L' //e_ident[EI_MAG2]
+     84          #define ELFMAG3 'F' //e_ident[EI_MAG3]
+     85          
+     86          //EI_CLASSЧThe next byte, e_ident[EI_CLASS], identifies the fileТs class, or capacity. Name Value Meaning
+     87          #define ELFCLASSNONE 0 //Invalid class
+     88          #define ELFCLASS32   1 //32-bit objects
+     89          #define ELFCLASS64   2 //64-bit objects
+     90          
+     91          //EI_DATAЧByte e_ident[EI_DATA]specifies the data encoding of all data1 in the object file. The following encodings are currently defined. Name Value Meaning
+     92          #define ELFDATANONE 0 //Invalid data encoding
+     93          #define ELFDATA2LSB 1 //See Data encodings ELFDATA2LSB, below
+     94          #define ELFDATA2MSB 2 //See Data encodings ELFDATA2MSB, below
+     95          
+     96          //Sections
+     97          //Section Header
+     98          typedef struct{
+     99            Elf32_Word sh_name;      //This member specifies the name of the section. Its value is an index into the section header string table section [see section 3.4, String Table below], giving the location of a null-terminated string.
+    100            Elf32_Word sh_type;      //typeЧThis member categorizes the sectionТs contents and semantics. Section types and their descriptions appear in Figure 3-9 below.
+    101            Elf32_Word sh_flags;     //Sections support 1-bit flags that describe miscellaneous attributes. Flag definitions appear in Figure 3-11, below.
+    102            Elf32_Addr sh_addr;      //If the section will appear in the memory image of a process, this member gives the address at which the sectionТs first byte should reside. Otherwise, the member contains 0.
+    103            Elf32_Off  sh_offset;    //This memberТs value gives the byte offset from the beginning of the file to the first byte in the section. One section type, SHT_NOBITS described in Figure 3-9 below, occupies no space in the file, and its sh_offset member locates the conceptual placement in the file.
+    104            Elf32_Word sh_size;      //This member gives the sectionТs size in bytes. Unless the section type is SHT_NOBITS, the section occupies sh_size bytes in the file. A section of type SHT_NOBITS may have a non-zero size, but it occupies no space in the file.
+    105            Elf32_Word sh_link;      //This member holds a section header table index link, whose interpretation depends on the section type. Figure 3-12 below describes the values.
+    106            Elf32_Word sh_info;      //This member holds extra information, whose interpretation depends on the section type. Figure 3-12 below describes the values.
+    107            Elf32_Word sh_addralign; //Some sections have address alignment constraints. For example, if a section holds a doubleword, the system must ensure double-word alignment for the entire section. That is, the value of sh_addr must be congruent to 0, modulo the value of sh_addralign. Currently, only 0 and positive integral powers of two are allowed. Values 0 and 1 mean the section has no alignment constraints.
+    108            Elf32_Word sh_entsize;   //Some sections hold a table of fixed-size entries, such as a symbol table. For such a section, this member gives the size in bytes of each entry. The member contains 0 if the section does not hold a table of fixedsize entries. A section headerТs sh_type member specifies the sectionТs semantics.
+    109          } Elf32_Shdr;
+    110          
+    111          //Special Section Indexes
+    112          #define SHN_UNDEF     0     //This value marks an undefined, missing, irrelevant, or otherwise meaningless section reference. For example, a symbol УdefinedФ relative to section number SHN_UNDEF is an undefined symbol.
+    113          #define SHN_LORESERVE 0xff00 //This value specifies the lower bound of the range of reserved indexes.
+    114          #define SHN_LOPROC    0xff00 //Values in this range are reserved for processor-specific semantics.
+    115          #define SHN_HIPROC    0xff1f //Values in this range are reserved for processor-specific semantics.
+    116          #define SHN_ABS       0xfff1 //This value specifies absolute values for the corresponding reference. For example, symbols defined relative to section number SHN_ABS have absolute values and are not affected by relocation.
+    117          #define SHN_COMMON    0xfff2 //Symbols defined relative to this section are common symbols, such as FORTRAN COMMON or unallocated C external variables.
+    118          #define SHN_HIRESERVE 0xffff //This value specifies the upper bound of the range of reserved indexes. The system reserves indexes between SHN_LORESERVE and SHN_HIRESERVE, inclusive; the values do not refer to the section header table. That is, the section header table does not contain entries for the reserved indexes.
+    119          
+    120          //sh_type
+    121          #define SHT_NULL     0  //This value marks a section header that does not have an associated section. Other members of the section header have undefined values
+    122          #define SHT_PROGBITS 1  //The section holds information defined by the program, whose format and meaning are determined solely by the program.
+    123          #define SHT_SYMTAB   2  //The section holds a symbol table.
+    124          #define SHT_STRTAB   3  //The section holds a string table.
+    125          #define SHT_RELA     4  //The section holds relocation entries with explicit addends, such as type Elf32_Rela for the 32-bit class of object files. An object file may have multiple relocation sections. See Relocation below for details.
+    126          #define SHT_HASH     5  //The section holds a symbol hash table.
+    127          #define SHT_DYNAMIC  6  //The section holds information for dynamic linking.
+    128          #define SHT_NOTE     7  //This section holds information that marks the file in some way.
+    129          #define SHT_NOBITS   8  //A section of this type occupies no space in the file but otherwise resembles SHT_PROGBITS. Although this section contains no bytes, the sh_offset member contains the conceptual file offset.
+    130          #define SHT_REL      9  //The section holds relocation entries without explicit addends, such as type Elf32_Rel for the 32-bit class of object files. An object file may have multiple relocation sections. See Relocation below for details.
+    131          #define SHT_SHLIB    10 //This section type is reserved but has unspecified semantics.
+    132          #define SHT_DYNSYM   11 //The section holds a symbol table.
+    133          #define SHT_LOPROC   0x70000000
+    134          #define SHT_HIPROC   0x7fffffff //Values in this inclusive range are reserved for processor-specific semantics.
+    135          #define SHT_LOUSER   0x80000000
+    136          #define SHT_HIUSER   0xffffffff //Values in this inclusive range are reserved for application programs. Types between SHT_LOUSER and SHT_HIUSER may be used by an application,without conflicting with current or future system-defined section types.
+    137          
+    138          //Section Attribute Flags, sh_flags
+    139          #define SHF_WRITE     1          //The section contains data that should be writable during process execution
+    140          #define SHF_ALLOC     2          //The section occupies memory during process execution. Some control sections do not reside in the memory image of an object file; this attribute is off for those sections
+    141          #define SHF_EXECINSTR 4          //The section contains executable machine instructions.
+    142          #define SHF_MASKPROC  0xf0000000 //Bits in this mask are reserved for processor-specific semantics.
+    143          
+    144          //Program
+    145          //Program Header
+    146          typedef struct{
+    147            Elf32_Word p_type;   //This member tells what kind of segment this array element describes or how to interpret the array element's information. Type values and their meanings are given in Figure 3-21, below.
+    148            Elf32_Off p_offset;  //This member gives the offset from the start of the file at which the first byte of the segment resides.
+    149            Elf32_Addr p_vaddr;  //This member gives the virtual address at which the first byte of the segment resides in memory.
+    150            Elf32_Addr p_paddr;  //On systems for which physical addressing is relevant, this member is reserved for the segment's physical address. This member requires operating system specific information.
+    151            Elf32_Word p_filesz; //This member gives the number of bytes in the file image of the segment; it may be zero.
+    152            Elf32_Word p_memsz;  //This member gives the number of bytes in the memory image of the segment; it may be zero.
+    153            Elf32_Word p_flags;  //This member gives flags relevant to the segment. Defined flag values are given in Figure 3-22, below.
+    154            Elf32_Word p_align;  //Loadable process segments must have congruent values for p_vaddr and p_offset, modulo the page size. This member gives the value to which the segments are aligned in memory and in the file. Values 0 and 1 mean that no alignment is required. Otherwise, p_align should be a positive, integral power of 2, and p_vaddr should equal p_offset, modulo p_align.
+    155          } Elf32_Phdr;
+    156          
+    157          //Defined program header flags
+    158          #define PF_X 1 //The segment may be executed.
+    159          #define PF_W 2 //The segment may be written to.
+    160          #define PF_R 4 //The segment may be read.
+    161          #define PF_MASKPROC 0xf0000000 //Reserved for processor-specific purposes (see 4.6, Program headers).
+    162          
+    163          //Segment Types, p_type
+    164          #define PT_NULL    0 //The array element is unused; other members' values are undefined. This type lets the program header table have ignored entries.
+    165          #define PT_LOAD    1 //The array element specifies a loadable segment, described by p_filesz and p_memsz (for additional explanation, see PT_LOAD below).
+    166          #define PT_DYNAMIC 2 //The array element specifies dynamic linking information. See subsection 4.7.
+    167          #define PT_INTERP  3 //The array element specifies the location and size of a null-terminated path name to invoke as an interpreter.
+    168          #define PT_NOTE    4 //The array element specifies the location and size of auxiliary information.
+    169          #define PT_SHLIB   5 //This segment type is reserved but has unspecified semantics.
+    170          #define PT_PHDR    6 //The array element, if present, specifies the location and size of the program header table itself (for additional explanation, see PT_ PHDR below).
+    171          #define PT_LOPROC  0x70000000 //Values in this inclusive range are reserved for processor-specific semantics.
+    172          #define PT_HIPROC  0x7fffffff
+    173          
+    174          //The dynamic section
+    175          typedef struct{
+    176            Elf32_Sword d_tag;
+    177            Elf32_Word d_val;
+    178          } Elf32_Dyn;
+    179          
+    180          //Dynamic section tags
+    181          #define DT_NULL     0  //Ignored. This entry marks the end of the dynamic array. mandatory
+    182          #define DT_NEEDED   1  //Index in the string table of the name of a needed library. multiple
+    183          #define DT_PLTRELSZ 2  //These entries are unused by versions 1-2 of the ARM EABI. unused
+    184          #define DT_PLTGOT   3
+    185          #define DT_HASH     4  //The offset of the hash table section in the dynamic segment. mandatory
+    186          #define DT_STRTAB   5  //The offset of the string table section in the dynamic segment. mandatory
+    187          #define DT_SYMTAB   6  //The offset of the symbol table section in the dynamic segment. mandatory
+    188          #define DT_RELA     7  //The offset in the dynamic segment of an SHT_RELA relocation section, Its byte size, and the byte size of an ARM RELA-type relocation entry. optional
+    189          #define DT_RELASZ   8
+    190          #define DT_RELAENT  9
+    191          #define DT_STRSZ    10 //The byte size of the string table section. mandatory
+    192          #define DT_SYMENT   11 //The byte size of an ARM symbol table entryЧ16. mandatory
+    193          #define DT_INIT     12 //These entries are unused by versions 1-2 of the ARM EABI. unused
+    194          #define DT_FINI     13
+    195          #define DT_SONAME   14 //The Index in the string table of the name of this shared object. mandatory
+    196          #define DT_RPATH    15 //Unused by the ARM EABI. unused
+    197          #define DT_SYMBOLIC 16
+    198          #define DT_REL      17 //The offset in the dynamic segment of an SHT_REL relocation section, Its byte size, and the byte size of an ARM REL-type relocation entry optional
+    199          #define DT_RELSZ    18
+    200          #define DT_RELENT   19
+    201          #define DT_PLTREL   20 //These entries are unused by versions 1-2 of the ARM EABI. unused
+    202          #define DT_DEBUG    21
+    203          #define DT_TEXTREL  22
+    204          #define DT_JMPREL   23
+    205          #define DT_BIND_NOW 24
+    206          #define DT_LOPROC   0x70000000 //Values in this range are reserved to the ARM EABI. unused
+    207          #define DT_HIPROC   0x7fffffff
+    208          
+    209          //Relocation Entries
+    210          typedef struct{
+    211            Elf32_Addr r_offset;
+    212            Elf32_Word r_info;
+    213          } Elf32_Rel;
+    214          
+    215          typedef struct{
+    216            Elf32_Addr  r_offset;
+    217            Elf32_Word  r_info;
+    218            Elf32_Sword r_addend;
+    219          } Elf32_Rela;
+    220          
+    221          #define ELF32_R_SYM(i) ((i)>>8)
+    222          #define ELF32_R_TYPE(i) ((unsigned char)(i))
+    223          #define ELF32_R_INFO(s,t) (((s)<<8)+(unsigned char)(t))
+    224          
+    225          //ARM relocation types
+    226          #define R_ARM_NONE            0   //Any No relocation. Encodes dependencies between sections.
+    227          #define R_ARM_PC24            1   //ARM B/BL S Ц P + A
+    228          #define R_ARM_ABS32           2   //32-bit word S + A
+    229          #define R_ARM_REL32           3   //32-bit word S Ц P + A
+    230          #define R_ARM_PC13            4   //ARM LDR r, [pc,Е] S Ц P + A
+    231          #define R_ARM_ABS16           5   //16-bit half-word S + A
+    232          #define R_ARM_ABS12           6   //ARM LDR/STR S + A
+    233          #define R_ARM_THM_ABS5        7   //Thumb LDR/STR S + A
+    234          #define R_ARM_ABS8            8   //8-bit byte S + A
+    235          #define R_ARM_SBREL32         9   //32-bit word S Ц B + A
+    236          #define R_ARM_THM_PC22        10  //Thumb BL pair S Ц P+ A
+    237          #define R_ARM_THM_PC8         11  //Thumb LDR r, [pc,Е] S Ц P + A
+    238          #define R_ARM_AMP_VCALL9      12  //AMP VCALL ObsoleteЧSA-1500 only.
+    239          #define R_ARM_SWI24           13  //ARM SWI S + A
+    240          #define R_ARM_THM_SWI8        14  //Thumb SWI S + A
+    241          #define R_ARM_XPC25           15  //ARM BLX S Ц P+ A
+    242          #define R_ARM_THM_XPC22       16  //Thumb BLX pair S Ц P+ A
+    243          #define R_ARM_COPY            20  //32 bit word Copy symbol at dynamic link time.
+    244          #define R_ARM_GLOB_DAT        21  //32 bit word Create GOT entry.
+    245          #define R_ARM_JUMP_SLOT       22  //32 bit word Create PLT entry.
+    246          #define R_ARM_RELATIVE        23  //32 bit word Adjust by program base.
+    247          #define R_ARM_GOTOFF          24  //32 bit word Offset relative to start of GOT.
+    248          #define R_ARM_GOTPC           25  //32 bit word Insert address of GOT.
+    249          #define R_ARM_GOT32           26  //32 bit word Entry in GOT.
+    250          #define R_ARM_PLT32           27  //ARM BL Entry in PLT.
+    251          #define R_ARM_ALU_PCREL_7_0   32  //ARM ADD/SUB (S Ц P + A) & 0x000000FF
+    252          #define R_ARM_ALU_PCREL_15_8  33  //ARM ADD/SUB (S Ц P + A) & 0x0000FF00
+    253          #define R_ARM_ALU_PCREL_23_15 34  //ARM ADD/SUB (S Ц P + A) & 0x00FF0000
+    254          #define R_ARM_LDR_SBREL_11_0  35  //ARM LDR/STR (S Ц B + A) & 0x00000FFF
+    255          #define R_ARM_ALU_SBREL_19_12 36  //ARM ADD/SUB (S Ц B + A) & 0x000FF000
+    256          #define R_ARM_ALU_SBREL_27_20 37  //ARM ADD/SUB (S Ц B + A) & 0x0FF00000
+    257          #define R_ARM_GNU_VTENTRY     100 //32 bit word Record C++ vtable entry.
+    258          #define R_ARM_GNU_VTINHERIT   101 //32 bit word Record C++ member usage.
+    259          #define R_ARM_THM_PC11        102 //Thumb B S Ц P + A
+    260          #define R_ARM_THM_PC9         103 //Thumb B<cond> S Ц P + A
+    261          #define R_ARM_RXPC25          249 //ARM BLX (?S Ц ?P) + A For calls between program segments.
+    262          #define R_ARM_RSBREL32        250 //Word (?S Ц ?SB) + A For an offset from SB, the static base.
+    263          #define R_ARM_THM_RPC22       251 //Thumb BL/BLX pair (?S Ц ?P) + A For calls between program segments.
+    264          #define R_ARM_RREL32          252 //Word (?S Ц ?P) + A For on offset between two segments.
+    265          #define R_ARM_RABS32          253 //Word ?S + A For the address of a location in the target segment.
+    266          #define R_ARM_RPC24           254 //ARM B/BL (?S Ц ?P) + A For calls between program segments.
+    267          #define R_ARM_RBASE           255 //None NoneЧIdentifies the segment being relocated by the following relocation directives.
+    268          
+    269          typedef long TElfEntry(char *, void *,void *,void *);
+    270          
+    271          #ifndef wintel
+
+   \                                 In segment CODE, align 4, keep-with-next
+    272          __arm zeromem_a(void *d, int l){zeromem(d,l);}
+   \                     zeromem_a:
+   \   00000000   00402DE9           PUSH     {LR}
+   \   00000004   1D0100EF           SWI      +285
+   \   00000008   0080BDE8           POP      {PC}             ;; return
+    273          #else
+    274          void zeromem_a(void *d, int l){memset(d,0, l);}
+    275          #endif
+    276          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    277          long elfload(char *filename, void *param1, void *param2, void *param3){
+   \                     elfload:
+   \   00000000   7FB5               PUSH     {R0-R6,LR}
+   \   00000002   FFB0               SUB      SP,SP,#+508
+    278            Elf32_Ehdr ehdr;				                        //заголовок ельфа
+    279            Elf32_Phdr phdrs[MAX_PHNUM];	                                        //заголовки програм
+    280            Elf32_Word dyn[DT_BIND_NOW+1];	                                        //тэги динамической секции
+    281            char *reloc, *base;
+    282            unsigned long minadr=(unsigned long)-1, maxadr=0;//, maxadrsize;
+   \   00000004   0025               MOVS     R5,#+0
+   \   00000006   ED43               MVNS     R5,R5
+   \   00000008   0595               STR      R5,[SP, #+20]
+    283            int n,m;
+    284          
+    285            
+    286            zeromem_a(dyn, sizeof(dyn));
+   \   0000000A   6421               MOVS     R1,#+100
+   \   0000000C   66A8               ADD      R0,SP,#+408
+   \   0000000E   ........           BLX      zeromem_a
+    287            
+    288            /////////////////////////////////////////
+    289            //WINTEL
+    290          #ifdef wintel
+    291            FILE *fin=NULL;
+    292            if ((fin=fopen(filename,"rb"))==NULL) return -1;			//не открываетс€ ельф
+    293            if (fread(&ehdr,sizeof(Elf32_Ehdr),1,fin)!=1) return -2;	        //не читаетс€ ельф
+    294          #endif
+    295            
+    296            //ARM
+    297          #ifndef wintel
+    298            int fin;
+    299            unsigned int iError, iError2;
+    300            if ((fin=fopen(filename, A_ReadOnly+A_BIN, P_READ, &iError))<0) return -1;	//не открываетс€ ельф
+   \   00000012   7F98               LDR      R0,[SP, #+508]
+   \   00000014   0024               MOVS     R4,#+0
+   \   00000016   6B46               MOV      R3,SP
+   \   00000018   8022               MOVS     R2,#+128
+   \   0000001A   1102               LSLS     R1,R2,#+8
+   \   0000001C   0ADF               SVC      +10
+   \   0000001E   0190               STR      R0,[SP, #+4]
+   \   00000020   0028               CMP      R0,#+0
+   \   00000022   01D5               BPL      ??elfload_0
+   \   00000024   2800               MOVS     R0,R5
+   \   00000026   43E1               B        ??elfload_1
+    301            if (fread(fin, &ehdr, sizeof(Elf32_Ehdr), &iError)!=sizeof(Elf32_Ehdr))	//не читаетс€ ельф
+   \                     ??elfload_0:
+   \   00000028   6B46               MOV      R3,SP
+   \   0000002A   3422               MOVS     R2,#+52
+   \   0000002C   09A9               ADD      R1,SP,#+36
+   \   0000002E   0BDF               SVC      +11
+   \   00000030   3428               CMP      R0,#+52
+   \   00000032   05D0               BEQ      ??elfload_2
+    302            {fclose(fin, &iError); return -2;}
+   \   00000034   0198               LDR      R0,[SP, #+4]
+   \   00000036   6946               MOV      R1,SP
+   \   00000038   0DDF               SVC      +13
+   \   0000003A   0120               MOVS     R0,#+1
+   \                     ??elfload_3:
+   \   0000003C   C043               MVNS     R0,R0
+   \   0000003E   37E1               B        ??elfload_1
+    303          #endif
+    304            /////////////////////////////////////////
+    305            
+    306            if (*((long *)ehdr.e_ident)!=0x464C457F){                               //да и не ельф это вовсе
+   \                     ??elfload_2:
+   \   00000040   0998               LDR      R0,[SP, #+36]
+   \   00000042   9D49               LDR      R1,??elfload_4   ;; 0x464c457f
+   \   00000044   8842               CMP      R0,R1
+   \   00000046   04D0               BEQ      ??elfload_5
+    307          #ifndef wintel
+    308              fclose(fin, &iError);
+   \   00000048   0198               LDR      R0,[SP, #+4]
+   \   0000004A   6946               MOV      R1,SP
+   \   0000004C   0DDF               SVC      +13
+    309          #endif
+    310              return -3;
+   \   0000004E   0220               MOVS     R0,#+2
+   \   00000050   F4E7               B.N      ??elfload_3
+    311            }
+   \                     ??elfload_5:
+   \   00000052   09A8               ADD      R0,SP,#+36
+   \   00000054   808D               LDRH     R0,[R0, #+44]
+   \   00000056   0B28               CMP      R0,#+11
+   \   00000058   02D3               BCC      ??elfload_6
+    312            
+    313          #ifdef wintel
+    314            cout << "Elf header"<<endl;
+    315            cout << "ehdr.e_entry:"<<ehdr.e_entry<<endl;
+    316            cout << "ehdr.e_phoff:"<<ehdr.e_phoff<<endl;
+    317          #endif
+    318            
+    319            //прочитаем все програмные сегменты и вычислим необходимую область в раме
+    320            if (ehdr.e_phnum>MAX_PHNUM) return -9;					//слишком много програмных сегментов
+   \   0000005A   0820               MOVS     R0,#+8
+   \                     ??elfload_7:
+   \   0000005C   C043               MVNS     R0,R0
+   \   0000005E   27E1               B        ??elfload_1
+    321            for(n=0;n<ehdr.e_phnum;n++){
+   \                     ??elfload_6:
+   \   00000060   0294               STR      R4,[SP, #+8]
+   \   00000062   10E0               B        ??elfload_8
+    322              ////////////////////////////////////////////////////
+    323              //WINTEL
+    324          #ifdef wintel
+    325              if (fseek(fin,ehdr.e_phoff+n*ehdr.e_phentsize,SEEK_SET)!=0) return -4;	//не сикаетс€ програмный заголовок
+    326              if (fread(&(phdrs[n]),sizeof(Elf32_Phdr),1,fin)!=1) return -5;		//не читаетс€ програмный заголовок
+    327          #endif
+    328              
+    329              //ARM
+    330          #ifndef wintel
+    331              if (lseek(fin, ehdr.e_phoff+n*ehdr.e_phentsize, S_SET, &iError, &iError2)!=ehdr.e_phoff+n*ehdr.e_phentsize)
+    332              {fclose(fin, &iError); return -4;}				//не сикаетс€ програмный заголовок
+    333              if (fread(fin, &phdrs[n], sizeof(Elf32_Phdr), &iError)!=sizeof(Elf32_Phdr))
+    334              {fclose(fin, &iError); return -5;}				//не читаетс€ програмный заголовок
+    335          #endif
+    336              /////////////////////////////////////////////////////
+    337              if (phdrs[n].p_type==PT_LOAD) {
+   \                     ??elfload_9:
+   \   00000064   2868               LDR      R0,[R5, #+0]
+   \   00000066   0128               CMP      R0,#+1
+   \   00000068   0AD1               BNE      ??elfload_10
+    338                if (minadr>phdrs[n].p_vaddr) minadr=phdrs[n].p_vaddr;
+   \   0000006A   A868               LDR      R0,[R5, #+8]
+   \   0000006C   0599               LDR      R1,[SP, #+20]
+   \   0000006E   8842               CMP      R0,R1
+   \   00000070   00D2               BCS      ??elfload_11
+   \   00000072   0590               STR      R0,[SP, #+20]
+    339                if (maxadr<(phdrs[n].p_vaddr+phdrs[n].p_memsz))
+   \                     ??elfload_11:
+   \   00000074   6969               LDR      R1,[R5, #+20]
+   \   00000076   4018               ADDS     R0,R0,R1
+   \   00000078   8442               CMP      R4,R0
+   \   0000007A   01D2               BCS      ??elfload_10
+    340                {
+    341          	maxadr=phdrs[n].p_vaddr+phdrs[n].p_memsz;
+   \   0000007C   A868               LDR      R0,[R5, #+8]
+   \   0000007E   4418               ADDS     R4,R0,R1
+    342                }
+    343              }
+   \                     ??elfload_10:
+   \   00000080   0298               LDR      R0,[SP, #+8]
+   \   00000082   401C               ADDS     R0,R0,#+1
+   \   00000084   0290               STR      R0,[SP, #+8]
+   \                     ??elfload_8:
+   \   00000086   0298               LDR      R0,[SP, #+8]
+   \   00000088   09A9               ADD      R1,SP,#+36
+   \   0000008A   898D               LDRH     R1,[R1, #+44]
+   \   0000008C   8842               CMP      R0,R1
+   \   0000008E   29DA               BGE      ??elfload_12
+   \   00000090   08A8               ADD      R0,SP,#+32
+   \   00000092   01B4               PUSH     {R0}
+   \   00000094   1198               LDR      R0,[SP, #+68]
+   \   00000096   0399               LDR      R1,[SP, #+12]
+   \   00000098   0AAD               ADD      R5,SP,#+40
+   \   0000009A   6D8D               LDRH     R5,[R5, #+42]
+   \   0000009C   01AB               ADD      R3,SP,#+4
+   \   0000009E   0022               MOVS     R2,#+0
+   \   000000A0   6943               MULS     R1,R5,R1
+   \   000000A2   4118               ADDS     R1,R0,R1
+   \   000000A4   0298               LDR      R0,[SP, #+8]
+   \   000000A6   0FDF               SVC      +15
+   \   000000A8   1199               LDR      R1,[SP, #+68]
+   \   000000AA   039A               LDR      R2,[SP, #+12]
+   \   000000AC   0AAB               ADD      R3,SP,#+40
+   \   000000AE   5B8D               LDRH     R3,[R3, #+42]
+   \   000000B0   01B0               ADD      SP,SP,#+4
+   \   000000B2   5A43               MULS     R2,R3,R2
+   \   000000B4   8918               ADDS     R1,R1,R2
+   \   000000B6   8842               CMP      R0,R1
+   \   000000B8   04D0               BEQ      ??elfload_13
+   \   000000BA   0198               LDR      R0,[SP, #+4]
+   \   000000BC   6946               MOV      R1,SP
+   \   000000BE   0DDF               SVC      +13
+   \   000000C0   0320               MOVS     R0,#+3
+   \   000000C2   BBE7               B.N      ??elfload_3
+   \                     ??elfload_13:
+   \   000000C4   0298               LDR      R0,[SP, #+8]
+   \   000000C6   16A9               ADD      R1,SP,#+88
+   \   000000C8   4001               LSLS     R0,R0,#+5
+   \   000000CA   0D18               ADDS     R5,R1,R0
+   \   000000CC   0198               LDR      R0,[SP, #+4]
+   \   000000CE   6B46               MOV      R3,SP
+   \   000000D0   2022               MOVS     R2,#+32
+   \   000000D2   2900               MOVS     R1,R5
+   \   000000D4   0BDF               SVC      +11
+   \   000000D6   2028               CMP      R0,#+32
+   \   000000D8   C4D0               BEQ      ??elfload_9
+   \   000000DA   0198               LDR      R0,[SP, #+4]
+   \   000000DC   6946               MOV      R1,SP
+   \   000000DE   0DDF               SVC      +13
+   \   000000E0   0420               MOVS     R0,#+4
+   \   000000E2   BBE7               B.N      ??elfload_7
+    344          #ifdef wintel
+    345              cout << "minadr:"<<hex<<minadr<<endl;
+    346              cout << "maxadr:"<<hex<<maxadr<<endl;
+    347              cout << "Program header"<<endl;
+    348              cout << "phdr.p_type:"<<phdrs[n].p_type<<endl;
+    349              cout << "phdr.p_offset:"<<phdrs[n].p_offset<<endl;
+    350              cout << "phdr.p_vaddr:"<<phdrs[n].p_vaddr<<endl;
+    351              cout << "phdr.p_paddr:"<<phdrs[n].p_paddr<<endl;
+    352              cout << "phdr.p_filesz:"<<phdrs[n].p_filesz<<endl;
+    353              cout << "phdr.p_memsz:"<<phdrs[n].p_memsz<<endl;
+    354          #endif
+    355            }
+    356            
+    357            //выделим эту область и очистим ее
+    358            if ((base=(char *)malloc(maxadr-minadr))==0){		//не выдел€етьс€ пам€ть под ельф
+   \                     ??elfload_12:
+   \   000000E4   0598               LDR      R0,[SP, #+20]
+   \   000000E6   251A               SUBS     R5,R4,R0
+   \   000000E8   2800               MOVS     R0,R5
+   \   000000EA   14DF               SVC      +20
+   \   000000EC   0400               MOVS     R4,R0
+   \   000000EE   04D1               BNE      ??elfload_14
+    359          #ifndef wintel
+    360              fclose(fin, &iError);
+   \   000000F0   0198               LDR      R0,[SP, #+4]
+   \   000000F2   6946               MOV      R1,SP
+   \   000000F4   0DDF               SVC      +13
+    361          #endif
+    362              return -14;
+   \   000000F6   0D20               MOVS     R0,#+13
+   \   000000F8   A0E7               B.N      ??elfload_3
+    363            }
+    364            //  t_zeromem(base,maxadr-minadr);
+    365            zeromem_a(base,maxadr-minadr);
+   \                     ??elfload_14:
+   \   000000FA   2900               MOVS     R1,R5
+   \   000000FC   ........           BLX      zeromem_a
+    366            for(n=0;n<ehdr.e_phnum;n++){ //  обход всех сегментов
+   \   00000100   0020               MOVS     R0,#+0
+   \   00000102   58E0               B.N      ??elfload_15
+    367              ////////////////////////////////////////////////////////////////////
+    368              //WINTEL
+    369          #ifdef wintel
+    370              if (fseek(fin,phdrs[n].p_offset,SEEK_SET)!=0) return -6;	//не сикаетс€ динамический сегмент
+    371          #endif
+    372              
+    373              //ARM
+    374          #ifndef wintel
+    375              if (lseek(fin, phdrs[n].p_offset, S_SET, &iError, &iError)!=phdrs[n].p_offset)
+    376              {fclose(fin, &iError); mfree(base); return -6;}		//не сикаетс€ динамический сегмент
+    377          #endif
+    378              /////////////////////////////////////////////////////////////////////
+    379              switch (phdrs[n].p_type){
+   \                     ??elfload_16:
+   \   00000104   0498               LDR      R0,[SP, #+16]
+   \   00000106   0068               LDR      R0,[R0, #+0]
+   \   00000108   0128               CMP      R0,#+1
+   \   0000010A   02D0               BEQ      ??elfload_17
+   \   0000010C   0228               CMP      R0,#+2
+   \   0000010E   17D0               BEQ      ??elfload_18
+   \   00000110   B8E0               B        ??elfload_19
+    380              case PT_LOAD:
+    381                //загрузим програмные сегменты с размером больше 0
+    382                if (phdrs[n].p_filesz!=0) {
+   \                     ??elfload_17:
+   \   00000112   0498               LDR      R0,[SP, #+16]
+   \   00000114   0269               LDR      R2,[R0, #+16]
+   \   00000116   002A               CMP      R2,#+0
+   \   00000118   4BD0               BEQ      ??elfload_20
+    383          	/////////////////////////////////////////////////////////////////////
+    384          	//WINTEL
+    385          #ifdef wintel
+    386          	if (fread((void *)&base[phdrs[n].p_vaddr-minadr],phdrs[n].p_filesz,1,fin)!=1) return -11;	//не читаетс€ програмный сегмент
+    387          #endif
+    388          	
+    389          	//ARM
+    390          #ifndef wintel
+    391          	if (fread(fin, &base[phdrs[n].p_vaddr-minadr], phdrs[n].p_filesz, &iError)!= phdrs[n].p_filesz)
+   \   0000011A   8068               LDR      R0,[R0, #+8]
+   \   0000011C   0599               LDR      R1,[SP, #+20]
+   \   0000011E   6B46               MOV      R3,SP
+   \   00000120   401A               SUBS     R0,R0,R1
+   \   00000122   2118               ADDS     R1,R4,R0
+   \   00000124   0198               LDR      R0,[SP, #+4]
+   \   00000126   0BDF               SVC      +11
+   \   00000128   0499               LDR      R1,[SP, #+16]
+   \   0000012A   0969               LDR      R1,[R1, #+16]
+   \   0000012C   8842               CMP      R0,R1
+   \   0000012E   40D0               BEQ      ??elfload_20
+    392          	{fclose(fin, &iError); mfree(base); return -11;}//не читаетс€ програмный сегмент
+   \   00000130   0198               LDR      R0,[SP, #+4]
+   \   00000132   6946               MOV      R1,SP
+   \   00000134   0DDF               SVC      +13
+   \   00000136   2000               MOVS     R0,R4
+   \   00000138   15DF               SVC      +21
+   \   0000013A   0A20               MOVS     R0,#+10
+   \                     ??elfload_21:
+   \   0000013C   C043               MVNS     R0,R0
+   \   0000013E   B7E0               B        ??elfload_1
+    393          #endif
+    394          	///////////////////////////////////////////////////////////////////////
+    395                }
+    396                break;
+    397              case PT_DYNAMIC:
+    398                //прочтем динамическую секцию
+    399                if ((reloc=(char *)malloc(phdrs[n].p_filesz))==0) {//не выдел€етс€ рама под динамический сегмент
+   \                     ??elfload_18:
+   \   00000140   0498               LDR      R0,[SP, #+16]
+   \   00000142   0069               LDR      R0,[R0, #+16]
+   \   00000144   14DF               SVC      +20
+   \   00000146   0390               STR      R0,[SP, #+12]
+   \   00000148   0028               CMP      R0,#+0
+   \   0000014A   06D1               BNE      ??elfload_22
+    400          #ifndef wintel
+    401          	fclose(fin, &iError);
+   \   0000014C   0198               LDR      R0,[SP, #+4]
+   \   0000014E   6946               MOV      R1,SP
+   \   00000150   0DDF               SVC      +13
+    402          #endif
+    403          	mfree(base);
+   \   00000152   2000               MOVS     R0,R4
+   \   00000154   15DF               SVC      +21
+    404          	return -7;
+   \   00000156   0620               MOVS     R0,#+6
+   \   00000158   70E7               B.N      ??elfload_3
+    405                }
+    406                
+    407                ///////////////////////////////////////////////////////////////////////
+    408                //WINTEL
+    409          #ifdef wintel
+    410                cout << "dyn seg: off="<<hex<<phdrs[n].p_offset<<", sz="<<phdrs[n].p_filesz<<endl;
+    411                if (fread(reloc,phdrs[n].p_filesz,1,fin)!=1) {mfree(reloc); return -8;} //не читаетс€ динамический сегмент
+    412          #endif
+    413                
+    414                //ARM
+    415          #ifndef wintel
+    416                if (fread(fin, reloc, phdrs[n].p_filesz, &iError)!=phdrs[n].p_filesz)
+   \                     ??elfload_22:
+   \   0000015A   0498               LDR      R0,[SP, #+16]
+   \   0000015C   0399               LDR      R1,[SP, #+12]
+   \   0000015E   0269               LDR      R2,[R0, #+16]
+   \   00000160   0198               LDR      R0,[SP, #+4]
+   \   00000162   6B46               MOV      R3,SP
+   \   00000164   0BDF               SVC      +11
+   \   00000166   0499               LDR      R1,[SP, #+16]
+   \   00000168   0969               LDR      R1,[R1, #+16]
+   \   0000016A   8842               CMP      R0,R1
+   \   0000016C   08D0               BEQ      ??elfload_23
+    417                {fclose(fin, &iError); mfree(reloc); mfree (base); return -8;}	//не читаетс€ динамический сегмент
+   \   0000016E   0198               LDR      R0,[SP, #+4]
+   \   00000170   6946               MOV      R1,SP
+   \   00000172   0DDF               SVC      +13
+   \   00000174   0398               LDR      R0,[SP, #+12]
+   \   00000176   15DF               SVC      +21
+   \   00000178   2000               MOVS     R0,R4
+   \   0000017A   15DF               SVC      +21
+   \   0000017C   0720               MOVS     R0,#+7
+   \   0000017E   6DE7               B.N      ??elfload_7
+    418          #endif
+    419                ////////////////////////////////////////////////////////////////////////
+    420                //				memset(dyn,0, sizeof(dyn));
+    421                //вытащим все тэги из динамической секции
+    422                m=0;
+   \                     ??elfload_23:
+   \   00000180   0399               LDR      R1,[SP, #+12]
+   \   00000182   0020               MOVS     R0,#+0
+   \   00000184   0968               LDR      R1,[R1, #+0]
+   \   00000186   66AB               ADD      R3,SP,#+408
+   \   00000188   0029               CMP      R1,#+0
+   \   0000018A   06D1               BNE      ??elfload_24
+   \   0000018C   0BE0               B        ??elfload_25
+    423                while (((Elf32_Dyn *)reloc)[m].d_tag!=DT_NULL){
+    424          	if (((Elf32_Dyn *)reloc)[m].d_tag<=DT_BIND_NOW) {
+   \                     ??elfload_26:
+   \   0000018E   192A               CMP      R2,#+25
+   \   00000190   02DA               BGE      ??elfload_27
+    425          #ifdef wintel
+    426                    cout<<"d_tag="<<((Elf32_Dyn *)reloc)[m].d_tag;
+    427                    cout<<" d_val="<<((Elf32_Dyn *)reloc)[m].d_val<<endl;
+    428          #endif
+    429          	  dyn[((Elf32_Dyn *)reloc)[m].d_tag]=((Elf32_Dyn *)reloc)[m].d_val;
+   \   00000192   4968               LDR      R1,[R1, #+4]
+   \   00000194   9200               LSLS     R2,R2,#+2
+   \   00000196   9950               STR      R1,[R3, R2]
+    430          	}
+    431          	m++;
+   \                     ??elfload_27:
+   \   00000198   401C               ADDS     R0,R0,#+1
+    432                }
+   \                     ??elfload_24:
+   \   0000019A   039A               LDR      R2,[SP, #+12]
+   \   0000019C   C100               LSLS     R1,R0,#+3
+   \   0000019E   5118               ADDS     R1,R2,R1
+   \   000001A0   0A68               LDR      R2,[R1, #+0]
+   \   000001A2   002A               CMP      R2,#+0
+   \   000001A4   F3D1               BNE      ??elfload_26
+    433          #ifdef wintel
+    434                cout << "Dynamic section" << endl;
+    435                for (m = 0; m <= DT_BIND_NOW; m++) {
+    436          	cout << dec << m <<" = "<< hex << dyn[m]<<endl;
+    437                }
+    438                cout<<"dyn[DT_REL]="<<dyn[DT_REL]<<", dyn[DT_RELA]="<<dyn[DT_RELA]<<endl;
+    439                cout<<"dyn[DT_RELSZ]="<<dyn[DT_RELSZ]<<", dyn[DT_RELASZ]="<<dyn[DT_RELASZ]<<endl;
+    440          #endif
+    441                
+    442                m=0;
+    443                //выполним релокацию REL
+    444                if (dyn[DT_RELSZ]!=0) {
+   \                     ??elfload_25:
+   \   000001A6   7899               LDR      R1,[SP, #+480]
+   \   000001A8   0020               MOVS     R0,#+0
+   \   000001AA   0029               CMP      R1,#+0
+   \   000001AC   2FD1               BNE      ??elfload_28
+    445          	while (m*sizeof(Elf32_Rel)<dyn[DT_RELSZ]){
+    446          #ifdef wintel
+    447          	  cout<<"rel: of="<<hex<<((Elf32_Rel *)(reloc+dyn[DT_REL]-phdrs[n].p_vaddr))[m].r_offset
+    448          	    <<" , sym_idx="<<ELF32_R_SYM(((Elf32_Rel *)(reloc+dyn[DT_REL]-phdrs[n].p_vaddr))[m].r_info)
+    449                        <<" , rel_type="<<dec<<(int) ELF32_R_TYPE(((Elf32_Rel *)(reloc+dyn[DT_REL]-phdrs[n].p_vaddr))[m].r_info)<<endl;
+    450          #endif
+    451                    Elf32_Word ri=ELF32_R_TYPE(((Elf32_Rel *)(reloc+dyn[DT_REL]-phdrs[n].p_vaddr))[m].r_info);
+    452                    if (ri!=R_ARM_RBASE)
+    453                    {
+    454                      if (ri==R_ARM_RABS32)
+    455                      {
+    456                        *((long*)(base+((Elf32_Rel *)(reloc+dyn[DT_REL]-phdrs[n].p_vaddr))[m].r_offset))+=(long)base-minadr;
+    457                      }
+    458                      else
+    459                        switch(ri){
+    460                          
+    461                        case R_ARM_NONE: break; // пустой релокейшен
+    462                        
+    463                        case R_ARM_ABS32:
+    464          #ifdef wintel
+    465                          cout << "base="<<hex<<(long)base<< endl;
+    466                          cout << "of="<<hex<<((Elf32_Rel *)(reloc+dyn[DT_REL]-phdrs[n].p_vaddr))[m].r_offset-minadr<<endl;
+    467          #endif
+    468                          *((long*)(base+((Elf32_Rel *)(reloc+dyn[DT_REL]-phdrs[n].p_vaddr))[m].r_offset-minadr))+=(long)base;
+    469                          break;
+    470                          
+    471                        case R_ARM_RELATIVE: // вообще говор€ не minadr а начало сегмента содержащего символ
+    472                          *((long*)(base+((Elf32_Rel *)(reloc+dyn[DT_REL]-phdrs[n].p_vaddr))[m].r_offset-minadr))+=(long)base-minadr;
+    473                          break; // ignore
+    474                          
+    475                          //	  case R_ARM_RABS32:
+    476                          //	    *((long*)(base+((Elf32_Rel *)(reloc+dyn[DT_REL]-phdrs[n].p_vaddr))[m].r_offset))+=(long)base-minadr;
+    477                          //            break;
+    478                          
+    479                          //              case R_ARM_RBASE: break;
+    480                        default: 	//неизвестный тип релокации
+    481          #ifdef wintel
+    482                          cout << "Invalid reloc type: " <<dec<<(unsigned)ELF32_R_TYPE(((Elf32_Rel *)(reloc+dyn[DT_REL]-phdrs[n].p_vaddr))[m].r_info) << endl;
+    483          #else
+    484                          fclose(fin, &iError);
+    485          #endif
+    486                          mfree(base);
+    487                          mfree(reloc);
+    488                          return -13;
+    489                        }
+    490                    }
+    491          	  m++;
+    492          	}
+    493                }
+    494          #ifdef wintel
+    495                else
+    496                {
+    497                  cout << "No relocation information dyn[DT_RELSZ]=0" << endl;
+    498                }
+    499          #endif
+    500                mfree(reloc);
+   \                     ??elfload_29:
+   \   000001AE   0398               LDR      R0,[SP, #+12]
+   \   000001B0   15DF               SVC      +21
+   \                     ??elfload_20:
+   \   000001B2   0298               LDR      R0,[SP, #+8]
+   \   000001B4   401C               ADDS     R0,R0,#+1
+   \                     ??elfload_15:
+   \   000001B6   0290               STR      R0,[SP, #+8]
+   \   000001B8   0598               LDR      R0,[SP, #+20]
+   \   000001BA   4142               RSBS     R1,R0,#+0
+   \   000001BC   0791               STR      R1,[SP, #+28]
+   \   000001BE   0298               LDR      R0,[SP, #+8]
+   \   000001C0   09A9               ADD      R1,SP,#+36
+   \   000001C2   898D               LDRH     R1,[R1, #+44]
+   \   000001C4   8842               CMP      R0,R1
+   \   000001C6   64DA               BGE      ??elfload_30
+   \   000001C8   4001               LSLS     R0,R0,#+5
+   \   000001CA   16A9               ADD      R1,SP,#+88
+   \   000001CC   0818               ADDS     R0,R1,R0
+   \   000001CE   0490               STR      R0,[SP, #+16]
+   \   000001D0   6846               MOV      R0,SP
+   \   000001D2   01B4               PUSH     {R0}
+   \   000001D4   0598               LDR      R0,[SP, #+20]
+   \   000001D6   01AB               ADD      R3,SP,#+4
+   \   000001D8   4168               LDR      R1,[R0, #+4]
+   \   000001DA   0298               LDR      R0,[SP, #+8]
+   \   000001DC   0022               MOVS     R2,#+0
+   \   000001DE   0FDF               SVC      +15
+   \   000001E0   0599               LDR      R1,[SP, #+20]
+   \   000001E2   4968               LDR      R1,[R1, #+4]
+   \   000001E4   01B0               ADD      SP,SP,#+4
+   \   000001E6   8842               CMP      R0,R1
+   \   000001E8   8CD0               BEQ      ??elfload_16
+   \   000001EA   0198               LDR      R0,[SP, #+4]
+   \   000001EC   6946               MOV      R1,SP
+   \   000001EE   0DDF               SVC      +13
+   \   000001F0   2000               MOVS     R0,R4
+   \   000001F2   15DF               SVC      +21
+   \   000001F4   0520               MOVS     R0,#+5
+   \   000001F6   21E7               B.N      ??elfload_3
+   \                     ??elfload_31:
+   \   000001F8   039D               LDR      R5,[SP, #+12]
+   \   000001FA   EB18               ADDS     R3,R5,R3
+   \   000001FC   9A18               ADDS     R2,R3,R2
+   \   000001FE   059B               LDR      R3,[SP, #+20]
+   \   00000200   5218               ADDS     R2,R2,R1
+   \   00000202   1168               LDR      R1,[R2, #+0]
+   \   00000204   6258               LDR      R2,[R4, R1]
+   \   00000206   1219               ADDS     R2,R2,R4
+   \   00000208   D21A               SUBS     R2,R2,R3
+   \   0000020A   6250               STR      R2,[R4, R1]
+   \                     ??elfload_32:
+   \   0000020C   401C               ADDS     R0,R0,#+1
+   \                     ??elfload_28:
+   \   0000020E   789A               LDR      R2,[SP, #+480]
+   \   00000210   C100               LSLS     R1,R0,#+3
+   \   00000212   9142               CMP      R1,R2
+   \   00000214   CBD2               BCS      ??elfload_29
+   \   00000216   0499               LDR      R1,[SP, #+16]
+   \   00000218   779B               LDR      R3,[SP, #+476]
+   \   0000021A   8968               LDR      R1,[R1, #+8]
+   \   0000021C   039D               LDR      R5,[SP, #+12]
+   \   0000021E   4A42               RSBS     R2,R1,#+0
+   \   00000220   C100               LSLS     R1,R0,#+3
+   \   00000222   AD18               ADDS     R5,R5,R2
+   \   00000224   6D18               ADDS     R5,R5,R1
+   \   00000226   ED18               ADDS     R5,R5,R3
+   \   00000228   6D68               LDR      R5,[R5, #+4]
+   \   0000022A   2D06               LSLS     R5,R5,#+24
+   \   0000022C   2D0E               LSRS     R5,R5,#+24
+   \   0000022E   0695               STR      R5,[SP, #+24]
+   \   00000230   FF2D               CMP      R5,#+255
+   \   00000232   EBD0               BEQ      ??elfload_32
+   \   00000234   FD2D               CMP      R5,#+253
+   \   00000236   DFD0               BEQ      ??elfload_31
+   \   00000238   079D               LDR      R5,[SP, #+28]
+   \   0000023A   069E               LDR      R6,[SP, #+24]
+   \   0000023C   6519               ADDS     R5,R4,R5
+   \   0000023E   002E               CMP      R6,#+0
+   \   00000240   E4D0               BEQ      ??elfload_32
+   \   00000242   022E               CMP      R6,#+2
+   \   00000244   02D0               BEQ      ??elfload_33
+   \   00000246   172E               CMP      R6,#+23
+   \   00000248   09D0               BEQ      ??elfload_34
+   \   0000024A   12E0               B        ??elfload_35
+   \                     ??elfload_33:
+   \   0000024C   039E               LDR      R6,[SP, #+12]
+   \   0000024E   F318               ADDS     R3,R6,R3
+   \   00000250   9A18               ADDS     R2,R3,R2
+   \   00000252   5218               ADDS     R2,R2,R1
+   \   00000254   1168               LDR      R1,[R2, #+0]
+   \   00000256   6A58               LDR      R2,[R5, R1]
+   \   00000258   1219               ADDS     R2,R2,R4
+   \                     ??elfload_36:
+   \   0000025A   6A50               STR      R2,[R5, R1]
+   \   0000025C   D6E7               B        ??elfload_32
+   \                     ??elfload_34:
+   \   0000025E   039E               LDR      R6,[SP, #+12]
+   \   00000260   F318               ADDS     R3,R6,R3
+   \   00000262   9A18               ADDS     R2,R3,R2
+   \   00000264   059B               LDR      R3,[SP, #+20]
+   \   00000266   5218               ADDS     R2,R2,R1
+   \   00000268   1168               LDR      R1,[R2, #+0]
+   \   0000026A   6A58               LDR      R2,[R5, R1]
+   \   0000026C   1219               ADDS     R2,R2,R4
+   \   0000026E   D21A               SUBS     R2,R2,R3
+   \   00000270   F3E7               B.N      ??elfload_36
+   \                     ??elfload_35:
+   \   00000272   0198               LDR      R0,[SP, #+4]
+   \   00000274   6946               MOV      R1,SP
+   \   00000276   0DDF               SVC      +13
+   \   00000278   2000               MOVS     R0,R4
+   \   0000027A   15DF               SVC      +21
+   \   0000027C   0398               LDR      R0,[SP, #+12]
+   \   0000027E   15DF               SVC      +21
+   \   00000280   0C20               MOVS     R0,#+12
+   \   00000282   5BE7               B.N      ??elfload_21
+    501                break;
+    502              default:	//неизвестный тип програмного сегмента
+    503          #ifndef wintel
+    504                fclose(fin, &iError);
+   \                     ??elfload_19:
+   \   00000284   0198               LDR      R0,[SP, #+4]
+   \   00000286   6946               MOV      R1,SP
+   \   00000288   0DDF               SVC      +13
+    505          #endif
+    506                mfree(base);
+   \   0000028A   2000               MOVS     R0,R4
+   \   0000028C   15DF               SVC      +21
+    507                return -12;
+   \   0000028E   0B20               MOVS     R0,#+11
+   \   00000290   D4E6               B.N      ??elfload_3
+    508              }
+    509            }
+    510          #ifndef wintel
+    511            fclose(fin, &iError);
+   \                     ??elfload_30:
+   \   00000292   0198               LDR      R0,[SP, #+4]
+   \   00000294   6946               MOV      R1,SP
+   \   00000296   0DDF               SVC      +13
+    512            {
+    513              extern __arm void ExecuteIMB(void);
+    514              ExecuteIMB();	
+   \   00000298   ........           _BLF     ExecuteIMB,??ExecuteIMB??rT
+    515            }
+    516            ((TElfEntry *)(base+ehdr.e_entry-minadr))(filename,param1,param2,param3);
+   \   0000029C   079D               LDR      R5,[SP, #+28]
+   \   0000029E   0F9E               LDR      R6,[SP, #+60]
+   \   000002A0   829B               LDR      R3,[SP, #+520]
+   \   000002A2   819A               LDR      R2,[SP, #+516]
+   \   000002A4   8099               LDR      R1,[SP, #+512]
+   \   000002A6   7F98               LDR      R0,[SP, #+508]
+   \   000002A8   A419               ADDS     R4,R4,R6
+   \   000002AA   6419               ADDS     R4,R4,R5
+   \   000002AC   A047               BLX      R4
+    517            //	mfree(base);
+    518            return 0;
+   \   000002AE   0020               MOVS     R0,#+0
+   \                     ??elfload_1:
+   \   000002B0   7FB0               ADD      SP,SP,#+508
+   \   000002B2   04B0               ADD      SP,SP,#+16
+   \   000002B4   70BD               POP      {R4-R6,PC}
+   \   000002B6   C046               Nop      
+   \                     ??elfload_4:
+   \   000002B8   7F454C46           DC32     0x464c457f
+    519          #endif
+    520          #ifdef wintel
+    521            FILE fout;
+    522            char foutbuff[11];
+    523            sprintf(foutbuff,"0x%08x",base);
+    524            if ((fin=fopen(foutbuff,"wb"))==NULL) return -1000;
+    525            if (fwrite(base,maxadr-minadr,1,fin)!=1) return -1001; // vit
+    526            return 0;
+    527          #endif
+    528          }
+    529          
+    530          #ifdef wintel
+    531          int main(int argc, char* argv[]){
+    532            if(argc<2)
+    533            {
+    534              cout << "no .elf specified"<<endl;
+    535              return -1;
+    536            }
+    537            
+    538            cout << elfload(argv[1],0,0,0);
+    539            return 1;
+    540          }
+    541          #endif
+    542          #ifndef wintel
+
+   \                                 In segment CODE, align 4, keep-with-next
+    543          int elfloader_onload(WSHDR *filename, WSHDR *ext, void *param){
+   \                     elfloader_onload:
+   \   00000000   10B5               PUSH     {R4,LR}
+   \   00000002   A0B0               SUB      SP,SP,#+128
+    544            char fn[128];
+    545            ws_2str(filename,fn,126);
+   \   00000004   6946               MOV      R1,SP
+   \   00000006   1400               MOVS     R4,R2
+   \   00000008   7E22               MOVS     R2,#+126
+   \   0000000A   A3DF               SVC      +163
+    546            if(elfload(fn,param,0,0)) return 0; else return 1;
+   \   0000000C   0023               MOVS     R3,#+0
+   \   0000000E   0022               MOVS     R2,#+0
+   \   00000010   2100               MOVS     R1,R4
+   \   00000012   6846               MOV      R0,SP
+   \   00000014   ........           BL       elfload
+   \   00000018   0028               CMP      R0,#+0
+   \   0000001A   01D0               BEQ      ??elfloader_onload_0
+   \   0000001C   0020               MOVS     R0,#+0
+   \   0000001E   00E0               B        ??elfloader_onload_1
+   \                     ??elfloader_onload_0:
+   \   00000020   0120               MOVS     R0,#+1
+   \                     ??elfloader_onload_1:
+   \   00000022   20B0               ADD      SP,SP,#+128
+   \   00000024   10BD               POP      {R4,PC}          ;; return
+    547          }
+    548          
+    549          //=======================================================================
+    550          //
+    551          //=======================================================================
+    552          extern void(*OldOnClose)(void *);
+    553          extern void(*OldOnCreate)(void *);
+    554          #ifdef NEWSGOLD
+    555          extern void(*OldShowMsg)(int, int);
+    556          #else
+    557          extern void(*OldTxtOpen)(WSHDR*, WSHDR*);
+    558          #endif
+    559          
+    560          
+    561          
+    562          
+    563          
+    564          
+    565          //-----------------------------------------------------------------------
+    566          
+    567          #ifdef NEWSGOLD
+    568          //#define HELPER_CEPID 0x4339
+    569          #define HELPER_CEPID 0x440A
+    570          #else
+    571          //#define HELPER_CEPID 0x4331
+    572          #define HELPER_CEPID 0x4407
+    573          
+    574          #endif
+    575          #define MSG_HELPER_RUN 0x0001
+    576          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    577          __arm void proc_HELPER(void)
+    578          {
+   \                     proc_HELPER:
+   \   00000000   00402DE9           PUSH     {LR}
+   \   00000004   10D04DE2           SUB      SP,SP,#+16
+    579            GBS_MSG msg;
+    580            if (GBS_RecActDstMessage(&msg))
+   \   00000008   0D00A0E1           MOV      R0,SP
+   \   0000000C   530100EF           SWI      +339
+   \   00000010   000050E3           CMP      R0,#+0
+   \   00000014   0F80BD08           POPEQ    {R0-R3,PC}
+    581            {
+    582              if (msg.msg==MSG_HELPER_RUN)
+   \   00000018   F230DDE1           LDRSH    R3,[SP, #+2]
+   \   0000001C   04009DE5           LDR      R0,[SP, #+4]
+   \   00000020   010053E3           CMP      R3,#+1
+   \   00000024   0500001A           BNE      ??proc_HELPER_0
+    583              {
+    584                if (msg.data0)
+   \   00000028   08209DE5           LDR      R2,[SP, #+8]
+   \   0000002C   000052E3           CMP      R2,#+0
+   \   00000030   0F80BD08           POPEQ    {R0-R3,PC}
+    585                {
+    586          	((void (*)(int, void *))(msg.data0))(msg.submess,msg.data1);
+   \   00000034   0C109DE5           LDR      R1,[SP, #+12]
+   \   00000038   32FF2FE1           BLX      R2
+   \   0000003C   0F80BDE8           POP      {R0-R3,PC}
+    587                }
+    588              }
+    589              else
+    590              {
+    591                GBS_SendMessage(MMI_CEPID,MSG_HELPER_TRANSLATOR,msg.pid_from,msg.msg,msg.submess);
+   \                     ??proc_HELPER_0:
+   \   00000040   01002DE9           PUSH     {R0}
+   \   00000044   F420DDE1           LDRSH    R2,[SP, #+4]
+   \   00000048   FC1FA0E3           MOV      R1,#+1008
+   \   0000004C   0900A0E3           MOV      R0,#+9
+   \   00000050   420C80E3           ORR      R0,R0,#0x4200
+   \   00000054   000100EF           SWI      +256
+   \   00000058   04D08DE2           ADD      SP,SP,#+4
+    592              }
+    593            }
+    594          }
+   \   0000005C   0F80BDE8           POP      {R0-R3,PC}       ;; return
+    595          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    596          __arm void CreateHELPER_PROC(void)
+    597          {
+   \                     CreateHELPER_PROC:
+   \   00000000   00402DE9           PUSH     {LR}
+    598            static const char name[]="HELPER";
+    599            CreateGBSproc(HELPER_CEPID, name, proc_HELPER, 0x80, 0);
+   \   00000004   1C209FE5           LDR      R2,??CreateHELPER_PROC_0  ;; proc_HELPER
+   \   00000008   1C109FE5           LDR      R1,??CreateHELPER_PROC_0+0x4  ;; ??name
+   \   0000000C   0000A0E3           MOV      R0,#+0
+   \   00000010   01002DE9           PUSH     {R0}
+   \   00000014   8030A0E3           MOV      R3,#+128
+   \   00000018   0700A0E3           MOV      R0,#+7
+   \   0000001C   440C80E3           ORR      R0,R0,#0x4400
+   \   00000020   050100EF           SWI      +261
+    600          }
+   \   00000024   0180BDE8           POP      {R0,PC}          ;; return
+   \                     ??CreateHELPER_PROC_0:
+   \   00000028   ........           DC32     proc_HELPER
+   \   0000002C   ........           DC32     ??name
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     ??name:
+   \   00000000   48454C504552       DC8 "HELPER"
+   \              00          
+   \   00000007   00                 DC8 0
+    601          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    602          __arm void REDRAW_impl(void)
+    603          {
+   \                     REDRAW_impl:
+   \   00000000   00402DE9           PUSH     {LR}
+    604            LockSched();
+   \   00000004   460100EF           SWI      +326
+    605          #ifdef NEWSGOLD
+    606            PendedRedrawGUI();
+    607          #else
+    608            PendedRedrawGUI();
+   \   00000008   410100EF           SWI      +321
+    609            GBS_SendMessage(MMI_CEPID,0x90);
+   \   0000000C   9010A0E3           MOV      R1,#+144
+   \   00000010   0900A0E3           MOV      R0,#+9
+   \   00000014   420C80E3           ORR      R0,R0,#0x4200
+   \   00000018   000100EF           SWI      +256
+    610          #endif
+    611            UnlockSched();
+   \   0000001C   470100EF           SWI      +327
+    612          }
+   \   00000020   0080BDE8           POP      {PC}             ;; return
+    613          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    614          __arm void SUBPROC_impl(void *f, int p2, void *p1)
+    615          {
+   \                     SUBPROC_impl:
+   \   00000000   00402DE9           PUSH     {LR}
+    616            GBS_SendMessage(HELPER_CEPID,MSG_HELPER_RUN,p2,f,p1);
+   \   00000004   04002DE9           PUSH     {R2}
+   \   00000008   0030A0E1           MOV      R3,R0
+   \   0000000C   0700A0E3           MOV      R0,#+7
+   \   00000010   440C80E3           ORR      R0,R0,#0x4400
+   \   00000014   0120A0E1           MOV      R2,R1
+   \   00000018   0110A0E3           MOV      R1,#+1
+   \   0000001C   000100EF           SWI      +256
+    617          }
+   \   00000020   0180BDE8           POP      {R0,PC}          ;; return
+    618          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    619          __thumb void SEQKILLER_impl(void *data, void(*next_in_seq)(void *), void *data_to_kill)
+    620          {
+   \                     SEQKILLER_impl:
+   \   00000000   10B5               PUSH     {R4,LR}
+   \   00000002   1400               MOVS     R4,R2
+    621            next_in_seq(data);
+   \   00000004   8847               BLX      R1
+    622            mfree(data_to_kill);
+   \   00000006   2000               MOVS     R0,R4
+   \   00000008   15DF               SVC      +21
+    623          }
+   \   0000000A   10BD               POP      {R4,PC}          ;; return
+    624          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    625          __arm void MyIDLECSMonClose(void *data)
+    626          {
+   \                     MyIDLECSMonClose:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    627            extern BXR1(void *, void (*)(void *));
+    628            KillGBSproc(HELPER_CEPID);
+   \   00000008   0700A0E3           MOV      R0,#+7
+   \   0000000C   440C80E3           ORR      R0,R0,#0x4400
+   \   00000010   540100EF           SWI      +340
+    629            BXR1(data,OldOnClose);
+   \   00000014   0C009FE5           LDR      R0,??MyIDLECSMonClose_0  ;; OldOnClose
+   \   00000018   001090E5           LDR      R1,[R0, #+0]
+   \   0000001C   0400A0E1           MOV      R0,R4
+   \   00000020   1040BDE8           POP      {R4,LR}          ;; Pop
+   \   00000024   ........           _BF      BXR1,??BXR1??rA  ;; tailcall
+   \                     ??MyIDLECSMonClose_0:
+   \   00000028   ........           DC32     OldOnClose
+    630            //  OldOnClose(data);
+    631            //  asm("NOP\n");
+    632          }
+    633          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    634          __arm void LoadDaemons(void)
+    635          {
+   \                     LoadDaemons:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+    636            DIR_ENTRY de;
+    637            extern char folder_d[256];
+    638            unsigned int err;
+    639            unsigned int pathlen;
+    640            pathlen=strlen(folder_d);
+   \   00000004   80409FE5           LDR      R4,??LoadDaemons_0  ;; folder_d
+   \   00000008   6FDF4DE2           SUB      SP,SP,#+444
+   \   0000000C   0400A0E1           MOV      R0,R4
+   \   00000010   1B0000EF           SWI      +27
+    641            strcat(folder_d,"*.elf");
+   \   00000014   74109FE5           LDR      R1,??LoadDaemons_0+0x4  ;; `?<Constant "*.elf">`
+   \   00000018   0050A0E1           MOV      R5,R0
+   \   0000001C   0400A0E1           MOV      R0,R4
+   \   00000020   170000EF           SWI      +23
+    642            if (FindFirstFile(&de,folder_d,&err))
+   \   00000024   0D20A0E1           MOV      R2,SP
+   \   00000028   0410A0E1           MOV      R1,R4
+   \   0000002C   04008DE2           ADD      R0,SP,#+4
+   \   00000030   6B0000EF           SWI      +107
+   \   00000034   000050E3           CMP      R0,#+0
+   \   00000038   0E00000A           BEQ      ??LoadDaemons_1
+    643            {
+    644              do
+    645              {
+    646                //strcpy(name,path);
+    647                folder_d[pathlen]=0;
+   \                     ??LoadDaemons_2:
+   \   0000003C   0000A0E3           MOV      R0,#+0
+   \   00000040   0400C5E7           STRB     R0,[R5, +R4]
+    648                strcat(folder_d,de.file_name);
+   \   00000044   AD108DE2           ADD      R1,SP,#+173
+   \   00000048   0400A0E1           MOV      R0,R4
+   \   0000004C   170000EF           SWI      +23
+    649                elfload(folder_d,0,0,0);
+   \   00000050   0030A0E3           MOV      R3,#+0
+   \   00000054   0020A0E3           MOV      R2,#+0
+   \   00000058   0210A0E1           MOV      R1,R2
+   \   0000005C   0400A0E1           MOV      R0,R4
+   \   00000060   ........           BLX      elfload
+    650              }
+    651              while(FindNextFile(&de,&err));
+   \   00000064   0D10A0E1           MOV      R1,SP
+   \   00000068   04008DE2           ADD      R0,SP,#+4
+   \   0000006C   6C0000EF           SWI      +108
+   \   00000070   000050E3           CMP      R0,#+0
+   \   00000074   F0FFFF1A           BNE      ??LoadDaemons_2
+    652            }
+    653            FindClose(&de,&err);
+   \                     ??LoadDaemons_1:
+   \   00000078   0D10A0E1           MOV      R1,SP
+   \   0000007C   04008DE2           ADD      R0,SP,#+4
+   \   00000080   6D0000EF           SWI      +109
+    654          }
+   \   00000084   6FDF8DE2           ADD      SP,SP,#+444
+   \   00000088   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??LoadDaemons_0:
+   \   0000008C   ........           DC32     folder_d
+   \   00000090   ........           DC32     `?<Constant "*.elf">`
+    655          
+    656          
+
+   \                                 In segment DATA_N, align 4, align-sorted
+    657          __no_init void *(*pLIB_TOP)[];
+   \                     pLIB_TOP:
+   \   00000000                      DS8 4
+    658          extern void *Library[];
+    659          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    660          int get_file_size(const char * fname)
+    661          {
+   \                     get_file_size:
+   \   00000000   10B5               PUSH     {R4,LR}
+   \   00000002   8BB0               SUB      SP,SP,#+44
+    662            FSTATS fs;
+    663            unsigned int err;
+    664            if (GetFileStats(fname,&fs,&err)==-1) return (-1);
+   \   00000004   6A46               MOV      R2,SP
+   \   00000006   0024               MOVS     R4,#+0
+   \   00000008   E443               MVNS     R4,R4
+   \   0000000A   01A9               ADD      R1,SP,#+4
+   \   0000000C   84DF               SVC      +132
+   \   0000000E   A042               CMP      R0,R4
+   \   00000010   01D1               BNE      ??get_file_size_0
+   \   00000012   2000               MOVS     R0,R4
+   \   00000014   00E0               B        ??get_file_size_1
+    665            else return (fs.size);
+   \                     ??get_file_size_0:
+   \   00000016   0298               LDR      R0,[SP, #+8]
+   \                     ??get_file_size_1:
+   \   00000018   0BB0               ADD      SP,SP,#+44
+   \   0000001A   10BD               POP      {R4,PC}          ;; return
+    666          }
+    667          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    668          __arm void LoadLibrary(void)
+    669          {
+   \                     LoadLibrary:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+    670            extern char swi_blib[64];
+    671            void *(*lt)[]=pLIB_TOP;
+   \   00000004   28419FE5           LDR      R4,??LoadLibrary_0  ;; pLIB_TOP
+   \   00000008   38D04DE2           SUB      SP,SP,#+56
+   \   0000000C   006094E5           LDR      R6,[R4, #+0]
+    672          #define LIB_EMPTY ((void *)-1L)
+    673            unsigned int ul;
+    674            int sz;
+    675            int f;
+    676            if (lt)
+   \   00000010   000056E3           CMP      R6,#+0
+   \   00000014   0300000A           BEQ      ??LoadLibrary_1
+    677            {
+    678              pLIB_TOP=NULL;
+   \   00000018   0000A0E3           MOV      R0,#+0
+   \   0000001C   000084E5           STR      R0,[R4, #+0]
+    679              mfree(lt);
+   \   00000020   0600A0E1           MOV      R0,R6
+   \   00000024   150000EF           SWI      +21
+    680              lt=NULL;
+    681            }
+    682            if ((sz=get_file_size(swi_blib))==-1) return;
+   \                     ??LoadLibrary_1:
+   \   00000028   08619FE5           LDR      R6,??LoadLibrary_0+0x4  ;; swi_blib
+   \   0000002C   0080E0E3           MVN      R8,#+0
+   \   00000030   0600A0E1           MOV      R0,R6
+   \   00000034   ........           BLX      get_file_size
+   \   00000038   080050E1           CMP      R0,R8
+   \   0000003C   3A00000A           BEQ      ??LoadLibrary_2
+    683            if (sz!=16384)
+   \   00000040   F4509FE5           LDR      R5,??LoadLibrary_0+0x8  ;; `?<Constant "Illegal library size!">`
+   \   00000044   400C50E3           CMP      R0,#+16384
+   \   00000048   0300000A           BEQ      ??LoadLibrary_3
+    684            {
+    685              ShowMSG(1,(int)"Illegal library size!");
+   \   0000004C   0510A0E1           MOV      R1,R5
+   \   00000050   0100A0E3           MOV      R0,#+1
+   \   00000054   480100EF           SWI      +328
+    686              return;
+   \   00000058   190000EA           B        ??LoadLibrary_4
+    687            }
+    688            f=fopen(swi_blib,A_ReadOnly+A_BIN, P_READ, &ul);
+   \                     ??LoadLibrary_3:
+   \   0000005C   0D30A0E1           MOV      R3,SP
+   \   00000060   8020A0E3           MOV      R2,#+128
+   \   00000064   801CA0E3           MOV      R1,#+32768
+   \   00000068   0600A0E1           MOV      R0,R6
+   \   0000006C   0A0000EF           SWI      +10
+   \   00000070   0070A0E1           MOV      R7,R0
+    689            if (f==-1) return;
+   \   00000074   080057E1           CMP      R7,R8
+   \   00000078   2B00000A           BEQ      ??LoadLibrary_2
+    690            lt=malloc(16384);
+   \   0000007C   400CA0E3           MOV      R0,#+16384
+   \   00000080   140000EF           SWI      +20
+   \   00000084   0060A0E1           MOV      R6,R0
+    691            if (fread(f,lt,sz,&ul)!=sz)
+   \   00000088   0D30A0E1           MOV      R3,SP
+   \   0000008C   402CA0E3           MOV      R2,#+16384
+   \   00000090   0610A0E1           MOV      R1,R6
+   \   00000094   0700A0E1           MOV      R0,R7
+   \   00000098   0B0000EF           SWI      +11
+   \   0000009C   400C50E3           CMP      R0,#+16384
+   \   000000A0   0D10A0E1           MOV      R1,SP
+   \   000000A4   0700A0E1           MOV      R0,R7
+   \   000000A8   0700000A           BEQ      ??LoadLibrary_5
+    692            {
+    693              fclose(f,&ul);
+   \   000000AC   0D0000EF           SWI      +13
+    694              ShowMSG(1,(int)"Can't read library!");
+   \   000000B0   181085E2           ADD      R1,R5,#+24
+   \                     ??LoadLibrary_6:
+   \   000000B4   0100A0E3           MOV      R0,#+1
+   \   000000B8   480100EF           SWI      +328
+    695            LERR:
+    696              mfree(lt);
+   \   000000BC   0600A0E1           MOV      R0,R6
+   \   000000C0   150000EF           SWI      +21
+    697              return;
+   \                     ??LoadLibrary_4:
+   \   000000C4   38D08DE2           ADD      SP,SP,#+56
+   \   000000C8   F081BDE8           POP      {R4-R8,PC}
+    698            }
+    699            fclose(f,&ul);
+   \                     ??LoadLibrary_5:
+   \   000000CC   0D0000EF           SWI      +13
+    700            f=0;
+   \   000000D0   0070A0E3           MOV      R7,#+0
+    701            do
+    702            {
+    703              if (((*lt)[f]!=LIB_EMPTY)&&(Library[f]!=LIB_EMPTY))
+   \                     ??LoadLibrary_7:
+   \   000000D4   64109FE5           LDR      R1,??LoadLibrary_0+0xC  ;; Library
+   \   000000D8   072196E7           LDR      R2,[R6, +R7, LSL #+2]
+   \   000000DC   080052E1           CMP      R2,R8
+   \   000000E0   07219117           LDRNE    R2,[R1, +R7, LSL #+2]
+   \   000000E4   08005211           CMPNE    R2,R8
+    704              {
+    705                if ((*lt)[f]!=Library[f])
+   \   000000E8   07319617           LDRNE    R3,[R6, +R7, LSL #+2]
+   \   000000EC   02005311           CMPNE    R3,R2
+   \   000000F0   0500000A           BEQ      ??LoadLibrary_8
+    706                {
+    707          	char s[50];
+    708          	sprintf(s,"Function %d conflict!",f);
+   \   000000F4   0720A0E1           MOV      R2,R7
+   \   000000F8   2C1085E2           ADD      R1,R5,#+44
+   \   000000FC   04008DE2           ADD      R0,SP,#+4
+   \   00000100   160000EF           SWI      +22
+    709          	ShowMSG(1,(int)s);
+   \   00000104   04108DE2           ADD      R1,SP,#+4
+   \   00000108   E9FFFFEA           B        ??LoadLibrary_6
+    710          	goto LERR;
+    711                }
+    712              }
+    713              if ((*lt)[f]==LIB_EMPTY)
+   \                     ??LoadLibrary_8:
+   \   0000010C   072196E7           LDR      R2,[R6, +R7, LSL #+2]
+   \   00000110   080052E1           CMP      R2,R8
+    714              {
+    715                (*lt)[f]=Library[f];
+   \   00000114   07119107           LDREQ    R1,[R1, +R7, LSL #+2]
+   \   00000118   07118607           STREQ    R1,[R6, +R7, LSL #+2]
+    716              }
+    717              f++;
+   \   0000011C   017087E2           ADD      R7,R7,#+1
+    718            }
+    719            while(f<4096);
+   \   00000120   400D57E3           CMP      R7,#+4096
+   \   00000124   EAFFFFBA           BLT      ??LoadLibrary_7
+    720            pLIB_TOP=lt;
+   \   00000128   006084E5           STR      R6,[R4, #+0]
+    721          #undef LIB_EMPTY
+    722          }
+   \                     ??LoadLibrary_2:
+   \   0000012C   38D08DE2           ADD      SP,SP,#+56       ;; stack cleaning
+   \   00000130   F081BDE8           POP      {R4-R8,PC}       ;; return
+   \                     ??LoadLibrary_0:
+   \   00000134   ........           DC32     pLIB_TOP
+   \   00000138   ........           DC32     swi_blib
+   \   0000013C   ........           DC32     `?<Constant "Illegal library size!">`
+   \   00000140   ........           DC32     Library
+    723          extern void InitPngBitMap(void);
+    724          
+
+   \                                 In segment DATA_N, align 4, align-sorted
+    725          __no_init char smallicons_str[32];
+   \                     smallicons_str:
+   \   00000000                      DS8 32
+    726          __no_init char bigicons_str[32];
+   \                     bigicons_str:
+   \   00000020                      DS8 32
+    727          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    728          __arm int mktree(char* path)
+    729          {
+   \                     mktree:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   84D04DE2           SUB      SP,SP,#+132
+   \   00000008   0040A0E1           MOV      R4,R0
+    730                  unsigned int err;
+    731          	if (isdir(path, &err)) return 1;
+   \   0000000C   0D10A0E1           MOV      R1,SP
+   \   00000010   910000EF           SWI      +145
+   \   00000014   000050E3           CMP      R0,#+0
+   \   00000018   0100A013           MOVNE    R0,#+1
+   \   0000001C   1700001A           BNE      ??mktree_0
+    732          	int len = strlen(path);
+   \   00000020   0400A0E1           MOV      R0,R4
+   \   00000024   1B0000EF           SWI      +27
+   \   00000028   0050A0E1           MOV      R5,R0
+    733          	char c;
+    734          	char buf[128];
+    735          
+    736          	for(int ii=0;ii<len;ii++)
+   \   0000002C   0060A0E3           MOV      R6,#+0
+   \   00000030   010055E3           CMP      R5,#+1
+   \   00000034   0C0000AA           BGE      ??mktree_1
+   \   00000038   0D0000EA           B        ??mktree_2
+    737          	{
+    738          		c = path[ii];
+   \                     ??mktree_3:
+   \   0000003C   0470D6E7           LDRB     R7,[R6, +R4]
+    739          		if (c=='\\')
+   \   00000040   04008DE2           ADD      R0,SP,#+4
+   \   00000044   008086E0           ADD      R8,R6,R0
+   \   00000048   5C0057E3           CMP      R7,#+92
+   \   0000004C   0400001A           BNE      ??mktree_4
+    740          		{
+    741          			buf[ii]=0;
+   \   00000050   0000A0E3           MOV      R0,#+0
+   \   00000054   0000C8E5           STRB     R0,[R8, #+0]
+    742          			mkdir(buf, &err);
+   \   00000058   0D10A0E1           MOV      R1,SP
+   \   0000005C   04008DE2           ADD      R0,SP,#+4
+   \   00000060   100000EF           SWI      +16
+    743          		}  
+    744          		buf[ii]=c;
+   \                     ??mktree_4:
+   \   00000064   0070C8E5           STRB     R7,[R8, #+0]
+    745          	}
+   \   00000068   016086E2           ADD      R6,R6,#+1
+   \                     ??mktree_1:
+   \   0000006C   050056E1           CMP      R6,R5
+   \   00000070   F1FFFFBA           BLT      ??mktree_3
+    746          	return mkdir(path, &err);
+   \                     ??mktree_2:
+   \   00000074   0D10A0E1           MOV      R1,SP
+   \   00000078   0400A0E1           MOV      R0,R4
+   \   0000007C   100000EF           SWI      +16
+   \                     ??mktree_0:
+   \   00000080   84D08DE2           ADD      SP,SP,#+132      ;; stack cleaning
+   \   00000084   F081BDE8           POP      {R4-R8,PC}       ;; return
+    747          }
+    748          __arm void start();
+
+   \                                 In segment CODE, align 4, keep-with-next
+    749          __arm void create_folder()
+    750          {
+    751            mktree("0:\\ZBin\\Elfpack\\");
+   \                     create_folder:
+   \   00000000   0C009FE5           LDR      R0,??create_folder_0  ;; `?<Constant "0:\\\\ZBin\\\\Elfpack\\\\">`
+   \   00000004   00402DE9           PUSH     {LR}
+   \   00000008   ........           BL       mktree
+    752            start();
+   \   0000000C   0040BDE8           POP      {LR}             ;; Pop
+   \   00000010   ........           B        start            ;; tailcall
+   \                     ??create_folder_0:
+   \   00000014   ........           DC32     `?<Constant "0:\\\\ZBin\\\\Elfpack\\\\">`
+    753          }
+    754          #pragma swi_number=0x80E2
+    755          __swi __arm char *RamKeyBuffer();
+
+   \                                 In segment CODE, align 4, keep-with-next
+    756          __arm void loading()
+    757          {
+   \                     loading:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+    758            extern char folder_d2[256];
+    759            LoadLibrary();
+    760            static const int smallicons[2]={(int)smallicons_str,0};
+    761            static const int bigicons[2]={(int)bigicons_str,0};
+    762            InitPngBitMap();
+    763           #ifdef NEWSGOLD
+    764            static const REGEXPLEXT elf_reg=
+    765            {
+    766              "elf",
+    767              0x55,
+    768              0xFF,
+    769              8, // аталог Misc
+    770              MENU_FLAG2,
+    771              smallicons,
+    772              bigicons,
+    773              (int)"Open",    //LGP "ќткрыть"
+    774              (int)"AltOpen", //LGP "ќпции"
+    775              LGP_DOIT_PIC,
+    776              (void *)elfloader_onload,
+    777              0
+    778            };
+    779          #else
+    780            static const REGEXPLEXT elf_reg=
+    781            {
+    782              "elf",
+    783              0x55,
+    784              0xFF,
+    785              7,
+    786              MENU_FLAG2,
+    787              smallicons,
+    788              bigicons,
+    789              (void *)elfloader_onload,
+    790              0
+    791            };
+    792          #endif
+    793            extern char folder_e[128];
+    794            strcpy(smallicons_str,folder_e);
+   \   00000004   60409FE5           LDR      R4,??loading_0   ;; smallicons_str
+   \   00000008   60509FE5           LDR      R5,??loading_0+0x4  ;; folder_e
+   \   0000000C   ........           BL       LoadLibrary
+   \   00000010   ........           _BLF     InitPngBitMap,??InitPngBitMap??rA
+   \   00000014   0510A0E1           MOV      R1,R5
+   \   00000018   0400A0E1           MOV      R0,R4
+   \   0000001C   1A0000EF           SWI      +26
+    795            strcpy(bigicons_str,folder_e);
+   \   00000020   0510A0E1           MOV      R1,R5
+    796            strcat(smallicons_str,"elf_small.png");
+   \   00000024   48509FE5           LDR      R5,??loading_0+0x8  ;; `?<Constant "elf_small.png">`
+   \   00000028   200084E2           ADD      R0,R4,#+32
+   \   0000002C   1A0000EF           SWI      +26
+   \   00000030   0510A0E1           MOV      R1,R5
+   \   00000034   0400A0E1           MOV      R0,R4
+   \   00000038   170000EF           SWI      +23
+    797            strcat(bigicons_str,"elf_big.png");
+   \   0000003C   101085E2           ADD      R1,R5,#+16
+   \   00000040   200084E2           ADD      R0,R4,#+32
+   \   00000044   170000EF           SWI      +23
+    798            RegExplorerExt(&elf_reg);
+   \   00000048   1C0085E2           ADD      R0,R5,#+28
+   \   0000004C   8C0000EF           SWI      +140
+    799          #ifdef NEWSGOLD
+    800            if(*RamPressedKey()!='*')
+    801            {SUBPROC((void*)LoadDaemons);}
+    802          #else
+    803            if(*RamKeyBuffer()!='*')
+   \   00000050   E28000EF           SWI      +32994
+   \   00000054   0000D0E5           LDRB     R0,[R0, #+0]
+   \   00000058   2A0050E3           CMP      R0,#+42
+   \   0000005C   3080BD08           POPEQ    {R4,R5,PC}
+    804            {SUBPROC((void*)LoadDaemons);}
+   \   00000060   10009FE5           LDR      R0,??loading_0+0xC  ;; LoadDaemons
+   \   00000064   710100EF           SWI      +369
+    805          #endif
+    806          }
+   \   00000068   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??loading_0:
+   \   0000006C   ........           DC32     smallicons_str
+   \   00000070   ........           DC32     folder_e
+   \   00000074   ........           DC32     `?<Constant "elf_small.png">`
+   \   00000078   ........           DC32     LoadDaemons
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     ??smallicons:
+   \   00000000   ........0000       DC32 smallicons_str, 0
+   \              0000        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     ??bigicons:
+   \   00000000   ........0000       DC32 bigicons_str, 0
+   \              0000        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "elf_small.png">`:
+   \   00000000   656C665F736D       DC8 "elf_small.png"
+   \              616C6C2E706E
+   \              6700        
+   \   0000000E   0000               DC8 0, 0
+   \   00000010   656C665F6269       DC8 "elf_big.png"
+   \              672E706E6700
+   \   0000001C   ........5500       DC32 `?<Constant "elf">`, 85
+   \              0000        
+   \   00000024   FF07               DC8 -1, 7
+   \   00000026   7805               DC16 1400
+   \   00000028   ............       DC32 ??smallicons, ??bigicons, elfloader_onload, 0H
+   \              ............
+   \              00000000    
+    807          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    808          __arm void start()
+    809          {
+   \                     start:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    810          #ifdef NEWSGOLD
+    811            if (LoadConfigData("4:\\ZBin\\Elfpack\\ElfPack.bcfg")<0)
+    812            {
+    813          #endif
+    814              if(LoadConfigData("0:\\ZBin\\ElfPack\\ElfPack.bcfg")<0)
+   \   00000004   3C409FE5           LDR      R4,??start_0     ;; `?<Constant "2:\\\\ZBin\\\\Elfpack\\\\ElfPa...">`
+   \   00000008   400084E2           ADD      R0,R4,#+64
+   \   0000000C   ........           _BLF     LoadConfigData,??LoadConfigData??rA
+   \   00000010   000050E3           CMP      R0,#+0
+   \   00000014   0900005A           BPL      ??start_1
+    815              {
+    816                if (LoadConfigData("1:\\ZBin\\Elfpack\\ElfPack.bcfg")<0)
+   \   00000018   200084E2           ADD      R0,R4,#+32
+   \   0000001C   ........           _BLF     LoadConfigData,??LoadConfigData??rA
+   \   00000020   000050E3           CMP      R0,#+0
+   \   00000024   0500005A           BPL      ??start_1
+    817            {
+    818              if (LoadConfigData("2:\\ZBin\\Elfpack\\ElfPack.bcfg")<0)
+   \   00000028   0400A0E1           MOV      R0,R4
+   \   0000002C   ........           _BLF     LoadConfigData,??LoadConfigData??rA
+   \   00000030   000050E3           CMP      R0,#+0
+   \   00000034   0100005A           BPL      ??start_1
+    819            {
+    820             create_folder();
+   \   00000038   1040BDE8           POP      {R4,LR}          ;; Pop
+   \   0000003C   ........           B        create_folder    ;; tailcall
+    821            }
+    822            else{loading();}
+    823            }
+    824             else{loading();}
+   \                     ??start_1:
+   \   00000040   1040BDE8           POP      {R4,LR}          ;; Pop
+   \   00000044   ........           B        loading          ;; tailcall
+   \                     ??start_0:
+   \   00000048   ........           DC32     `?<Constant "2:\\\\ZBin\\\\Elfpack\\\\ElfPa...">`
+    825              }
+    826               else{loading();}
+    827              #ifdef NEWSGOLD
+    828              }
+    829           else{loading();}
+    830            #endif
+    831          }
+    832          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    833          __arm void MyIDLECSMonCreate(void *data)
+    834          {
+   \                     MyIDLECSMonCreate:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    835            CreateHELPER_PROC();
+   \   00000008   ........           BL       CreateHELPER_PROC
+    836            start();
+   \   0000000C   ........           BL       start
+    837            extern BXR1(void *, void (*)(void *));
+    838            BXR1(data,OldOnCreate);
+   \   00000010   0C009FE5           LDR      R0,??MyIDLECSMonCreate_0  ;; OldOnCreate
+   \   00000014   001090E5           LDR      R1,[R0, #+0]
+   \   00000018   0400A0E1           MOV      R0,R4
+   \   0000001C   1040BDE8           POP      {R4,LR}          ;; Pop
+   \   00000020   ........           _BF      BXR1,??BXR1??rA  ;; tailcall
+   \                     ??MyIDLECSMonCreate_0:
+   \   00000024   ........           DC32     OldOnCreate
+    839          }
+    840          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    841          unsigned int char8to16(int c)
+    842          {
+    843            if (c==0xA8) c=0x401;
+   \                     char8to16:
+   \   00000000   A828               CMP      R0,#+168
+   \   00000002   01D1               BNE      ??char8to16_0
+   \   00000004   1248               LDR      R0,??char8to16_1  ;; 0x401
+   \   00000006   7047               BX       LR
+    844            if (c==0xAA) c=0x404;
+   \                     ??char8to16_0:
+   \   00000008   AA28               CMP      R0,#+170
+   \   0000000A   01D1               BNE      ??char8to16_2
+   \   0000000C   1148               LDR      R0,??char8to16_1+0x4  ;; 0x404
+   \   0000000E   7047               BX       LR
+    845            if (c==0xAF) c=0x407;
+   \                     ??char8to16_2:
+   \   00000010   AF28               CMP      R0,#+175
+   \   00000012   01D1               BNE      ??char8to16_3
+   \   00000014   1048               LDR      R0,??char8to16_1+0x8  ;; 0x407
+   \   00000016   7047               BX       LR
+    846            if (c==0xB8) c=0x451;
+   \                     ??char8to16_3:
+   \   00000018   B828               CMP      R0,#+184
+   \   0000001A   01D1               BNE      ??char8to16_4
+   \   0000001C   0F48               LDR      R0,??char8to16_1+0xC  ;; 0x451
+   \   0000001E   7047               BX       LR
+    847            if (c==0xBA) c=0x454;
+   \                     ??char8to16_4:
+   \   00000020   BA28               CMP      R0,#+186
+   \   00000022   01D1               BNE      ??char8to16_5
+   \   00000024   0E48               LDR      R0,??char8to16_1+0x10  ;; 0x454
+   \   00000026   7047               BX       LR
+    848            if (c==0xBF) c=0x457;
+   \                     ??char8to16_5:
+   \   00000028   BF28               CMP      R0,#+191
+   \   0000002A   01D1               BNE      ??char8to16_6
+   \   0000002C   0D48               LDR      R0,??char8to16_1+0x14  ;; 0x457
+   \   0000002E   7047               BX       LR
+    849            if (c==0xB2) c=0x406;
+   \                     ??char8to16_6:
+   \   00000030   B228               CMP      R0,#+178
+   \   00000032   01D1               BNE      ??char8to16_7
+   \   00000034   0C48               LDR      R0,??char8to16_1+0x18  ;; 0x406
+   \   00000036   7047               BX       LR
+    850            if (c==0xB3) c=0x456;
+   \                     ??char8to16_7:
+   \   00000038   B328               CMP      R0,#+179
+   \   0000003A   01D1               BNE      ??char8to16_8
+   \   0000003C   0B48               LDR      R0,??char8to16_1+0x1C  ;; 0x456
+   \   0000003E   7047               BX       LR
+    851            if ((c>=0xC0)&&(c<0x100)) c+=0x350;
+   \                     ??char8to16_8:
+   \   00000040   C028               CMP      R0,#+192
+   \   00000042   04DB               BLT      ??char8to16_9
+   \   00000044   FF28               CMP      R0,#+255
+   \   00000046   02DC               BGT      ??char8to16_9
+   \   00000048   D421               MOVS     R1,#+212
+   \   0000004A   8900               LSLS     R1,R1,#+2
+   \   0000004C   4018               ADDS     R0,R0,R1
+    852            return(c);
+   \                     ??char8to16_9:
+   \   0000004E   7047               BX       LR
+   \                     ??char8to16_1:
+   \   00000050   01040000           DC32     0x401
+   \   00000054   04040000           DC32     0x404
+   \   00000058   07040000           DC32     0x407
+   \   0000005C   51040000           DC32     0x451
+   \   00000060   54040000           DC32     0x454
+   \   00000064   57040000           DC32     0x457
+   \   00000068   06040000           DC32     0x406
+   \   0000006C   56040000           DC32     0x456
+    853          }
+    854          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    855          void ascii2ws(char *s, WSHDR *ws)
+    856          {
+   \                     ascii2ws:
+   \   00000000   30B5               PUSH     {R4,R5,LR}
+   \   00000002   0400               MOVS     R4,R0
+   \   00000004   0D00               MOVS     R5,R1
+   \   00000006   04E0               B        ??ascii2ws_0
+    857            int c;
+    858            while((c=*s++))
+    859            {
+    860              wsAppendChar(ws,char8to16(c));
+   \                     ??ascii2ws_1:
+   \   00000008   ........           BL       char8to16
+   \   0000000C   0100               MOVS     R1,R0
+   \   0000000E   2800               MOVS     R0,R5
+   \   00000010   1CDF               SVC      +28
+    861            }
+   \                     ??ascii2ws_0:
+   \   00000012   2078               LDRB     R0,[R4, #+0]
+   \   00000014   641C               ADDS     R4,R4,#+1
+   \   00000016   0028               CMP      R0,#+0
+   \   00000018   F6D1               BNE      ??ascii2ws_1
+    862          }
+   \   0000001A   30BD               POP      {R4,R5,PC}       ;; return
+    863          #ifdef NEWSGOLD
+    864          __arm void ESI(WSHDR *ws, int dummy, char *s)
+    865          #else
+
+   \                                 In segment CODE, align 4, keep-with-next
+    866          __arm void ESI(char *s, WSHDR *ws)
+    867          #endif
+    868          {
+   \                     ESI:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    869            if (((unsigned int)s>>28)==0xA) //“олько строки из области RAM/FLASH
+   \   00000008   240EA0E1           LSR      R0,R4,#+28
+   \   0000000C   0150A0E1           MOV      R5,R1
+   \   00000010   0A0050E3           CMP      R0,#+10
+   \   00000014   0600001A           BNE      ??ESI_0
+    870            {
+    871              CutWSTR(ws,0); 
+   \   00000018   0010A0E3           MOV      R1,#+0
+   \   0000001C   0500A0E1           MOV      R0,R5
+   \   00000020   260100EF           SWI      +294
+    872              ascii2ws(s,ws);
+   \   00000024   0510A0E1           MOV      R1,R5
+   \   00000028   0400A0E1           MOV      R0,R4
+   \   0000002C   ........           BLX      ascii2ws
+   \   00000030   3080BDE8           POP      {R4,R5,PC}
+    873            }
+    874            else
+    875            {
+    876              wsprintf(ws,"|%d|",s);
+   \                     ??ESI_0:
+   \   00000034   0C109FE5           LDR      R1,??ESI_1       ;; `?<Constant "|%d|">`
+   \   00000038   0420A0E1           MOV      R2,R4
+   \   0000003C   0500A0E1           MOV      R0,R5
+   \   00000040   240100EF           SWI      +292
+    877            }
+    878          }
+   \   00000044   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??ESI_1:
+   \   00000048   ........           DC32     `?<Constant "|%d|">`
+    879          
+    880          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    881          __arm void DoUnknownFileType(WSHDR *filename)
+    882          {
+   \                     DoUnknownFileType:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    883            WSHDR *wsmime=AllocWS(15);
+   \   00000008   0F00A0E3           MOV      R0,#+15
+   \   0000000C   250100EF           SWI      +293
+   \   00000010   0050A0E1           MOV      R5,R0
+    884            wsprintf(wsmime,"txt");
+   \   00000014   071F8FE2           ADR      R1,??DoUnknownFileType_0  ;; "txt"
+   \   00000018   240100EF           SWI      +292
+    885            ExecuteFile(filename,wsmime,0);
+   \   0000001C   0020A0E3           MOV      R2,#+0
+   \   00000020   0510A0E1           MOV      R1,R5
+   \   00000024   0400A0E1           MOV      R0,R4
+   \   00000028   940000EF           SWI      +148
+    886            FreeWS(wsmime);
+   \   0000002C   0500A0E1           MOV      R0,R5
+   \   00000030   290100EF           SWI      +297
+    887          }
+   \   00000034   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??DoUnknownFileType_0:
+   \   00000038   74787400           DC8      "txt"
+    888          
+    889          #ifdef NEWSGOLD 
+    890          __no_init int *EXT2_AREA;
+    891          #ifdef ELKA
+    892          __no_init int EXT2_CNT @ "REGEXPL_CNT";
+    893          #endif
+    894          
+    895          #else
+
+   \                                 In segment DATA_N, align 4, align-sorted
+    896          __no_init TREGEXPLEXT *EXT2_AREA;
+   \                     EXT2_AREA:
+   \   00000000                      DS8 4
+
+   \                                 In segment REGEXPL_CNT, align 4, align-sorted
+    897          __no_init int EXT2_CNT @ "REGEXPL_CNT";
+   \                     EXT2_CNT:
+   \   00000000                      DS8 4
+    898          #endif
+    899          
+    900          #ifdef NEWSGOLD 
+    901          #ifdef ELKA
+    902          #else
+    903          __arm int *GET_EXT2_TABLE(void)
+    904          {
+    905            int *p=EXT2_AREA;
+    906            if (p)
+    907            {
+    908              return(p+1);
+    909            }
+    910            p=malloc(4);
+    911            *p=0;
+    912            return ((EXT2_AREA=p)+1);
+    913          }
+    914          #endif
+    915          #endif  
+    916          
+    917          #ifdef NEWSGOLD 
+    918          #ifdef ELKA
+    919          __arm int *EXT2_REALLOC(void)
+    920          {
+    921            int size;
+    922            size=sizeof(REGEXPLEXT);
+    923            int *p;
+    924            int *p2;
+    925            int n;
+    926            LockSched();
+    927            n=EXT2_CNT;
+    928            p=EXT2_AREA;
+    929            p2=malloc((n+1)*size);
+    930            if (p) 
+    931            {    
+    932              memcpy(p2,p,n*size);
+    933              mfree(p);
+    934            }
+    935            EXT2_CNT=n+1;
+    936            EXT2_AREA=p2;
+    937            p2+=(n*(size/sizeof(int)));
+    938            UnlockSched();
+    939            return (p2);
+    940          }
+    941          #else
+    942          __arm int *EXT2_REALLOC(void)
+    943          {
+    944            int size;
+    945            size=sizeof(REGEXPLEXT);
+    946            int *p;
+    947            int *p2;
+    948            int n;
+    949            LockSched();
+    950            n=*(p=EXT2_AREA);
+    951            p2=malloc((n+1)*size+4);
+    952            memcpy(p2,p,n*size+4);
+    953            *p2=n+1;
+    954            mfree(p);
+    955            EXT2_AREA=p2;
+    956            p2+=(n*(size/sizeof(int)))+1;
+    957            UnlockSched();
+    958            return (p2);
+    959          }
+    960          #endif
+    961          #else
+
+   \                                 In segment CODE, align 4, keep-with-next
+    962          __arm TREGEXPLEXT *EXT2_REALLOC(void)
+    963          {
+   \                     EXT2_REALLOC:
+   \   00000000   F0432DE9           PUSH     {R4-R9,LR}
+    964            TREGEXPLEXT *p,*p2;
+    965            int n;
+    966            LockSched();
+    967            n=EXT2_CNT;
+   \   00000004   6C409FE5           LDR      R4,??EXT2_REALLOC_0  ;; EXT2_CNT
+    968            p=EXT2_AREA;
+   \   00000008   6C609FE5           LDR      R6,??EXT2_REALLOC_0+0x4  ;; EXT2_AREA
+   \   0000000C   460100EF           SWI      +326
+   \   00000010   005094E5           LDR      R5,[R4, #+0]
+   \   00000014   007096E5           LDR      R7,[R6, #+0]
+    969            p2=malloc((n+1)*sizeof(TREGEXPLEXT));
+   \   00000018   018085E2           ADD      R8,R5,#+1
+   \   0000001C   2410A0E3           MOV      R1,#+36
+   \   00000020   910800E0           MUL      R0,R1,R8
+   \   00000024   140000EF           SWI      +20
+   \   00000028   0090A0E1           MOV      R9,R0
+    970            zeromem(p2,(n+1)*sizeof(TREGEXPLEXT));
+   \   0000002C   2400A0E3           MOV      R0,#+36
+   \   00000030   900801E0           MUL      R1,R0,R8
+   \   00000034   0900A0E1           MOV      R0,R9
+   \   00000038   1D0100EF           SWI      +285
+    971            if (p) 
+   \   0000003C   000057E3           CMP      R7,#+0
+   \   00000040   0600000A           BEQ      ??EXT2_REALLOC_1
+    972            {    
+    973              memcpy(p2,p,n*sizeof(TREGEXPLEXT));
+   \   00000044   2400A0E3           MOV      R0,#+36
+   \   00000048   900502E0           MUL      R2,R0,R5
+   \   0000004C   0710A0E1           MOV      R1,R7
+   \   00000050   0900A0E1           MOV      R0,R9
+   \   00000054   1E0100EF           SWI      +286
+    974              mfree(p);
+   \   00000058   0700A0E1           MOV      R0,R7
+   \   0000005C   150000EF           SWI      +21
+    975            }
+    976            EXT2_CNT=n+1;
+   \                     ??EXT2_REALLOC_1:
+   \   00000060   008084E5           STR      R8,[R4, #+0]
+    977            EXT2_AREA=p2;
+   \   00000064   009086E5           STR      R9,[R6, #+0]
+    978            UnlockSched();
+   \   00000068   470100EF           SWI      +327
+    979            return (p2+n);
+   \   0000006C   2410A0E3           MOV      R1,#+36
+   \   00000070   919520E0           MLA      R0,R1,R5,R9
+   \   00000074   F083BDE8           POP      {R4-R9,PC}       ;; return
+   \                     ??EXT2_REALLOC_0:
+   \   00000078   ........           DC32     EXT2_CNT
+   \   0000007C   ........           DC32     EXT2_AREA
+    980          }
+    981          
+    982          
+    983          #endif
+    984          
+    985          
+    986          
+    987          #ifdef NEWSGOLD
+    988          __thumb MyShowMSG(int p1, int p2)
+    989          {
+    990          #ifdef ELKA
+    991            if (p2!=0x1DD1)
+    992          #else
+    993              if (p2!=(0x1DCC+5))
+    994          #endif    
+    995              {
+    996                OldShowMsg(p1,p2);
+    997                return;
+    998              }
+    999            asm("MOVS R0,R6\n");
+   1000            DoUnknownFileType((WSHDR *)p1);
+   1001          }
+   1002          #else
+   1003          
+
+   \                                 In segment CODE, align 4, keep-with-next
+   1004          __arm void PropertyPatch(WSHDR *unk_foldername, WSHDR *unk_filename)
+   1005          {
+   \                     PropertyPatch:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+   1006            WSHDR *ws;
+   1007            ws=AllocWS(255);
+   \   0000000C   FF00A0E3           MOV      R0,#+255
+   \   00000010   250100EF           SWI      +293
+   \   00000014   0060A0E1           MOV      R6,R0
+   1008            wstrcpy(ws,unk_foldername);
+   \   00000018   0410A0E1           MOV      R1,R4
+   \   0000001C   1F0100EF           SWI      +287
+   1009            wsAppendChar(ws,'\\');
+   \   00000020   5C10A0E3           MOV      R1,#+92
+   \   00000024   0600A0E1           MOV      R0,R6
+   \   00000028   1C0000EF           SWI      +28
+   1010            wstrcat (ws,unk_filename);
+   \   0000002C   0510A0E1           MOV      R1,R5
+   \   00000030   0600A0E1           MOV      R0,R6
+   \   00000034   210100EF           SWI      +289
+   1011            DoUnknownFileType(ws);
+   \   00000038   0600A0E1           MOV      R0,R6
+   \   0000003C   ........           BL       DoUnknownFileType
+   1012            FreeWS(ws);
+   \   00000040   0600A0E1           MOV      R0,R6
+   \   00000044   290100EF           SWI      +297
+   1013          }
+   \   00000048   7080BDE8           POP      {R4-R6,PC}       ;; return
+   1014          
+   1015          #endif
+   1016          
+
+   \                                 In segment CODE, align 4, keep-with-next
+   1017          __arm void FUNC_ABORT(int f)
+   1018          {
+   \                     FUNC_ABORT:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   1019            char s[32];
+   1020            extern void StoreErrInfoAndAbort(int code,const char *module_name,int type,int unk3);
+   1021            extern void StoreErrString(const char *);
+   1022            sprintf(s,"%d(%03X)",f,f);
+   \   00000004   40409FE5           LDR      R4,??FUNC_ABORT_0  ;; `?<Constant "%d(%03X)">`
+   \   00000008   20D04DE2           SUB      SP,SP,#+32
+   \   0000000C   0030A0E1           MOV      R3,R0
+   \   00000010   0020A0E1           MOV      R2,R0
+   \   00000014   0410A0E1           MOV      R1,R4
+   \   00000018   0D00A0E1           MOV      R0,SP
+   \   0000001C   160000EF           SWI      +22
+   1023            StoreErrString(s);
+   \   00000020   0D00A0E1           MOV      R0,SP
+   \   00000024   ........           _BLF     StoreErrString,??StoreErrString??rA
+   1024            loopback2();
+   \   00000028   020000EF           SWI      +2
+   1025            StoreErrInfoAndAbort(0xFFFF,"\1\1No function in lib\xA1",2,2);
+   \   0000002C   0230A0E3           MOV      R3,#+2
+   \   00000030   0220A0E3           MOV      R2,#+2
+   \   00000034   0C1084E2           ADD      R1,R4,#+12
+   \   00000038   FF00A0E3           MOV      R0,#+255
+   \   0000003C   FF0C80E3           ORR      R0,R0,#0xFF00
+   \   00000040   ........           _BLF     StoreErrInfoAndAbort,??StoreErrInfoAndAbort??rA
+   1026            
+   1027          }
+   \   00000044   20D08DE2           ADD      SP,SP,#+32
+   \   00000048   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??FUNC_ABORT_0:
+   \   0000004C   ........           DC32     `?<Constant "%d(%03X)">`
+   1028          
+
+   \                                 In segment CODE, align 4, keep-with-next
+   1029          __arm void NO_FUNC(int f)
+   1030          {
+   1031            char s[64];
+   1032            sprintf(s,"No function on lib %d(%03X)",f,f);
+   \                     NO_FUNC:
+   \   00000000   28109FE5           LDR      R1,??NO_FUNC_0   ;; `?<Constant "No function on lib %d...">`
+   \   00000004   00402DE9           PUSH     {LR}
+   \   00000008   40D04DE2           SUB      SP,SP,#+64
+   \   0000000C   0030A0E1           MOV      R3,R0
+   \   00000010   0020A0E1           MOV      R2,R0
+   \   00000014   0D00A0E1           MOV      R0,SP
+   \   00000018   160000EF           SWI      +22
+   1033            ShowMSG(1,(int)s);
+   \   0000001C   0D10A0E1           MOV      R1,SP
+   \   00000020   0100A0E3           MOV      R0,#+1
+   \   00000024   480100EF           SWI      +328
+   1034          }
+   \   00000028   40D08DE2           ADD      SP,SP,#+64
+   \   0000002C   0080BDE8           POP      {PC}             ;; return
+   \                     ??NO_FUNC_0:
+   \   00000030   ........           DC32     `?<Constant "No function on lib %d...">`
+   1035          
+   1036          //ѕатчи
+   1037          
+   1038          #pragma diag_suppress=Pe177
+   1039          
+
+   \                                 In segment PATCH_ONCREATE, align 4, align-sorted, root
+   \   00000000   ........           DC32 MyIDLECSMonCreate
+   1040          __root static const int NEW_ONCREATE @ "PATCH_ONCREATE" = (int)MyIDLECSMonCreate;
+   1041          
+
+   \                                 In segment PATCH_ONCLOSE, align 4, align-sorted, root
+   \   00000000   ........           DC32 MyIDLECSMonClose
+   1042          __root static const int NEW_ONCLOSE @ "PATCH_ONCLOSE" = (int)MyIDLECSMonClose;
+   1043          
+   1044          #ifdef NEWSGOLD
+   1045          __root static const int NEW_SHOWMSG @ "PATCH_SHOWMSG_BLF" = (int)MyShowMSG;
+   1046          #endif
+   1047          
+
+   \                                 In segment SWILIB_FUNC171, align 4, align-sorted, root
+   \   00000000   ........           DC32 SUBPROC_impl
+   1048          __root static const int SWILIB_FUNC171 @ "SWILIB_FUNC171" = (int)SUBPROC_impl;
+   1049          
+
+   \                                 In segment SWILIB_FUNC172, align 4, align-sorted, root
+   \   00000000   ........           DC32 REDRAW_impl
+   1050          __root static const int SWILIB_FUNC172 @ "SWILIB_FUNC172" = (int)REDRAW_impl;
+   1051          
+
+   \                                 In segment SWILIB_FUNC19C, align 4, align-sorted, root
+   \   00000000   ........           DC32 SEQKILLER_impl
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "*.elf">`:
+   \   00000000   2A2E656C6600       DC8 "*.elf"
+   \   00000006   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Illegal library size!">`:
+   \   00000000   496C6C656761       DC8 "Illegal library size!"
+   \              6C206C696272
+   \              617279207369
+   \              7A652100    
+   \   00000016   0000               DC8 0, 0
+   \   00000018   43616E277420       DC8 "Can't read library!"
+   \              72656164206C
+   \              696272617279
+   \              2100        
+   \   0000002C   46756E637469       DC8 "Function %d conflict!"
+   \              6F6E20256420
+   \              636F6E666C69
+   \              63742100    
+   \   00000042   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "0:\\\\ZBin\\\\Elfpack\\\\">`:
+   \   00000000   303A5C5A4269       DC8 "0:\\ZBin\\Elfpack\\"
+   \              6E5C456C6670
+   \              61636B5C00  
+   \   00000011   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "elf">`:
+   \   00000000   656C6600           DC8 "elf"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "2:\\\\ZBin\\\\Elfpack\\\\ElfPa...">`:
+   \   00000000   323A5C5A4269       DC8 "2:\\ZBin\\Elfpack\\ElfPack.bcfg"
+   \              6E5C456C6670
+   \              61636B5C456C
+   \              665061636B2E
+   \              6263666700  
+   \   0000001D   000000             DC8 0, 0, 0
+   \   00000020   313A5C5A4269       DC8 "1:\\ZBin\\Elfpack\\ElfPack.bcfg"
+   \              6E5C456C6670
+   \              61636B5C456C
+   \              665061636B2E
+   \              6263666700  
+   \   0000003D   000000             DC8 0, 0, 0
+   \   00000040   303A5C5A4269       DC8 "0:\\ZBin\\ElfPack\\ElfPack.bcfg"
+   \              6E5C456C6650
+   \              61636B5C456C
+   \              665061636B2E
+   \              6263666700  
+   \   0000005D   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "|%d|">`:
+   \   00000000   7C25647C00         DC8 "|%d|"
+   \   00000005   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \   00000000   74787400           DC8 "txt"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "%d(%03X)">`:
+   \   00000000   256428253033       DC8 "%d(%03X)"
+   \              582900      
+   \   00000009   000000             DC8 0, 0, 0
+   \   0000000C   01014E6F2066       DC8 "\001\001No function in lib\241"
+   \              756E6374696F
+   \              6E20696E206C
+   \              6962A100    
+   \   00000022   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "No function on lib %d...">`:
+   \   00000000   4E6F2066756E       DC8 "No function on lib %d(%03X)"
+   \              6374696F6E20
+   \              6F6E206C6962
+   \              202564282530
+   \              33582900    
+   1052          __root static const int SWILIB_FUNC19C @ "SWILIB_FUNC19C" = (int)SEQKILLER_impl;
+   1053          #pragma diag_default=Pe177
+   1054          #endif
+   1055          
+   1056          
+   1057          
+   1058          
+   1059          
+   1060          
+
+   Maximum stack usage in bytes:
+
+     Function          CSTACK
+     --------          ------
+     CreateHELPER_PROC     8
+     DoUnknownFileType    12
+     ESI                  12
+     EXT2_REALLOC         28
+     FUNC_ABORT           40
+     LoadDaemons         456
+     LoadLibrary          80
+     MyIDLECSMonClose      8
+     MyIDLECSMonCreate     8
+     NO_FUNC              68
+     PropertyPatch        16
+     REDRAW_impl           4
+     SEQKILLER_impl        8
+     SUBPROC_impl          8
+     ascii2ws             12
+     char8to16             4
+     create_folder         4
+     elfload             548
+     elfloader_onload    136
+     get_file_size        52
+     loading              12
+     mktree              156
+     proc_HELPER          24
+     start                 8
+     zeromem_a             4
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     zeromem_a                        12
+     elfload                         700
+     elfloader_onload                 38
+     proc_HELPER                      96
+     CreateHELPER_PROC                48
+     name                              8
+     REDRAW_impl                      36
+     SUBPROC_impl                     36
+     SEQKILLER_impl                   12
+     MyIDLECSMonClose                 44
+     LoadDaemons                     148
+     pLIB_TOP                          4
+     get_file_size                    28
+     LoadLibrary                     324
+     smallicons_str                   64
+     mktree                          136
+     create_folder                    24
+     loading                         124
+     smallicons                        8
+     bigicons                          8
+     ?<Constant "elf_small.png">      56
+     start                            76
+     MyIDLECSMonCreate                40
+     char8to16                       112
+     ascii2ws                         28
+     ESI                              76
+     DoUnknownFileType                60
+     EXT2_AREA                         4
+     EXT2_CNT                          4
+     EXT2_REALLOC                    128
+     PropertyPatch                    76
+     FUNC_ABORT                       80
+     NO_FUNC                          52
+     NEW_ONCREATE                      4
+     NEW_ONCLOSE                       4
+     SWILIB_FUNC171                    4
+     SWILIB_FUNC172                    4
+     SWILIB_FUNC19C                    4
+     ?<Constant "*.elf">               8
+     ?<Constant "Illegal library size!">
+                                      68
+     ?<Constant "0:\\ZBin\\Elfpack\\">
+                                      20
+     ?<Constant "elf">                 4
+     ?<Constant "2:\\ZBin\\Elfpack\\ElfPa...">
+                                      96
+     ?<Constant "|%d|">                8
+     ?<Constant "txt">                 4
+     ?<Constant "%d(%03X)">           36
+     ?<Constant "No function on lib %d...">
+                                      28
+      Others                         192
+
+ 
+ 2 726 bytes in segment CODE
+   352 bytes in segment DATA_C
+    72 bytes in segment DATA_N
+     4 bytes in segment PATCH_ONCLOSE
+     4 bytes in segment PATCH_ONCREATE
+     4 bytes in segment REGEXPL_CNT
+     4 bytes in segment SWILIB_FUNC171
+     4 bytes in segment SWILIB_FUNC172
+     4 bytes in segment SWILIB_FUNC19C
+ 
+ 2 534 bytes of CODE  memory (+ 192 bytes shared)
+   372 bytes of CONST memory
+    76 bytes of DATA  memory
+
+Errors: none
+Warnings: none

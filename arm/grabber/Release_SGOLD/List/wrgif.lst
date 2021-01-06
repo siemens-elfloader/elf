@@ -1,0 +1,440 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    19/Jan/2011  13:20:28 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\grabber\jpeg-7\wrgif.c                        #
+#    Command line    =  C:\arm\grabber\jpeg-7\wrgif.c -lC                    #
+#                       C:\arm\grabber\Release_SGOLD\List\ -o                #
+#                       C:\arm\grabber\Release_SGOLD\Obj\ -s9 --no_unroll    #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\grabber\Release_SGOLD\List\wrgif.lst          #
+#    Object file     =  C:\arm\grabber\Release_SGOLD\Obj\wrgif.r79           #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\grabber\jpeg-7\wrgif.c
+      1          /*
+                  ^
+Warning[Pa050]: non-native end of line sequence detected (this diagnostic is
+          only issued once)
+      2           * wrgif.c
+      3           *
+      4           * Copyright (C) 1991-1997, Thomas G. Lane.
+      5           * This file is part of the Independent JPEG Group's software.
+      6           * For conditions of distribution and use, see the accompanying README file.
+      7           *
+      8           * This file contains routines to write output images in GIF format.
+      9           *
+     10           **************************************************************************
+     11           * NOTE: to avoid entanglements with Unisys' patent on LZW compression,   *
+     12           * this code has been modified to output "uncompressed GIF" files.        *
+     13           * There is no trace of the LZW algorithm in this file.                   *
+     14           **************************************************************************
+     15           *
+     16           * These routines may need modification for non-Unix environments or
+     17           * specialized applications.  As they stand, they assume output to
+     18           * an ordinary stdio stream.
+     19           */
+     20          
+     21          /*
+     22           * This code is loosely based on ppmtogif from the PBMPLUS distribution
+     23           * of Feb. 1991.  That file contains the following copyright notice:
+     24           *    Based on GIFENCODE by David Rowley <mgardi@watdscu.waterloo.edu>.
+     25           *    Lempel-Ziv compression based on "compress" by Spencer W. Thomas et al.
+     26           *    Copyright (C) 1989 by Jef Poskanzer.
+     27           *    Permission to use, copy, modify, and distribute this software and its
+     28           *    documentation for any purpose and without fee is hereby granted, provided
+     29           *    that the above copyright notice appear in all copies and that both that
+     30           *    copyright notice and this permission notice appear in supporting
+     31           *    documentation.  This software is provided "as is" without express or
+     32           *    implied warranty.
+     33           *
+     34           * We are also required to state that
+     35           *    "The Graphics Interchange Format(c) is the Copyright property of
+     36           *    CompuServe Incorporated. GIF(sm) is a Service Mark property of
+     37           *    CompuServe Incorporated."
+     38           */
+     39          
+     40          #include "cdjpeg.h"		/* Common decls for cjpeg/djpeg applications */
+     41          
+     42          #ifdef GIF_SUPPORTED
+     43          
+     44          
+     45          /* Private version of data destination object */
+     46          
+     47          typedef struct {
+     48            struct djpeg_dest_struct pub;	/* public fields */
+     49          
+     50            j_decompress_ptr cinfo;	/* back link saves passing separate parm */
+     51          
+     52            /* State for packing variable-width codes into a bitstream */
+     53            int n_bits;			/* current number of bits/code */
+     54            int maxcode;			/* maximum code, given n_bits */
+     55            INT32 cur_accum;		/* holds bits not yet output */
+     56            int cur_bits;			/* # of bits in cur_accum */
+     57          
+     58            /* State for GIF code assignment */
+     59            int ClearCode;		/* clear code (doesn't change) */
+     60            int EOFCode;			/* EOF code (ditto) */
+     61            int code_counter;		/* counts output symbols */
+     62          
+     63            /* GIF data packet construction buffer */
+     64            int bytesinpkt;		/* # of bytes in current packet */
+     65            char packetbuf[256];		/* workspace for accumulating packet */
+     66          
+     67          } gif_dest_struct;
+     68          
+     69          typedef gif_dest_struct * gif_dest_ptr;
+     70          
+     71          /* Largest value that will fit in N bits */
+     72          #define MAXCODE(n_bits)	((1 << (n_bits)) - 1)
+     73          
+     74          
+     75          /*
+     76           * Routines to package finished data bytes into GIF data blocks.
+     77           * A data block consists of a count byte (1..255) and that many data bytes.
+     78           */
+     79          
+     80          LOCAL(void)
+     81          flush_packet (gif_dest_ptr dinfo)
+     82          /* flush any accumulated data */
+     83          {
+     84            if (dinfo->bytesinpkt > 0) {	/* never write zero-length packet */
+     85              dinfo->packetbuf[0] = (char) dinfo->bytesinpkt++;
+     86              if (JFWRITE(dinfo->pub.output_file, dinfo->packetbuf, dinfo->bytesinpkt)
+     87          	!= (size_t) dinfo->bytesinpkt)
+     88                ERREXIT(dinfo->cinfo, JERR_FILE_WRITE);
+     89              dinfo->bytesinpkt = 0;
+     90            }
+     91          }
+     92          
+     93          
+     94          /* Add a character to current packet; flush to disk if necessary */
+     95          #define CHAR_OUT(dinfo,c)  \
+     96          	{ (dinfo)->packetbuf[++(dinfo)->bytesinpkt] = (char) (c);  \
+     97          	    if ((dinfo)->bytesinpkt >= 255)  \
+     98          	      flush_packet(dinfo);  \
+     99          	}
+    100          
+    101          
+    102          /* Routine to convert variable-width codes into a byte stream */
+    103          
+    104          LOCAL(void)
+    105          output (gif_dest_ptr dinfo, int code)
+    106          /* Emit a code of n_bits bits */
+    107          /* Uses cur_accum and cur_bits to reblock into 8-bit bytes */
+    108          {
+    109            dinfo->cur_accum |= ((INT32) code) << dinfo->cur_bits;
+    110            dinfo->cur_bits += dinfo->n_bits;
+    111          
+    112            while (dinfo->cur_bits >= 8) {
+    113              CHAR_OUT(dinfo, dinfo->cur_accum & 0xFF);
+    114              dinfo->cur_accum >>= 8;
+    115              dinfo->cur_bits -= 8;
+    116            }
+    117          }
+    118          
+    119          
+    120          /* The pseudo-compression algorithm.
+    121           *
+    122           * In this module we simply output each pixel value as a separate symbol;
+    123           * thus, no compression occurs.  In fact, there is expansion of one bit per
+    124           * pixel, because we use a symbol width one bit wider than the pixel width.
+    125           *
+    126           * GIF ordinarily uses variable-width symbols, and the decoder will expect
+    127           * to ratchet up the symbol width after a fixed number of symbols.
+    128           * To simplify the logic and keep the expansion penalty down, we emit a
+    129           * GIF Clear code to reset the decoder just before the width would ratchet up.
+    130           * Thus, all the symbols in the output file will have the same bit width.
+    131           * Note that emitting the Clear codes at the right times is a mere matter of
+    132           * counting output symbols and is in no way dependent on the LZW patent.
+    133           *
+    134           * With a small basic pixel width (low color count), Clear codes will be
+    135           * needed very frequently, causing the file to expand even more.  So this
+    136           * simplistic approach wouldn't work too well on bilevel images, for example.
+    137           * But for output of JPEG conversions the pixel width will usually be 8 bits
+    138           * (129 to 256 colors), so the overhead added by Clear symbols is only about
+    139           * one symbol in every 256.
+    140           */
+    141          
+    142          LOCAL(void)
+    143          compress_init (gif_dest_ptr dinfo, int i_bits)
+    144          /* Initialize pseudo-compressor */
+    145          {
+    146            /* init all the state variables */
+    147            dinfo->n_bits = i_bits;
+    148            dinfo->maxcode = MAXCODE(dinfo->n_bits);
+    149            dinfo->ClearCode = (1 << (i_bits - 1));
+    150            dinfo->EOFCode = dinfo->ClearCode + 1;
+    151            dinfo->code_counter = dinfo->ClearCode + 2;
+    152            /* init output buffering vars */
+    153            dinfo->bytesinpkt = 0;
+    154            dinfo->cur_accum = 0;
+    155            dinfo->cur_bits = 0;
+    156            /* GIF specifies an initial Clear code */
+    157            output(dinfo, dinfo->ClearCode);
+    158          }
+    159          
+    160          
+    161          LOCAL(void)
+    162          compress_pixel (gif_dest_ptr dinfo, int c)
+    163          /* Accept and "compress" one pixel value.
+    164           * The given value must be less than n_bits wide.
+    165           */
+    166          {
+    167            /* Output the given pixel value as a symbol. */
+    168            output(dinfo, c);
+    169            /* Issue Clear codes often enough to keep the reader from ratcheting up
+    170             * its symbol size.
+    171             */
+    172            if (dinfo->code_counter < dinfo->maxcode) {
+    173              dinfo->code_counter++;
+    174            } else {
+    175              output(dinfo, dinfo->ClearCode);
+    176              dinfo->code_counter = dinfo->ClearCode + 2;	/* reset the counter */
+    177            }
+    178          }
+    179          
+    180          
+    181          LOCAL(void)
+    182          compress_term (gif_dest_ptr dinfo)
+    183          /* Clean up at end */
+    184          {
+    185            /* Send an EOF code */
+    186            output(dinfo, dinfo->EOFCode);
+    187            /* Flush the bit-packing buffer */
+    188            if (dinfo->cur_bits > 0) {
+    189              CHAR_OUT(dinfo, dinfo->cur_accum & 0xFF);
+    190            }
+    191            /* Flush the packet buffer */
+    192            flush_packet(dinfo);
+    193          }
+    194          
+    195          
+    196          /* GIF header construction */
+    197          
+    198          
+    199          LOCAL(void)
+    200          put_word (gif_dest_ptr dinfo, unsigned int w)
+    201          /* Emit a 16-bit word, LSB first */
+    202          {
+    203            putc(w & 0xFF, dinfo->pub.output_file);
+    204            putc((w >> 8) & 0xFF, dinfo->pub.output_file);
+    205          }
+    206          
+    207          
+    208          LOCAL(void)
+    209          put_3bytes (gif_dest_ptr dinfo, int val)
+    210          /* Emit 3 copies of same byte value --- handy subr for colormap construction */
+    211          {
+    212            putc(val, dinfo->pub.output_file);
+    213            putc(val, dinfo->pub.output_file);
+    214            putc(val, dinfo->pub.output_file);
+    215          }
+    216          
+    217          
+    218          LOCAL(void)
+    219          emit_header (gif_dest_ptr dinfo, int num_colors, JSAMPARRAY colormap)
+    220          /* Output the GIF file header, including color map */
+    221          /* If colormap==NULL, synthesize a gray-scale colormap */
+    222          {
+    223            int BitsPerPixel, ColorMapSize, InitCodeSize, FlagByte;
+    224            int cshift = dinfo->cinfo->data_precision - 8;
+    225            int i;
+    226          
+    227            if (num_colors > 256)
+    228              ERREXIT1(dinfo->cinfo, JERR_TOO_MANY_COLORS, num_colors);
+    229            /* Compute bits/pixel and related values */
+    230            BitsPerPixel = 1;
+    231            while (num_colors > (1 << BitsPerPixel))
+    232              BitsPerPixel++;
+    233            ColorMapSize = 1 << BitsPerPixel;
+    234            if (BitsPerPixel <= 1)
+    235              InitCodeSize = 2;
+    236            else
+    237              InitCodeSize = BitsPerPixel;
+    238            /*
+    239             * Write the GIF header.
+    240             * Note that we generate a plain GIF87 header for maximum compatibility.
+    241             */
+    242            putc('G', dinfo->pub.output_file);
+    243            putc('I', dinfo->pub.output_file);
+    244            putc('F', dinfo->pub.output_file);
+    245            putc('8', dinfo->pub.output_file);
+    246            putc('7', dinfo->pub.output_file);
+    247            putc('a', dinfo->pub.output_file);
+    248            /* Write the Logical Screen Descriptor */
+    249            put_word(dinfo, (unsigned int) dinfo->cinfo->output_width);
+    250            put_word(dinfo, (unsigned int) dinfo->cinfo->output_height);
+    251            FlagByte = 0x80;		/* Yes, there is a global color table */
+    252            FlagByte |= (BitsPerPixel-1) << 4; /* color resolution */
+    253            FlagByte |= (BitsPerPixel-1);	/* size of global color table */
+    254            putc(FlagByte, dinfo->pub.output_file);
+    255            putc(0, dinfo->pub.output_file); /* Background color index */
+    256            putc(0, dinfo->pub.output_file); /* Reserved (aspect ratio in GIF89) */
+    257            /* Write the Global Color Map */
+    258            /* If the color map is more than 8 bits precision, */
+    259            /* we reduce it to 8 bits by shifting */
+    260            for (i=0; i < ColorMapSize; i++) {
+    261              if (i < num_colors) {
+    262                if (colormap != NULL) {
+    263          	if (dinfo->cinfo->out_color_space == JCS_RGB) {
+    264          	  /* Normal case: RGB color map */
+    265          	  putc(GETJSAMPLE(colormap[0][i]) >> cshift, dinfo->pub.output_file);
+    266          	  putc(GETJSAMPLE(colormap[1][i]) >> cshift, dinfo->pub.output_file);
+    267          	  putc(GETJSAMPLE(colormap[2][i]) >> cshift, dinfo->pub.output_file);
+    268          	} else {
+    269          	  /* Grayscale "color map": possible if quantizing grayscale image */
+    270          	  put_3bytes(dinfo, GETJSAMPLE(colormap[0][i]) >> cshift);
+    271          	}
+    272                } else {
+    273          	/* Create a gray-scale map of num_colors values, range 0..255 */
+    274          	put_3bytes(dinfo, (i * 255 + (num_colors-1)/2) / (num_colors-1));
+    275                }
+    276              } else {
+    277                /* fill out the map to a power of 2 */
+    278                put_3bytes(dinfo, 0);
+    279              }
+    280            }
+    281            /* Write image separator and Image Descriptor */
+    282            putc(',', dinfo->pub.output_file); /* separator */
+    283            put_word(dinfo, 0);		/* left/top offset */
+    284            put_word(dinfo, 0);
+    285            put_word(dinfo, (unsigned int) dinfo->cinfo->output_width); /* image size */
+    286            put_word(dinfo, (unsigned int) dinfo->cinfo->output_height);
+    287            /* flag byte: not interlaced, no local color map */
+    288            putc(0x00, dinfo->pub.output_file);
+    289            /* Write Initial Code Size byte */
+    290            putc(InitCodeSize, dinfo->pub.output_file);
+    291          
+    292            /* Initialize for "compression" of image data */
+    293            compress_init(dinfo, InitCodeSize+1);
+    294          }
+    295          
+    296          
+    297          /*
+    298           * Startup: write the file header.
+    299           */
+    300          
+    301          METHODDEF(void)
+    302          start_output_gif (j_decompress_ptr cinfo, djpeg_dest_ptr dinfo)
+    303          {
+    304            gif_dest_ptr dest = (gif_dest_ptr) dinfo;
+    305          
+    306            if (cinfo->quantize_colors)
+    307              emit_header(dest, cinfo->actual_number_of_colors, cinfo->colormap);
+    308            else
+    309              emit_header(dest, 256, (JSAMPARRAY) NULL);
+    310          }
+    311          
+    312          
+    313          /*
+    314           * Write some pixel data.
+    315           * In this module rows_supplied will always be 1.
+    316           */
+    317          
+    318          METHODDEF(void)
+    319          put_pixel_rows (j_decompress_ptr cinfo, djpeg_dest_ptr dinfo,
+    320          		JDIMENSION rows_supplied)
+    321          {
+    322            gif_dest_ptr dest = (gif_dest_ptr) dinfo;
+    323            register JSAMPROW ptr;
+    324            register JDIMENSION col;
+    325          
+    326            ptr = dest->pub.buffer[0];
+    327            for (col = cinfo->output_width; col > 0; col--) {
+    328              compress_pixel(dest, GETJSAMPLE(*ptr++));
+    329            }
+    330          }
+    331          
+    332          
+    333          /*
+    334           * Finish up at the end of the file.
+    335           */
+    336          
+    337          METHODDEF(void)
+    338          finish_output_gif (j_decompress_ptr cinfo, djpeg_dest_ptr dinfo)
+    339          {
+    340            gif_dest_ptr dest = (gif_dest_ptr) dinfo;
+    341          
+    342            /* Flush "compression" mechanism */
+    343            compress_term(dest);
+    344            /* Write a zero-length data block to end the series */
+    345            putc(0, dest->pub.output_file);
+    346            /* Write the GIF terminator mark */
+    347            putc(';', dest->pub.output_file);
+    348            /* Make sure we wrote the output file OK */
+    349            fflush(dest->pub.output_file);
+    350            if (ferror(dest->pub.output_file))
+    351              ERREXIT(cinfo, JERR_FILE_WRITE);
+    352          }
+    353          
+    354          
+    355          /*
+    356           * The module selection routine for GIF format output.
+    357           */
+    358          
+    359          GLOBAL(djpeg_dest_ptr)
+    360          jinit_write_gif (j_decompress_ptr cinfo)
+    361          {
+    362            gif_dest_ptr dest;
+    363          
+    364            /* Create module interface object, fill in method pointers */
+    365            dest = (gif_dest_ptr)
+    366                (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_IMAGE,
+    367          				  SIZEOF(gif_dest_struct));
+    368            dest->cinfo = cinfo;		/* make back link for subroutines */
+    369            dest->pub.start_output = start_output_gif;
+    370            dest->pub.put_pixel_rows = put_pixel_rows;
+    371            dest->pub.finish_output = finish_output_gif;
+    372          
+    373            if (cinfo->out_color_space != JCS_GRAYSCALE &&
+    374                cinfo->out_color_space != JCS_RGB)
+    375              ERREXIT(cinfo, JERR_GIF_COLORSPACE);
+    376          
+    377            /* Force quantization if color or if > 8 bits input */
+    378            if (cinfo->out_color_space != JCS_GRAYSCALE || cinfo->data_precision > 8) {
+    379              /* Force quantization to at most 256 colors */
+    380              cinfo->quantize_colors = TRUE;
+    381              if (cinfo->desired_number_of_colors > 256)
+    382                cinfo->desired_number_of_colors = 256;
+    383            }
+    384          
+    385            /* Calculate output image dimensions so we can allocate space */
+    386            jpeg_calc_output_dimensions(cinfo);
+    387          
+    388            if (cinfo->output_components != 1) /* safety check: just one component? */
+    389              ERREXIT(cinfo, JERR_GIF_BUG);
+    390          
+    391            /* Create decompressor output buffer. */
+    392            dest->pub.buffer = (*cinfo->mem->alloc_sarray)
+    393              ((j_common_ptr) cinfo, JPOOL_IMAGE, cinfo->output_width, (JDIMENSION) 1);
+    394            dest->pub.buffer_height = 1;
+    395          
+    396            return (djpeg_dest_ptr) dest;
+    397          }
+    398          
+    399          #endif /* GIF_SUPPORTED */
+
+
+   Segment part sizes:
+
+     Function/Label Bytes
+     -------------- -----
+
+ 
+ 
+ 0 bytes of memory
+
+Errors: none
+Warnings: 1

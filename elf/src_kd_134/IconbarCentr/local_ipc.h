@@ -1,0 +1,23 @@
+#define IPC_ICONBARCENTR_NAME  "IconbarCentr"
+#define IPC_GRANTEE_NAME       "Grantee"
+#define IPC_CONTROL_NAME       "Control"
+#define IPC_SHOW_PP_VOLUME0     0
+#define IPC_SHOW_PP_VOLUME1     1
+#define IPC_SHOW_PP_VOLUME2     2
+#define IPC_SHOW_PP_VOLUME3     3
+#define IPC_SHOW_PP_VOLUME4     4
+#define IPC_SHOW_PP_VOLUME5     5
+#define IPC_SHOW_PP_VOLUME6     6
+#define IPC_SHOW_PP_VOLUME7     7
+#define IPC_SHOW_PP_VOLUME8     8
+#define IPC_SHOW_PP_VOLUME9     9
+#define IPC_SHOW_PP_VOLUME10    10
+#define IPC_SHOW_PP_VOLUME11    11
+#define IPC_SHOW_PP_VOLUME12    12
+#define IPC_SHOW_PP_VOLUME13    13
+#define IPC_SHOW_PP_VOLUME14    14
+#define IPC_SHOW_PP_VOLUME15    15
+#define IPC_SHOW_PP_STATUS16    16
+#define IPC_SHOW_PP_STATUS17    17
+#define IPC_SHOW_PP_STATUS18    18
+

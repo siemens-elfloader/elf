@@ -1,0 +1,3548 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    22/Dec/2008  22:28:34 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\создание эльфов\мои проекты\Gold Rush\engine.c    #
+#    Command line    =  "D:\создание эльфов\мои проекты\Gold Rush\engine.c"  #
+#                       -lC "D:\создание эльфов\мои проекты\Gold             #
+#                       Rush\Release_SGOLD\List\" -o "D:\создание            #
+#                       эльфов\мои проекты\Gold Rush\Release_SGOLD\Obj\"     #
+#                       -s9 --cpu_mode arm --endian little --cpu ARM926EJ-S  #
+#                       --stack_align 4 --interwork -e --fpu None            #
+#                       --dlib_config "D:\Embedded Workbench 4.0             #
+#                       Evaluation\ARM\LIB\dl5tpainl8n.h" -I "D:\Embedded    #
+#                       Workbench 4.0 Evaluation\ARM\INC\"                   #
+#                       --inline_threshold=2                                 #
+#    List file       =  D:\создание эльфов\мои проекты\Gold                  #
+#                       Rush\Release_SGOLD\List\engine.lst                   #
+#    Object file     =  D:\создание эльфов\мои проекты\Gold                  #
+#                       Rush\Release_SGOLD\Obj\engine.r79                    #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\создание эльфов\мои проекты\Gold Rush\engine.c
+      1          #include "..\inc\swilib.h"
+      2          #include "engine.h"
+      3          //#define NO_LOG
+      4          
+      5          
+      6          //////////////////////////////////////////////////////////////////////////////////
+      7          //////////////////////////////////////////////////////////////////////////////////
+      8          //////////////////////////////////////////////////////////////////////////////////
+      9          //////////////////////////////////////////////////////////////////////////////////
+     10          //////////////////////////////////////////////////////////////////////////////////
+     11          #define RGB16(R,G,B) ((B>31?31:B)+((G>63?63:G)<<5)+((R>31?31:R)<<11))
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     12          IMGHDR *test_img=0;
+   \                     test_img:
+   \   00000000                      DS8 4
+     13          
+
+   \                                 In segment DATA_I, align 4, align-sorted
+     14          char screen[2];                              //for screenArray
+   \                     screen:
+   \   00000000                      DS8 2
+   \   00000002                      REQUIRE `?<Initializer for screen>`
+   \   00000002                      DS8 2
+     15          IMGHDR img = {(unsigned)1,(unsigned)1,8,(char*)screen}; //for screenArray
+   \                     img:
+   \   00000004                      DS8 8
+   \   0000000C                      REQUIRE `?<Initializer for img>`
+     16          
+     17          
+     18          
+     19          extern int ImageLoadFromFile(char *path,int highquality);
+     20          extern void ImageFree(unsigned int a);
+     21          
+     22          //////////////////////////////////////////////////////////////////////////////////
+     23          //////////////////////////////////////////////////////////////////////////////////
+     24          //////////////////////////////////////////////////////////////////////////////////
+     25          //////////////////////////////////////////////////////////////////////////////////
+     26          //////////////////////////////////////////////////////////////////////////////////
+     27          extern char *pwd; //путь к папке с эльфом типа 4:\\windows\\ 
+     28          
+     29          /*
+     30          by ilya90. замена функции на открывающую из папки с елфом.
+     31          вынужден заменить функцию библиотеки fopen на аналогичную,
+     32          открывающую файлы из папки с елфом. Функцию в библе 
+     33          переименовать в fopenA.
+     34          */
+
+   \                                 In segment CODE, align 4, keep-with-next
+     35           int fopen(const char * filename, unsigned int fileflags, unsigned int filemode, unsigned int *errornumber)
+     36          {
+   \                     fopen:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+   \   0000000C   0260A0E1           MOV      R6,R2
+   \   00000010   0370A0E1           MOV      R7,R3
+     37          char *realpath=malloc(512);
+   \   00000014   800FA0E3           MOV      R0,#+512
+   \   00000018   140000EF           SWI      +20
+     38          sprintf(realpath,"%s%s",pwd,filename);
+   \   0000001C   3C109FE5           LDR      R1,??fopen_0     ;; `?<Constant "%s%s">`
+   \   00000020   0080A0E1           MOV      R8,R0
+   \   00000024   38009FE5           LDR      R0,??fopen_0+0x4  ;; pwd
+   \   00000028   0430A0E1           MOV      R3,R4
+   \   0000002C   002090E5           LDR      R2,[R0, #+0]
+   \   00000030   0800A0E1           MOV      R0,R8
+   \   00000034   160000EF           SWI      +22
+     39          int f=fopenA(realpath,fileflags,filemode,errornumber);
+   \   00000038   0730A0E1           MOV      R3,R7
+   \   0000003C   0620A0E1           MOV      R2,R6
+   \   00000040   0510A0E1           MOV      R1,R5
+   \   00000044   0800A0E1           MOV      R0,R8
+   \   00000048   0A0000EF           SWI      +10
+   \   0000004C   0040A0E1           MOV      R4,R0
+     40          mfree(realpath);
+   \   00000050   0800A0E1           MOV      R0,R8
+   \   00000054   150000EF           SWI      +21
+     41          return(f);
+   \   00000058   0400A0E1           MOV      R0,R4
+   \   0000005C   F081BDE8           POP      {R4-R8,PC}       ;; return
+   \                     ??fopen_0:
+   \   00000060   ........           DC32     `?<Constant "%s%s">`
+   \   00000064   ........           DC32     pwd
+     42          }
+     43          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     44          FSTATS fstats; unsigned int err;
+   \                     fstats:
+   \   00000000                      DS8 40
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+   \                     err:
+   \   00000000                      DS8 4
+     45          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     46          TDate date; TTime time;
+   \                     `date`:
+   \   00000000                      DS8 8
+   \                     time:
+   \   00000008                      DS8 8
+     47          #ifndef NO_LOG
+
+   \                                 In segment CODE, align 4, keep-with-next
+     48          void log (char *string)
+     49          {
+   \                     log:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+     50            int logfile=fopen("ArcanoidStudio.log",A_ReadWrite+A_TXT+A_Append+A_Create,P_READ+P_WRITE,0);
+   \   00000004   C4409FE5           LDR      R4,??log_0       ;; `?<Constant ">%d:%02d:%02d/%02d-%0...">`
+     51            char *data=malloc(4096);
+     52            GetDateTime(&date,&time); 
+   \   00000008   C4709FE5           LDR      R7,??log_0+0x4   ;; `date`
+   \   0000000C   0080A0E1           MOV      R8,R0
+   \   00000010   0030A0E3           MOV      R3,#+0
+   \   00000014   602FA0E3           MOV      R2,#+384
+   \   00000018   0A10A0E3           MOV      R1,#+10
+   \   0000001C   411C81E3           ORR      R1,R1,#0x4100
+   \   00000020   300084E2           ADD      R0,R4,#+48
+   \   00000024   ........           BL       fopen
+   \   00000028   0050A0E1           MOV      R5,R0
+   \   0000002C   400DA0E3           MOV      R0,#+4096
+   \   00000030   140000EF           SWI      +20
+   \   00000034   0060A0E1           MOV      R6,R0
+   \   00000038   081087E2           ADD      R1,R7,#+8
+   \   0000003C   0700A0E1           MOV      R0,R7
+   \   00000040   B40000EF           SWI      +180
+     53            sprintf(data,">%d:%02d:%02d/%02d-%02d-%04d< >kernel<   %s\n",time.hour,time.min,time.sec,date.day, date.month,date.year,string);
+   \   00000044   00012DE9           PUSH     {R8}
+   \   00000048   000097E5           LDR      R0,[R7, #+0]
+   \   0000004C   0410A0E1           MOV      R1,R4
+   \   00000050   01002DE9           PUSH     {R0}
+   \   00000054   0400D7E5           LDRB     R0,[R7, #+4]
+   \   00000058   01002DE9           PUSH     {R0}
+   \   0000005C   0500D7E5           LDRB     R0,[R7, #+5]
+   \   00000060   01002DE9           PUSH     {R0}
+   \   00000064   0A00D7E5           LDRB     R0,[R7, #+10]
+   \   00000068   01002DE9           PUSH     {R0}
+   \   0000006C   0930D7E5           LDRB     R3,[R7, #+9]
+   \   00000070   0820D7E5           LDRB     R2,[R7, #+8]
+   \   00000074   0600A0E1           MOV      R0,R6
+   \   00000078   160000EF           SWI      +22
+     54            lseek(logfile, 0x0, S_END, 0, 0);
+   \   0000007C   0000A0E3           MOV      R0,#+0
+   \   00000080   01002DE9           PUSH     {R0}
+   \   00000084   0030A0E3           MOV      R3,#+0
+   \   00000088   0220A0E3           MOV      R2,#+2
+   \   0000008C   0010A0E1           MOV      R1,R0
+   \   00000090   0500A0E1           MOV      R0,R5
+   \   00000094   0F0000EF           SWI      +15
+     55            fwrite(logfile,data,strlen(data),0);
+   \   00000098   0600A0E1           MOV      R0,R6
+   \   0000009C   1B0000EF           SWI      +27
+   \   000000A0   0030A0E3           MOV      R3,#+0
+   \   000000A4   0020A0E1           MOV      R2,R0
+   \   000000A8   0610A0E1           MOV      R1,R6
+   \   000000AC   0500A0E1           MOV      R0,R5
+   \   000000B0   0C0000EF           SWI      +12
+     56            mfree(data);
+   \   000000B4   0600A0E1           MOV      R0,R6
+   \   000000B8   150000EF           SWI      +21
+     57            fclose(logfile,0);
+   \   000000BC   0010A0E3           MOV      R1,#+0
+   \   000000C0   0500A0E1           MOV      R0,R5
+   \   000000C4   0D0000EF           SWI      +13
+     58          }
+   \   000000C8   18D08DE2           ADD      SP,SP,#+24
+   \   000000CC   F081BDE8           POP      {R4-R8,PC}       ;; return
+   \                     ??log_0:
+   \   000000D0   ........           DC32     `?<Constant ">%d:%02d:%02d/%02d-%0...">`
+   \   000000D4   ........           DC32     `date`
+     59          #else 
+     60          void log (char *string){}
+     61          #endif
+     62          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     63          DrwImg(IMGHDR *img, int x, int y, char *pen, char *brush)
+     64          {
+   \                     DrwImg:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   2CD04DE2           SUB      SP,SP,#+44
+   \   00000008   3C609DE5           LDR      R6,[SP, #+60]
+   \   0000000C   0040A0E1           MOV      R4,R0
+     65            RECT rc;
+     66            DRWOBJ drwobj;
+     67            StoreXYWHtoRECT(&rc,x,y,img->w,img->h);
+   \   00000010   0100D4E5           LDRB     R0,[R4, #+1]
+   \   00000014   0350A0E1           MOV      R5,R3
+   \   00000018   01002DE9           PUSH     {R0}
+   \   0000001C   0030D4E5           LDRB     R3,[R4, #+0]
+   \   00000020   04008DE2           ADD      R0,SP,#+4
+   \   00000024   330100EF           SWI      +307
+     68            SetPropTo_Obj5(&drwobj,&rc,0,img);
+   \   00000028   0430A0E1           MOV      R3,R4
+   \   0000002C   0020A0E3           MOV      R2,#+0
+   \   00000030   04108DE2           ADD      R1,SP,#+4
+   \   00000034   0C008DE2           ADD      R0,SP,#+12
+   \   00000038   510100EF           SWI      +337
+     69            //SetColor(&drwobj, (char*)pen, (char*)brush);
+     70            SetColor(&drwobj,pen,brush);
+   \   0000003C   0620A0E1           MOV      R2,R6
+   \   00000040   0510A0E1           MOV      R1,R5
+   \   00000044   0C008DE2           ADD      R0,SP,#+12
+   \   00000048   4B0100EF           SWI      +331
+     71            DrawObject(&drwobj);
+   \   0000004C   0C008DE2           ADD      R0,SP,#+12
+   \   00000050   2A0100EF           SWI      +298
+     72          }
+   \   00000054   30D08DE2           ADD      SP,SP,#+48
+   \   00000058   7080BDE8           POP      {R4-R6,PC}       ;; return
+     73          extern short scr_w,scr_h;
+     74          extern GBSTMR timer1,curtmr;
+     75          extern int running;    //триггер для проверки состояния,0-основной прорисовки нету,1-есть
+
+   \                                 In segment DATA_I, align 1, align-sorted
+     76          char perc_t[]="%t";char perc_s[]="%s"; //для избежания галимого глюка :)
+   \                     perc_t:
+   \   00000000                      DS8 3
+   \   00000003                      REQUIRE `?<Initializer for perc_t>`
+
+   \                                 In segment DATA_I, align 1, align-sorted
+   \                     perc_s:
+   \   00000000                      DS8 3
+   \   00000003                      REQUIRE `?<Initializer for perc_s>`
+     77          
+     78          
+     79          typedef struct
+     80          {
+     81            IMGHDR *img;
+     82            int x;
+     83            int y;
+     84            int stats;
+     85          }image;
+     86          ///////////////////////////////////////////////////////////////////
+     87          
+     88          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     89          int SpriteHitEx(int x1,int y1,int w1,int h1,int x2,int y2,int w2,int h2)
+     90          {
+   \                     SpriteHitEx:
+   \   00000000   10002DE9           PUSH     {R4}
+   \   00000004   04209DE5           LDR      R2,[SP, #+4]
+   \   00000008   08309DE5           LDR      R3,[SP, #+8]
+   \   0000000C   0CC09DE5           LDR      R12,[SP, #+12]
+   \   00000010   10409DE5           LDR      R4,[SP, #+16]
+     91            if(x1>x2 && x1<x2+w2 && y1>y2 && y1<y2+h2) return 1;
+   \   00000014   000052E1           CMP      R2,R0
+   \   00000018   02208CB0           ADDLT    R2,R12,R2
+   \   0000001C   020050B1           CMPLT    R0,R2
+   \   00000020   010053B1           CMPLT    R3,R1
+   \   00000024   030084B0           ADDLT    R0,R4,R3
+     92            return 0;
+   \   00000028   1000BDE8           POP      {R4}
+   \   0000002C   000051B1           CMPLT    R1,R0
+   \   00000030   0100A0B3           MOVLT    R0,#+1
+   \   00000034   0000A0A3           MOVGE    R0,#+0
+   \   00000038   1EFF2FE1           BX       LR               ;; return
+     93          }
+     94          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     95          int ABS(int source)
+     96          {
+     97            int dest;
+     98            if(source>0) dest=source;
+   \                     ABS:
+   \   00000000   010050E3           CMP      R0,#+1
+     99            else dest=-source;
+   \   00000004   000060B2           RSBLT    R0,R0,#+0
+    100            return dest;
+   \   00000008   1EFF2FE1           BX       LR               ;; return
+    101          }
+    102          ////////////////////////////////////////////////////////////////////////////////////////
+    103          ////////////////////////////////////////////////////////////////////////////////////////
+    104          ////////////////////////////////////////////////////////////////////////////////////////
+    105          ////////////////////////////////////////////////////////////////////////////////////////
+    106          ////////////////////////////////////////////////////////////////////////////////////////
+    107          image brick[10];
+    108          image ball[3];  int ball_x,ball_y,ball_s=0,ball_spx,ball_spy;
+    109          image user[10]; int user_x,user_y,user_s=0,user_l=0,user_r=0,user_sp=5;
+    110          int user_c; //время,которое платформа находится в движении
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    111          image bonus[10];
+   \                     bonus:
+   \   00000000                      DS8 160
+    112          
+    113          
+    114          #ifndef ELKA
+    115          #define W 133
+    116          #define H 177
+    117          #define FONT_SM 7
+    118          #else
+    119          #define W 240
+    120          #define H 320
+    121          #define FONT_SM 8
+    122          #endif
+    123          ///////////////////////////////////////////////////////////////////
+
+   \                                 In segment CODE, align 4, keep-with-next
+    124          int BBhit(image brick)
+    125          {
+   \                     BBhit:
+   \   00000000   0F002DE9           PUSH     {R0-R3}
+    126            int sx=ball[ball_s].img->w/3;
+   \   00000004   ........           LDR      R3,??DataTable3  ;; brick
+   \   00000008   80119FE5           LDR      R1,??BBhit_0     ;; 0x55555556
+   \   0000000C   F0072DE9           PUSH     {R4-R10}
+   \   00000010   780193E5           LDR      R0,[R3, #+376]
+    127            int sy=ball[ball_s].img->h/14;
+    128            RECT bl,br;
+    129            bl.x=ball_x;
+    130            bl.y=ball_y;
+    131            bl.x2=ball_x+ball[ball_s].img->w;
+    132            bl.y2=ball_y+ball[ball_s].img->h;
+    133            br.x=brick.x;
+   \   00000014   20809DE5           LDR      R8,[SP, #+32]
+    134            br.y=brick.y;
+   \   00000018   24709DE5           LDR      R7,[SP, #+36]
+    135            br.x2=brick.x+brick.img->w;
+   \   0000001C   1C909DE5           LDR      R9,[SP, #+28]
+   \   00000020   000283E0           ADD      R0,R3,R0, LSL #+4
+   \   00000024   40C190E5           LDR      R12,[R0, #+320]
+   \   00000028   0090D9E5           LDRB     R9,[R9, #+0]
+   \   0000002C   0000DCE5           LDRB     R0,[R12, #+0]
+   \   00000030   0060DCE5           LDRB     R6,[R12, #+0]
+   \   00000034   9120C4E0           SMULL    R2,R4,R1,R0
+   \   00000038   0110DCE5           LDRB     R1,[R12, #+1]
+   \   0000003C   50219FE5           LDR      R2,??BBhit_0+0x4  ;; 0xffffffff92492493
+   \   00000040   A00F84E0           ADD      R0,R4,R0, LSR #+31
+   \   00000044   9241C5E0           SMULL    R4,R5,R2,R1
+   \   00000048   704193E5           LDR      R4,[R3, #+368]
+   \   0000004C   015085E0           ADD      R5,R5,R1
+   \   00000050   0420A0E1           MOV      R2,R4
+   \   00000054   044086E0           ADD      R4,R6,R4
+   \   00000058   0160DCE5           LDRB     R6,[R12, #+1]
+   \   0000005C   C551A0E1           ASR      R5,R5,#+3
+   \   00000060   A11F85E0           ADD      R1,R5,R1, LSR #+31
+   \   00000064   745193E5           LDR      R5,[R3, #+372]
+   \   00000068   0530A0E1           MOV      R3,R5
+   \   0000006C   05C086E0           ADD      R12,R6,R5
+   \   00000070   0850A0E1           MOV      R5,R8
+   \   00000074   088089E0           ADD      R8,R9,R8
+    136            br.y2=brick.y+brick.img->h;
+   \   00000078   1C909DE5           LDR      R9,[SP, #+28]
+   \   0000007C   0760A0E1           MOV      R6,R7
+   \   00000080   0190D9E5           LDRB     R9,[R9, #+1]
+    137            
+    138            if(bl.x2>br.x+sx && bl.x<br.x2-sx)
+   \   00000084   04A8A0E1           MOV      R10,R4, LSL #+16
+   \   00000088   077089E0           ADD      R7,R9,R7
+   \   0000008C   0598A0E1           MOV      R9,R5, LSL #+16
+   \   00000090   4998A0E1           MOV      R9,R9, ASR #+16
+   \   00000094   099080E0           ADD      R9,R0,R9
+   \   00000098   4A0859E1           CMP      R9,R10, ASR #+16
+   \   0000009C   180000AA           BGE      ??BBhit_1
+   \   000000A0   0298A0E1           MOV      R9,R2, LSL #+16
+   \   000000A4   08A8A0E1           MOV      R10,R8, LSL #+16
+   \   000000A8   4AA8A0E1           MOV      R10,R10, ASR #+16
+   \   000000AC   00004AE0           SUB      R0,R10,R0
+   \   000000B0   490850E1           CMP      R0,R9, ASR #+16
+   \   000000B4   120000DA           BLE      ??BBhit_1
+    139            {
+    140              if(bl.y2>br.y && bl.y<br.y) return 1; //верхняя часть
+   \   000000B8   0668A0E1           MOV      R6,R6, LSL #+16
+   \   000000BC   4668A0E1           MOV      R6,R6, ASR #+16
+   \   000000C0   0CC8A0E1           MOV      R12,R12, LSL #+16
+   \   000000C4   4CC8A0E1           MOV      R12,R12, ASR #+16
+   \   000000C8   0C0056E1           CMP      R6,R12
+   \   000000CC   040000AA           BGE      ??BBhit_2
+   \   000000D0   0338A0E1           MOV      R3,R3, LSL #+16
+   \   000000D4   4338A0E1           MOV      R3,R3, ASR #+16
+   \   000000D8   060053E1           CMP      R3,R6
+   \   000000DC   0100A0B3           MOVLT    R0,#+1
+   \   000000E0   270000BA           BLT      ??BBhit_3
+    141              if(bl.y<br.y2 && bl.y2>br.y2) return 2; //нижняя часть
+   \                     ??BBhit_2:
+   \   000000E4   0338A0E1           MOV      R3,R3, LSL #+16
+   \   000000E8   4338A0E1           MOV      R3,R3, ASR #+16
+   \   000000EC   0778A0E1           MOV      R7,R7, LSL #+16
+   \   000000F0   4778A0E1           MOV      R7,R7, ASR #+16
+   \   000000F4   070053E1           CMP      R3,R7
+   \   000000F8   0C0057B1           CMPLT    R7,R12
+   \   000000FC   0200A0B3           MOVLT    R0,#+2
+   \   00000100   1F0000BA           BLT      ??BBhit_3
+    142            }
+    143            if(bl.y2>br.y-sy && bl.y<br.y2+sy)
+   \                     ??BBhit_1:
+   \   00000104   0668A0E1           MOV      R6,R6, LSL #+16
+   \   00000108   4668A0E1           MOV      R6,R6, ASR #+16
+   \   0000010C   010046E0           SUB      R0,R6,R1
+   \   00000110   0CC8A0E1           MOV      R12,R12, LSL #+16
+   \   00000114   4C0850E1           CMP      R0,R12, ASR #+16
+   \   00000118   180000AA           BGE      ??BBhit_4
+   \   0000011C   0338A0E1           MOV      R3,R3, LSL #+16
+   \   00000120   0778A0E1           MOV      R7,R7, LSL #+16
+   \   00000124   4778A0E1           MOV      R7,R7, ASR #+16
+   \   00000128   070081E0           ADD      R0,R1,R7
+   \   0000012C   430850E1           CMP      R0,R3, ASR #+16
+   \   00000130   120000DA           BLE      ??BBhit_4
+    144            {
+    145              if(bl.x2>br.x && bl.x<br.x) return 3; //левая часть
+   \   00000134   0558A0E1           MOV      R5,R5, LSL #+16
+   \   00000138   4558A0E1           MOV      R5,R5, ASR #+16
+   \   0000013C   0448A0E1           MOV      R4,R4, LSL #+16
+   \   00000140   4448A0E1           MOV      R4,R4, ASR #+16
+   \   00000144   040055E1           CMP      R5,R4
+   \   00000148   040000AA           BGE      ??BBhit_5
+   \   0000014C   0228A0E1           MOV      R2,R2, LSL #+16
+   \   00000150   4228A0E1           MOV      R2,R2, ASR #+16
+   \   00000154   050052E1           CMP      R2,R5
+   \   00000158   0300A0B3           MOVLT    R0,#+3
+   \   0000015C   080000BA           BLT      ??BBhit_3
+    146              if(bl.x<br.x2 && bl.x2>br.x2) return 4; //правая часть
+   \                     ??BBhit_5:
+   \   00000160   0228A0E1           MOV      R2,R2, LSL #+16
+   \   00000164   0888A0E1           MOV      R8,R8, LSL #+16
+   \   00000168   4888A0E1           MOV      R8,R8, ASR #+16
+   \   0000016C   420858E1           CMP      R8,R2, ASR #+16
+   \   00000170   020000DA           BLE      ??BBhit_4
+   \   00000174   040058E1           CMP      R8,R4
+   \   00000178   0400A0B3           MOVLT    R0,#+4
+   \   0000017C   000000BA           BLT      ??BBhit_3
+    147            }
+    148            
+    149            
+    150            //if(ball_x > brick.x  &&  ball_x+ball[ball_s].img->w < brick.x+brick.img->w  &&  ball_y+ball[ball_s].img->h > brick.y  &&  ball_y+ball[ball_s].img->h < brick.y+brick.img->h) return 1;
+    151            return 0;
+   \                     ??BBhit_4:
+   \   00000180   0000A0E3           MOV      R0,#+0
+   \                     ??BBhit_3:
+   \   00000184   F007BDE8           POP      {R4-R10}
+   \   00000188   10D08DE2           ADD      SP,SP,#+16
+   \   0000018C   1EFF2FE1           BX       LR               ;; return
+   \                     ??BBhit_0:
+   \   00000190   56555555           DC32     0x55555556
+   \   00000194   93244992           DC32     0xffffffff92492493
+    152          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+    153          int BBhitEx(image brick)
+    154          {
+   \                     BBhitEx:
+   \   00000000   0F002DE9           PUSH     {R0-R3}
+    155            //столкновение с левой частью брика
+    156            if(ball_x+ball[ball_s].img->w > brick.x  &&  ball_x < brick.x+(brick.img->w/2)  &&  ball_y > brick.y  &&  ball_y+ball[ball_s].img->h < brick.y+brick.img->h) return 1;
+   \   00000004   ........           LDR      R0,??DataTable3  ;; brick
+   \   00000008   F0032DE9           PUSH     {R4-R9}
+   \   0000000C   781190E5           LDR      R1,[R0, #+376]
+   \   00000010   18209DE5           LDR      R2,[SP, #+24]
+   \   00000014   18509DE5           LDR      R5,[SP, #+24]
+   \   00000018   01C0D2E5           LDRB     R12,[R2, #+1]
+   \   0000001C   20209DE5           LDR      R2,[SP, #+32]
+   \   00000020   1C409DE5           LDR      R4,[SP, #+28]
+   \   00000024   0050D5E5           LDRB     R5,[R5, #+0]
+   \   00000028   707190E5           LDR      R7,[R0, #+368]
+   \   0000002C   011280E0           ADD      R1,R0,R1, LSL #+4
+   \   00000030   401191E5           LDR      R1,[R1, #+320]
+   \   00000034   02308CE0           ADD      R3,R12,R2
+   \   00000038   0090D1E5           LDRB     R9,[R1, #+0]
+   \   0000003C   A560A0E1           LSR      R6,R5,#+1
+   \   00000040   048086E0           ADD      R8,R6,R4
+   \   00000044   746190E5           LDR      R6,[R0, #+372]
+   \   00000048   045085E0           ADD      R5,R5,R4
+   \   0000004C   079089E0           ADD      R9,R9,R7
+   \   00000050   090054E1           CMP      R4,R9
+   \   00000054   080057B1           CMPLT    R7,R8
+   \   00000058   080000AA           BGE      ??BBhitEx_0
+   \   0000005C   060052E1           CMP      R2,R6
+   \   00000060   0F0000AA           BGE      ??BBhitEx_1
+   \   00000064   0180D1E5           LDRB     R8,[R1, #+1]
+   \   00000068   068088E0           ADD      R8,R8,R6
+   \   0000006C   030058E1           CMP      R8,R3
+   \   00000070   0B0000AA           BGE      ??BBhitEx_1
+   \   00000074   F003BDE8           POP      {R4-R9}
+   \   00000078   0100A0E3           MOV      R0,#+1
+   \   0000007C   280000EA           B        ??BBhitEx_2
+    157            //столкновение с правой частью брика
+    158            if(ball_x > brick.x+(brick.img->w/2)  &&  ball_x<brick.x+brick.img->w && ball_y>brick.y && ball_y+ball[ball_s].img->h<brick.y+brick.img->h) return 2;
+   \                     ??BBhitEx_0:
+   \   00000080   070058E1           CMP      R8,R7
+   \   00000084   050057B1           CMPLT    R7,R5
+   \   00000088   060052B1           CMPLT    R2,R6
+   \   0000008C   040000AA           BGE      ??BBhitEx_1
+   \   00000090   0180D1E5           LDRB     R8,[R1, #+1]
+   \   00000094   068088E0           ADD      R8,R8,R6
+   \   00000098   030058E1           CMP      R8,R3
+   \   0000009C   0200A0B3           MOVLT    R0,#+2
+   \   000000A0   1E0000BA           BLT      ??BBhitEx_3
+    159            //столкновение с верхней частью брика
+    160            if(ball_x+ball_spx>brick.x && (ball_x+ball_spx)+ball[ball_s].img->w<brick.x+brick.img->w && (ball_y+ball_spy)+ball[ball_s].img->h > brick.y && (ball_y+ball_spy)+ball[ball_s].img->h<brick.y+(brick.img->h/2)) return 3;
+   \                     ??BBhitEx_1:
+   \   000000A4   AC80A0E1           LSR      R8,R12,#+1
+   \   000000A8   02C088E0           ADD      R12,R8,R2
+   \   000000AC   7C8190E5           LDR      R8,[R0, #+380]
+   \   000000B0   078088E0           ADD      R8,R8,R7
+   \   000000B4   080054E1           CMP      R4,R8
+   \   000000B8   0E0000AA           BGE      ??BBhitEx_4
+   \   000000BC   0090D1E5           LDRB     R9,[R1, #+0]
+   \   000000C0   088089E0           ADD      R8,R9,R8
+   \   000000C4   050058E1           CMP      R8,R5
+   \   000000C8   0A0000AA           BGE      ??BBhitEx_4
+   \   000000CC   0180D1E5           LDRB     R8,[R1, #+1]
+   \   000000D0   800190E5           LDR      R0,[R0, #+384]
+   \   000000D4   060080E0           ADD      R0,R0,R6
+   \   000000D8   008088E0           ADD      R8,R8,R0
+   \   000000DC   080052E1           CMP      R2,R8
+   \   000000E0   040000AA           BGE      ??BBhitEx_4
+   \   000000E4   0120D1E5           LDRB     R2,[R1, #+1]
+   \   000000E8   000082E0           ADD      R0,R2,R0
+   \   000000EC   0C0050E1           CMP      R0,R12
+   \   000000F0   0300A0B3           MOVLT    R0,#+3
+   \   000000F4   090000BA           BLT      ??BBhitEx_3
+    161            //столкновение с нижней частью брика
+    162            if(ball_x>brick.x && ball_x+ball[ball_s].img->w<brick.x+brick.img->w && ball_y > brick.y+(brick.img->h/2) && ball_y<brick.y+brick.img->h) return 4;
+   \                     ??BBhitEx_4:
+   \   000000F8   070054E1           CMP      R4,R7
+   \   000000FC   060000AA           BGE      ??BBhitEx_5
+   \   00000100   0000D1E5           LDRB     R0,[R1, #+0]
+   \   00000104   070080E0           ADD      R0,R0,R7
+   \   00000108   050050E1           CMP      R0,R5
+   \   0000010C   06005CB1           CMPLT    R12,R6
+   \   00000110   030056B1           CMPLT    R6,R3
+   \   00000114   0400A0B3           MOVLT    R0,#+4
+   \   00000118   000000BA           BLT      ??BBhitEx_3
+    163            return 0;
+   \                     ??BBhitEx_5:
+   \   0000011C   0000A0E3           MOV      R0,#+0
+   \                     ??BBhitEx_3:
+   \   00000120   F003BDE8           POP      {R4-R9}
+   \                     ??BBhitEx_2:
+   \   00000124   10D08DE2           ADD      SP,SP,#+16
+   \   00000128   1EFF2FE1           BX       LR               ;; return
+    164          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+    165          int UBhit()
+    166          {
+   \                     UBhit:
+   \   00000000   70002DE9           PUSH     {R4-R6}
+    167            //столкновение с левым краем
+    168            if(ball_x+(ball[ball_s].img->w/2) > user_x  &&  ball_x+(ball[ball_s].img->w/2) < user_x+(user[user_s].img->w/4) && ball_y+ball[ball_s].img->h > user_y) return 1;
+   \   00000004   ........           LDR      R4,??DataTable3  ;; brick
+   \   00000008   8C0194E5           LDR      R0,[R4, #+396]
+   \   0000000C   781194E5           LDR      R1,[R4, #+376]
+   \   00000010   742194E5           LDR      R2,[R4, #+372]
+   \   00000014   883194E5           LDR      R3,[R4, #+392]
+   \   00000018   70C194E5           LDR      R12,[R4, #+368]
+   \   0000001C   011284E0           ADD      R1,R4,R1, LSL #+4
+   \   00000020   401191E5           LDR      R1,[R1, #+320]
+   \   00000024   000284E0           ADD      R0,R4,R0, LSL #+4
+   \   00000028   0050D1E5           LDRB     R5,[R1, #+0]
+   \   0000002C   844194E5           LDR      R4,[R4, #+388]
+   \   00000030   A00090E5           LDR      R0,[R0, #+160]
+   \   00000034   A550A0E1           LSR      R5,R5,#+1
+   \   00000038   0C5085E0           ADD      R5,R5,R12
+   \   0000003C   050054E1           CMP      R4,R5
+   \   00000040   0C0000AA           BGE      ??UBhit_0
+   \   00000044   0050D1E5           LDRB     R5,[R1, #+0]
+   \   00000048   0060D0E5           LDRB     R6,[R0, #+0]
+   \   0000004C   A550A0E1           LSR      R5,R5,#+1
+   \   00000050   0C5085E0           ADD      R5,R5,R12
+   \   00000054   2661A0E1           LSR      R6,R6,#+2
+   \   00000058   046086E0           ADD      R6,R6,R4
+   \   0000005C   060055E1           CMP      R5,R6
+   \   00000060   040000AA           BGE      ??UBhit_0
+   \   00000064   0150D1E5           LDRB     R5,[R1, #+1]
+   \   00000068   025085E0           ADD      R5,R5,R2
+   \   0000006C   050053E1           CMP      R3,R5
+   \   00000070   0100A0B3           MOVLT    R0,#+1
+   \   00000074   2B0000BA           BLT      ??UBhit_1
+    169            //столкновение с центром платформы
+    170            if(ball_x+(ball[ball_s].img->w/2) > user_x+(user[user_s].img->w/4)  &&  ball_x+(ball[ball_s].img->w/2) < user_x+((user[user_s].img->w/4)*3) && ball_y+ball[ball_s].img->h > user_y) return 2;
+   \                     ??UBhit_0:
+   \   00000078   0050D0E5           LDRB     R5,[R0, #+0]
+   \   0000007C   0060D1E5           LDRB     R6,[R1, #+0]
+   \   00000080   2551A0E1           LSR      R5,R5,#+2
+   \   00000084   045085E0           ADD      R5,R5,R4
+   \   00000088   A660A0E1           LSR      R6,R6,#+1
+   \   0000008C   0C6086E0           ADD      R6,R6,R12
+   \   00000090   060055E1           CMP      R5,R6
+   \   00000094   0D0000AA           BGE      ??UBhit_2
+   \   00000098   0050D1E5           LDRB     R5,[R1, #+0]
+   \   0000009C   0060D0E5           LDRB     R6,[R0, #+0]
+   \   000000A0   A550A0E1           LSR      R5,R5,#+1
+   \   000000A4   0C5085E0           ADD      R5,R5,R12
+   \   000000A8   2661A0E1           LSR      R6,R6,#+2
+   \   000000AC   866086E0           ADD      R6,R6,R6, LSL #+1
+   \   000000B0   046086E0           ADD      R6,R6,R4
+   \   000000B4   060055E1           CMP      R5,R6
+   \   000000B8   040000AA           BGE      ??UBhit_2
+   \   000000BC   0150D1E5           LDRB     R5,[R1, #+1]
+   \   000000C0   025085E0           ADD      R5,R5,R2
+   \   000000C4   050053E1           CMP      R3,R5
+   \   000000C8   0200A0B3           MOVLT    R0,#+2
+   \   000000CC   150000BA           BLT      ??UBhit_1
+    171            //столкновение с правым краем
+    172            if(ball_x+(ball[ball_s].img->w/2) > user_x+((user[user_s].img->w/4)*3)  &&  ball_x+(ball[ball_s].img->w/2) < user_x+user[user_s].img->w && ball_y+ball[ball_s].img->h > user_y) return 3;
+   \                     ??UBhit_2:
+   \   000000D0   0050D0E5           LDRB     R5,[R0, #+0]
+   \   000000D4   0060D1E5           LDRB     R6,[R1, #+0]
+   \   000000D8   2551A0E1           LSR      R5,R5,#+2
+   \   000000DC   855085E0           ADD      R5,R5,R5, LSL #+1
+   \   000000E0   045085E0           ADD      R5,R5,R4
+   \   000000E4   A660A0E1           LSR      R6,R6,#+1
+   \   000000E8   0C6086E0           ADD      R6,R6,R12
+   \   000000EC   060055E1           CMP      R5,R6
+   \   000000F0   0B0000AA           BGE      ??UBhit_3
+   \   000000F4   0050D1E5           LDRB     R5,[R1, #+0]
+   \   000000F8   0000D0E5           LDRB     R0,[R0, #+0]
+   \   000000FC   A550A0E1           LSR      R5,R5,#+1
+   \   00000100   0C5085E0           ADD      R5,R5,R12
+   \   00000104   040080E0           ADD      R0,R0,R4
+   \   00000108   000055E1           CMP      R5,R0
+   \   0000010C   040000AA           BGE      ??UBhit_3
+   \   00000110   0100D1E5           LDRB     R0,[R1, #+1]
+   \   00000114   020080E0           ADD      R0,R0,R2
+   \   00000118   000053E1           CMP      R3,R0
+   \   0000011C   0300A0B3           MOVLT    R0,#+3
+   \   00000120   000000BA           BLT      ??UBhit_1
+    173            return 0; //если не столкнулись,то выходим с нулем
+   \                     ??UBhit_3:
+   \   00000124   0000A0E3           MOV      R0,#+0
+   \                     ??UBhit_1:
+   \   00000128   7000BDE8           POP      {R4-R6}
+   \   0000012C   1EFF2FE1           BX       LR               ;; return
+    174          }
+    175          ///////////////////////////////////////////////////////////////////
+    176          
+    177          
+    178          //1,2,3,4 = normal bricks;
+    179          //5 = double collised brick;
+    180          //6 = mine brick;
+    181          //7 = undestroyed brick;
+    182          int Level1 [8] [15] = //ширина-максимум 8. высота-максимум много :)
+    183              {
+    184                {1,1,1,1,1,1,1,2,2,2,1,1,1,1,1},
+    185                {0,2,2,2,2,2,2,2,1,1,2,2,2,2,0},
+    186                {0,0,0,0,0,0,4,2,5,3,3,0,0,3,0},
+    187                {0,0,7,7,0,0,0,0,0,0,0,7,7,0,0},
+    188                {0,0,1,0,0,0,0,1,0,0,0,0,0,0,0},
+    189                {5,5,5,5,5,7,7,7,7,7,5,5,5,5,5},
+    190                {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    191                {3,3,3,3,3,3,3,3,3,3,3,3,3,3,3},
+    192              };
+    193          
+    194          IMGHDR *bg1;
+    195          IMGHDR *load_screen;
+    196          IMGHDR *main_menu;
+    197          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    198          void DrawPx(int xx,int yy,int r,int g,int b)
+    199          {
+   \                     DrawPx:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+    200            
+    201            //pxx->w=1;
+    202            //pxx->h=1;
+    203            //pxx->bpnum=8;
+    204            screen[0]=RGB16(r,g,b);
+   \   00000004   50609FE5           LDR      R6,??DrawPx_0    ;; screen
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   14009DE5           LDR      R0,[SP, #+20]
+   \   00000010   0150A0E1           MOV      R5,R1
+   \   00000014   200050E3           CMP      R0,#+32
+   \   00000018   1F00A0A3           MOVGE    R0,#+31
+   \   0000001C   400053E3           CMP      R3,#+64
+   \   00000020   3F30A0A3           MOVGE    R3,#+63
+   \   00000024   830280E0           ADD      R0,R0,R3, LSL #+5
+   \   00000028   0000C6E5           STRB     R0,[R6, #+0]
+    205            
+    206            DrwImg((IMGHDR*)&img,xx,yy,GetPaletteAdrByColorIndex(0),GetPaletteAdrByColorIndex(1));
+   \   0000002C   0100A0E3           MOV      R0,#+1
+   \   00000030   2E0100EF           SWI      +302
+   \   00000034   0070A0E1           MOV      R7,R0
+   \   00000038   0000A0E3           MOV      R0,#+0
+   \   0000003C   2E0100EF           SWI      +302
+   \   00000040   80002DE9           PUSH     {R7}
+   \   00000044   0030A0E1           MOV      R3,R0
+   \   00000048   0520A0E1           MOV      R2,R5
+   \   0000004C   0410A0E1           MOV      R1,R4
+   \   00000050   040086E2           ADD      R0,R6,#+4
+   \   00000054   ........           BL       DrwImg
+    207          }
+   \   00000058   F180BDE8           POP      {R0,R4-R7,PC}    ;; return
+   \                     ??DrawPx_0:
+   \   0000005C   ........           DC32     screen
+    208          
+    209          
+    210          
+    211          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    212          void DrawRect(int x,int y,int w,int h,int r,int g,int b)
+    213          {
+   \                     DrawRect:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+   \   00000004   24809DE5           LDR      R8,[SP, #+36]
+   \   00000008   28909DE5           LDR      R9,[SP, #+40]
+   \   0000000C   2CA09DE5           LDR      R10,[SP, #+44]
+   \   00000010   0050A0E1           MOV      R5,R0
+   \   00000014   0260A0E1           MOV      R6,R2
+   \   00000018   0370A0E1           MOV      R7,R3
+    214            for(int yy=y;yy<h;yy++)
+   \   0000001C   0140A0E1           MOV      R4,R1
+   \   00000020   070054E1           CMP      R4,R7
+   \   00000024   F08FBDA8           POPGE    {R4-R11,PC}
+    215            {
+    216              for(int xx=x;xx<w;xx++)
+   \                     ??DrawRect_0:
+   \   00000028   05B0A0E1           MOV      R11,R5
+   \   0000002C   06005BE1           CMP      R11,R6
+   \   00000030   0A0000AA           BGE      ??DrawRect_1
+    217              {
+    218                DrawPx(xx,yy,r,g,b);
+   \                     ??DrawRect_2:
+   \   00000034   0A00A0E1           MOV      R0,R10
+   \   00000038   01002DE9           PUSH     {R0}
+   \   0000003C   0930A0E1           MOV      R3,R9
+   \   00000040   0820A0E1           MOV      R2,R8
+   \   00000044   0410A0E1           MOV      R1,R4
+   \   00000048   0B00A0E1           MOV      R0,R11
+   \   0000004C   ........           BL       DrawPx
+    219                
+    220                
+    221              }
+   \   00000050   01B08BE2           ADD      R11,R11,#+1
+   \   00000054   06005BE1           CMP      R11,R6
+   \   00000058   04D08DE2           ADD      SP,SP,#+4
+   \   0000005C   F4FFFFBA           BLT      ??DrawRect_2
+    222            } 
+   \                     ??DrawRect_1:
+   \   00000060   014084E2           ADD      R4,R4,#+1
+   \   00000064   070054E1           CMP      R4,R7
+   \   00000068   EEFFFFBA           BLT      ??DrawRect_0
+    223              
+    224              
+    225              
+    226          }
+   \   0000006C   F08FBDE8           POP      {R4-R11,PC}      ;; return
+    227          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    228          void Lose()
+    229          {
+    230            
+    231            
+    232            
+    233          }
+   \                     Lose:
+   \   00000000   1EFF2FE1           BX       LR               ;; return
+    234          
+    235          int ball_check_only_pos_x=0;
+    236          int ball_check_only_pos_y=0;
+
+   \                                 In segment CODE, align 4, keep-with-next
+    237          int CheckAndChangeBallState(image brick,int bonus)
+    238          {
+   \                     CheckAndChangeBallState:
+   \   00000000   0F002DE9           PUSH     {R0-R3}
+   \   00000004   F0432DE9           PUSH     {R4-R9,LR}
+    239            
+    240            //при столкновении с какой-либо стороной брика возможно 3 варианта полета шара,и все их надо проверить,и соответствующим образом обратно пропорционально изменить направление полета шара,собственно это и не только мы здесь и делаем
+    241            if(BBhit(brick)==3) //если мяч столкнулся с левой частью брика
+   \   00000008   ........           LDR      R4,??DataTable3  ;; brick
+   \   0000000C   1C008DE2           ADD      R0,SP,#+28
+   \   00000010   7C5194E5           LDR      R5,[R4, #+380]
+   \   00000014   806194E5           LDR      R6,[R4, #+384]
+   \   00000018   8C7394E5           LDR      R7,[R4, #+908]
+   \   0000001C   10D04DE2           SUB      SP,SP,#+16
+   \   00000020   001090E5           LDR      R1,[R0, #0]
+   \   00000024   0D20A0E1           MOV      R2,SP
+   \   00000028   001082E5           STR      R1,[R2, #+0]
+   \   0000002C   041090E5           LDR      R1,[R0, #+4]
+   \   00000030   008065E2           RSB      R8,R5,#+0
+   \   00000034   041082E5           STR      R1,[R2, #+4]
+   \   00000038   081090E5           LDR      R1,[R0, #+8]
+   \   0000003C   081082E5           STR      R1,[R2, #+8]
+   \   00000040   0310A0E1           MOV      R1,R3
+   \   00000044   0C1082E5           STR      R1,[R2, #+12]
+   \   00000048   0F00BDE8           POP      {R0-R3}
+   \   0000004C   ........           BL       BBhit
+   \   00000050   030050E3           CMP      R0,#+3
+   \   00000054   1100001A           BNE      ??CheckAndChangeBallState_0
+    242            {
+    243              if(ball_spy<0 && ball_spx>0) //если двигался до столкновения вправо+вверх
+   \   00000058   000056E3           CMP      R6,#+0
+   \   0000005C   0300005A           BPL      ??CheckAndChangeBallState_1
+   \                     ??CheckAndChangeBallState_2:
+   \   00000060   010055E3           CMP      R5,#+1
+   \   00000064   0A0000BA           BLT      ??CheckAndChangeBallState_3
+    244              {
+    245                ball_spx=-ball_spx; //теперь двигаемся не вправо,а влево
+   \                     ??CheckAndChangeBallState_4:
+   \   00000068   7C8184E5           STR      R8,[R4, #+380]
+    246                ball_spy=ball_spy;  //продолжаем двигаться вверх
+   \   0000006C   080000EA           B        ??CheckAndChangeBallState_3
+    247              }
+    248              if(ball_spy>0 && ball_spx>0) //если двигался до столкновения вправо+вниз
+   \                     ??CheckAndChangeBallState_1:
+   \   00000070   010056E3           CMP      R6,#+1
+   \   00000074   F9FFFFAA           BGE      ??CheckAndChangeBallState_2
+    249              {
+    250                ball_spx=-ball_spx; //теперь двигаемся не вправо,а влево
+    251                ball_spy=ball_spy;  //продолжаем двигаться вниз
+    252              }
+    253              if(ball_spy==0 && ball_spx>0) //если двигался до столкновения вправо
+   \   00000078   000056E3           CMP      R6,#+0
+   \   0000007C   0400001A           BNE      ??CheckAndChangeBallState_3
+   \   00000080   010055E3           CMP      R5,#+1
+   \   00000084   020000BA           BLT      ??CheckAndChangeBallState_3
+    254              {
+    255                ball_spx=-ball_spx; //теперь двигаемся не вправо,а влево
+   \                     ??CheckAndChangeBallState_5:
+   \   00000088   7C8184E5           STR      R8,[R4, #+380]
+    256                ball_check_only_pos_x++;
+   \   0000008C   010087E2           ADD      R0,R7,#+1
+   \   00000090   8C0384E5           STR      R0,[R4, #+908]
+    257              }
+    258              return 1;
+   \                     ??CheckAndChangeBallState_3:
+   \   00000094   F043BDE8           POP      {R4-R9,LR}
+   \   00000098   0100A0E3           MOV      R0,#+1
+   \   0000009C   6A0000EA           B        ??CheckAndChangeBallState_6
+    259            }
+    260            
+    261            if(BBhitEx(brick)==2) //если мяч столкнулся с правой частью брика
+   \                     ??CheckAndChangeBallState_0:
+   \   000000A0   1C008DE2           ADD      R0,SP,#+28
+   \   000000A4   10D04DE2           SUB      SP,SP,#+16
+   \   000000A8   001090E5           LDR      R1,[R0, #0]
+   \   000000AC   0D20A0E1           MOV      R2,SP
+   \   000000B0   001082E5           STR      R1,[R2, #+0]
+   \   000000B4   041090E5           LDR      R1,[R0, #+4]
+   \   000000B8   041082E5           STR      R1,[R2, #+4]
+   \   000000BC   081090E5           LDR      R1,[R0, #+8]
+   \   000000C0   081082E5           STR      R1,[R2, #+8]
+   \   000000C4   0C1090E5           LDR      R1,[R0, #+12]
+   \   000000C8   0C1082E5           STR      R1,[R2, #+12]
+   \   000000CC   0F00BDE8           POP      {R0-R3}
+   \   000000D0   ........           BL       BBhitEx
+   \   000000D4   020050E3           CMP      R0,#+2
+   \   000000D8   0B00001A           BNE      ??CheckAndChangeBallState_7
+    262            {
+    263              if(ball_spy<0 && ball_spx<0) //если двигался до столкновения влево+вверх
+   \   000000DC   000056E3           CMP      R6,#+0
+   \   000000E0   0200005A           BPL      ??CheckAndChangeBallState_8
+   \                     ??CheckAndChangeBallState_9:
+   \   000000E4   000055E3           CMP      R5,#+0
+   \   000000E8   E9FFFF5A           BPL      ??CheckAndChangeBallState_3
+    264              {
+    265                ball_spx=-ball_spx; //теперь двигаемся не влево,а вправо
+   \   000000EC   DDFFFFEA           B        ??CheckAndChangeBallState_4
+    266                ball_spy=ball_spy;  //продолжаем двигаться вверх
+    267              }
+    268              if(ball_spy>0 && ball_spx<0) //если двигался до столкновения влево+вниз
+   \                     ??CheckAndChangeBallState_8:
+   \   000000F0   010056E3           CMP      R6,#+1
+   \   000000F4   FAFFFFAA           BGE      ??CheckAndChangeBallState_9
+    269              {
+    270                ball_spx=-ball_spx; //теперь двигаемся не влево,а вправо
+    271                ball_spy=ball_spy;  //продолжаем двигаться вниз
+    272              }
+    273              if(ball_spy==0 && ball_spx<0) //если двигался до столкновения влево
+   \                     ??CheckAndChangeBallState_10:
+   \   000000F8   000056E3           CMP      R6,#+0
+   \   000000FC   E4FFFF1A           BNE      ??CheckAndChangeBallState_3
+   \   00000100   000055E3           CMP      R5,#+0
+   \   00000104   E2FFFF5A           BPL      ??CheckAndChangeBallState_3
+   \   00000108   DEFFFFEA           B        ??CheckAndChangeBallState_5
+    274              {
+    275                ball_spx=-ball_spx; //теперь двигаемся не влево,а вправо
+    276                ball_check_only_pos_x++;
+    277              }
+    278              return 1;
+    279            }
+    280            
+    281            if(BBhit(brick)==1) //если мяч столкнулся с бриком
+   \                     ??CheckAndChangeBallState_7:
+   \   0000010C   908394E5           LDR      R8,[R4, #+912]
+   \   00000110   1C008DE2           ADD      R0,SP,#+28
+   \   00000114   10D04DE2           SUB      SP,SP,#+16
+   \   00000118   001090E5           LDR      R1,[R0, #0]
+   \   0000011C   0D20A0E1           MOV      R2,SP
+   \   00000120   001082E5           STR      R1,[R2, #+0]
+   \   00000124   041090E5           LDR      R1,[R0, #+4]
+   \   00000128   009066E2           RSB      R9,R6,#+0
+   \   0000012C   041082E5           STR      R1,[R2, #+4]
+   \   00000130   081090E5           LDR      R1,[R0, #+8]
+   \   00000134   081082E5           STR      R1,[R2, #+8]
+   \   00000138   0C1090E5           LDR      R1,[R0, #+12]
+   \   0000013C   0C1082E5           STR      R1,[R2, #+12]
+   \   00000140   0F00BDE8           POP      {R0-R3}
+   \   00000144   ........           BL       BBhit
+   \   00000148   010050E3           CMP      R0,#+1
+   \   0000014C   1000001A           BNE      ??CheckAndChangeBallState_11
+    282            {
+    283                             //ВЕРХНЯЯ сторона брика//
+    284              if(ball_spx>0 && ball_spy>0) //если двигался вправо+вниз
+   \   00000150   010055E3           CMP      R5,#+1
+   \   00000154   030000BA           BLT      ??CheckAndChangeBallState_12
+   \                     ??CheckAndChangeBallState_13:
+   \   00000158   010056E3           CMP      R6,#+1
+   \   0000015C   CCFFFFBA           BLT      ??CheckAndChangeBallState_3
+    285              {
+    286                ball_spx=ball_spx;  //продолжаем двигаться вправо
+    287                ball_spy=-ball_spy;  //теперь двигаемся не вниз,а вверх
+   \   00000160   809184E5           STR      R9,[R4, #+384]
+   \   00000164   CAFFFFEA           B        ??CheckAndChangeBallState_3
+    288              }
+    289              if(ball_spx<0 && ball_spy>0) //если двигался влево+вниз
+   \                     ??CheckAndChangeBallState_12:
+   \   00000168   000055E3           CMP      R5,#+0
+   \   0000016C   F9FFFF4A           BMI      ??CheckAndChangeBallState_13
+    290              {
+    291                ball_spx=ball_spx;  //продолжаем двигаться влево
+    292                ball_spy=-ball_spy;  //теперь двигаемся не вниз,а вверх
+    293              }
+    294              if(ball_spx==0 && ball_spy>0)
+   \   00000170   C7FFFF1A           BNE      ??CheckAndChangeBallState_3
+   \   00000174   010056E3           CMP      R6,#+1
+   \   00000178   C5FFFFBA           BLT      ??CheckAndChangeBallState_3
+    295              {
+    296                ball_spy=-ball_spy;
+   \                     ??CheckAndChangeBallState_14:
+   \   0000017C   800194E5           LDR      R0,[R4, #+384]
+   \   00000180   000060E2           RSB      R0,R0,#+0
+   \   00000184   800184E5           STR      R0,[R4, #+384]
+    297                ball_check_only_pos_y++;
+   \   00000188   010088E2           ADD      R0,R8,#+1
+   \   0000018C   900384E5           STR      R0,[R4, #+912]
+   \   00000190   BFFFFFEA           B        ??CheckAndChangeBallState_3
+    298              }
+    299              return 1;
+    300            }
+    301             
+    302             if(BBhit(brick)==2)
+   \                     ??CheckAndChangeBallState_11:
+   \   00000194   1C008DE2           ADD      R0,SP,#+28
+   \   00000198   10D04DE2           SUB      SP,SP,#+16
+   \   0000019C   001090E5           LDR      R1,[R0, #0]
+   \   000001A0   0D20A0E1           MOV      R2,SP
+   \   000001A4   001082E5           STR      R1,[R2, #+0]
+   \   000001A8   041090E5           LDR      R1,[R0, #+4]
+   \   000001AC   041082E5           STR      R1,[R2, #+4]
+   \   000001B0   081090E5           LDR      R1,[R0, #+8]
+   \   000001B4   081082E5           STR      R1,[R2, #+8]
+   \   000001B8   0C1090E5           LDR      R1,[R0, #+12]
+   \   000001BC   0C1082E5           STR      R1,[R2, #+12]
+   \   000001C0   0F00BDE8           POP      {R0-R3}
+   \   000001C4   ........           BL       BBhit
+   \   000001C8   020050E3           CMP      R0,#+2
+   \   000001CC   1300001A           BNE      ??CheckAndChangeBallState_15
+    303             {
+    304                             //НИЖНЯЯ сторона брика//
+    305              if(ball_spy<0 && ball_spx<0) //если двигался влево+вверх
+   \   000001D0   000056E3           CMP      R6,#+0
+   \   000001D4   0200005A           BPL      ??CheckAndChangeBallState_16
+   \   000001D8   000055E3           CMP      R5,#+0
+   \   000001DC   0300005A           BPL      ??CheckAndChangeBallState_17
+    306              {
+    307                ball_spx=ball_spx; //продолжаем двигаться влево
+    308                ball_spy=-ball_spy;  //теперь двигаемся не вверх,а вниз
+   \   000001E0   809184E5           STR      R9,[R4, #+384]
+    309              }
+    310              if(ball_spy<0 && ball_spx>0) //если двигался вправо+вверх
+   \                     ??CheckAndChangeBallState_16:
+   \   000001E4   800194E5           LDR      R0,[R4, #+384]
+   \   000001E8   000050E3           CMP      R0,#+0
+   \   000001EC   0500005A           BPL      ??CheckAndChangeBallState_18
+   \                     ??CheckAndChangeBallState_17:
+   \   000001F0   010055E3           CMP      R5,#+1
+   \   000001F4   030000BA           BLT      ??CheckAndChangeBallState_18
+    311              {
+    312                ball_spx=ball_spx; //продолжаем двигаться вправо
+    313                ball_spy=-ball_spy;  //теперь двигаемся не вверх,а вниз
+   \   000001F8   800194E5           LDR      R0,[R4, #+384]
+   \   000001FC   000060E2           RSB      R0,R0,#+0
+   \   00000200   800184E5           STR      R0,[R4, #+384]
+   \   00000204   A2FFFFEA           B        ??CheckAndChangeBallState_3
+    314              }
+    315              if(ball_spx==0 && ball_spy<0)
+   \                     ??CheckAndChangeBallState_18:
+   \   00000208   000055E3           CMP      R5,#+0
+   \   0000020C   A0FFFF1A           BNE      ??CheckAndChangeBallState_3
+   \   00000210   800194E5           LDR      R0,[R4, #+384]
+   \   00000214   000050E3           CMP      R0,#+0
+   \   00000218   9DFFFF5A           BPL      ??CheckAndChangeBallState_3
+   \   0000021C   D6FFFFEA           B        ??CheckAndChangeBallState_14
+    316              {
+    317                ball_spy=-ball_spy;
+    318                ball_check_only_pos_y++;
+    319              }
+    320              return 1;
+    321            }
+    322            if(ball_check_only_pos_x>100) {ball_check_only_pos_x=0;ball_spy+=1;} //для выхода из тупикового зацикливания шарика на одной оси :)
+   \                     ??CheckAndChangeBallState_15:
+   \   00000220   0000A0E3           MOV      R0,#+0
+   \   00000224   650057E3           CMP      R7,#+101
+   \   00000228   8C0384A5           STRGE    R0,[R4, #+908]
+   \   0000022C   011086A2           ADDGE    R1,R6,#+1
+   \   00000230   801184A5           STRGE    R1,[R4, #+384]
+    323            if(ball_check_only_pos_y>100) {ball_check_only_pos_y=0;ball_spx+=1;} //для выхода из тупикового зацикливания шарика на одной оси :)
+   \   00000234   650058E3           CMP      R8,#+101
+   \   00000238   900384A5           STRGE    R0,[R4, #+912]
+   \   0000023C   010085A2           ADDGE    R0,R5,#+1
+   \   00000240   7C0184A5           STRGE    R0,[R4, #+380]
+    324            return 0;
+   \   00000244   F043BDE8           POP      {R4-R9,LR}
+   \   00000248   0000A0E3           MOV      R0,#+0
+   \                     ??CheckAndChangeBallState_6:
+   \   0000024C   10D08DE2           ADD      SP,SP,#+16
+   \   00000250   1EFF2FE1           BX       LR               ;; return
+    325          }
+    326          
+    327          
+    328          int lx,ly; //pos in level masv
+
+   \                                 In segment CODE, align 4, keep-with-next
+    329          void DrawBricks()
+    330          {
+   \                     DrawBricks:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+    331              for(int lp=0;lp<15*8;lp++)
+   \   00000004   ........           LDR      R5,??DataTable4  ;; brick
+   \   00000008   0040A0E3           MOV      R4,#+0
+   \   0000000C   0060A0E3           MOV      R6,#+0
+    332            {
+    333              
+    334              
+    335              
+    336              if(Level1[ly][lx]==1)
+   \                     ??DrawBricks_0:
+   \   00000010   981395E5           LDR      R1,[R5, #+920]
+   \   00000014   943395E5           LDR      R3,[R5, #+916]
+   \   00000018   3C00A0E3           MOV      R0,#+60
+   \   0000001C   905122E0           MLA      R2,R0,R1,R5
+   \   00000020   030182E0           ADD      R0,R2,R3, LSL #+2
+   \   00000024   A00190E5           LDR      R0,[R0, #+416]
+   \   00000028   010050E3           CMP      R0,#+1
+   \   0000002C   2300001A           BNE      ??DrawBricks_1
+    337              {
+    338                   brick[0].y=0+brick[0].img->h*ly;
+   \   00000030   000095E5           LDR      R0,[R5, #+0]
+   \   00000034   0120D0E5           LDRB     R2,[R0, #+1]
+   \   00000038   910202E0           MUL      R2,R1,R2
+   \   0000003C   082085E5           STR      R2,[R5, #+8]
+    339                   brick[0].x=0+brick[0].img->w*lx;
+   \   00000040   0010D0E5           LDRB     R1,[R0, #+0]
+   \   00000044   930101E0           MUL      R1,R3,R1
+    340                   brick[0].stats+=1;
+   \   00000048   0C3095E5           LDR      R3,[R5, #+12]
+   \   0000004C   041085E5           STR      R1,[R5, #+4]
+   \   00000050   013083E2           ADD      R3,R3,#+1
+   \   00000054   0C3085E5           STR      R3,[R5, #+12]
+    341                   DrwImg(brick[0].img,brick[0].x,brick[0].y,NULL,NULL);
+   \   00000058   0030A0E3           MOV      R3,#+0
+   \   0000005C   08002DE9           PUSH     {R3}
+   \   00000060   ........           BL       DrwImg
+    342                   //чекаем шарик на скорость и направление +изменяем их на соответствующие
+    343                   if(CheckAndChangeBallState(brick[0],0)) Level1[ly][lx] = 0; //делаем брик,в который врезались невидимым 
+   \   00000064   0600A0E1           MOV      R0,R6
+   \   00000068   01002DE9           PUSH     {R0}
+   \   0000006C   10D04DE2           SUB      SP,SP,#+16
+   \   00000070   000095E5           LDR      R0,[R5, #0]
+   \   00000074   0D10A0E1           MOV      R1,SP
+   \   00000078   000081E5           STR      R0,[R1, #+0]
+   \   0000007C   040095E5           LDR      R0,[R5, #+4]
+   \   00000080   040081E5           STR      R0,[R1, #+4]
+   \   00000084   080095E5           LDR      R0,[R5, #+8]
+   \   00000088   080081E5           STR      R0,[R1, #+8]
+   \   0000008C   0C0095E5           LDR      R0,[R5, #+12]
+   \   00000090   0C0081E5           STR      R0,[R1, #+12]
+   \   00000094   0F00BDE8           POP      {R0-R3}
+   \   00000098   ........           BL       CheckAndChangeBallState
+   \   0000009C   000050E3           CMP      R0,#+0
+   \   000000A0   08D08DE2           ADD      SP,SP,#+8
+   \   000000A4   0500000A           BEQ      ??DrawBricks_1
+   \   000000A8   981395E5           LDR      R1,[R5, #+920]
+   \   000000AC   940395E5           LDR      R0,[R5, #+916]
+   \   000000B0   3C20A0E3           MOV      R2,#+60
+   \   000000B4   925121E0           MLA      R1,R2,R1,R5
+   \   000000B8   000181E0           ADD      R0,R1,R0, LSL #+2
+   \   000000BC   A06180E5           STR      R6,[R0, #+416]
+    344               }
+    345              
+    346               if(Level1[ly][lx]==2)
+   \                     ??DrawBricks_1:
+   \   000000C0   981395E5           LDR      R1,[R5, #+920]
+   \   000000C4   943395E5           LDR      R3,[R5, #+916]
+   \   000000C8   3C00A0E3           MOV      R0,#+60
+   \   000000CC   905122E0           MLA      R2,R0,R1,R5
+   \   000000D0   030182E0           ADD      R0,R2,R3, LSL #+2
+   \   000000D4   A00190E5           LDR      R0,[R0, #+416]
+   \   000000D8   020050E3           CMP      R0,#+2
+   \   000000DC   2400001A           BNE      ??DrawBricks_2
+    347                 {
+    348                   brick[1].y=0+brick[1].img->h*ly;
+   \   000000E0   100095E5           LDR      R0,[R5, #+16]
+   \   000000E4   0120D0E5           LDRB     R2,[R0, #+1]
+   \   000000E8   910202E0           MUL      R2,R1,R2
+   \   000000EC   182085E5           STR      R2,[R5, #+24]
+    349                   brick[1].x=0+brick[1].img->w*lx;
+   \   000000F0   0010D0E5           LDRB     R1,[R0, #+0]
+   \   000000F4   930101E0           MUL      R1,R3,R1
+    350                   brick[1].stats+=1;
+   \   000000F8   1C3095E5           LDR      R3,[R5, #+28]
+   \   000000FC   141085E5           STR      R1,[R5, #+20]
+   \   00000100   013083E2           ADD      R3,R3,#+1
+   \   00000104   1C3085E5           STR      R3,[R5, #+28]
+    351                   DrwImg(brick[1].img,brick[1].x,brick[1].y,NULL,NULL);
+   \   00000108   0030A0E3           MOV      R3,#+0
+   \   0000010C   08002DE9           PUSH     {R3}
+   \   00000110   ........           BL       DrwImg
+    352                   //чекаем шарик на скорость и направление +изменяем их на соответствующие
+    353                   if(CheckAndChangeBallState(brick[1],1)) Level1[ly][lx] = 0; //делаем брик,в который врезались невидимым 
+   \   00000114   0100A0E3           MOV      R0,#+1
+   \   00000118   01002DE9           PUSH     {R0}
+   \   0000011C   10D04DE2           SUB      SP,SP,#+16
+   \   00000120   0D20A0E1           MOV      R2,SP
+   \   00000124   100085E2           ADD      R0,R5,#+16
+   \   00000128   001090E5           LDR      R1,[R0, #0]
+   \   0000012C   001082E5           STR      R1,[R2, #+0]
+   \   00000130   041090E5           LDR      R1,[R0, #+4]
+   \   00000134   041082E5           STR      R1,[R2, #+4]
+   \   00000138   081090E5           LDR      R1,[R0, #+8]
+   \   0000013C   081082E5           STR      R1,[R2, #+8]
+   \   00000140   0C1090E5           LDR      R1,[R0, #+12]
+   \   00000144   0C1082E5           STR      R1,[R2, #+12]
+   \   00000148   0F00BDE8           POP      {R0-R3}
+   \   0000014C   ........           BL       CheckAndChangeBallState
+   \   00000150   000050E3           CMP      R0,#+0
+   \   00000154   08D08DE2           ADD      SP,SP,#+8
+   \   00000158   0500000A           BEQ      ??DrawBricks_2
+   \   0000015C   981395E5           LDR      R1,[R5, #+920]
+   \   00000160   940395E5           LDR      R0,[R5, #+916]
+   \   00000164   3C20A0E3           MOV      R2,#+60
+   \   00000168   925121E0           MLA      R1,R2,R1,R5
+   \   0000016C   000181E0           ADD      R0,R1,R0, LSL #+2
+   \   00000170   A06180E5           STR      R6,[R0, #+416]
+    354                 }
+    355              
+    356               if(Level1[ly][lx]==3)
+   \                     ??DrawBricks_2:
+   \   00000174   981395E5           LDR      R1,[R5, #+920]
+   \   00000178   943395E5           LDR      R3,[R5, #+916]
+   \   0000017C   3C00A0E3           MOV      R0,#+60
+   \   00000180   905122E0           MLA      R2,R0,R1,R5
+   \   00000184   030182E0           ADD      R0,R2,R3, LSL #+2
+   \   00000188   A00190E5           LDR      R0,[R0, #+416]
+   \   0000018C   030050E3           CMP      R0,#+3
+   \   00000190   2400001A           BNE      ??DrawBricks_3
+    357                 {
+    358                   brick[2].y=0+brick[2].img->h*ly;
+   \   00000194   200095E5           LDR      R0,[R5, #+32]
+   \   00000198   0120D0E5           LDRB     R2,[R0, #+1]
+   \   0000019C   910202E0           MUL      R2,R1,R2
+   \   000001A0   282085E5           STR      R2,[R5, #+40]
+    359                   brick[2].x=0+brick[2].img->w*lx;
+   \   000001A4   0010D0E5           LDRB     R1,[R0, #+0]
+   \   000001A8   930101E0           MUL      R1,R3,R1
+    360                   brick[2].stats+=1;
+   \   000001AC   2C3095E5           LDR      R3,[R5, #+44]
+   \   000001B0   241085E5           STR      R1,[R5, #+36]
+   \   000001B4   013083E2           ADD      R3,R3,#+1
+   \   000001B8   2C3085E5           STR      R3,[R5, #+44]
+    361                   DrwImg(brick[2].img,brick[2].x,brick[2].y,NULL,NULL);
+   \   000001BC   0030A0E3           MOV      R3,#+0
+   \   000001C0   08002DE9           PUSH     {R3}
+   \   000001C4   ........           BL       DrwImg
+    362                   //чекаем шарик на скорость и направление +изменяем их на соответствующие
+    363                   if(CheckAndChangeBallState(brick[2],2)) Level1[ly][lx] = 0; //делаем брик,в который врезались невидимым 
+   \   000001C8   0200A0E3           MOV      R0,#+2
+   \   000001CC   01002DE9           PUSH     {R0}
+   \   000001D0   10D04DE2           SUB      SP,SP,#+16
+   \   000001D4   0D20A0E1           MOV      R2,SP
+   \   000001D8   200085E2           ADD      R0,R5,#+32
+   \   000001DC   001090E5           LDR      R1,[R0, #0]
+   \   000001E0   001082E5           STR      R1,[R2, #+0]
+   \   000001E4   041090E5           LDR      R1,[R0, #+4]
+   \   000001E8   041082E5           STR      R1,[R2, #+4]
+   \   000001EC   081090E5           LDR      R1,[R0, #+8]
+   \   000001F0   081082E5           STR      R1,[R2, #+8]
+   \   000001F4   0C1090E5           LDR      R1,[R0, #+12]
+   \   000001F8   0C1082E5           STR      R1,[R2, #+12]
+   \   000001FC   0F00BDE8           POP      {R0-R3}
+   \   00000200   ........           BL       CheckAndChangeBallState
+   \   00000204   000050E3           CMP      R0,#+0
+   \   00000208   08D08DE2           ADD      SP,SP,#+8
+   \   0000020C   0500000A           BEQ      ??DrawBricks_3
+   \   00000210   981395E5           LDR      R1,[R5, #+920]
+   \   00000214   940395E5           LDR      R0,[R5, #+916]
+   \   00000218   3C20A0E3           MOV      R2,#+60
+   \   0000021C   925121E0           MLA      R1,R2,R1,R5
+   \   00000220   000181E0           ADD      R0,R1,R0, LSL #+2
+   \   00000224   A06180E5           STR      R6,[R0, #+416]
+    364                 }
+    365              
+    366                if(Level1[ly][lx]==4)
+   \                     ??DrawBricks_3:
+   \   00000228   981395E5           LDR      R1,[R5, #+920]
+   \   0000022C   943395E5           LDR      R3,[R5, #+916]
+   \   00000230   3C00A0E3           MOV      R0,#+60
+   \   00000234   905122E0           MLA      R2,R0,R1,R5
+   \   00000238   030182E0           ADD      R0,R2,R3, LSL #+2
+   \   0000023C   A00190E5           LDR      R0,[R0, #+416]
+   \   00000240   040050E3           CMP      R0,#+4
+   \   00000244   2400001A           BNE      ??DrawBricks_4
+    367                 {
+    368                   brick[3].y=0+brick[3].img->h*ly;
+   \   00000248   300095E5           LDR      R0,[R5, #+48]
+   \   0000024C   0120D0E5           LDRB     R2,[R0, #+1]
+   \   00000250   910202E0           MUL      R2,R1,R2
+   \   00000254   382085E5           STR      R2,[R5, #+56]
+    369                   brick[3].x=0+brick[3].img->w*lx;
+   \   00000258   0010D0E5           LDRB     R1,[R0, #+0]
+   \   0000025C   930101E0           MUL      R1,R3,R1
+    370                   brick[3].stats+=1;
+   \   00000260   3C3095E5           LDR      R3,[R5, #+60]
+   \   00000264   341085E5           STR      R1,[R5, #+52]
+   \   00000268   013083E2           ADD      R3,R3,#+1
+   \   0000026C   3C3085E5           STR      R3,[R5, #+60]
+    371                   DrwImg(brick[3].img,brick[3].x,brick[3].y,NULL,NULL);
+   \   00000270   0030A0E3           MOV      R3,#+0
+   \   00000274   08002DE9           PUSH     {R3}
+   \   00000278   ........           BL       DrwImg
+    372                   //чекаем шарик на скорость и направление +изменяем их на соответствующие
+    373                   if(CheckAndChangeBallState(brick[3],3)) Level1[ly][lx] = 0; //делаем брик,в который врезались невидимым 
+   \   0000027C   0300A0E3           MOV      R0,#+3
+   \   00000280   01002DE9           PUSH     {R0}
+   \   00000284   10D04DE2           SUB      SP,SP,#+16
+   \   00000288   0D20A0E1           MOV      R2,SP
+   \   0000028C   300085E2           ADD      R0,R5,#+48
+   \   00000290   001090E5           LDR      R1,[R0, #0]
+   \   00000294   001082E5           STR      R1,[R2, #+0]
+   \   00000298   041090E5           LDR      R1,[R0, #+4]
+   \   0000029C   041082E5           STR      R1,[R2, #+4]
+   \   000002A0   081090E5           LDR      R1,[R0, #+8]
+   \   000002A4   081082E5           STR      R1,[R2, #+8]
+   \   000002A8   0C1090E5           LDR      R1,[R0, #+12]
+   \   000002AC   0C1082E5           STR      R1,[R2, #+12]
+   \   000002B0   0F00BDE8           POP      {R0-R3}
+   \   000002B4   ........           BL       CheckAndChangeBallState
+   \   000002B8   000050E3           CMP      R0,#+0
+   \   000002BC   08D08DE2           ADD      SP,SP,#+8
+   \   000002C0   0500000A           BEQ      ??DrawBricks_4
+   \   000002C4   981395E5           LDR      R1,[R5, #+920]
+   \   000002C8   940395E5           LDR      R0,[R5, #+916]
+   \   000002CC   3C20A0E3           MOV      R2,#+60
+   \   000002D0   925121E0           MLA      R1,R2,R1,R5
+   \   000002D4   000181E0           ADD      R0,R1,R0, LSL #+2
+   \   000002D8   A06180E5           STR      R6,[R0, #+416]
+    374                 }
+    375                  
+    376                 if(Level1[ly][lx]==5)
+   \                     ??DrawBricks_4:
+   \   000002DC   981395E5           LDR      R1,[R5, #+920]
+   \   000002E0   943395E5           LDR      R3,[R5, #+916]
+   \   000002E4   3C00A0E3           MOV      R0,#+60
+   \   000002E8   905122E0           MLA      R2,R0,R1,R5
+   \   000002EC   030182E0           ADD      R0,R2,R3, LSL #+2
+   \   000002F0   A00190E5           LDR      R0,[R0, #+416]
+   \   000002F4   050050E3           CMP      R0,#+5
+   \   000002F8   2200001A           BNE      ??DrawBricks_5
+    377                 {
+    378                   brick[4].y=0+brick[4].img->h*ly;
+   \   000002FC   400095E5           LDR      R0,[R5, #+64]
+   \   00000300   0120D0E5           LDRB     R2,[R0, #+1]
+   \   00000304   910202E0           MUL      R2,R1,R2
+   \   00000308   482085E5           STR      R2,[R5, #+72]
+    379                   brick[4].x=0+brick[4].img->w*lx;
+   \   0000030C   0010D0E5           LDRB     R1,[R0, #+0]
+   \   00000310   930101E0           MUL      R1,R3,R1
+    380                   DrwImg(brick[4].img,brick[4].x,brick[4].y,NULL,NULL);
+   \   00000314   0030A0E3           MOV      R3,#+0
+   \   00000318   441085E5           STR      R1,[R5, #+68]
+   \   0000031C   08002DE9           PUSH     {R3}
+   \   00000320   ........           BL       DrwImg
+    381                   //чекаем шарик на скорость и направление +изменяем их на соответствующие
+    382                   if(CheckAndChangeBallState(brick[4],4)) Level1[ly][lx] = 1; //делаем брик,в который врезались обычным
+   \   00000324   0400A0E3           MOV      R0,#+4
+   \   00000328   01002DE9           PUSH     {R0}
+   \   0000032C   10D04DE2           SUB      SP,SP,#+16
+   \   00000330   0D20A0E1           MOV      R2,SP
+   \   00000334   400085E2           ADD      R0,R5,#+64
+   \   00000338   001090E5           LDR      R1,[R0, #0]
+   \   0000033C   001082E5           STR      R1,[R2, #+0]
+   \   00000340   041090E5           LDR      R1,[R0, #+4]
+   \   00000344   041082E5           STR      R1,[R2, #+4]
+   \   00000348   081090E5           LDR      R1,[R0, #+8]
+   \   0000034C   081082E5           STR      R1,[R2, #+8]
+   \   00000350   0C1090E5           LDR      R1,[R0, #+12]
+   \   00000354   0C1082E5           STR      R1,[R2, #+12]
+   \   00000358   0F00BDE8           POP      {R0-R3}
+   \   0000035C   ........           BL       CheckAndChangeBallState
+   \   00000360   000050E3           CMP      R0,#+0
+   \   00000364   08D08DE2           ADD      SP,SP,#+8
+   \   00000368   0600000A           BEQ      ??DrawBricks_5
+   \   0000036C   981395E5           LDR      R1,[R5, #+920]
+   \   00000370   940395E5           LDR      R0,[R5, #+916]
+   \   00000374   3C20A0E3           MOV      R2,#+60
+   \   00000378   925121E0           MLA      R1,R2,R1,R5
+   \   0000037C   000181E0           ADD      R0,R1,R0, LSL #+2
+   \   00000380   0110A0E3           MOV      R1,#+1
+   \   00000384   A01180E5           STR      R1,[R0, #+416]
+    383                 }
+    384                 if(Level1[ly][lx]==7)
+   \                     ??DrawBricks_5:
+   \   00000388   981395E5           LDR      R1,[R5, #+920]
+   \   0000038C   943395E5           LDR      R3,[R5, #+916]
+   \   00000390   3C00A0E3           MOV      R0,#+60
+   \   00000394   905122E0           MLA      R2,R0,R1,R5
+   \   00000398   030182E0           ADD      R0,R2,R3, LSL #+2
+   \   0000039C   A00190E5           LDR      R0,[R0, #+416]
+   \   000003A0   070050E3           CMP      R0,#+7
+   \   000003A4   1900001A           BNE      ??DrawBricks_6
+    385                 {
+    386                   brick[5].y=0+brick[5].img->h*ly;
+   \   000003A8   500095E5           LDR      R0,[R5, #+80]
+   \   000003AC   0120D0E5           LDRB     R2,[R0, #+1]
+   \   000003B0   910202E0           MUL      R2,R1,R2
+   \   000003B4   582085E5           STR      R2,[R5, #+88]
+    387                   brick[5].x=0+brick[5].img->w*lx;
+   \   000003B8   0010D0E5           LDRB     R1,[R0, #+0]
+   \   000003BC   930101E0           MUL      R1,R3,R1
+    388                   DrwImg(brick[5].img,brick[5].x,brick[5].y,NULL,NULL);
+   \   000003C0   0030A0E3           MOV      R3,#+0
+   \   000003C4   541085E5           STR      R1,[R5, #+84]
+   \   000003C8   08002DE9           PUSH     {R3}
+   \   000003CC   ........           BL       DrwImg
+    389                   //чекаем шарик на скорость и направление +изменяем их на соответствующие
+    390                   CheckAndChangeBallState(brick[5],5);
+   \   000003D0   0500A0E3           MOV      R0,#+5
+   \   000003D4   01002DE9           PUSH     {R0}
+   \   000003D8   10D04DE2           SUB      SP,SP,#+16
+   \   000003DC   0D20A0E1           MOV      R2,SP
+   \   000003E0   500085E2           ADD      R0,R5,#+80
+   \   000003E4   001090E5           LDR      R1,[R0, #0]
+   \   000003E8   001082E5           STR      R1,[R2, #+0]
+   \   000003EC   041090E5           LDR      R1,[R0, #+4]
+   \   000003F0   041082E5           STR      R1,[R2, #+4]
+   \   000003F4   081090E5           LDR      R1,[R0, #+8]
+   \   000003F8   081082E5           STR      R1,[R2, #+8]
+   \   000003FC   0C1090E5           LDR      R1,[R0, #+12]
+   \   00000400   0C1082E5           STR      R1,[R2, #+12]
+   \   00000404   0F00BDE8           POP      {R0-R3}
+   \   00000408   ........           BL       CheckAndChangeBallState
+   \   0000040C   08D08DE2           ADD      SP,SP,#+8
+    391                 }
+    392              //sprintf(lg,"%d = [%d][%d]",Level1[ly][lx],lx,ly); log(lg);
+    393              lx++;
+   \                     ??DrawBricks_6:
+   \   00000410   940395E5           LDR      R0,[R5, #+916]
+   \   00000414   010080E2           ADD      R0,R0,#+1
+   \   00000418   940385E5           STR      R0,[R5, #+916]
+    394              if(lx==15) {lx=0;ly+=1;}
+   \   0000041C   0F0050E3           CMP      R0,#+15
+   \   00000420   0300001A           BNE      ??DrawBricks_7
+   \   00000424   980395E5           LDR      R0,[R5, #+920]
+   \   00000428   946385E5           STR      R6,[R5, #+916]
+   \   0000042C   010080E2           ADD      R0,R0,#+1
+   \   00000430   980385E5           STR      R0,[R5, #+920]
+    395            }
+   \                     ??DrawBricks_7:
+   \   00000434   014084E2           ADD      R4,R4,#+1
+   \   00000438   780054E3           CMP      R4,#+120
+   \   0000043C   F3FEFFBA           BLT      ??DrawBricks_0
+    396            lx=0;ly=0;
+   \   00000440   946385E5           STR      R6,[R5, #+916]
+   \   00000444   986385E5           STR      R6,[R5, #+920]
+    397          }
+   \   00000448   7080BDE8           POP      {R4-R6,PC}       ;; return
+    398          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    399          int ball_a=0; //ускорение шарика,0 - нет ускорения,отрицательные значения = ускорение--
+   \                     ball_a:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    400          int user_a=0;
+   \                     user_a:
+   \   00000000                      DS8 4
+    401          
+    402          #define NSM -2 //минусовая скорость
+    403          #define NSP 2 //плюсовая скорость
+    404          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    405          int ball_spx_accel; //типа изменение угла полета шарика
+   \                     ball_spx_accel:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    406          int ball_spy_accel;
+   \                     ball_spy_accel:
+   \   00000000                      DS8 4
+    407          
+    408          /*int UBhit()
+    409          {
+    410            //столкновение с левым краем
+    411            if(ball_x+(ball[ball_s].img->w/2) > user_x  &&  ball_x+(ball[ball_s].img->w/2) < user_x+(user[user_s].img->w/3) && ball_y+ball[ball_s].img->h > user_y) return 1;
+    412            //столкновение с центром платформы
+    413            if(ball_x+(ball[ball_s].img->w/2) > user_x+(user[user_s].img->w/3)  &&  ball_x+(ball[ball_s].img->w/2) < user_x+((user[user_s].img->w/3)*2) && ball_y+ball[ball_s].img->h > user_y) return 2;
+    414            //столкновение с правым краем
+    415            if(ball_x+(ball[ball_s].img->w/2) > user_x+((user[user_s].img->w/3)*2)  &&  ball_x+(ball[ball_s].img->w/2) < user_x+user[user_s].img->w && ball_y+ball[ball_s].img->h > user_y) return 3;
+    416            return 0; //если не столкнулись,то выходим с нулем
+    417          }*/
+    418          
+    419          
+    420          int ball_max_speed=6;
+    421          int ball_min_speed=2;
+
+   \                                 In segment CODE, align 4, keep-with-next
+    422          void DrawBall()
+    423          {
+   \                     DrawBall:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+    424            
+    425            
+    426            if(ball_spy<0 && ball_spx>0) //вправо+вверх
+   \   00000004   ........           LDR      R4,??DataTable12  ;; brick
+   \   00000008   04D04DE2           SUB      SP,SP,#+4
+   \   0000000C   780194E5           LDR      R0,[R4, #+376]
+   \   00000010   801194E5           LDR      R1,[R4, #+384]
+   \   00000014   707194E5           LDR      R7,[R4, #+368]
+   \   00000018   745194E5           LDR      R5,[R4, #+372]
+   \   0000001C   000284E0           ADD      R0,R4,R0, LSL #+4
+   \   00000020   506FA0E3           MOV      R6,#+320
+   \   00000024   000051E3           CMP      R1,#+0
+   \   00000028   0B00005A           BPL      ??DrawBall_0
+   \   0000002C   7C2194E5           LDR      R2,[R4, #+380]
+   \   00000030   010052E3           CMP      R2,#+1
+   \   00000034   370200BA           BLT      ??DrawBall_1
+    427            {
+    428              if(ball_y<=0) {ball_spx=ball_spx;ball_spy=-ball_spy;} //двигаемся вправо+вниз
+   \   00000038   010055E3           CMP      R5,#+1
+   \   0000003C   001061B2           RSBLT    R1,R1,#+0
+   \   00000040   801184B5           STRLT    R1,[R4, #+384]
+    429              if(ball_x>=W-ball[ball_s].img->w) {ball_spx=-ball_spx;ball_spy=ball_spy;} //двигаемся влево+вверх
+   \   00000044   001096E7           LDR      R1,[R6, +R0]
+   \   00000048   0010D1E5           LDRB     R1,[R1, #+0]
+   \   0000004C   851061E2           RSB      R1,R1,#+133
+   \   00000050   010057E1           CMP      R7,R1
+   \   00000054   001062A2           RSBGE    R1,R2,#+0
+   \   00000058   7C1184A5           STRGE    R1,[R4, #+380]
+    430            }
+    431            
+    432            if(ball_spy>0 && ball_spx>0) //вправо+вниз
+   \                     ??DrawBall_0:
+   \   0000005C   80B194E5           LDR      R11,[R4, #+384]
+   \   00000060   908194E5           LDR      R8,[R4, #+400]
+   \   00000064   9C9194E5           LDR      R9,[R4, #+412]
+   \   00000068   94A194E5           LDR      R10,[R4, #+404]
+   \   0000006C   01005BE3           CMP      R11,#+1
+   \   00000070   140100BA           BLT      ??DrawBall_2
+   \   00000074   7C1194E5           LDR      R1,[R4, #+380]
+   \   00000078   010051E3           CMP      R1,#+1
+   \   0000007C   140100BA           BLT      ??DrawBall_3
+    433            {
+    434              
+    435              if(ball_x>=W-ball[ball_s].img->w) {ball_spx=-ball_spx;ball_spy=ball_spy;} //двигаемся влево+вниз
+   \   00000080   000096E7           LDR      R0,[R6, +R0]
+   \   00000084   0000D0E5           LDRB     R0,[R0, #+0]
+   \   00000088   850060E2           RSB      R0,R0,#+133
+   \   0000008C   000057E1           CMP      R7,R0
+   \   00000090   000061A2           RSBGE    R0,R1,#+0
+   \   00000094   7C0184A5           STRGE    R0,[R4, #+380]
+    436              
+    437              if(UBhit()==2)
+   \   00000098   ........           BL       UBhit
+   \   0000009C   020050E3           CMP      R0,#+2
+   \   000000A0   7A00001A           BNE      ??DrawBall_4
+    438              {
+    439          
+    440                
+    441                if(user_r)
+   \   000000A4   00005AE3           CMP      R10,#+0
+   \   000000A8   3500000A           BEQ      ??DrawBall_5
+    442                { 
+    443                  //if(ABS(ball_spx)<ball_max_speed && ABS(ball_spy)<ball_max_speed && ABS(ball_spx)<ball_max_speed && ABS(ball_spy)<ball_max_speed)
+    444                  //{
+    445                    if(user_c>5 && user_c<15) {ball_spx+=1;ball_spy+=1;} //прибавляем,так как цикл движения=вправо+вниз(x++ y++)
+   \   000000AC   7C0194E5           LDR      R0,[R4, #+380]
+   \   000000B0   060059E3           CMP      R9,#+6
+   \   000000B4   050000BA           BLT      ??DrawBall_6
+   \   000000B8   0F0059E3           CMP      R9,#+15
+   \   000000BC   030000AA           BGE      ??DrawBall_6
+   \   000000C0   010080E2           ADD      R0,R0,#+1
+   \   000000C4   7C0184E5           STR      R0,[R4, #+380]
+   \   000000C8   01008BE2           ADD      R0,R11,#+1
+   \   000000CC   0E0000EA           B        ??DrawBall_7
+    446                    else if(user_c>15 && user_c<25) {ball_spx+=2;ball_spy+=2;} //ускорение шарика
+   \                     ??DrawBall_6:
+   \   000000D0   100059E3           CMP      R9,#+16
+   \   000000D4   050000BA           BLT      ??DrawBall_8
+   \   000000D8   190059E3           CMP      R9,#+25
+   \   000000DC   030000AA           BGE      ??DrawBall_8
+   \   000000E0   020080E2           ADD      R0,R0,#+2
+   \   000000E4   7C0184E5           STR      R0,[R4, #+380]
+   \   000000E8   02008BE2           ADD      R0,R11,#+2
+   \   000000EC   060000EA           B        ??DrawBall_7
+    447                    else if(user_c>25 && user_c<50) {ball_spx+=3;ball_spy+=3;}
+   \                     ??DrawBall_8:
+   \   000000F0   1A0059E3           CMP      R9,#+26
+   \   000000F4   050000BA           BLT      ??DrawBall_9
+   \   000000F8   320059E3           CMP      R9,#+50
+   \   000000FC   030000AA           BGE      ??DrawBall_9
+   \   00000100   030080E2           ADD      R0,R0,#+3
+   \   00000104   7C0184E5           STR      R0,[R4, #+380]
+   \   00000108   03008BE2           ADD      R0,R11,#+3
+   \                     ??DrawBall_7:
+   \   0000010C   800184E5           STR      R0,[R4, #+384]
+    448                    
+    449                    //изменяем угол полета по x после столкновения
+    450                    if(user_c>0 && user_c<10) {ball_spx+=1;ball_spy+=0;}
+   \                     ??DrawBall_9:
+   \   00000110   7C0194E5           LDR      R0,[R4, #+380]
+   \   00000114   010059E3           CMP      R9,#+1
+   \   00000118   020000BA           BLT      ??DrawBall_10
+   \   0000011C   0A0059E3           CMP      R9,#+10
+   \   00000120   010080B2           ADDLT    R0,R0,#+1
+   \   00000124   120000BA           BLT      ??DrawBall_11
+    451                    else if(user_c>10 && user_c<20) {ball_spx+=2;ball_spy+=0;}
+   \                     ??DrawBall_10:
+   \   00000128   0B0059E3           CMP      R9,#+11
+   \   0000012C   020000BA           BLT      ??DrawBall_12
+   \   00000130   140059E3           CMP      R9,#+20
+   \   00000134   020080B2           ADDLT    R0,R0,#+2
+   \   00000138   0D0000BA           BLT      ??DrawBall_11
+    452                    else if(user_c>20 && user_c<30) {ball_spx+=3;ball_spy+=0;}
+   \                     ??DrawBall_12:
+   \   0000013C   150059E3           CMP      R9,#+21
+   \   00000140   020000BA           BLT      ??DrawBall_13
+   \   00000144   1E0059E3           CMP      R9,#+30
+   \   00000148   030080B2           ADDLT    R0,R0,#+3
+   \   0000014C   080000BA           BLT      ??DrawBall_11
+    453                    else if(user_c>30 && user_c<40) {ball_spx+=4;ball_spy+=0;}
+   \                     ??DrawBall_13:
+   \   00000150   1F0059E3           CMP      R9,#+31
+   \   00000154   020000BA           BLT      ??DrawBall_14
+   \   00000158   280059E3           CMP      R9,#+40
+   \   0000015C   040080B2           ADDLT    R0,R0,#+4
+   \   00000160   030000BA           BLT      ??DrawBall_11
+    454                    else if(user_c>40 && user_c<50) {ball_spx+=5;ball_spy+=0;}
+   \                     ??DrawBall_14:
+   \   00000164   290059E3           CMP      R9,#+41
+   \   00000168   010000BA           BLT      ??DrawBall_11
+   \   0000016C   320059E3           CMP      R9,#+50
+   \   00000170   050080B2           ADDLT    R0,R0,#+5
+   \                     ??DrawBall_11:
+   \   00000174   7C0184E5           STR      R0,[R4, #+380]
+    455                  //}
+    456                  ball_spx=ball_spx;ball_spy=-ball_spy; //двигаемся вправо+вверх
+   \   00000178   800194E5           LDR      R0,[R4, #+384]
+   \   0000017C   000060E2           RSB      R0,R0,#+0
+   \   00000180   800184E5           STR      R0,[R4, #+384]
+    457                }
+    458                
+    459                if(user_l)
+   \                     ??DrawBall_5:
+   \   00000184   800194E5           LDR      R0,[R4, #+384]
+   \   00000188   000058E3           CMP      R8,#+0
+   \   0000018C   3A00000A           BEQ      ??DrawBall_15
+    460                {
+    461                  //if(ABS(ball_spx)>ball_min_speed && ABS(ball_spy)>ball_min_speed && ABS(ball_spx)<ball_max_speed && ABS(ball_spy)<ball_max_speed)
+    462                  //{
+    463                    if(user_c>5 && user_c<15) {ball_spx-=1;ball_spy-=1;} //прибавляем,так как цикл движения=вправо+вниз(x++ y++)
+   \   00000190   7C1194E5           LDR      R1,[R4, #+380]
+   \   00000194   060059E3           CMP      R9,#+6
+   \   00000198   050000BA           BLT      ??DrawBall_16
+   \   0000019C   0F0059E3           CMP      R9,#+15
+   \   000001A0   030000AA           BGE      ??DrawBall_16
+   \   000001A4   011041E2           SUB      R1,R1,#+1
+   \   000001A8   7C1184E5           STR      R1,[R4, #+380]
+   \   000001AC   010040E2           SUB      R0,R0,#+1
+   \   000001B0   110000EA           B        ??DrawBall_17
+    464                    else if(user_c>15 && user_c<25) {ball_spx-=2;ball_spy-=2;} //замедление шарика
+   \                     ??DrawBall_16:
+   \   000001B4   100059E3           CMP      R9,#+16
+   \   000001B8   050000BA           BLT      ??DrawBall_18
+   \   000001BC   190059E3           CMP      R9,#+25
+   \   000001C0   030000AA           BGE      ??DrawBall_18
+   \   000001C4   021041E2           SUB      R1,R1,#+2
+   \   000001C8   7C1184E5           STR      R1,[R4, #+380]
+   \   000001CC   020040E2           SUB      R0,R0,#+2
+   \   000001D0   0F0000EA           B        ??DrawBall_19
+    465                    else if(user_c>25 && user_c<50) {ball_spx-=3;ball_spy-=3;}
+   \                     ??DrawBall_18:
+   \   000001D4   1A0059E3           CMP      R9,#+26
+   \   000001D8   050000BA           BLT      ??DrawBall_20
+   \   000001DC   320059E3           CMP      R9,#+50
+   \   000001E0   110000AA           BGE      ??DrawBall_21
+   \   000001E4   031041E2           SUB      R1,R1,#+3
+   \   000001E8   7C1184E5           STR      R1,[R4, #+380]
+   \   000001EC   030040E2           SUB      R0,R0,#+3
+   \   000001F0   0D0000EA           B        ??DrawBall_21
+    466                    
+    467                    //изменяем угол полета по x после столкновения
+    468                    if(user_c>0 && user_c<10) {ball_spx-=1;ball_spy+=0;}
+   \                     ??DrawBall_20:
+   \   000001F4   010059E3           CMP      R9,#+1
+   \   000001F8   030000BA           BLT      ??DrawBall_22
+   \                     ??DrawBall_17:
+   \   000001FC   0A0059E3           CMP      R9,#+10
+   \   00000200   7C1194B5           LDRLT    R1,[R4, #+380]
+   \   00000204   011041B2           SUBLT    R1,R1,#+1
+   \   00000208   160000BA           BLT      ??DrawBall_23
+    469                    else if(user_c>10 && user_c<20) {ball_spx-=2;ball_spy+=0;}
+   \                     ??DrawBall_22:
+   \   0000020C   0B0059E3           CMP      R9,#+11
+   \   00000210   030000BA           BLT      ??DrawBall_24
+   \                     ??DrawBall_19:
+   \   00000214   140059E3           CMP      R9,#+20
+   \   00000218   7C1194B5           LDRLT    R1,[R4, #+380]
+   \   0000021C   021041B2           SUBLT    R1,R1,#+2
+   \   00000220   100000BA           BLT      ??DrawBall_23
+    470                    else if(user_c>20 && user_c<30) {ball_spx-=3;ball_spy+=0;}
+   \                     ??DrawBall_24:
+   \   00000224   150059E3           CMP      R9,#+21
+   \   00000228   030000BA           BLT      ??DrawBall_25
+   \                     ??DrawBall_21:
+   \   0000022C   1E0059E3           CMP      R9,#+30
+   \   00000230   7C1194B5           LDRLT    R1,[R4, #+380]
+   \   00000234   031041B2           SUBLT    R1,R1,#+3
+   \   00000238   0A0000BA           BLT      ??DrawBall_23
+    471                    else if(user_c>30 && user_c<40) {ball_spx-=4;ball_spy+=0;}
+   \                     ??DrawBall_25:
+   \   0000023C   7C1194E5           LDR      R1,[R4, #+380]
+   \   00000240   1F0059E3           CMP      R9,#+31
+   \   00000244   020000BA           BLT      ??DrawBall_26
+   \   00000248   280059E3           CMP      R9,#+40
+   \   0000024C   041041B2           SUBLT    R1,R1,#+4
+   \   00000250   040000BA           BLT      ??DrawBall_23
+    472                    else if(user_c>40 && user_c<50) {ball_spx-=5;ball_spy+=0;}
+   \                     ??DrawBall_26:
+   \   00000254   290059E3           CMP      R9,#+41
+   \   00000258   030000BA           BLT      ??DrawBall_27
+   \   0000025C   320059E3           CMP      R9,#+50
+   \   00000260   010000AA           BGE      ??DrawBall_27
+   \   00000264   051041E2           SUB      R1,R1,#+5
+   \                     ??DrawBall_23:
+   \   00000268   7C1184E5           STR      R1,[R4, #+380]
+    473                  //}
+    474                  ball_spx=-ball_spx;ball_spy=-ball_spy; //двигаемся влево+вверх
+   \                     ??DrawBall_27:
+   \   0000026C   7C1194E5           LDR      R1,[R4, #+380]
+   \   00000270   000060E2           RSB      R0,R0,#+0
+   \   00000274   001061E2           RSB      R1,R1,#+0
+   \   00000278   7C1184E5           STR      R1,[R4, #+380]
+   \                     ??DrawBall_15:
+   \   0000027C   800184E5           STR      R0,[R4, #+384]
+    475                } 
+    476                if(!user_r && !user_l) {ball_spx=ball_spx;ball_spy=-ball_spy;} //двигаемся вправо+вверх
+   \   00000280   00005AE3           CMP      R10,#+0
+   \   00000284   00005803           CMPEQ    R8,#+0
+   \   00000288   00006002           RSBEQ    R0,R0,#+0
+   \   0000028C   80018405           STREQ    R0,[R4, #+384]
+    477              }
+    478              
+    479               if(UBhit()==1)
+   \                     ??DrawBall_4:
+   \   00000290   ........           BL       UBhit
+   \   00000294   010050E3           CMP      R0,#+1
+   \   00000298   4300001A           BNE      ??DrawBall_28
+    480               {
+    481                if(user_r)
+   \   0000029C   00005AE3           CMP      R10,#+0
+   \   000002A0   1D00000A           BEQ      ??DrawBall_29
+    482                {
+    483                    //изменяем угол полета по x после столкновения
+    484                    if(user_c>0 && user_c<10) {ball_spx+=0;ball_spy+=1;}
+   \   000002A4   800194E5           LDR      R0,[R4, #+384]
+   \   000002A8   010059E3           CMP      R9,#+1
+   \   000002AC   020000BA           BLT      ??DrawBall_30
+   \   000002B0   0A0059E3           CMP      R9,#+10
+   \   000002B4   010080B2           ADDLT    R0,R0,#+1
+   \   000002B8   130000BA           BLT      ??DrawBall_31
+    485                    else if(user_c>10 && user_c<20) {ball_spx+=0;ball_spy+=2;}
+   \                     ??DrawBall_30:
+   \   000002BC   0B0059E3           CMP      R9,#+11
+   \   000002C0   020000BA           BLT      ??DrawBall_32
+   \   000002C4   140059E3           CMP      R9,#+20
+   \   000002C8   020080B2           ADDLT    R0,R0,#+2
+   \   000002CC   0E0000BA           BLT      ??DrawBall_31
+    486                    else if(user_c>20 && user_c<30) {ball_spx+=0;ball_spy+=3;}
+   \                     ??DrawBall_32:
+   \   000002D0   150059E3           CMP      R9,#+21
+   \   000002D4   020000BA           BLT      ??DrawBall_33
+   \   000002D8   1E0059E3           CMP      R9,#+30
+   \   000002DC   030080B2           ADDLT    R0,R0,#+3
+   \   000002E0   090000BA           BLT      ??DrawBall_31
+    487                    else if(user_c>30 && user_c<40) {ball_spx+=0;ball_spy+=4;}
+   \                     ??DrawBall_33:
+   \   000002E4   1F0059E3           CMP      R9,#+31
+   \   000002E8   020000BA           BLT      ??DrawBall_34
+   \   000002EC   280059E3           CMP      R9,#+40
+   \   000002F0   040080B2           ADDLT    R0,R0,#+4
+   \   000002F4   040000BA           BLT      ??DrawBall_31
+    488                    else if(user_c>40 && user_c<50) {ball_spx+=0;ball_spy+=5;}
+   \                     ??DrawBall_34:
+   \   000002F8   290059E3           CMP      R9,#+41
+   \   000002FC   030000BA           BLT      ??DrawBall_35
+   \   00000300   320059E3           CMP      R9,#+50
+   \   00000304   010000AA           BGE      ??DrawBall_35
+   \   00000308   050080E2           ADD      R0,R0,#+5
+   \                     ??DrawBall_31:
+   \   0000030C   800184E5           STR      R0,[R4, #+384]
+    489                  ball_spx=ball_spx;ball_spy=-ball_spy; //двигаемся вправо+вверх
+   \                     ??DrawBall_35:
+   \   00000310   800194E5           LDR      R0,[R4, #+384]
+   \   00000314   000060E2           RSB      R0,R0,#+0
+   \   00000318   800184E5           STR      R0,[R4, #+384]
+    490                }
+    491                if(user_l)
+   \                     ??DrawBall_29:
+   \   0000031C   800194E5           LDR      R0,[R4, #+384]
+   \   00000320   000058E3           CMP      R8,#+0
+   \   00000324   1B00000A           BEQ      ??DrawBall_36
+    492                {
+    493                     //изменяем угол полета по x после столкновения
+    494                    if(user_c>0 && user_c<10) {ball_spx-=0;ball_spy-=1;}
+   \   00000328   010059E3           CMP      R9,#+1
+   \   0000032C   020000BA           BLT      ??DrawBall_37
+   \   00000330   0A0059E3           CMP      R9,#+10
+   \   00000334   010040B2           SUBLT    R0,R0,#+1
+   \   00000338   120000BA           BLT      ??DrawBall_38
+    495                    else if(user_c>10 && user_c<20) {ball_spx-=0;ball_spy-=2;}
+   \                     ??DrawBall_37:
+   \   0000033C   0B0059E3           CMP      R9,#+11
+   \   00000340   020000BA           BLT      ??DrawBall_39
+   \   00000344   140059E3           CMP      R9,#+20
+   \   00000348   020040B2           SUBLT    R0,R0,#+2
+   \   0000034C   0D0000BA           BLT      ??DrawBall_38
+    496                    else if(user_c>20 && user_c<30) {ball_spx-=0;ball_spy-=3;}
+   \                     ??DrawBall_39:
+   \   00000350   150059E3           CMP      R9,#+21
+   \   00000354   020000BA           BLT      ??DrawBall_40
+   \   00000358   1E0059E3           CMP      R9,#+30
+   \   0000035C   030040B2           SUBLT    R0,R0,#+3
+   \   00000360   080000BA           BLT      ??DrawBall_38
+    497                    else if(user_c>30 && user_c<40) {ball_spx-=0;ball_spy-=4;}
+   \                     ??DrawBall_40:
+   \   00000364   1F0059E3           CMP      R9,#+31
+   \   00000368   020000BA           BLT      ??DrawBall_41
+   \   0000036C   280059E3           CMP      R9,#+40
+   \   00000370   040040B2           SUBLT    R0,R0,#+4
+   \   00000374   030000BA           BLT      ??DrawBall_38
+    498                    else if(user_c>40 && user_c<50) {ball_spx-=0;ball_spy-=5;}
+   \                     ??DrawBall_41:
+   \   00000378   290059E3           CMP      R9,#+41
+   \   0000037C   010000BA           BLT      ??DrawBall_38
+   \   00000380   320059E3           CMP      R9,#+50
+   \   00000384   050040B2           SUBLT    R0,R0,#+5
+    499                  ball_spx=-ball_spx;ball_spy=-ball_spy; //двигаемся влево+вверх
+   \                     ??DrawBall_38:
+   \   00000388   7C1194E5           LDR      R1,[R4, #+380]
+   \   0000038C   000060E2           RSB      R0,R0,#+0
+   \   00000390   001061E2           RSB      R1,R1,#+0
+   \   00000394   7C1184E5           STR      R1,[R4, #+380]
+   \                     ??DrawBall_36:
+   \   00000398   800184E5           STR      R0,[R4, #+384]
+    500                }
+    501                if(!user_r && !user_l) {ball_spx=ball_spx;ball_spy=-ball_spy;} //двигаемся вправо+вверх  
+   \   0000039C   00005AE3           CMP      R10,#+0
+   \   000003A0   00005803           CMPEQ    R8,#+0
+   \   000003A4   00006002           RSBEQ    R0,R0,#+0
+   \   000003A8   80018405           STREQ    R0,[R4, #+384]
+    502               }
+    503              
+    504               if(UBhit()==3)
+   \                     ??DrawBall_28:
+   \   000003AC   ........           BL       UBhit
+   \   000003B0   030050E3           CMP      R0,#+3
+   \   000003B4   4300001A           BNE      ??DrawBall_2
+    505               {
+    506                if(user_r)
+   \   000003B8   00005AE3           CMP      R10,#+0
+   \   000003BC   1D00000A           BEQ      ??DrawBall_42
+    507                {
+    508                    //изменяем угол полета по x после столкновения
+    509                    if(user_c>0 && user_c<10) {ball_spx+=0;ball_spy+=1;}
+   \   000003C0   800194E5           LDR      R0,[R4, #+384]
+   \   000003C4   010059E3           CMP      R9,#+1
+   \   000003C8   020000BA           BLT      ??DrawBall_43
+   \   000003CC   0A0059E3           CMP      R9,#+10
+   \   000003D0   010080B2           ADDLT    R0,R0,#+1
+   \   000003D4   130000BA           BLT      ??DrawBall_44
+    510                    else if(user_c>10 && user_c<20) {ball_spx+=0;ball_spy+=2;}
+   \                     ??DrawBall_43:
+   \   000003D8   0B0059E3           CMP      R9,#+11
+   \   000003DC   020000BA           BLT      ??DrawBall_45
+   \   000003E0   140059E3           CMP      R9,#+20
+   \   000003E4   020080B2           ADDLT    R0,R0,#+2
+   \   000003E8   0E0000BA           BLT      ??DrawBall_44
+    511                    else if(user_c>20 && user_c<30) {ball_spx+=0;ball_spy+=3;}
+   \                     ??DrawBall_45:
+   \   000003EC   150059E3           CMP      R9,#+21
+   \   000003F0   020000BA           BLT      ??DrawBall_46
+   \   000003F4   1E0059E3           CMP      R9,#+30
+   \   000003F8   030080B2           ADDLT    R0,R0,#+3
+   \   000003FC   090000BA           BLT      ??DrawBall_44
+    512                    else if(user_c>30 && user_c<40) {ball_spx+=0;ball_spy+=4;}
+   \                     ??DrawBall_46:
+   \   00000400   1F0059E3           CMP      R9,#+31
+   \   00000404   020000BA           BLT      ??DrawBall_47
+   \   00000408   280059E3           CMP      R9,#+40
+   \   0000040C   040080B2           ADDLT    R0,R0,#+4
+   \   00000410   040000BA           BLT      ??DrawBall_44
+    513                    else if(user_c>40 && user_c<50) {ball_spx+=0;ball_spy+=5;}
+   \                     ??DrawBall_47:
+   \   00000414   290059E3           CMP      R9,#+41
+   \   00000418   030000BA           BLT      ??DrawBall_48
+   \   0000041C   320059E3           CMP      R9,#+50
+   \   00000420   010000AA           BGE      ??DrawBall_48
+   \   00000424   050080E2           ADD      R0,R0,#+5
+   \                     ??DrawBall_44:
+   \   00000428   800184E5           STR      R0,[R4, #+384]
+    514                  ball_spx=ball_spx;ball_spy=-ball_spy; //двигаемся влево+вверх
+   \                     ??DrawBall_48:
+   \   0000042C   800194E5           LDR      R0,[R4, #+384]
+   \   00000430   000060E2           RSB      R0,R0,#+0
+   \   00000434   800184E5           STR      R0,[R4, #+384]
+    515                }
+    516                if(user_l)
+   \                     ??DrawBall_42:
+   \   00000438   800194E5           LDR      R0,[R4, #+384]
+   \   0000043C   000058E3           CMP      R8,#+0
+   \   00000440   1B00000A           BEQ      ??DrawBall_49
+    517                {
+    518                     //изменяем угол полета по x после столкновения
+    519                    if(user_c>0 && user_c<10) {ball_spx-=0;ball_spy-=1;}
+   \   00000444   010059E3           CMP      R9,#+1
+   \   00000448   020000BA           BLT      ??DrawBall_50
+   \   0000044C   0A0059E3           CMP      R9,#+10
+   \   00000450   010040B2           SUBLT    R0,R0,#+1
+   \   00000454   120000BA           BLT      ??DrawBall_51
+    520                    else if(user_c>10 && user_c<20) {ball_spx-=0;ball_spy-=2;}
+   \                     ??DrawBall_50:
+   \   00000458   0B0059E3           CMP      R9,#+11
+   \   0000045C   020000BA           BLT      ??DrawBall_52
+   \   00000460   140059E3           CMP      R9,#+20
+   \   00000464   020040B2           SUBLT    R0,R0,#+2
+   \   00000468   0D0000BA           BLT      ??DrawBall_51
+    521                    else if(user_c>20 && user_c<30) {ball_spx-=0;ball_spy-=3;}
+   \                     ??DrawBall_52:
+   \   0000046C   150059E3           CMP      R9,#+21
+   \   00000470   020000BA           BLT      ??DrawBall_53
+   \   00000474   1E0059E3           CMP      R9,#+30
+   \   00000478   030040B2           SUBLT    R0,R0,#+3
+   \   0000047C   080000BA           BLT      ??DrawBall_51
+    522                    else if(user_c>30 && user_c<40) {ball_spx-=0;ball_spy-=4;}
+   \                     ??DrawBall_53:
+   \   00000480   1F0059E3           CMP      R9,#+31
+   \   00000484   020000BA           BLT      ??DrawBall_54
+   \   00000488   280059E3           CMP      R9,#+40
+   \   0000048C   040040B2           SUBLT    R0,R0,#+4
+   \   00000490   030000BA           BLT      ??DrawBall_51
+    523                    else if(user_c>40 && user_c<50) {ball_spx-=0;ball_spy-=5;}
+   \                     ??DrawBall_54:
+   \   00000494   290059E3           CMP      R9,#+41
+   \   00000498   010000BA           BLT      ??DrawBall_51
+   \   0000049C   320059E3           CMP      R9,#+50
+   \   000004A0   050040B2           SUBLT    R0,R0,#+5
+    524                  ball_spx=-ball_spx;ball_spy=-ball_spy; //двигаемся вправо+вверх
+   \                     ??DrawBall_51:
+   \   000004A4   7C1194E5           LDR      R1,[R4, #+380]
+   \   000004A8   000060E2           RSB      R0,R0,#+0
+   \   000004AC   001061E2           RSB      R1,R1,#+0
+   \   000004B0   7C1184E5           STR      R1,[R4, #+380]
+   \                     ??DrawBall_49:
+   \   000004B4   800184E5           STR      R0,[R4, #+384]
+    525                }
+    526                if(!user_r && !user_l) {ball_spx=ball_spx;ball_spy=-ball_spy;} //двигаемся вправо+вверх  
+   \   000004B8   00005AE3           CMP      R10,#+0
+   \   000004BC   00005803           CMPEQ    R8,#+0
+   \   000004C0   00006002           RSBEQ    R0,R0,#+0
+   \   000004C4   80018405           STREQ    R0,[R4, #+384]
+    527               }
+    528            }
+    529            
+    530            
+    531            
+    532            
+    533            
+    534            if(ball_spy>0 && ball_spx<0) //влево+вниз
+   \                     ??DrawBall_2:
+   \   000004C8   800194E5           LDR      R0,[R4, #+384]
+   \   000004CC   010050E3           CMP      R0,#+1
+   \   000004D0   100100BA           BLT      ??DrawBall_1
+   \                     ??DrawBall_3:
+   \   000004D4   7C0194E5           LDR      R0,[R4, #+380]
+   \   000004D8   000050E3           CMP      R0,#+0
+   \   000004DC   0D01005A           BPL      ??DrawBall_1
+    535            {
+    536              //if(ball_x>user_x && ball_x<user_x+user[user_s].img->w && ball_y>user_y-user[user_s].img->h) {ball_spx=ball_spx;ball_spy=-ball_spy;} //двигаемся влево+вверх
+    537              
+    538              //if(ball_y>=H-ball[ball_s].img->h) {ball_spx=NSM-ball_a;ball_spy=NSM-ball_a;} //двигаемся влево+вверх
+    539              if(ball_x<=0) {ball_spx=-ball_spx;ball_spy=ball_spy;} //двигаемся вправо+вниз
+   \   000004E0   010057E3           CMP      R7,#+1
+   \   000004E4   000060B2           RSBLT    R0,R0,#+0
+   \   000004E8   7C0184B5           STRLT    R0,[R4, #+380]
+    540              
+    541              if(UBhit()==2)
+   \   000004EC   ........           BL       UBhit
+   \   000004F0   020050E3           CMP      R0,#+2
+   \   000004F4   7900001A           BNE      ??DrawBall_55
+    542              {
+    543                
+    544                if(user_r)
+   \   000004F8   00005AE3           CMP      R10,#+0
+   \   000004FC   3700000A           BEQ      ??DrawBall_56
+    545                {
+    546                  //if(ABS(ball_spx)>ball_min_speed && ABS(ball_spy)>ball_min_speed && ABS(ball_spx)<ball_max_speed && ABS(ball_spy)<ball_max_speed) 
+    547                  //{
+    548                    //замедляем шарик
+    549                    if(user_c>5 && user_c<15) {ball_spx+=1;ball_spy-=1;}
+   \   00000500   800194E5           LDR      R0,[R4, #+384]
+   \   00000504   7C1194E5           LDR      R1,[R4, #+380]
+   \   00000508   060059E3           CMP      R9,#+6
+   \   0000050C   050000BA           BLT      ??DrawBall_57
+   \   00000510   0F0059E3           CMP      R9,#+15
+   \   00000514   030000AA           BGE      ??DrawBall_57
+   \   00000518   011081E2           ADD      R1,R1,#+1
+   \   0000051C   7C1184E5           STR      R1,[R4, #+380]
+   \   00000520   010040E2           SUB      R0,R0,#+1
+   \   00000524   0E0000EA           B        ??DrawBall_58
+    550                    else if(user_c>15 && user_c<25) {ball_spx+=2;ball_spy-=2;}
+   \                     ??DrawBall_57:
+   \   00000528   100059E3           CMP      R9,#+16
+   \   0000052C   050000BA           BLT      ??DrawBall_59
+   \   00000530   190059E3           CMP      R9,#+25
+   \   00000534   030000AA           BGE      ??DrawBall_59
+   \   00000538   021081E2           ADD      R1,R1,#+2
+   \   0000053C   7C1184E5           STR      R1,[R4, #+380]
+   \   00000540   020040E2           SUB      R0,R0,#+2
+   \   00000544   060000EA           B        ??DrawBall_58
+    551                    else if(user_c>25 && user_c<50) {ball_spx+=3;ball_spy-=3;}
+   \                     ??DrawBall_59:
+   \   00000548   1A0059E3           CMP      R9,#+26
+   \   0000054C   050000BA           BLT      ??DrawBall_60
+   \   00000550   320059E3           CMP      R9,#+50
+   \   00000554   030000AA           BGE      ??DrawBall_60
+   \   00000558   031081E2           ADD      R1,R1,#+3
+   \   0000055C   7C1184E5           STR      R1,[R4, #+380]
+   \   00000560   030040E2           SUB      R0,R0,#+3
+   \                     ??DrawBall_58:
+   \   00000564   800184E5           STR      R0,[R4, #+384]
+    552                    
+    553                    //изменяем угол полета по x после столкновения
+    554                    if(user_c>0 && user_c<10) {ball_spx+=1;ball_spy+=0;}
+   \                     ??DrawBall_60:
+   \   00000568   7C0194E5           LDR      R0,[R4, #+380]
+   \   0000056C   010059E3           CMP      R9,#+1
+   \   00000570   020000BA           BLT      ??DrawBall_61
+   \   00000574   0A0059E3           CMP      R9,#+10
+   \   00000578   010080B2           ADDLT    R0,R0,#+1
+   \   0000057C   120000BA           BLT      ??DrawBall_62
+    555                    else if(user_c>10 && user_c<20) {ball_spx+=2;ball_spy+=0;}
+   \                     ??DrawBall_61:
+   \   00000580   0B0059E3           CMP      R9,#+11
+   \   00000584   020000BA           BLT      ??DrawBall_63
+   \   00000588   140059E3           CMP      R9,#+20
+   \   0000058C   020080B2           ADDLT    R0,R0,#+2
+   \   00000590   0D0000BA           BLT      ??DrawBall_62
+    556                    else if(user_c>20 && user_c<30) {ball_spx+=3;ball_spy+=0;}
+   \                     ??DrawBall_63:
+   \   00000594   150059E3           CMP      R9,#+21
+   \   00000598   020000BA           BLT      ??DrawBall_64
+   \   0000059C   1E0059E3           CMP      R9,#+30
+   \   000005A0   030080B2           ADDLT    R0,R0,#+3
+   \   000005A4   080000BA           BLT      ??DrawBall_62
+    557                    else if(user_c>30 && user_c<40) {ball_spx+=4;ball_spy+=0;}
+   \                     ??DrawBall_64:
+   \   000005A8   1F0059E3           CMP      R9,#+31
+   \   000005AC   020000BA           BLT      ??DrawBall_65
+   \   000005B0   280059E3           CMP      R9,#+40
+   \   000005B4   040080B2           ADDLT    R0,R0,#+4
+   \   000005B8   030000BA           BLT      ??DrawBall_62
+    558                    else if(user_c>40 && user_c<50) {ball_spx+=5;ball_spy+=0;}
+   \                     ??DrawBall_65:
+   \   000005BC   290059E3           CMP      R9,#+41
+   \   000005C0   010000BA           BLT      ??DrawBall_62
+   \   000005C4   320059E3           CMP      R9,#+50
+   \   000005C8   050080B2           ADDLT    R0,R0,#+5
+    559                    
+    560                  //}
+    561                  ball_spx=-ball_spx;ball_spy=-ball_spy; //двигаемся влево+вверх
+   \                     ??DrawBall_62:
+   \   000005CC   000060E2           RSB      R0,R0,#+0
+   \   000005D0   7C0184E5           STR      R0,[R4, #+380]
+   \   000005D4   800194E5           LDR      R0,[R4, #+384]
+   \   000005D8   000060E2           RSB      R0,R0,#+0
+   \   000005DC   800184E5           STR      R0,[R4, #+384]
+    562                }
+    563                
+    564                if(user_l)
+   \                     ??DrawBall_56:
+   \   000005E0   800194E5           LDR      R0,[R4, #+384]
+   \   000005E4   000058E3           CMP      R8,#+0
+   \   000005E8   3700000A           BEQ      ??DrawBall_66
+    565                {
+    566                  //if(ABS(ball_spx)<ball_max_speed && ABS(ball_spy)<ball_max_speed && ABS(ball_spx)<ball_max_speed && ABS(ball_spy)<ball_max_speed) //а тут соответственно ускоряем
+    567                  //{  
+    568                    if(user_c>5 && user_c<15) {ball_spx-=1;ball_spy+=1;}
+   \   000005EC   7C1194E5           LDR      R1,[R4, #+380]
+   \   000005F0   060059E3           CMP      R9,#+6
+   \   000005F4   050000BA           BLT      ??DrawBall_67
+   \   000005F8   0F0059E3           CMP      R9,#+15
+   \   000005FC   030000AA           BGE      ??DrawBall_67
+   \   00000600   011041E2           SUB      R1,R1,#+1
+   \   00000604   7C1184E5           STR      R1,[R4, #+380]
+   \   00000608   010080E2           ADD      R0,R0,#+1
+   \   0000060C   110000EA           B        ??DrawBall_68
+    569                    else if(user_c>15 && user_c<25) {ball_spx-=2;ball_spy+=2;}
+   \                     ??DrawBall_67:
+   \   00000610   100059E3           CMP      R9,#+16
+   \   00000614   050000BA           BLT      ??DrawBall_69
+   \   00000618   190059E3           CMP      R9,#+25
+   \   0000061C   030000AA           BGE      ??DrawBall_69
+   \   00000620   021041E2           SUB      R1,R1,#+2
+   \   00000624   7C1184E5           STR      R1,[R4, #+380]
+   \   00000628   020080E2           ADD      R0,R0,#+2
+   \   0000062C   0F0000EA           B        ??DrawBall_70
+    570                    else if(user_c>25 && user_c<50) {ball_spx-=3;ball_spy+=3;}
+   \                     ??DrawBall_69:
+   \   00000630   1A0059E3           CMP      R9,#+26
+   \   00000634   050000BA           BLT      ??DrawBall_71
+   \   00000638   320059E3           CMP      R9,#+50
+   \   0000063C   110000AA           BGE      ??DrawBall_72
+   \   00000640   031041E2           SUB      R1,R1,#+3
+   \   00000644   7C1184E5           STR      R1,[R4, #+380]
+   \   00000648   030080E2           ADD      R0,R0,#+3
+   \   0000064C   0D0000EA           B        ??DrawBall_72
+    571                    
+    572                     //изменяем угол полета по x после столкновения
+    573                    if(user_c>0 && user_c<10) {ball_spx-=1;ball_spy+=0;}
+   \                     ??DrawBall_71:
+   \   00000650   010059E3           CMP      R9,#+1
+   \   00000654   030000BA           BLT      ??DrawBall_73
+   \                     ??DrawBall_68:
+   \   00000658   0A0059E3           CMP      R9,#+10
+   \   0000065C   7C1194B5           LDRLT    R1,[R4, #+380]
+   \   00000660   011041B2           SUBLT    R1,R1,#+1
+   \   00000664   160000BA           BLT      ??DrawBall_74
+    574                    else if(user_c>10 && user_c<20) {ball_spx-=2;ball_spy+=0;}
+   \                     ??DrawBall_73:
+   \   00000668   0B0059E3           CMP      R9,#+11
+   \   0000066C   030000BA           BLT      ??DrawBall_75
+   \                     ??DrawBall_70:
+   \   00000670   140059E3           CMP      R9,#+20
+   \   00000674   7C1194B5           LDRLT    R1,[R4, #+380]
+   \   00000678   021041B2           SUBLT    R1,R1,#+2
+   \   0000067C   100000BA           BLT      ??DrawBall_74
+    575                    else if(user_c>20 && user_c<30) {ball_spx-=3;ball_spy+=0;}
+   \                     ??DrawBall_75:
+   \   00000680   150059E3           CMP      R9,#+21
+   \   00000684   030000BA           BLT      ??DrawBall_76
+   \                     ??DrawBall_72:
+   \   00000688   1E0059E3           CMP      R9,#+30
+   \   0000068C   7C1194B5           LDRLT    R1,[R4, #+380]
+   \   00000690   031041B2           SUBLT    R1,R1,#+3
+   \   00000694   0A0000BA           BLT      ??DrawBall_74
+    576                    else if(user_c>30 && user_c<40) {ball_spx-=4;ball_spy+=0;}
+   \                     ??DrawBall_76:
+   \   00000698   7C1194E5           LDR      R1,[R4, #+380]
+   \   0000069C   1F0059E3           CMP      R9,#+31
+   \   000006A0   020000BA           BLT      ??DrawBall_77
+   \   000006A4   280059E3           CMP      R9,#+40
+   \   000006A8   041041B2           SUBLT    R1,R1,#+4
+   \   000006AC   040000BA           BLT      ??DrawBall_74
+    577                    else if(user_c>40 && user_c<50) {ball_spx-=5;ball_spy+=0;}
+   \                     ??DrawBall_77:
+   \   000006B0   290059E3           CMP      R9,#+41
+   \   000006B4   030000BA           BLT      ??DrawBall_78
+   \   000006B8   320059E3           CMP      R9,#+50
+   \   000006BC   010000AA           BGE      ??DrawBall_78
+   \   000006C0   051041E2           SUB      R1,R1,#+5
+   \                     ??DrawBall_74:
+   \   000006C4   7C1184E5           STR      R1,[R4, #+380]
+    578                  //}
+    579                  ball_spx=ball_spx;ball_spy=-ball_spy; //двигаемся вправо+вверх
+   \                     ??DrawBall_78:
+   \   000006C8   000060E2           RSB      R0,R0,#+0
+   \                     ??DrawBall_66:
+   \   000006CC   800184E5           STR      R0,[R4, #+384]
+    580                } 
+    581                if(!user_r && !user_l) {ball_spx=ball_spx;ball_spy=-ball_spy;} //двигаемся вправо+вверх
+   \   000006D0   00005AE3           CMP      R10,#+0
+   \   000006D4   00005803           CMPEQ    R8,#+0
+   \   000006D8   00006002           RSBEQ    R0,R0,#+0
+   \   000006DC   80018405           STREQ    R0,[R4, #+384]
+    582              }
+    583              
+    584               if(UBhit()==1)
+   \                     ??DrawBall_55:
+   \   000006E0   ........           BL       UBhit
+   \   000006E4   010050E3           CMP      R0,#+1
+   \   000006E8   4300001A           BNE      ??DrawBall_79
+    585               {
+    586                if(user_r)
+   \   000006EC   00005AE3           CMP      R10,#+0
+   \   000006F0   2000000A           BEQ      ??DrawBall_80
+    587                {
+    588                    //изменяем угол полета по x после столкновения
+    589                    if(user_c>0 && user_c<10) {ball_spx+=0;ball_spy+=1;}
+   \   000006F4   800194E5           LDR      R0,[R4, #+384]
+   \   000006F8   010059E3           CMP      R9,#+1
+   \   000006FC   020000BA           BLT      ??DrawBall_81
+   \   00000700   0A0059E3           CMP      R9,#+10
+   \   00000704   010080B2           ADDLT    R0,R0,#+1
+   \   00000708   130000BA           BLT      ??DrawBall_82
+    590                    else if(user_c>10 && user_c<20) {ball_spx+=0;ball_spy+=2;}
+   \                     ??DrawBall_81:
+   \   0000070C   0B0059E3           CMP      R9,#+11
+   \   00000710   020000BA           BLT      ??DrawBall_83
+   \   00000714   140059E3           CMP      R9,#+20
+   \   00000718   020080B2           ADDLT    R0,R0,#+2
+   \   0000071C   0E0000BA           BLT      ??DrawBall_82
+    591                    else if(user_c>20 && user_c<30) {ball_spx+=0;ball_spy+=3;}
+   \                     ??DrawBall_83:
+   \   00000720   150059E3           CMP      R9,#+21
+   \   00000724   020000BA           BLT      ??DrawBall_84
+   \   00000728   1E0059E3           CMP      R9,#+30
+   \   0000072C   030080B2           ADDLT    R0,R0,#+3
+   \   00000730   090000BA           BLT      ??DrawBall_82
+    592                    else if(user_c>30 && user_c<40) {ball_spx+=0;ball_spy+=4;}
+   \                     ??DrawBall_84:
+   \   00000734   1F0059E3           CMP      R9,#+31
+   \   00000738   020000BA           BLT      ??DrawBall_85
+   \   0000073C   280059E3           CMP      R9,#+40
+   \   00000740   040080B2           ADDLT    R0,R0,#+4
+   \   00000744   040000BA           BLT      ??DrawBall_82
+    593                    else if(user_c>40 && user_c<50) {ball_spx+=0;ball_spy+=5;}
+   \                     ??DrawBall_85:
+   \   00000748   290059E3           CMP      R9,#+41
+   \   0000074C   030000BA           BLT      ??DrawBall_86
+   \   00000750   320059E3           CMP      R9,#+50
+   \   00000754   010000AA           BGE      ??DrawBall_86
+   \   00000758   050080E2           ADD      R0,R0,#+5
+   \                     ??DrawBall_82:
+   \   0000075C   800184E5           STR      R0,[R4, #+384]
+    594                  ball_spx=-ball_spx;ball_spy=-ball_spy; //двигаемся вправо+вверх
+   \                     ??DrawBall_86:
+   \   00000760   7C0194E5           LDR      R0,[R4, #+380]
+   \   00000764   000060E2           RSB      R0,R0,#+0
+   \   00000768   7C0184E5           STR      R0,[R4, #+380]
+   \   0000076C   800194E5           LDR      R0,[R4, #+384]
+   \   00000770   000060E2           RSB      R0,R0,#+0
+   \   00000774   800184E5           STR      R0,[R4, #+384]
+    595                }
+    596                if(user_l)
+   \                     ??DrawBall_80:
+   \   00000778   800194E5           LDR      R0,[R4, #+384]
+   \   0000077C   000058E3           CMP      R8,#+0
+   \   00000780   1800000A           BEQ      ??DrawBall_87
+    597                {
+    598                     //изменяем угол полета по x после столкновения
+    599                    if(user_c>0 && user_c<10) {ball_spx-=0;ball_spy+=1;}
+   \   00000784   010059E3           CMP      R9,#+1
+   \   00000788   020000BA           BLT      ??DrawBall_88
+   \   0000078C   0A0059E3           CMP      R9,#+10
+   \   00000790   010080B2           ADDLT    R0,R0,#+1
+   \   00000794   120000BA           BLT      ??DrawBall_89
+    600                    else if(user_c>10 && user_c<20) {ball_spx-=0;ball_spy+=2;}
+   \                     ??DrawBall_88:
+   \   00000798   0B0059E3           CMP      R9,#+11
+   \   0000079C   020000BA           BLT      ??DrawBall_90
+   \   000007A0   140059E3           CMP      R9,#+20
+   \   000007A4   020080B2           ADDLT    R0,R0,#+2
+   \   000007A8   0D0000BA           BLT      ??DrawBall_89
+    601                    else if(user_c>20 && user_c<30) {ball_spx-=0;ball_spy+=3;}
+   \                     ??DrawBall_90:
+   \   000007AC   150059E3           CMP      R9,#+21
+   \   000007B0   020000BA           BLT      ??DrawBall_91
+   \   000007B4   1E0059E3           CMP      R9,#+30
+   \   000007B8   030080B2           ADDLT    R0,R0,#+3
+   \   000007BC   080000BA           BLT      ??DrawBall_89
+    602                    else if(user_c>30 && user_c<40) {ball_spx-=0;ball_spy+=4;}
+   \                     ??DrawBall_91:
+   \   000007C0   1F0059E3           CMP      R9,#+31
+   \   000007C4   020000BA           BLT      ??DrawBall_92
+   \   000007C8   280059E3           CMP      R9,#+40
+   \   000007CC   040080B2           ADDLT    R0,R0,#+4
+   \   000007D0   030000BA           BLT      ??DrawBall_89
+    603                    else if(user_c>40 && user_c<50) {ball_spx-=0;ball_spy+=5;}
+   \                     ??DrawBall_92:
+   \   000007D4   290059E3           CMP      R9,#+41
+   \   000007D8   010000BA           BLT      ??DrawBall_89
+   \   000007DC   320059E3           CMP      R9,#+50
+   \   000007E0   050080B2           ADDLT    R0,R0,#+5
+    604                  ball_spx=ball_spx;ball_spy=-ball_spy; //двигаемся вправо+вверх
+   \                     ??DrawBall_89:
+   \   000007E4   000060E2           RSB      R0,R0,#+0
+   \                     ??DrawBall_87:
+   \   000007E8   800184E5           STR      R0,[R4, #+384]
+    605                }
+    606                if(!user_r && !user_l) {ball_spx=ball_spx;ball_spy=-ball_spy;} //двигаемся вправо+вверх  
+   \   000007EC   00005AE3           CMP      R10,#+0
+   \   000007F0   00005803           CMPEQ    R8,#+0
+   \   000007F4   00006002           RSBEQ    R0,R0,#+0
+   \   000007F8   80018405           STREQ    R0,[R4, #+384]
+    607               }
+    608              
+    609               if(UBhit()==3)
+   \                     ??DrawBall_79:
+   \   000007FC   ........           BL       UBhit
+   \   00000800   030050E3           CMP      R0,#+3
+   \   00000804   4300001A           BNE      ??DrawBall_1
+    610               {
+    611                if(user_r)
+   \   00000808   00005AE3           CMP      R10,#+0
+   \   0000080C   2000000A           BEQ      ??DrawBall_93
+    612                {
+    613                    //изменяем угол полета по x после столкновения
+    614                    if(user_c>0 && user_c<10) {ball_spx+=0;ball_spy+=1;}
+   \   00000810   800194E5           LDR      R0,[R4, #+384]
+   \   00000814   010059E3           CMP      R9,#+1
+   \   00000818   020000BA           BLT      ??DrawBall_94
+   \   0000081C   0A0059E3           CMP      R9,#+10
+   \   00000820   010080B2           ADDLT    R0,R0,#+1
+   \   00000824   130000BA           BLT      ??DrawBall_95
+    615                    else if(user_c>10 && user_c<20) {ball_spx+=0;ball_spy+=2;}
+   \                     ??DrawBall_94:
+   \   00000828   0B0059E3           CMP      R9,#+11
+   \   0000082C   020000BA           BLT      ??DrawBall_96
+   \   00000830   140059E3           CMP      R9,#+20
+   \   00000834   020080B2           ADDLT    R0,R0,#+2
+   \   00000838   0E0000BA           BLT      ??DrawBall_95
+    616                    else if(user_c>20 && user_c<30) {ball_spx+=0;ball_spy+=3;}
+   \                     ??DrawBall_96:
+   \   0000083C   150059E3           CMP      R9,#+21
+   \   00000840   020000BA           BLT      ??DrawBall_97
+   \   00000844   1E0059E3           CMP      R9,#+30
+   \   00000848   030080B2           ADDLT    R0,R0,#+3
+   \   0000084C   090000BA           BLT      ??DrawBall_95
+    617                    else if(user_c>30 && user_c<40) {ball_spx+=0;ball_spy+=4;}
+   \                     ??DrawBall_97:
+   \   00000850   1F0059E3           CMP      R9,#+31
+   \   00000854   020000BA           BLT      ??DrawBall_98
+   \   00000858   280059E3           CMP      R9,#+40
+   \   0000085C   040080B2           ADDLT    R0,R0,#+4
+   \   00000860   040000BA           BLT      ??DrawBall_95
+    618                    else if(user_c>40 && user_c<50) {ball_spx+=0;ball_spy+=5;}
+   \                     ??DrawBall_98:
+   \   00000864   290059E3           CMP      R9,#+41
+   \   00000868   030000BA           BLT      ??DrawBall_99
+   \   0000086C   320059E3           CMP      R9,#+50
+   \   00000870   010000AA           BGE      ??DrawBall_99
+   \   00000874   050080E2           ADD      R0,R0,#+5
+   \                     ??DrawBall_95:
+   \   00000878   800184E5           STR      R0,[R4, #+384]
+    619                  ball_spx=-ball_spx;ball_spy=-ball_spy; //двигаемся вправо+вверх
+   \                     ??DrawBall_99:
+   \   0000087C   7C0194E5           LDR      R0,[R4, #+380]
+   \   00000880   000060E2           RSB      R0,R0,#+0
+   \   00000884   7C0184E5           STR      R0,[R4, #+380]
+   \   00000888   800194E5           LDR      R0,[R4, #+384]
+   \   0000088C   000060E2           RSB      R0,R0,#+0
+   \   00000890   800184E5           STR      R0,[R4, #+384]
+    620                }
+    621                
+    622                if(user_l)
+   \                     ??DrawBall_93:
+   \   00000894   800194E5           LDR      R0,[R4, #+384]
+   \   00000898   000058E3           CMP      R8,#+0
+   \   0000089C   1800000A           BEQ      ??DrawBall_100
+    623                {
+    624                     //изменяем угол полета по x после столкновения
+    625                    if(user_c>0 && user_c<10) {ball_spx-=0;ball_spy+=1;}
+   \   000008A0   010059E3           CMP      R9,#+1
+   \   000008A4   020000BA           BLT      ??DrawBall_101
+   \   000008A8   0A0059E3           CMP      R9,#+10
+   \   000008AC   010080B2           ADDLT    R0,R0,#+1
+   \   000008B0   120000BA           BLT      ??DrawBall_102
+    626                    else if(user_c>10 && user_c<20) {ball_spx-=0;ball_spy+=2;}
+   \                     ??DrawBall_101:
+   \   000008B4   0B0059E3           CMP      R9,#+11
+   \   000008B8   020000BA           BLT      ??DrawBall_103
+   \   000008BC   140059E3           CMP      R9,#+20
+   \   000008C0   020080B2           ADDLT    R0,R0,#+2
+   \   000008C4   0D0000BA           BLT      ??DrawBall_102
+    627                    else if(user_c>20 && user_c<30) {ball_spx-=0;ball_spy+=3;}
+   \                     ??DrawBall_103:
+   \   000008C8   150059E3           CMP      R9,#+21
+   \   000008CC   020000BA           BLT      ??DrawBall_104
+   \   000008D0   1E0059E3           CMP      R9,#+30
+   \   000008D4   030080B2           ADDLT    R0,R0,#+3
+   \   000008D8   080000BA           BLT      ??DrawBall_102
+    628                    else if(user_c>30 && user_c<40) {ball_spx-=0;ball_spy+=4;}
+   \                     ??DrawBall_104:
+   \   000008DC   1F0059E3           CMP      R9,#+31
+   \   000008E0   020000BA           BLT      ??DrawBall_105
+   \   000008E4   280059E3           CMP      R9,#+40
+   \   000008E8   040080B2           ADDLT    R0,R0,#+4
+   \   000008EC   030000BA           BLT      ??DrawBall_102
+    629                    else if(user_c>40 && user_c<50) {ball_spx-=0;ball_spy+=5;}
+   \                     ??DrawBall_105:
+   \   000008F0   290059E3           CMP      R9,#+41
+   \   000008F4   010000BA           BLT      ??DrawBall_102
+   \   000008F8   320059E3           CMP      R9,#+50
+   \   000008FC   050080B2           ADDLT    R0,R0,#+5
+    630                  ball_spx=ball_spx;ball_spy=-ball_spy; //двигаемся вправо+вверх
+   \                     ??DrawBall_102:
+   \   00000900   000060E2           RSB      R0,R0,#+0
+   \                     ??DrawBall_100:
+   \   00000904   800184E5           STR      R0,[R4, #+384]
+    631                }
+    632                if(!user_r && !user_l) {ball_spx=ball_spx;ball_spy=-ball_spy;} //двигаемся вправо+вверх  
+   \   00000908   00005AE3           CMP      R10,#+0
+   \   0000090C   00005803           CMPEQ    R8,#+0
+   \   00000910   00006002           RSBEQ    R0,R0,#+0
+   \   00000914   80018405           STREQ    R0,[R4, #+384]
+    633               }
+    634            }
+    635            
+    636            if(ball_spy<0 && ball_spx<0) //влево+вверх
+   \                     ??DrawBall_1:
+   \   00000918   808194E5           LDR      R8,[R4, #+384]
+   \   0000091C   000058E3           CMP      R8,#+0
+   \   00000920   7C019445           LDRMI    R0,[R4, #+380]
+   \   00000924   00005043           CMPMI    R0,#+0
+   \   00000928   0400005A           BPL      ??DrawBall_106
+    637            {
+    638              if(ball_x<=0) {ball_spx=-ball_spx;ball_spy=ball_spy;} //двигаемся вправо+вверх
+   \   0000092C   010057E3           CMP      R7,#+1
+   \   00000930   000060B2           RSBLT    R0,R0,#+0
+   \   00000934   7C0184B5           STRLT    R0,[R4, #+380]
+    639              if(ball_y<=0) {ball_spx=ball_spx;ball_spy=-ball_spy;} //двигаемся влево+вниз
+   \   00000938   010055E3           CMP      R5,#+1
+   \   0000093C   008068B2           RSBLT    R8,R8,#+0
+    640            }
+    641            
+    642            if(ABS(ball_spy)>=ball_max_speed && ball_spy>0) ball_spy=ball_max_speed;
+   \                     ??DrawBall_106:
+   \   00000940   9C9394E5           LDR      R9,[R4, #+924]
+   \   00000944   0800A0E1           MOV      R0,R8
+   \   00000948   ........           BL       ABS
+   \   0000094C   090050E1           CMP      R0,R9
+   \   00000950   010058A3           CMPGE    R8,#+1
+   \   00000954   0980A0A1           MOVGE    R8,R9
+    643            if(ABS(ball_spy)>=ball_max_speed && ball_spy<0) ball_spy=-ball_max_speed;
+   \   00000958   0910A0E1           MOV      R1,R9
+   \   0000095C   001061E2           RSB      R1,R1,#+0
+   \   00000960   00108DE5           STR      R1,[SP, #+0]
+   \   00000964   0800A0E1           MOV      R0,R8
+   \   00000968   ........           BL       ABS
+   \   0000096C   090050E1           CMP      R0,R9
+   \   00000970   010000BA           BLT      ??DrawBall_107
+   \   00000974   000058E3           CMP      R8,#+0
+   \   00000978   00809D45           LDRMI    R8,[SP, #+0]
+    644            if(ABS(ball_spy)<=ball_min_speed && ball_spy>0) ball_spy=ball_min_speed;
+   \                     ??DrawBall_107:
+   \   0000097C   A0A394E5           LDR      R10,[R4, #+928]
+   \   00000980   0800A0E1           MOV      R0,R8
+   \   00000984   ........           BL       ABS
+   \   00000988   00005AE1           CMP      R10,R0
+   \   0000098C   010058A3           CMPGE    R8,#+1
+   \   00000990   0A80A0A1           MOVGE    R8,R10
+    645            if(ABS(ball_spy)<=ball_min_speed && ball_spy<0) ball_spy=-ball_min_speed;
+   \   00000994   00B06AE2           RSB      R11,R10,#+0
+   \   00000998   0800A0E1           MOV      R0,R8
+   \   0000099C   ........           BL       ABS
+   \   000009A0   00005AE1           CMP      R10,R0
+   \   000009A4   010000BA           BLT      ??DrawBall_108
+   \   000009A8   000058E3           CMP      R8,#+0
+   \   000009AC   0B80A041           MOVMI    R8,R11
+   \                     ??DrawBall_108:
+   \   000009B0   808184E5           STR      R8,[R4, #+384]
+    646            
+    647            if(ABS(ball_spx)>=ball_max_speed && ball_spx>0) ball_spx=ball_max_speed;
+   \   000009B4   7C8194E5           LDR      R8,[R4, #+380]
+   \   000009B8   0800A0E1           MOV      R0,R8
+   \   000009BC   ........           BL       ABS
+   \   000009C0   090050E1           CMP      R0,R9
+   \   000009C4   010058A3           CMPGE    R8,#+1
+   \   000009C8   7C9184A5           STRGE    R9,[R4, #+380]
+    648            if(ABS(ball_spx)>=ball_max_speed && ball_spx<0) ball_spx=-ball_max_speed;
+   \   000009CC   7C8194E5           LDR      R8,[R4, #+380]
+   \   000009D0   0800A0E1           MOV      R0,R8
+   \   000009D4   ........           BL       ABS
+   \   000009D8   090050E1           CMP      R0,R9
+   \   000009DC   020000BA           BLT      ??DrawBall_109
+   \   000009E0   000058E3           CMP      R8,#+0
+   \   000009E4   00009D45           LDRMI    R0,[SP, #+0]
+   \   000009E8   7C018445           STRMI    R0,[R4, #+380]
+    649            if(ABS(ball_spx)<=ball_min_speed && ball_spx>0) ball_spx=ball_min_speed;
+   \                     ??DrawBall_109:
+   \   000009EC   7C8194E5           LDR      R8,[R4, #+380]
+   \   000009F0   0800A0E1           MOV      R0,R8
+   \   000009F4   ........           BL       ABS
+   \   000009F8   00005AE1           CMP      R10,R0
+   \   000009FC   010058A3           CMPGE    R8,#+1
+   \   00000A00   7CA184A5           STRGE    R10,[R4, #+380]
+    650            if(ABS(ball_spx)<=ball_min_speed && ball_spx<0) ball_spx=-ball_min_speed;
+   \   00000A04   7C8194E5           LDR      R8,[R4, #+380]
+   \   00000A08   0800A0E1           MOV      R0,R8
+   \   00000A0C   ........           BL       ABS
+   \   00000A10   00005AE1           CMP      R10,R0
+   \   00000A14   010000BA           BLT      ??DrawBall_110
+   \   00000A18   000058E3           CMP      R8,#+0
+   \   00000A1C   7CB18445           STRMI    R11,[R4, #+380]
+    651            
+    652            ball_x+=ball_spx;
+   \                     ??DrawBall_110:
+   \   00000A20   7C0194E5           LDR      R0,[R4, #+380]
+   \   00000A24   071080E0           ADD      R1,R0,R7
+    653            ball_y+=ball_spy;
+   \   00000A28   800194E5           LDR      R0,[R4, #+384]
+   \   00000A2C   701184E5           STR      R1,[R4, #+368]
+   \   00000A30   052080E0           ADD      R2,R0,R5
+    654            switch(ball_s)
+   \   00000A34   780194E5           LDR      R0,[R4, #+376]
+   \   00000A38   742184E5           STR      R2,[R4, #+372]
+   \   00000A3C   000050E3           CMP      R0,#+0
+   \   00000A40   0400000A           BEQ      ??DrawBall_111
+   \   00000A44   010050E2           SUBS     R0,R0,#+1
+   \   00000A48   0500000A           BEQ      ??DrawBall_112
+   \   00000A4C   010050E2           SUBS     R0,R0,#+1
+   \   00000A50   0A00000A           BEQ      ??DrawBall_113
+   \   00000A54   F18FBDE8           POP      {R0,R4-R11,PC}
+    655            {
+    656             case 0: DrwImg(ball[0].img,ball_x,ball_y,NULL,NULL); break;
+   \                     ??DrawBall_111:
+   \   00000A58   01002DE9           PUSH     {R0}
+   \   00000A5C   040096E7           LDR      R0,[R6, +R4]
+   \   00000A60   090000EA           B        ??DrawBall_114
+    657             case 1: DrwImg(ball[1].img,ball_x,ball_y,NULL,NULL); break;
+   \                     ??DrawBall_112:
+   \   00000A64   0000A0E3           MOV      R0,#+0
+   \   00000A68   01002DE9           PUSH     {R0}
+   \   00000A6C   500194E5           LDR      R0,[R4, #+336]
+   \   00000A70   0030A0E3           MOV      R3,#+0
+   \   00000A74   ........           BL       DrwImg
+   \   00000A78   04D08DE2           ADD      SP,SP,#+4
+   \   00000A7C   F18FBDE8           POP      {R0,R4-R11,PC}
+    658             case 2: DrwImg(ball[2].img,ball_x,ball_y,NULL,NULL); break;
+   \                     ??DrawBall_113:
+   \   00000A80   0000A0E3           MOV      R0,#+0
+   \   00000A84   01002DE9           PUSH     {R0}
+   \   00000A88   600194E5           LDR      R0,[R4, #+352]
+   \                     ??DrawBall_114:
+   \   00000A8C   0030A0E3           MOV      R3,#+0
+   \   00000A90   ........           BL       DrwImg
+   \   00000A94   04D08DE2           ADD      SP,SP,#+4
+   \   00000A98   F18FBDE8           POP      {R0,R4-R11,PC}
+    659            }
+    660            
+    661          }
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     brick:
+   \   00000000                      DS8 160
+   \   000000A0                      REQUIRE `?<Initializer for brick>`
+   \                     user:
+   \   000000A0                      DS8 160
+   \   00000140                      REQUIRE `?<Initializer for user>`
+   \                     ball:
+   \   00000140                      DS8 48
+   \   00000170                      REQUIRE `?<Initializer for ball>`
+   \                     ball_x:
+   \   00000170                      DS8 4
+   \   00000174                      REQUIRE `?<Initializer for ball_x>`
+   \                     ball_y:
+   \   00000174                      DS8 4
+   \   00000178                      REQUIRE `?<Initializer for ball_y>`
+   \                     ball_s:
+   \   00000178                      DS8 4
+   \   0000017C                      REQUIRE `?<Initializer for ball_s>`
+   \                     ball_spx:
+   \   0000017C                      DS8 4
+   \   00000180                      REQUIRE `?<Initializer for ball_spx>`
+   \                     ball_spy:
+   \   00000180                      DS8 4
+   \   00000184                      REQUIRE `?<Initializer for ball_spy>`
+   \                     user_x:
+   \   00000184                      DS8 4
+   \   00000188                      REQUIRE `?<Initializer for user_x>`
+   \                     user_y:
+   \   00000188                      DS8 4
+   \   0000018C                      REQUIRE `?<Initializer for user_y>`
+   \                     user_s:
+   \   0000018C                      DS8 4
+   \   00000190                      REQUIRE `?<Initializer for user_s>`
+   \                     user_l:
+   \   00000190                      DS8 4
+   \   00000194                      REQUIRE `?<Initializer for user_l>`
+   \                     user_r:
+   \   00000194                      DS8 4
+   \   00000198                      REQUIRE `?<Initializer for user_r>`
+   \                     user_sp:
+   \   00000198                      DS8 4
+   \   0000019C                      REQUIRE `?<Initializer for user_sp>`
+   \                     user_c:
+   \   0000019C                      DS8 4
+   \   000001A0                      REQUIRE `?<Initializer for user_c>`
+   \                     Level1:
+   \   000001A0                      DS8 480
+   \   00000380                      REQUIRE `?<Initializer for Level1>`
+   \                     bg1:
+   \   00000380                      DS8 4
+   \   00000384                      REQUIRE `?<Initializer for bg1>`
+   \                     load_screen:
+   \   00000384                      DS8 4
+   \   00000388                      REQUIRE `?<Initializer for load_screen>`
+   \                     main_menu:
+   \   00000388                      DS8 4
+   \   0000038C                      REQUIRE `?<Initializer for main_menu>`
+   \                     ball_check_only_pos_x:
+   \   0000038C                      DS8 4
+   \   00000390                      REQUIRE `?<Initializer for ball_check_only_pos_x>`
+   \                     ball_check_only_pos_y:
+   \   00000390                      DS8 4
+   \   00000394                      REQUIRE `?<Initializer for ball_check_only_pos_y>`
+   \                     lx:
+   \   00000394                      DS8 4
+   \   00000398                      REQUIRE `?<Initializer for lx>`
+   \                     ly:
+   \   00000398                      DS8 4
+   \   0000039C                      REQUIRE `?<Initializer for ly>`
+   \                     ball_max_speed:
+   \   0000039C                      DS8 4
+   \   000003A0                      REQUIRE `?<Initializer for ball_max_speed>`
+   \                     ball_min_speed:
+   \   000003A0                      DS8 4
+   \   000003A4                      REQUIRE `?<Initializer for ball_min_speed>`
+    662          
+    663          int exp=5;
+   \                     exp:
+   \   000003A4                      DS8 4
+   \   000003A8                      REQUIRE `?<Initializer for exp>`
+    664          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    665          void DrawUser()
+    666          {
+    667            
+    668            if(user_r) {user_x+=user_sp;user_c++;}
+   \                     DrawUser:
+   \   00000000   ........           LDR      R0,??DataTable12  ;; brick
+   \   00000004   10402DE9           PUSH     {R4,LR}
+   \   00000008   9C1190E5           LDR      R1,[R0, #+412]
+   \   0000000C   842190E5           LDR      R2,[R0, #+388]
+   \   00000010   903190E5           LDR      R3,[R0, #+400]
+   \   00000014   98C190E5           LDR      R12,[R0, #+408]
+   \   00000018   944190E5           LDR      R4,[R0, #+404]
+   \   0000001C   000054E3           CMP      R4,#+0
+   \   00000020   02208C10           ADDNE    R2,R12,R2
+   \   00000024   01108112           ADDNE    R1,R1,#+1
+    669            else if(!user_l) user_c=0;
+   \   00000028   00005303           CMPEQ    R3,#+0
+   \   0000002C   0400000A           BEQ      ??DrawUser_1
+    670            if(user_l) {user_x-=user_sp;user_c++;}
+   \   00000030   000053E3           CMP      R3,#+0
+   \   00000034   0C204210           SUBNE    R2,R2,R12
+   \   00000038   01108112           ADDNE    R1,R1,#+1
+    671            else if(!user_r) user_c=0;
+   \   0000003C   00005403           CMPEQ    R4,#+0
+   \   00000040   0000001A           BNE      ??DrawUser_2
+   \                     ??DrawUser_1:
+   \   00000044   0010A0E3           MOV      R1,#+0
+    672            
+    673            if(user_x<0) user_x=0;
+    674            if(user_x>W-user[user_s].img->w) user_x=W-user[user_s].img->w;
+   \                     ??DrawUser_2:
+   \   00000048   8C3190E5           LDR      R3,[R0, #+396]
+   \   0000004C   9C1180E5           STR      R1,[R0, #+412]
+   \   00000050   000052E3           CMP      R2,#+0
+   \   00000054   0020A043           MOVMI    R2,#+0
+   \   00000058   842180E5           STR      R2,[R0, #+388]
+   \   0000005C   031280E0           ADD      R1,R0,R3, LSL #+4
+   \   00000060   A01091E5           LDR      R1,[R1, #+160]
+   \   00000064   0040D1E5           LDRB     R4,[R1, #+0]
+   \   00000068   854064E2           RSB      R4,R4,#+133
+   \   0000006C   020054E1           CMP      R4,R2
+   \   00000070   0010D1B5           LDRBLT   R1,[R1, #+0]
+    675            
+    676            switch(user_s)
+   \   00000074   882190E5           LDR      R2,[R0, #+392]
+   \   00000078   851061B2           RSBLT    R1,R1,#+133
+   \   0000007C   841180B5           STRLT    R1,[R0, #+388]
+   \   00000080   841190E5           LDR      R1,[R0, #+388]
+   \   00000084   050053E3           CMP      R3,#+5
+   \   00000088   1080BD88           POPHI    {R4,PC}
+   \   0000008C   014F8FE2           ADR      R4,??DrawUser_0
+   \   00000090   0340D4E7           LDRB     R4,[R4, R3]
+   \   00000094   04F18FE0           ADD      PC,PC,R4, LSL #+2
+   \                     ??DrawUser_0:
+   \   00000098   01050B11           DC8      +1,+5,+11,+17
+   \   0000009C   15190000           DC8      +21,+25,+0,+0
+    677            {
+    678            case 0: DrwImg(user[0].img,user_x,user_y,NULL,NULL); break;
+   \                     ??DrawUser_3:
+   \   000000A0   0030A0E3           MOV      R3,#+0
+   \   000000A4   08002DE9           PUSH     {R3}
+   \   000000A8   A00090E5           LDR      R0,[R0, #+160]
+   \   000000AC   080000EA           B        ??DrawUser_4
+    679            case 1: DrwImg(user[1].img,user_x,user_y,NULL,NULL); break;
+   \                     ??DrawUser_5:
+   \   000000B0   0030A0E3           MOV      R3,#+0
+   \   000000B4   08002DE9           PUSH     {R3}
+   \   000000B8   B00090E5           LDR      R0,[R0, #+176]
+   \   000000BC   ........           BL       DrwImg
+   \   000000C0   04D08DE2           ADD      SP,SP,#+4
+   \   000000C4   1080BDE8           POP      {R4,PC}
+    680            case 2: DrwImg(user[2].img,user_x,user_y,NULL,NULL); break;
+   \                     ??DrawUser_6:
+   \   000000C8   0030A0E3           MOV      R3,#+0
+   \   000000CC   08002DE9           PUSH     {R3}
+   \   000000D0   C00090E5           LDR      R0,[R0, #+192]
+   \                     ??DrawUser_4:
+   \   000000D4   ........           BL       DrwImg
+   \   000000D8   04D08DE2           ADD      SP,SP,#+4
+   \   000000DC   1080BDE8           POP      {R4,PC}
+    681            case 3: DrwImg(user[3].img,user_x,user_y,NULL,NULL); break;
+   \                     ??DrawUser_7:
+   \   000000E0   0030A0E3           MOV      R3,#+0
+   \   000000E4   08002DE9           PUSH     {R3}
+   \   000000E8   D00090E5           LDR      R0,[R0, #+208]
+   \   000000EC   F8FFFFEA           B        ??DrawUser_4
+    682            case 4: DrwImg(user[4].img,user_x,user_y,NULL,NULL); break;
+   \                     ??DrawUser_8:
+   \   000000F0   0030A0E3           MOV      R3,#+0
+   \   000000F4   08002DE9           PUSH     {R3}
+   \   000000F8   E00090E5           LDR      R0,[R0, #+224]
+   \   000000FC   F4FFFFEA           B        ??DrawUser_4
+    683            case 5: DrwImg(user[5].img,user_x,user_y,NULL,NULL); break;
+   \                     ??DrawUser_9:
+   \   00000100   0030A0E3           MOV      R3,#+0
+   \   00000104   08002DE9           PUSH     {R3}
+   \   00000108   F00090E5           LDR      R0,[R0, #+240]
+   \   0000010C   ........           BL       DrwImg
+   \   00000110   04D08DE2           ADD      SP,SP,#+4
+    684            }
+    685          }
+   \                     ??DrawUser_10:
+   \   00000114   1080BDE8           POP      {R4,PC}          ;; return
+    686          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    687          void TimerRedrawScreen()
+    688          {
+   \                     TimerRedrawScreen:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+    689            DrwImg(bg1,0,0,NULL,NULL);
+   \   00000004   ........           LDR      R4,??DataTable12  ;; brick
+   \   00000008   0000A0E3           MOV      R0,#+0
+   \   0000000C   01002DE9           PUSH     {R0}
+   \   00000010   0020A0E1           MOV      R2,R0
+   \   00000014   0010A0E1           MOV      R1,R0
+   \   00000018   800394E5           LDR      R0,[R4, #+896]
+   \   0000001C   0030A0E3           MOV      R3,#+0
+   \   00000020   ........           BL       DrwImg
+    690            
+    691            DrawBricks();
+   \   00000024   ........           BL       DrawBricks
+    692            DrawBall();
+   \   00000028   ........           BL       DrawBall
+    693            DrawUser();
+   \   0000002C   ........           BL       DrawUser
+    694            
+    695            
+    696            
+    697            WSHDR *fpsc=AllocWS(64);
+   \   00000030   4000A0E3           MOV      R0,#+64
+   \   00000034   250100EF           SWI      +293
+    698            wsprintf(fpsc,"[%d,%d]-%d",ball_spx,ball_spy,user_c);
+   \   00000038   88109FE5           LDR      R1,??TimerRedrawScreen_0  ;; `?<Constant "[%d,%d]-%d">`
+   \   0000003C   0050A0E1           MOV      R5,R0
+   \   00000040   9C0194E5           LDR      R0,[R4, #+412]
+   \   00000044   01002DE9           PUSH     {R0}
+   \   00000048   803194E5           LDR      R3,[R4, #+384]
+   \   0000004C   7C2194E5           LDR      R2,[R4, #+380]
+   \   00000050   0500A0E1           MOV      R0,R5
+   \   00000054   240100EF           SWI      +292
+    699            DrawString(fpsc,0,32,ScreenW(),55,FONT_SM,0,GetPaletteAdrByColorIndex(10),GetPaletteAdrByColorIndex(23));
+   \   00000058   1700A0E3           MOV      R0,#+23
+   \   0000005C   2E0100EF           SWI      +302
+   \   00000060   0060A0E1           MOV      R6,R0
+   \   00000064   0A00A0E3           MOV      R0,#+10
+   \   00000068   2E0100EF           SWI      +302
+   \   0000006C   0070A0E1           MOV      R7,R0
+   \   00000070   888100EF           SWI      +33160
+   \   00000074   0030A0E1           MOV      R3,R0
+   \   00000078   40002DE9           PUSH     {R6}
+   \   0000007C   80002DE9           PUSH     {R7}
+   \   00000080   0000A0E3           MOV      R0,#+0
+   \   00000084   01002DE9           PUSH     {R0}
+   \   00000088   2020A0E3           MOV      R2,#+32
+   \   0000008C   0010A0E3           MOV      R1,#+0
+   \   00000090   0700A0E3           MOV      R0,#+7
+   \   00000094   01002DE9           PUSH     {R0}
+   \   00000098   3700A0E3           MOV      R0,#+55
+   \   0000009C   01002DE9           PUSH     {R0}
+   \   000000A0   0500A0E1           MOV      R0,R5
+   \   000000A4   4C0100EF           SWI      +332
+    700            FreeWS(fpsc);
+   \   000000A8   0500A0E1           MOV      R0,R5
+   \   000000AC   290100EF           SWI      +297
+    701            
+    702            
+    703            GBS_StartTimerProc(&timer1,exp,TimerRedrawScreen);
+   \   000000B0   ........           LDR      R2,??DataTable15  ;; TimerRedrawScreen
+   \   000000B4   A41394E5           LDR      R1,[R4, #+932]
+   \   000000B8   ........           LDR      R0,??DataTable14  ;; timer1
+   \   000000BC   4D0000EF           SWI      +77
+    704          }
+   \   000000C0   1CD08DE2           ADD      SP,SP,#+28
+   \   000000C4   F080BDE8           POP      {R4-R7,PC}       ;; return
+   \                     ??TimerRedrawScreen_0:
+   \   000000C8   ........           DC32     `?<Constant "[%d,%d]-%d">`
+    705          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    706          void Timer()
+    707          {
+    708            
+    709          }
+   \                     Timer:
+   \   00000000   1EFF2FE1           BX       LR               ;; return
+    710          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    711          void Mainmenu()
+    712          {
+    713            
+    714            
+    715            
+    716          }
+   \                     Mainmenu:
+   \   00000000   1EFF2FE1           BX       LR               ;; return
+    717          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    718          int load_count=0;
+   \                     load_count:
+   \   00000000                      DS8 4
+
+   \                                 In segment CODE, align 4, keep-with-next
+    719          void LoadScreen()
+    720          {
+   \                     LoadScreen:
+   \   00000000   00402DE9           PUSH     {LR}
+    721            
+    722            DrwImg(load_screen,0,0,NULL,NULL);
+   \   00000004   0000A0E3           MOV      R0,#+0
+   \   00000008   01002DE9           PUSH     {R0}
+   \   0000000C   0020A0E1           MOV      R2,R0
+   \   00000010   0010A0E1           MOV      R1,R0
+   \   00000014   1C009FE5           LDR      R0,??LoadScreen_0  ;; brick + 900
+   \   00000018   0030A0E3           MOV      R3,#+0
+   \   0000001C   000090E5           LDR      R0,[R0, #+0]
+   \   00000020   ........           BL       DrwImg
+    723            //load_count++;
+    724            
+    725            //if(load_count>35) GBS_StartTimerProc(&timer1,20,TimerRedrawScreen);
+    726            GBS_StartTimerProc(&timer1,14,LoadScreen);
+   \   00000024   10209FE5           LDR      R2,??LoadScreen_0+0x4  ;; LoadScreen
+   \   00000028   ........           LDR      R0,??DataTable14  ;; timer1
+   \   0000002C   0E10A0E3           MOV      R1,#+14
+   \   00000030   4D0000EF           SWI      +77
+    727          }
+   \   00000034   0180BDE8           POP      {R0,PC}          ;; return
+   \                     ??LoadScreen_0:
+   \   00000038   ........           DC32     brick + 900
+   \   0000003C   ........           DC32     LoadScreen
+    728          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    729          void moveuser(GUI_MSG *msg)
+    730          {
+    731            if(msg->gbsmsg->msg==KEY_DOWN)
+   \                     moveuser:
+   \   00000000   040090E5           LDR      R0,[R0, #+4]
+   \   00000004   ........           LDR      R1,??DataTable12  ;; brick
+   \   00000008   F220D0E1           LDRSH    R2,[R0, #+2]
+   \   0000000C   9330A0E3           MOV      R3,#+147
+   \   00000010   403F83E3           ORR      R3,R3,#0x100
+   \   00000014   030052E1           CMP      R2,R3
+   \   00000018   0500001A           BNE      ??moveuser_0
+    732            {
+    733              if(msg->gbsmsg->submess=='6') user_r=1;
+   \   0000001C   043090E5           LDR      R3,[R0, #+4]
+   \   00000020   0120A0E3           MOV      R2,#+1
+   \   00000024   360053E3           CMP      R3,#+54
+   \   00000028   94218105           STREQ    R2,[R1, #+404]
+    734              if(msg->gbsmsg->submess=='4') user_l=1;
+   \   0000002C   340053E3           CMP      R3,#+52
+   \   00000030   90218105           STREQ    R2,[R1, #+400]
+    735            }
+    736              if(msg->gbsmsg->msg==KEY_UP)
+   \                     ??moveuser_0:
+   \   00000034   F220D0E1           LDRSH    R2,[R0, #+2]
+   \   00000038   650F52E3           CMP      R2,#+404
+   \   0000003C   1EFF2F11           BXNE     LR
+    737            {
+    738              if(msg->gbsmsg->submess=='6') user_r=0;
+   \   00000040   043090E5           LDR      R3,[R0, #+4]
+   \   00000044   0020A0E3           MOV      R2,#+0
+   \   00000048   360053E3           CMP      R3,#+54
+   \   0000004C   94218105           STREQ    R2,[R1, #+404]
+    739              if(msg->gbsmsg->submess=='4') user_l=0;
+   \   00000050   340053E3           CMP      R3,#+52
+   \   00000054   90218105           STREQ    R2,[R1, #+400]
+    740            }
+    741            //DirectRedrawGUI();
+    742          }
+   \   00000058   1EFF2FE1           BX       LR               ;; return
+    743          
+    744          
+    745          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    746          int Keyhook(GUI_MSG *msg)
+    747          {
+   \                     Keyhook:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    748            moveuser(msg);
+   \   00000008   ........           BL       moveuser
+    749            if(msg->gbsmsg->msg==KEY_DOWN)
+   \   0000000C   040094E5           LDR      R0,[R4, #+4]
+   \   00000010   9320A0E3           MOV      R2,#+147
+   \   00000014   F210D0E1           LDRSH    R1,[R0, #+2]
+   \   00000018   402F82E3           ORR      R2,R2,#0x100
+   \   0000001C   020051E1           CMP      R1,R2
+   \   00000020   0A00001A           BNE      ??Keyhook_0
+    750            {
+    751              //if(msg->gbsmsg->submess=='6') ball_spx++;
+    752              //if(msg->gbsmsg->submess=='4') ball_spx--;
+    753              if(msg->gbsmsg->submess=='2') exp--;
+   \   00000024   ........           LDR      R1,??DataTable12  ;; brick
+   \   00000028   042090E5           LDR      R2,[R0, #+4]
+   \   0000002C   320052E3           CMP      R2,#+50
+   \   00000030   A4239105           LDREQ    R2,[R1, #+932]
+   \   00000034   01204202           SUBEQ    R2,R2,#+1
+   \   00000038   A4238105           STREQ    R2,[R1, #+932]
+    754              if(msg->gbsmsg->submess=='8') exp++;
+   \   0000003C   040090E5           LDR      R0,[R0, #+4]
+   \   00000040   380050E3           CMP      R0,#+56
+   \   00000044   A4039105           LDREQ    R0,[R1, #+932]
+   \   00000048   01008002           ADDEQ    R0,R0,#+1
+   \   0000004C   A4038105           STREQ    R0,[R1, #+932]
+    755              //if(msg->gbsmsg->submess=='7') bbx-=1;
+    756              //if(msg->gbsmsg->submess=='9') bbx+=1;
+    757              //if(msg->gbsmsg->submess=='1') bby-=1;
+    758              //if(msg->gbsmsg->submess=='3') bby+=1;
+    759              //if(msg->gbsmsg->submess=='5') test();
+    760              //if(msg->gbsmsg->submess=='0') TestRGB();
+    761              //REDRAW();
+    762            }
+    763            return 0;
+   \                     ??Keyhook_0:
+   \   00000050   0000A0E3           MOV      R0,#+0
+   \   00000054   1080BDE8           POP      {R4,PC}          ;; return
+    764          }
+    765          
+    766          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    767          void Init()
+    768          {
+   \                     Init:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+    769            LoadScreen();
+    770            log("called function init");
+   \   00000004   70419FE5           LDR      R4,??Init_0      ;; `?<Constant "pics\\\\brick_wall.bmp">`
+    771            //test_img=CreateIMGHDRFromPngFile("4:\\zbin\\test.png",2);
+    772            //bg1=CreateIMGHDRFromPngFile("4:\\zbin\\ark\\pics\\bg1.png",2);
+    773            //brick[0].img=CreateIMGHDRFromPngFile("4:\\zbin\\ark\\pics\\brick1.png",2);
+    774            //brick[1].img=CreateIMGHDRFromPngFile("4:\\zbin\\ark\\pics\\brick2.png",2);
+    775            //brick[2].img=CreateIMGHDRFromPngFile("4:\\zbin\\ark\\pics\\brick3.png",2);
+    776            //ball[0].img=CreateIMGHDRFromPngFile("4:\\zbin\\ark\\pics\\ball1.png",2);
+    777            //ball[1].img=CreateIMGHDRFromPngFile("4:\\zbin\\ark\\pics\\ball2.png",2);
+    778            //ball[2].img=CreateIMGHDRFromPngFile("4:\\zbin\\ark\\pics\\ball3.png",2);
+    779            //user[0].img=CreateIMGHDRFromPngFile("4:\\zbin\\ark\\pics\\user1.png",2);
+    780            
+    781            bg1=(IMGHDR*)ImageLoadFromFile("pics\\bg1.bmp",1);
+   \   00000008   ........           LDR      R5,??DataTable16  ;; brick
+   \   0000000C   ........           BL       LoadScreen
+   \   00000010   F00084E2           ADD      R0,R4,#+240
+   \   00000014   ........           BL       log
+   \   00000018   0110A0E3           MOV      R1,#+1
+   \   0000001C   E00084E2           ADD      R0,R4,#+224
+   \   00000020   ........           _BLF     ImageLoadFromFile,??ImageLoadFromFile??rA
+   \   00000024   800385E5           STR      R0,[R5, #+896]
+    782            load_screen=(IMGHDR*)ImageLoadFromFile("pics\\loadscreen.bmp",1);
+   \   00000028   0110A0E3           MOV      R1,#+1
+   \   0000002C   CC0084E2           ADD      R0,R4,#+204
+   \   00000030   ........           _BLF     ImageLoadFromFile,??ImageLoadFromFile??rA
+   \   00000034   840385E5           STR      R0,[R5, #+900]
+    783            main_menu=(IMGHDR*)ImageLoadFromFile("pics\\mainmenu.bmp",1);
+   \   00000038   0110A0E3           MOV      R1,#+1
+   \   0000003C   B80084E2           ADD      R0,R4,#+184
+   \   00000040   ........           _BLF     ImageLoadFromFile,??ImageLoadFromFile??rA
+   \   00000044   880385E5           STR      R0,[R5, #+904]
+    784            brick[0].img=(IMGHDR*)ImageLoadFromFile("pics\\brick1.bmp",1);
+   \   00000048   0110A0E3           MOV      R1,#+1
+   \   0000004C   A80084E2           ADD      R0,R4,#+168
+   \   00000050   ........           _BLF     ImageLoadFromFile,??ImageLoadFromFile??rA
+   \   00000054   000085E5           STR      R0,[R5, #+0]
+    785            brick[1].img=(IMGHDR*)ImageLoadFromFile("pics\\brick2.bmp",1);
+   \   00000058   0110A0E3           MOV      R1,#+1
+   \   0000005C   980084E2           ADD      R0,R4,#+152
+   \   00000060   ........           _BLF     ImageLoadFromFile,??ImageLoadFromFile??rA
+   \   00000064   100085E5           STR      R0,[R5, #+16]
+    786            brick[2].img=(IMGHDR*)ImageLoadFromFile("pics\\brick3.bmp",1);
+   \   00000068   0110A0E3           MOV      R1,#+1
+   \   0000006C   880084E2           ADD      R0,R4,#+136
+   \   00000070   ........           _BLF     ImageLoadFromFile,??ImageLoadFromFile??rA
+   \   00000074   200085E5           STR      R0,[R5, #+32]
+    787            brick[3].img=(IMGHDR*)ImageLoadFromFile("pics\\brick4.bmp",1);
+   \   00000078   0110A0E3           MOV      R1,#+1
+   \   0000007C   780084E2           ADD      R0,R4,#+120
+   \   00000080   ........           _BLF     ImageLoadFromFile,??ImageLoadFromFile??rA
+   \   00000084   300085E5           STR      R0,[R5, #+48]
+    788            brick[4].img=(IMGHDR*)ImageLoadFromFile("pics\\brick5.bmp",1);
+   \   00000088   0110A0E3           MOV      R1,#+1
+   \   0000008C   680084E2           ADD      R0,R4,#+104
+   \   00000090   ........           _BLF     ImageLoadFromFile,??ImageLoadFromFile??rA
+   \   00000094   400085E5           STR      R0,[R5, #+64]
+    789            brick[5].img=(IMGHDR*)ImageLoadFromFile("pics\\brick_wall.bmp",1);
+   \   00000098   0110A0E3           MOV      R1,#+1
+   \   0000009C   0400A0E1           MOV      R0,R4
+   \   000000A0   ........           _BLF     ImageLoadFromFile,??ImageLoadFromFile??rA
+   \   000000A4   500085E5           STR      R0,[R5, #+80]
+    790            ball[0].img=(IMGHDR*)ImageLoadFromFile("pics\\ball1.bmp",1);
+   \   000000A8   0110A0E3           MOV      R1,#+1
+   \   000000AC   580084E2           ADD      R0,R4,#+88
+   \   000000B0   ........           _BLF     ImageLoadFromFile,??ImageLoadFromFile??rA
+   \   000000B4   400185E5           STR      R0,[R5, #+320]
+    791            ball[1].img=(IMGHDR*)ImageLoadFromFile("pics\\ball2.bmp",1);
+   \   000000B8   0110A0E3           MOV      R1,#+1
+   \   000000BC   480084E2           ADD      R0,R4,#+72
+   \   000000C0   ........           _BLF     ImageLoadFromFile,??ImageLoadFromFile??rA
+   \   000000C4   500185E5           STR      R0,[R5, #+336]
+    792            ball[2].img=(IMGHDR*)ImageLoadFromFile("pics\\ball3.bmp",1);
+   \   000000C8   0110A0E3           MOV      R1,#+1
+   \   000000CC   380084E2           ADD      R0,R4,#+56
+   \   000000D0   ........           _BLF     ImageLoadFromFile,??ImageLoadFromFile??rA
+   \   000000D4   600185E5           STR      R0,[R5, #+352]
+    793            user[0].img=(IMGHDR*)ImageLoadFromFile("pics\\user1.bmp",1);
+   \   000000D8   0110A0E3           MOV      R1,#+1
+   \   000000DC   280084E2           ADD      R0,R4,#+40
+   \   000000E0   ........           _BLF     ImageLoadFromFile,??ImageLoadFromFile??rA
+   \   000000E4   A00085E5           STR      R0,[R5, #+160]
+    794            
+    795            ball_x=ScreenW()/2;
+   \   000000E8   888100EF           SWI      +33160
+   \   000000EC   A00F80E0           ADD      R0,R0,R0, LSR #+31
+   \   000000F0   C000A0E1           ASR      R0,R0,#+1
+   \   000000F4   700185E5           STR      R0,[R5, #+368]
+    796            ball_y=ScreenH()/2;
+   \   000000F8   898100EF           SWI      +33161
+   \   000000FC   A00F80E0           ADD      R0,R0,R0, LSR #+31
+   \   00000100   C000A0E1           ASR      R0,R0,#+1
+   \   00000104   740185E5           STR      R0,[R5, #+372]
+    797            user_x=ScreenW()/2;
+   \   00000108   888100EF           SWI      +33160
+   \   0000010C   A00F80E0           ADD      R0,R0,R0, LSR #+31
+   \   00000110   C000A0E1           ASR      R0,R0,#+1
+   \   00000114   840185E5           STR      R0,[R5, #+388]
+    798            user_y=ScreenH()-user[user_s].img->h-1;
+   \   00000118   898100EF           SWI      +33161
+   \   0000011C   8C1195E5           LDR      R1,[R5, #+396]
+   \   00000120   011285E0           ADD      R1,R5,R1, LSL #+4
+   \   00000124   A01091E5           LDR      R1,[R1, #+160]
+   \   00000128   0110D1E5           LDRB     R1,[R1, #+1]
+   \   0000012C   010040E0           SUB      R0,R0,R1
+   \   00000130   010040E2           SUB      R0,R0,#+1
+   \   00000134   880185E5           STR      R0,[R5, #+392]
+    799            ball_spx=2;
+   \   00000138   0200A0E3           MOV      R0,#+2
+   \   0000013C   7C0185E5           STR      R0,[R5, #+380]
+    800            ball_spy=2;
+   \   00000140   800185E5           STR      R0,[R5, #+384]
+    801            //test_img = (IMGHDR*)ImageLoadFromFile("test.bmp",1);
+    802            if(IsTimerProc(&timer1)) GBS_DelTimer(&timer1);
+   \   00000144   ........           LDR      R5,??DataTable14  ;; timer1
+   \   00000148   0500A0E1           MOV      R0,R5
+   \   0000014C   A60100EF           SWI      +422
+   \   00000150   000050E3           CMP      R0,#+0
+   \   00000154   0100000A           BEQ      ??Init_1
+   \   00000158   0500A0E1           MOV      R0,R5
+   \   0000015C   8C0100EF           SWI      +396
+    803            log("all initialised!");
+   \                     ??Init_1:
+   \   00000160   140084E2           ADD      R0,R4,#+20
+   \   00000164   ........           BL       log
+    804            GBS_StartTimerProc(&timer1,14,TimerRedrawScreen);
+   \   00000168   ........           LDR      R2,??DataTable15  ;; TimerRedrawScreen
+   \   0000016C   0E10A0E3           MOV      R1,#+14
+   \   00000170   0500A0E1           MOV      R0,R5
+   \   00000174   4D0000EF           SWI      +77
+    805          }
+   \   00000178   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??Init_0:
+   \   0000017C   ........           DC32     `?<Constant "pics\\\\brick_wall.bmp">`
+    806          
+    807          
+    808          
+    809          
+    810          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    811          void FreeMemory()
+    812          {
+   \                     FreeMemory:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+    813            log("freememory...");
+   \   00000004   7C409FE5           LDR      R4,??FreeMemory_0  ;; `?<Constant "completed!">`
+    814            //mfree(brick[0].img->bitmap);
+    815            //mfree(brick[1].img->bitmap);
+    816            //mfree(brick[2].img->bitmap);
+    817            //mfree(bg1->bitmap);
+    818            
+    819            //mfree(ball[0].img->bitmap);
+    820            //mfree(ball[1].img->bitmap);
+    821            //mfree(ball[2].img->bitmap);
+    822            
+    823            //mfree(user[0].img->bitmap);
+    824            ImageFree((unsigned int)bg1);
+   \   00000008   ........           LDR      R5,??DataTable16  ;; brick
+   \   0000000C   0C0084E2           ADD      R0,R4,#+12
+   \   00000010   ........           BL       log
+   \   00000014   800395E5           LDR      R0,[R5, #+896]
+   \   00000018   ........           _BLF     ImageFree,??ImageFree??rA
+    825            ImageFree((unsigned int)load_screen);
+   \   0000001C   840395E5           LDR      R0,[R5, #+900]
+   \   00000020   ........           _BLF     ImageFree,??ImageFree??rA
+    826            ImageFree((unsigned int)main_menu);
+   \   00000024   880395E5           LDR      R0,[R5, #+904]
+   \   00000028   ........           _BLF     ImageFree,??ImageFree??rA
+    827            ImageFree((unsigned int)brick[0].img);
+   \   0000002C   000095E5           LDR      R0,[R5, #+0]
+   \   00000030   ........           _BLF     ImageFree,??ImageFree??rA
+    828            ImageFree((unsigned int)brick[1].img);
+   \   00000034   100095E5           LDR      R0,[R5, #+16]
+   \   00000038   ........           _BLF     ImageFree,??ImageFree??rA
+    829            ImageFree((unsigned int)brick[2].img);
+   \   0000003C   200095E5           LDR      R0,[R5, #+32]
+   \   00000040   ........           _BLF     ImageFree,??ImageFree??rA
+    830            ImageFree((unsigned int)brick[3].img);
+   \   00000044   300095E5           LDR      R0,[R5, #+48]
+   \   00000048   ........           _BLF     ImageFree,??ImageFree??rA
+    831            ImageFree((unsigned int)brick[4].img);
+   \   0000004C   400095E5           LDR      R0,[R5, #+64]
+   \   00000050   ........           _BLF     ImageFree,??ImageFree??rA
+    832            ImageFree((unsigned int)brick[5].img);
+   \   00000054   500095E5           LDR      R0,[R5, #+80]
+   \   00000058   ........           _BLF     ImageFree,??ImageFree??rA
+    833            ImageFree((unsigned int)ball[0].img);
+   \   0000005C   400195E5           LDR      R0,[R5, #+320]
+   \   00000060   ........           _BLF     ImageFree,??ImageFree??rA
+    834            ImageFree((unsigned int)ball[1].img);
+   \   00000064   500195E5           LDR      R0,[R5, #+336]
+   \   00000068   ........           _BLF     ImageFree,??ImageFree??rA
+    835            ImageFree((unsigned int)ball[2].img);
+   \   0000006C   600195E5           LDR      R0,[R5, #+352]
+   \   00000070   ........           _BLF     ImageFree,??ImageFree??rA
+    836            ImageFree((unsigned int)user[0].img);
+   \   00000074   A00095E5           LDR      R0,[R5, #+160]
+   \   00000078   ........           _BLF     ImageFree,??ImageFree??rA
+    837            
+    838            
+    839            log("completed!");
+   \   0000007C   0400A0E1           MOV      R0,R4
+   \   00000080   ........           BL       log
+    840          }
+   \   00000084   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??FreeMemory_0:
+   \   00000088   ........           DC32     `?<Constant "completed!">`
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable3:
+   \   00000000   ........           DC32     brick
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable4:
+   \   00000000   ........           DC32     brick
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable12:
+   \   00000000   ........           DC32     brick
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable14:
+   \   00000000   ........           DC32     timer1
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable15:
+   \   00000000   ........           DC32     TimerRedrawScreen
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable16:
+   \   00000000   ........           DC32     brick
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for screen>`:
+   \   00000000   0000               DC8 0, 0
+   \   00000002   0000               DC8 0, 0
+   \                     `?<Initializer for img>`:
+   \   00000004   0101               DC8 1, 1
+   \   00000006   0800               DC16 8
+   \   00000008   ........           DC32 screen
+
+   \                                 In segment DATA_ID, align 1, align-sorted
+   \                     `?<Initializer for perc_t>`:
+   \   00000000   257400             DC8 "%t"
+
+   \                                 In segment DATA_ID, align 1, align-sorted
+   \                     `?<Initializer for perc_s>`:
+   \   00000000   257300             DC8 "%s"
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for brick>`:
+   \   00000000   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000010   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000020   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000030   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000040   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000050   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000060   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000070   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000080   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000090   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \                     `?<Initializer for user>`:
+   \   000000A0   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   000000B0   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   000000C0   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   000000D0   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   000000E0   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   000000F0   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000100   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000110   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000120   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000130   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \                     `?<Initializer for ball>`:
+   \   00000140   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000150   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000160   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \                     `?<Initializer for ball_x>`:
+   \   00000170   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for ball_y>`:
+   \   00000174   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for ball_s>`:
+   \   00000178   00000000           DC32 0
+   \                     `?<Initializer for ball_spx>`:
+   \   0000017C   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for ball_spy>`:
+   \   00000180   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for user_x>`:
+   \   00000184   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for user_y>`:
+   \   00000188   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for user_s>`:
+   \   0000018C   00000000           DC32 0
+   \                     `?<Initializer for user_l>`:
+   \   00000190   00000000           DC32 0
+   \                     `?<Initializer for user_r>`:
+   \   00000194   00000000           DC32 0
+   \                     `?<Initializer for user_sp>`:
+   \   00000198   05000000           DC32 5
+   \                     `?<Initializer for user_c>`:
+   \   0000019C   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for Level1>`:
+   \   000001A0   010000000100       DC32 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 1, 1, 0, 2, 2, 2, 2, 2, 2
+   \              000001000000
+   \              010000000100
+   \              000001000000
+   \              010000000200
+   \              000002000000
+   \              020000000100
+   \              000001000000
+   \              010000000100
+   \              000001000000
+   \              000000000200
+   \              000002000000
+   \              020000000200
+   \              000002000000
+   \              02000000    
+   \   000001F8   020000000100       DC32 2, 1, 1, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 4, 2, 5, 3, 3, 0, 0, 3
+   \              000001000000
+   \              020000000200
+   \              000002000000
+   \              020000000000
+   \              000000000000
+   \              000000000000
+   \              000000000000
+   \              000000000000
+   \              000004000000
+   \              020000000500
+   \              000003000000
+   \              030000000000
+   \              000000000000
+   \              03000000    
+   \   00000250   000000000000       DC32 0, 0, 0, 7, 7, 0, 0, 0, 0, 0, 0, 0, 7, 7, 0, 0, 0, 0, 1, 0, 0, 0
+   \              000000000000
+   \              070000000700
+   \              000000000000
+   \              000000000000
+   \              000000000000
+   \              000000000000
+   \              000000000000
+   \              070000000700
+   \              000000000000
+   \              000000000000
+   \              000000000000
+   \              010000000000
+   \              000000000000
+   \              00000000    
+   \   000002A8   000000000100       DC32 0, 1, 0, 0, 0, 0, 0, 0, 0, 5, 5, 5, 5, 5, 7, 7, 7, 7, 7, 5, 5, 5
+   \              000000000000
+   \              000000000000
+   \              000000000000
+   \              000000000000
+   \              000000000000
+   \              050000000500
+   \              000005000000
+   \              050000000500
+   \              000007000000
+   \              070000000700
+   \              000007000000
+   \              070000000500
+   \              000005000000
+   \              05000000    
+   \   00000300   050000000500       DC32 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3
+   \              000000000000
+   \              000000000000
+   \              000000000000
+   \              000000000000
+   \              000000000000
+   \              000000000000
+   \              000000000000
+   \              000000000000
+   \              000000000000
+   \              000000000000
+   \              000003000000
+   \              030000000300
+   \              000003000000
+   \              03000000    
+   \   00000358   030000000300       DC32 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
+   \              000003000000
+   \              030000000300
+   \              000003000000
+   \              030000000300
+   \              000003000000
+   \              03000000    
+   \                     `?<Initializer for bg1>`:
+   \   00000380   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for load_screen>`:
+   \   00000384   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for main_menu>`:
+   \   00000388   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for ball_check_only_pos_x>`:
+   \   0000038C   00000000           DC32 0
+   \                     `?<Initializer for ball_check_only_pos_y>`:
+   \   00000390   00000000           DC32 0
+   \                     `?<Initializer for lx>`:
+   \   00000394   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for ly>`:
+   \   00000398   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for ball_max_speed>`:
+   \   0000039C   06000000           DC32 6
+   \                     `?<Initializer for ball_min_speed>`:
+   \   000003A0   02000000           DC32 2
+   \                     `?<Initializer for exp>`:
+   \   000003A4   05000000           DC32 5
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "pics\\\\brick_wall.bmp">`:
+   \   00000000   706963735C62       DC8 "pics\\brick_wall.bmp"
+   \              7269636B5F77
+   \              616C6C2E626D
+   \              7000        
+   \   00000014   616C6C20696E       DC8 "all initialised!"
+   \              697469616C69
+   \              7365642100  
+   \   00000025   000000             DC8 0, 0, 0
+   \   00000028   706963735C75       DC8 "pics\\user1.bmp"
+   \              736572312E62
+   \              6D7000      
+   \   00000037   00                 DC8 0
+   \   00000038   706963735C62       DC8 "pics\\ball3.bmp"
+   \              616C6C332E62
+   \              6D7000      
+   \   00000047   00                 DC8 0
+   \   00000048   706963735C62       DC8 "pics\\ball2.bmp"
+   \              616C6C322E62
+   \              6D7000      
+   \   00000057   00                 DC8 0
+   \   00000058   706963735C62       DC8 "pics\\ball1.bmp"
+   \              616C6C312E62
+   \              6D7000      
+   \   00000067   00                 DC8 0
+   \   00000068   706963735C62       DC8 "pics\\brick5.bmp"
+   \              7269636B352E
+   \              626D7000    
+   \   00000078   706963735C62       DC8 "pics\\brick4.bmp"
+   \              7269636B342E
+   \              626D7000    
+   \   00000088   706963735C62       DC8 "pics\\brick3.bmp"
+   \              7269636B332E
+   \              626D7000    
+   \   00000098   706963735C62       DC8 "pics\\brick2.bmp"
+   \              7269636B322E
+   \              626D7000    
+   \   000000A8   706963735C62       DC8 "pics\\brick1.bmp"
+   \              7269636B312E
+   \              626D7000    
+   \   000000B8   706963735C6D       DC8 "pics\\mainmenu.bmp"
+   \              61696E6D656E
+   \              752E626D7000
+   \   000000CA   0000               DC8 0, 0
+   \   000000CC   706963735C6C       DC8 "pics\\loadscreen.bmp"
+   \              6F6164736372
+   \              65656E2E626D
+   \              7000        
+   \   000000E0   706963735C62       DC8 "pics\\bg1.bmp"
+   \              67312E626D70
+   \              00          
+   \   000000ED   000000             DC8 0, 0, 0
+   \   000000F0   63616C6C6564       DC8 "called function init"
+   \              2066756E6374
+   \              696F6E20696E
+   \              697400      
+   \   00000105   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant ">%d:%02d:%02d/%02d-%0...">`:
+   \   00000000   3E25643A2530       DC8 ">%d:%02d:%02d/%02d-%02d-%04d< >kernel<   %s\012"
+   \              32643A253032
+   \              642F25303264
+   \              2D253032642D
+   \              253034643C20
+   \              3E6B65726E65
+   \              6C3C20202025
+   \              730A00      
+   \   0000002D   000000             DC8 0, 0, 0
+   \   00000030   417263616E6F       DC8 "ArcanoidStudio.log"
+   \              696453747564
+   \              696F2E6C6F67
+   \              00          
+   \   00000043   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "%s%s">`:
+   \   00000000   2573257300         DC8 "%s%s"
+   \   00000005   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "completed!">`:
+   \   00000000   636F6D706C65       DC8 "completed!"
+   \              7465642100  
+   \   0000000B   00                 DC8 0
+   \   0000000C   667265656D65       DC8 "freememory..."
+   \              6D6F72792E2E
+   \              2E00        
+   \   0000001A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "[%d,%d]-%d">`:
+   \   00000000   5B25642C2564       DC8 "[%d,%d]-%d"
+   \              5D2D256400  
+   \   0000000B   00                 DC8 0
+
+   Maximum stack usage in bytes:
+
+     Function                CSTACK
+     --------                ------
+     ABS                         0
+     BBhit                      28
+     BBhitEx                    24
+     CheckAndChangeBallState    44
+     DrawBall                   44
+     DrawBricks                 40
+     DrawPx                     24
+     DrawRect                   40
+     DrawUser                   12
+     DrwImg                     64
+     FreeMemory                 12
+     Init                       12
+     Keyhook                     8
+     LoadScreen                  8
+     Lose                        0
+     Mainmenu                    0
+     SpriteHitEx                 4
+     Timer                       0
+     TimerRedrawScreen          48
+     UBhit                      12
+     fopen                      24
+     log                        48
+     moveuser                    0
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     test_img                          4
+     screen                           12
+     fopen                           104
+     fstats                           40
+     err                               4
+     date                             16
+     log                             216
+     DrwImg                           92
+     perc_t                            3
+     perc_s                            3
+     SpriteHitEx                      60
+     ABS                              12
+     bonus                           160
+     BBhit                           408
+     BBhitEx                         300
+     UBhit                           304
+     DrawPx                           96
+     DrawRect                        112
+     Lose                              4
+     CheckAndChangeBallState         596
+     DrawBricks                     1100
+     ball_a                            4
+     user_a                            4
+     ball_spx_accel                    4
+     ball_spy_accel                    4
+     DrawBall                       2716
+     brick                           936
+     DrawUser                        280
+     TimerRedrawScreen               204
+     Timer                             4
+     Mainmenu                          4
+     load_count                        4
+     LoadScreen                       64
+     moveuser                         92
+     Keyhook                          88
+     Init                            384
+     FreeMemory                      140
+     ??DataTable3                      4
+     ??DataTable4                      4
+     ??DataTable12                     4
+     ??DataTable14                     4
+     ??DataTable15                     4
+     ??DataTable16                     4
+     ?<Initializer for screen>        12
+     ?<Initializer for perc_t>         3
+     ?<Initializer for perc_s>         3
+     ?<Initializer for brick>        936
+     ?<Constant "pics\\brick_wall.bmp">
+                                     264
+     ?<Constant ">%d:%02d:%02d/%02d-%0...">
+                                      68
+     ?<Constant "%s%s">                8
+     ?<Constant "completed!">         28
+     ?<Constant "[%d,%d]-%d">         12
+      Others                         140
+
+ 
+ 7 520 bytes in segment CODE
+   380 bytes in segment DATA_C
+   954 bytes in segment DATA_I
+   954 bytes in segment DATA_ID
+   244 bytes in segment DATA_Z
+    24 bytes in segment INITTAB
+ 
+ 7 404 bytes of CODE  memory (+ 140 bytes shared)
+ 1 334 bytes of CONST memory
+ 1 198 bytes of DATA  memory
+
+Errors: none
+Warnings: none

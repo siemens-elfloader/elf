@@ -1,0 +1,675 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    19/Jan/2011  13:20:42 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\grabber\jpeg-7\example.c                      #
+#    Command line    =  C:\arm\grabber\jpeg-7\example.c -lC                  #
+#                       C:\arm\grabber\Release_SGOLD\List\ -o                #
+#                       C:\arm\grabber\Release_SGOLD\Obj\ -s9 --no_unroll    #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\grabber\Release_SGOLD\List\example.lst        #
+#    Object file     =  C:\arm\grabber\Release_SGOLD\Obj\example.r79         #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\grabber\jpeg-7\example.c
+      1          /*
+      2           * example.c
+      3           *
+      4           * This file illustrates how to use the IJG code as a subroutine library
+      5           * to read or write JPEG image files.  You should look at this code in
+      6           * conjunction with the documentation file libjpeg.txt.
+      7           *
+      8           * This code will not do anything useful as-is, but it may be helpful as a
+      9           * skeleton for constructing routines that call the JPEG library.  
+     10           *
+     11           * We present these routines in the same coding style used in the JPEG code
+     12           * (ANSI function definitions, etc); but you are of course free to code your
+     13           * routines in a different style if you prefer.
+     14           */
+     15          
+     16          //#include <stdio.h>
+     17          
+     18          /*
+     19           * Include file for users of JPEG library.
+     20           * You will need to have included system headers that define at least
+     21           * the typedefs FILE and size_t before you can include jpeglib.h.
+     22           * (stdio.h is sufficient on ANSI-conforming systems.)
+     23           * You may also wish to include "jerror.h".
+     24           */
+     25          
+     26          #include "jpeglib.h"
+     27          
+     28          /*
+     29           * <setjmp.h> is used for the optional error recovery mechanism shown in
+     30           * the second part of the example.
+     31           */
+     32          
+     33          //#include <setjmp.h>
+     34          
+     35          
+     36          
+     37          /******************** JPEG COMPRESSION SAMPLE INTERFACE *******************/
+     38          
+     39          /* This half of the example shows how to feed data into the JPEG compressor.
+     40           * We present a minimal version that does not worry about refinements such
+     41           * as error recovery (the JPEG code will just exit() if it gets an error).
+     42           */
+     43          
+     44          
+     45          /*
+     46           * IMAGE DATA FORMATS:
+     47           *
+     48           * The standard input image format is a rectangular array of pixels, with
+     49           * each pixel having the same number of "component" values (color channels).
+     50           * Each pixel row is an array of JSAMPLEs (which typically are unsigned chars).
+     51           * If you are working with color data, then the color values for each pixel
+     52           * must be adjacent in the row; for example, R,G,B,R,G,B,R,G,B,... for 24-bit
+     53           * RGB color.
+     54           *
+     55           * For this example, we'll assume that this data structure matches the way
+     56           * our application has stored the image in memory, so we can just pass a
+     57           * pointer to our image buffer.  In particular, let's say that the image is
+     58           * RGB color and is described by:
+     59           */
+     60          
+     61          extern JSAMPLE * image_buffer;	/* Points to large array of R,G,B-order data */
+     62          extern int image_height;	/* Number of rows in image */
+     63          extern int image_width;		/* Number of columns in image */
+     64          
+     65          
+     66          /*
+     67           * Sample routine for JPEG compression.  We assume that the target file name
+     68           * and a compression quality factor are passed in.
+     69           */
+     70          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     71          GLOBAL(void)
+     72          write_JPEG_file (char * filename, int quality)
+     73          {
+   \                     write_JPEG_file:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   8ADF4DE2           SUB      SP,SP,#+552
+   \   00000008   0050A0E1           MOV      R5,R0
+   \   0000000C   0140A0E1           MOV      R4,R1
+     74            /* This struct contains the JPEG compression parameters and pointers to
+     75             * working space (which is allocated as needed by the JPEG library).
+     76             * It is possible to have several such structures, representing multiple
+     77             * compression/decompression processes, in existence at once.  We refer
+     78             * to any one struct (and its associated working data) as a "JPEG object".
+     79             */
+     80            struct jpeg_compress_struct cinfo;
+     81            /* This struct represents a JPEG error handler.  It is declared separately
+     82             * because applications often want to supply a specialized error handler
+     83             * (see the second half of this file for an example).  But here we just
+     84             * take the easy way out and use the standard error handler, which will
+     85             * print a message on stderr and call exit() if compression fails.
+     86             * Note that this struct must live as long as the main JPEG parameter
+     87             * struct, to avoid dangling-pointer problems.
+     88             */
+     89            struct jpeg_error_mgr jerr;
+     90            /* More stuff */
+     91            int outfile;		/* target file */
+     92            JSAMPROW row_pointer[1];	/* pointer to JSAMPLE row[s] */
+     93            int row_stride;		/* physical row width in image buffer */
+     94          
+     95            /* Step 1: allocate and initialize JPEG compression object */
+     96          
+     97            /* We have to set up the error handler first, in case the initialization
+     98             * step fails.  (Unlikely, but it could happen if you are out of memory.)
+     99             * This routine fills in the contents of struct jerr, and returns jerr's
+    100             * address which we place into the link field in cinfo.
+    101             */
+    102            cinfo.err = jpeg_std_error(&jerr);
+   \   00000010   690F8DE2           ADD      R0,SP,#+420
+   \   00000014   ........           _BLF     jpeg_std_error,??jpeg_std_error??rA
+   \   00000018   04008DE5           STR      R0,[SP, #+4]
+    103            /* Now we can initialize the JPEG compression object. */
+    104            jpeg_create_compress(&cinfo);
+   \   0000001C   682FA0E3           MOV      R2,#+416
+   \   00000020   4610A0E3           MOV      R1,#+70
+   \   00000024   04008DE2           ADD      R0,SP,#+4
+   \   00000028   ........           _BLF     jpeg_CreateCompress,??jpeg_CreateCompress??rA
+    105          
+    106            /* Step 2: specify data destination (eg, a file) */
+    107            /* Note: steps 2 and 3 can be done in either order. */
+    108          
+    109            /* Here we use the library-supplied code to send compressed data to a
+    110             * stdio stream.  You can also write your own code to do something else.
+    111             * VERY IMPORTANT: use "b" option to fopen() if you are on a machine that
+    112             * requires it in order to write binary files.
+    113             */
+    114            outfile = fopenA(filename,A_WriteOnly+A_BIN+A_Create,P_WRITE,0);
+                             ^
+Warning[Pe223]: function "fopenA" declared implicitly
+   \   0000002C   0030A0E3           MOV      R3,#+0
+   \   00000030   402FA0E3           MOV      R2,#+256
+   \   00000034   0110A0E3           MOV      R1,#+1
+   \   00000038   811C81E3           ORR      R1,R1,#0x8100
+   \   0000003C   0500A0E1           MOV      R0,R5
+   \   00000040   ........           _BLF     fopenA,??fopenA??rA
+   \   00000044   0050A0E1           MOV      R5,R0
+    115            if(outfile==-1)
+   \   00000048   010075E3           CMN      R5,#+1
+   \   0000004C   0300001A           BNE      ??write_JPEG_file_0
+    116            {
+    117              Tlog("can't open");
+   \   00000050   D0009FE5           LDR      R0,??write_JPEG_file_1  ;; `?<Constant "can\\'t open">`
+   \   00000054   ........           _BLF     Tlog,??Tlog??rA
+    118              return;
+   \   00000058   8ADF8DE2           ADD      SP,SP,#+552
+   \   0000005C   7080BDE8           POP      {R4-R6,PC}
+    119            }
+    120            jpeg_stdio_dest(&cinfo, outfile);
+    121          
+    122            /* Step 3: set parameters for compression */
+    123          
+    124            /* First we supply a description of the input image.
+    125             * Four fields of the cinfo struct must be filled in:
+    126             */
+    127            cinfo.image_width = image_width; 	/* image width and height, in pixels */
+   \                     ??write_JPEG_file_0:
+   \   00000060   C4609FE5           LDR      R6,??write_JPEG_file_1+0x4  ;; image_width
+   \   00000064   0510A0E1           MOV      R1,R5
+   \   00000068   04008DE2           ADD      R0,SP,#+4
+   \   0000006C   ........           _BLF     jpeg_stdio_dest,??jpeg_stdio_dest??rA
+   \   00000070   001096E5           LDR      R1,[R6, #+0]
+    128            cinfo.image_height = image_height;
+    129            cinfo.input_components = 3;		/* # of color components per pixel */
+    130            cinfo.in_color_space = JCS_RGB; 	/* colorspace of input image */
+    131            /* Now use the library's routine to set default compression parameters.
+    132             * (You must set at least cinfo.in_color_space before calling this,
+    133             * since the defaults depend on the source color space.)
+    134             */
+    135            jpeg_set_defaults(&cinfo);
+   \   00000074   04008DE2           ADD      R0,SP,#+4
+   \   00000078   20108DE5           STR      R1,[SP, #+32]
+   \   0000007C   AC109FE5           LDR      R1,??write_JPEG_file_1+0x8  ;; image_height
+   \   00000080   001091E5           LDR      R1,[R1, #+0]
+   \   00000084   24108DE5           STR      R1,[SP, #+36]
+   \   00000088   0310A0E3           MOV      R1,#+3
+   \   0000008C   28108DE5           STR      R1,[SP, #+40]
+   \   00000090   0210A0E3           MOV      R1,#+2
+   \   00000094   2C10CDE5           STRB     R1,[SP, #+44]
+   \   00000098   ........           _BLF     jpeg_set_defaults,??jpeg_set_defaults??rA
+    136            /* Now you can set any non-default parameters you wish to.
+    137             * Here we just illustrate the use of quality (quantization table) scaling:
+    138             */
+    139            jpeg_set_quality(&cinfo, quality, TRUE /* limit to baseline-JPEG values */);
+   \   0000009C   0120A0E3           MOV      R2,#+1
+   \   000000A0   0410A0E1           MOV      R1,R4
+   \   000000A4   04008DE2           ADD      R0,SP,#+4
+   \   000000A8   ........           _BLF     jpeg_set_quality,??jpeg_set_quality??rA
+    140          
+    141            /* Step 4: Start compressor */
+    142          
+    143            /* TRUE ensures that we will write a complete interchange-JPEG file.
+    144             * Pass TRUE unless you are very sure of what you're doing.
+    145             */
+    146            jpeg_start_compress(&cinfo, TRUE);
+   \   000000AC   0110A0E3           MOV      R1,#+1
+   \   000000B0   04008DE2           ADD      R0,SP,#+4
+   \   000000B4   ........           _BLF     jpeg_start_compress,??jpeg_start_compress??rA
+    147          
+    148            /* Step 5: while (scan lines remain to be written) */
+    149            /*           jpeg_write_scanlines(...); */
+    150          
+    151            /* Here we use the library's state variable cinfo.next_scanline as the
+    152             * loop counter, so that we don't have to keep track ourselves.
+    153             * To keep things simple, we pass one scanline per call; you can pass
+    154             * more if you wish, though.
+    155             */
+    156            row_stride = image_width * 3;	/* JSAMPLEs per row in image_buffer */
+   \   000000B8   000096E5           LDR      R0,[R6, #+0]
+   \   000000BC   24109DE5           LDR      R1,[SP, #+36]
+   \   000000C0   804080E0           ADD      R4,R0,R0, LSL #+1
+   \   000000C4   04019DE5           LDR      R0,[SP, #+260]
+   \   000000C8   010050E1           CMP      R0,R1
+   \   000000CC   0C00002A           BCS      ??write_JPEG_file_2
+   \   000000D0   5C609FE5           LDR      R6,??write_JPEG_file_1+0xC  ;; image_buffer
+    157          
+    158            while (cinfo.next_scanline < cinfo.image_height) {
+    159              /* jpeg_write_scanlines expects an array of pointers to scanlines.
+    160               * Here the array is only one element long, but you could pass
+    161               * more than one scanline at a time if that's more convenient.
+    162               */
+    163              row_pointer[0] = & image_buffer[cinfo.next_scanline * row_stride];
+   \                     ??write_JPEG_file_3:
+   \   000000D4   04119DE5           LDR      R1,[SP, #+260]
+   \   000000D8   002096E5           LDR      R2,[R6, #+0]
+    164              (void) jpeg_write_scanlines(&cinfo, row_pointer, 1);
+   \   000000DC   04008DE2           ADD      R0,SP,#+4
+   \   000000E0   942121E0           MLA      R1,R4,R1,R2
+   \   000000E4   0120A0E3           MOV      R2,#+1
+   \   000000E8   00108DE5           STR      R1,[SP, #+0]
+   \   000000EC   0D10A0E1           MOV      R1,SP
+   \   000000F0   ........           _BLF     jpeg_write_scanlines,??jpeg_write_scanlines??rA
+    165            }
+   \   000000F4   04019DE5           LDR      R0,[SP, #+260]
+   \   000000F8   24109DE5           LDR      R1,[SP, #+36]
+   \   000000FC   010050E1           CMP      R0,R1
+   \   00000100   F3FFFF3A           BCC      ??write_JPEG_file_3
+    166          
+    167            /* Step 6: Finish compression */
+    168          
+    169            jpeg_finish_compress(&cinfo);
+   \                     ??write_JPEG_file_2:
+   \   00000104   04008DE2           ADD      R0,SP,#+4
+   \   00000108   ........           _BLF     jpeg_finish_compress,??jpeg_finish_compress??rA
+    170            /* After finish_compress, we can close the output file. */
+    171            fclose(outfile,0);
+   \   0000010C   0010A0E3           MOV      R1,#+0
+   \   00000110   0500A0E1           MOV      R0,R5
+   \   00000114   0D0000EF           SWI      +13
+    172          
+    173            /* Step 7: release JPEG compression object */
+    174          
+    175            /* This is an important step since it will release a good deal of memory. */
+    176            jpeg_destroy_compress(&cinfo);
+   \   00000118   04008DE2           ADD      R0,SP,#+4
+   \   0000011C   ........           _BLF     jpeg_destroy_compress,??jpeg_destroy_compress??rA
+    177          
+    178            /* And we're done! */
+    179          }
+   \   00000120   8ADF8DE2           ADD      SP,SP,#+552
+   \   00000124   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??write_JPEG_file_1:
+   \   00000128   ........           DC32     `?<Constant "can\\'t open">`
+   \   0000012C   ........           DC32     image_width
+   \   00000130   ........           DC32     image_height
+   \   00000134   ........           DC32     image_buffer
+    180          
+    181          
+    182          /*
+    183           * SOME FINE POINTS:
+    184           *
+    185           * In the above loop, we ignored the return value of jpeg_write_scanlines,
+    186           * which is the number of scanlines actually written.  We could get away
+    187           * with this because we were only relying on the value of cinfo.next_scanline,
+    188           * which will be incremented correctly.  If you maintain additional loop
+    189           * variables then you should be careful to increment them properly.
+    190           * Actually, for output to a stdio stream you needn't worry, because
+    191           * then jpeg_write_scanlines will write all the lines passed (or else exit
+    192           * with a fatal error).  Partial writes can only occur if you use a data
+    193           * destination module that can demand suspension of the compressor.
+    194           * (If you don't know what that's for, you don't need it.)
+    195           *
+    196           * If the compressor requires full-image buffers (for entropy-coding
+    197           * optimization or a multi-scan JPEG file), it will create temporary
+    198           * files for anything that doesn't fit within the maximum-memory setting.
+    199           * (Note that temp files are NOT needed if you use the default parameters.)
+    200           * On some systems you may need to set up a signal handler to ensure that
+    201           * temporary files are deleted if the program is interrupted.  See libjpeg.txt.
+    202           *
+    203           * Scanlines MUST be supplied in top-to-bottom order if you want your JPEG
+    204           * files to be compatible with everyone else's.  If you cannot readily read
+    205           * your data in that order, you'll need an intermediate array to hold the
+    206           * image.  See rdtarga.c or rdbmp.c for examples of handling bottom-to-top
+    207           * source data using the JPEG code's internal virtual-array mechanisms.
+    208           */
+    209          
+    210          
+    211          
+    212          /******************** JPEG DECOMPRESSION SAMPLE INTERFACE *******************/
+    213          
+    214          /* This half of the example shows how to read data from the JPEG decompressor.
+    215           * It's a bit more refined than the above, in that we show:
+    216           *   (a) how to modify the JPEG library's standard error-reporting behavior;
+    217           *   (b) how to allocate workspace using the library's memory manager.
+    218           *
+    219           * Just to make this example a little different from the first one, we'll
+    220           * assume that we do not intend to put the whole image into an in-memory
+    221           * buffer, but to send it line-by-line someplace else.  We need a one-
+    222           * scanline-high JSAMPLE array as a work buffer, and we will let the JPEG
+    223           * memory manager allocate it for us.  This approach is actually quite useful
+    224           * because we don't need to remember to deallocate the buffer separately: it
+    225           * will go away automatically when the JPEG object is cleaned up.
+    226           */
+    227          
+    228          
+    229          /*
+    230           * ERROR HANDLING:
+    231           *
+    232           * The JPEG library's standard error handler (jerror.c) is divided into
+    233           * several "methods" which you can override individually.  This lets you
+    234           * adjust the behavior without duplicating a lot of code, which you might
+    235           * have to update with each future release.
+    236           *
+    237           * Our example here shows how to override the "error_exit" method so that
+    238           * control is returned to the library's caller when a fatal error occurs,
+    239           * rather than calling exit() as the standard error_exit method does.
+    240           *
+    241           * We use C's setjmp/longjmp facility to return control.  This means that the
+    242           * routine which calls the JPEG library must first execute a setjmp() call to
+    243           * establish the return point.  We want the replacement error_exit to do a
+    244           * longjmp().  But we need to make the setjmp buffer accessible to the
+    245           * error_exit routine.  To do this, we make a private extension of the
+    246           * standard JPEG error handler object.  (If we were using C++, we'd say we
+    247           * were making a subclass of the regular error handler.)
+    248           *
+    249           * Here's the extended error handler struct:
+    250           */
+    251          
+    252          struct my_error_mgr {
+    253            struct jpeg_error_mgr pub;	/* "public" fields */
+    254          
+    255            jmp_buf setjmp_buffer;	/* for return to caller */
+    256          };
+    257          
+    258          typedef struct my_error_mgr * my_error_ptr;
+    259          
+    260          /*
+    261           * Here's the routine that will replace the standard error_exit method:
+    262           */
+    263          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    264          METHODDEF(void)
+    265          my_error_exit (j_common_ptr cinfo)
+    266          {
+   \                     my_error_exit:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    267            /* cinfo->err really points to a my_error_mgr struct, so coerce pointer */
+    268            my_error_ptr myerr = (my_error_ptr) cinfo->err;
+   \   00000004   004090E5           LDR      R4,[R0, #+0]
+    269          
+    270            /* Always display the message. */
+    271            /* We could postpone this until after returning, if we chose. */
+    272            (*cinfo->err->output_message) (cinfo);
+   \   00000008   081094E5           LDR      R1,[R4, #+8]
+   \   0000000C   31FF2FE1           BLX      R1
+    273          
+    274            /* Return control to the setjmp point */
+    275            longjmp(myerr->setjmp_buffer, 1);
+   \   00000010   0110A0E3           MOV      R1,#+1
+   \   00000014   840084E2           ADD      R0,R4,#+132
+   \   00000018   290200EF           SWI      +553
+    276          }
+   \   0000001C   1080BDE8           POP      {R4,PC}          ;; return
+    277          
+    278          
+    279          /*
+    280           * Sample routine for JPEG decompression.  We assume that the source file name
+    281           * is passed in.  We want to return 1 on success, 0 on error.
+    282           */
+    283          
+    284          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    285          GLOBAL(int)
+    286          read_JPEG_file (char * filename)
+    287          {
+   \                     read_JPEG_file:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   A0DF4DE2           SUB      SP,SP,#+640
+    288            /* This struct contains the JPEG decompression parameters and pointers to
+    289             * working space (which is allocated as needed by the JPEG library).
+    290             */
+    291            struct jpeg_decompress_struct cinfo;
+    292            /* We use our private extension JPEG error handler.
+    293             * Note that this struct must live as long as the main JPEG parameter
+    294             * struct, to avoid dangling-pointer problems.
+    295             */
+    296            struct my_error_mgr jerr;
+    297            /* More stuff */
+    298            int infile;		/* source file */
+    299            JSAMPARRAY buffer;		/* Output row buffer */
+    300            int row_stride;		/* physical row width in output buffer */
+    301          
+    302            /* In this example we want to open the input file before doing anything else,
+    303             * so that the setjmp() error recovery below can assume the file is open.
+    304             * VERY IMPORTANT: use "b" option to fopen() if you are on a machine that
+    305             * requires it in order to read binary files.
+    306             */
+    307          
+    308            infile = fopenA(filename,A_ReadOnly+A_BIN,P_READ,0);
+                            ^
+Warning[Pe223]: function "fopenA" declared implicitly
+   \   00000008   0030A0E3           MOV      R3,#+0
+   \   0000000C   8020A0E3           MOV      R2,#+128
+   \   00000010   801CA0E3           MOV      R1,#+32768
+   \   00000014   ........           _BLF     fopenA,??fopenA??rA
+   \   00000018   0040A0E1           MOV      R4,R0
+    309          
+    310            /* Step 1: allocate and initialize JPEG decompression object */
+    311          
+    312            /* We set up the normal JPEG error routines, then override error_exit. */
+    313            cinfo.err = jpeg_std_error(&jerr.pub);
+   \   0000001C   740F8DE2           ADD      R0,SP,#+464
+   \   00000020   ........           _BLF     jpeg_std_error,??jpeg_std_error??rA
+    314            jerr.pub.error_exit = my_error_exit;
+   \   00000024   F4109FE5           LDR      R1,??read_JPEG_file_0  ;; my_error_exit
+   \   00000028   00008DE5           STR      R0,[SP, #+0]
+   \   0000002C   D0118DE5           STR      R1,[SP, #+464]
+    315            /* Establish the setjmp return context for my_error_exit to use. */
+    316            if (setjmp(jerr.setjmp_buffer)) {
+   \   00000030   950F8DE2           ADD      R0,SP,#+596
+   \   00000034   620100EF           SWI      +354
+   \   00000038   000050E3           CMP      R0,#+0
+   \   0000003C   0700000A           BEQ      ??read_JPEG_file_1
+    317              /* If we get here, the JPEG code has signaled an error.
+    318               * We need to clean up the JPEG object, close the input file, and return.
+    319               */
+    320              jpeg_destroy_decompress(&cinfo);
+   \   00000040   0D00A0E1           MOV      R0,SP
+   \   00000044   ........           _BLF     jpeg_destroy_decompress,??jpeg_destroy_decompress??rA
+    321              fclose(infile,0);
+   \   00000048   0010A0E3           MOV      R1,#+0
+   \   0000004C   0400A0E1           MOV      R0,R4
+   \   00000050   0D0000EF           SWI      +13
+    322              return 0;
+   \   00000054   0000A0E3           MOV      R0,#+0
+   \   00000058   A0DF8DE2           ADD      SP,SP,#+640
+   \   0000005C   7080BDE8           POP      {R4-R6,PC}
+    323            }
+    324            /* Now we can initialize the JPEG decompression object. */
+    325            jpeg_create_decompress(&cinfo);
+   \                     ??read_JPEG_file_1:
+   \   00000060   742FA0E3           MOV      R2,#+464
+   \   00000064   4610A0E3           MOV      R1,#+70
+   \   00000068   0D00A0E1           MOV      R0,SP
+   \   0000006C   ........           _BLF     jpeg_CreateDecompress,??jpeg_CreateDecompress??rA
+    326          
+    327            /* Step 2: specify data source (eg, a file) */
+    328          
+    329            jpeg_stdio_src(&cinfo, infile);
+   \   00000070   0410A0E1           MOV      R1,R4
+   \   00000074   0D00A0E1           MOV      R0,SP
+   \   00000078   ........           _BLF     jpeg_stdio_src,??jpeg_stdio_src??rA
+    330          
+    331            /* Step 3: read file parameters with jpeg_read_header() */
+    332          
+    333            (void) jpeg_read_header(&cinfo, TRUE);
+   \   0000007C   0110A0E3           MOV      R1,#+1
+   \   00000080   0D00A0E1           MOV      R0,SP
+   \   00000084   ........           _BLF     jpeg_read_header,??jpeg_read_header??rA
+    334            /* We can ignore the return value from jpeg_read_header since
+    335             *   (a) suspension is not possible with the stdio data source, and
+    336             *   (b) we passed TRUE to reject a tables-only JPEG file as an error.
+    337             * See libjpeg.txt for more info.
+    338             */
+    339          
+    340            /* Step 4: set parameters for decompression */
+    341          
+    342            /* In this example, we don't need to change any of the defaults set by
+    343             * jpeg_read_header(), so we do nothing here.
+    344             */
+    345          
+    346            /* Step 5: Start decompressor */
+    347          
+    348            (void) jpeg_start_decompress(&cinfo);
+   \   00000088   0D00A0E1           MOV      R0,SP
+   \   0000008C   ........           _BLF     jpeg_start_decompress,??jpeg_start_decompress??rA
+    349            /* We can ignore the return value since suspension is not possible
+    350             * with the stdio data source.
+    351             */
+    352          
+    353            /* We may need to do some setup of our own at this point before reading
+    354             * the data.  After jpeg_start_decompress() we have the correct scaled
+    355             * output image dimensions available, as well as the output colormap
+    356             * if we asked for color quantization.
+    357             * In this example, we need to make an output work buffer of the right size.
+    358             */ 
+    359            /* JSAMPLEs per row in output buffer */
+    360            row_stride = cinfo.output_width * cinfo.output_components;
+   \   00000090   6C009DE5           LDR      R0,[SP, #+108]
+   \   00000094   78109DE5           LDR      R1,[SP, #+120]
+    361            /* Make a one-row-high sample array that will go away when done with image */
+    362            buffer = (*cinfo.mem->alloc_sarray)
+    363          		((j_common_ptr) &cinfo, JPOOL_IMAGE, row_stride, 1);
+   \   00000098   04609DE5           LDR      R6,[SP, #+4]
+   \   0000009C   910005E0           MUL      R5,R1,R0
+   \   000000A0   086096E5           LDR      R6,[R6, #+8]
+   \   000000A4   0130A0E3           MOV      R3,#+1
+   \   000000A8   0520A0E1           MOV      R2,R5
+   \   000000AC   0110A0E3           MOV      R1,#+1
+   \   000000B0   0D00A0E1           MOV      R0,SP
+   \   000000B4   36FF2FE1           BLX      R6
+   \   000000B8   70109DE5           LDR      R1,[SP, #+112]
+   \   000000BC   0060A0E1           MOV      R6,R0
+   \   000000C0   88009DE5           LDR      R0,[SP, #+136]
+   \   000000C4   010050E1           CMP      R0,R1
+   \   000000C8   0A00002A           BCS      ??read_JPEG_file_2
+    364          
+    365            /* Step 6: while (scan lines remain to be read) */
+    366            /*           jpeg_read_scanlines(...); */
+    367          
+    368            /* Here we use the library's state variable cinfo.output_scanline as the
+    369             * loop counter, so that we don't have to keep track ourselves.
+    370             */
+    371            while (cinfo.output_scanline < cinfo.output_height)
+    372            {
+    373              /* jpeg_read_scanlines expects an array of pointers to scanlines.
+    374               * Here the array is only one element long, but you could ask for
+    375               * more than one scanline at a time if that's more convenient.
+    376               */
+    377              (void) jpeg_read_scanlines(&cinfo, buffer, 1);
+   \                     ??read_JPEG_file_3:
+   \   000000CC   0120A0E3           MOV      R2,#+1
+   \   000000D0   0610A0E1           MOV      R1,R6
+   \   000000D4   0D00A0E1           MOV      R0,SP
+   \   000000D8   ........           _BLF     jpeg_read_scanlines,??jpeg_read_scanlines??rA
+    378              /* Assume put_scanline_someplace wants a pointer and sample count. */
+    379              put_scanline_someplace(buffer[0], row_stride);
+                     ^
+Warning[Pe223]: function "put_scanline_someplace" declared implicitly
+   \   000000DC   000096E5           LDR      R0,[R6, #+0]
+   \   000000E0   0510A0E1           MOV      R1,R5
+   \   000000E4   ........           _BLF     put_scanline_someplace,??put_scanline_someplace??rA
+    380            }
+   \   000000E8   88009DE5           LDR      R0,[SP, #+136]
+   \   000000EC   70109DE5           LDR      R1,[SP, #+112]
+   \   000000F0   010050E1           CMP      R0,R1
+   \   000000F4   F4FFFF3A           BCC      ??read_JPEG_file_3
+    381          
+    382            /* Step 7: Finish decompression */
+    383          
+    384            (void) jpeg_finish_decompress(&cinfo);
+   \                     ??read_JPEG_file_2:
+   \   000000F8   0D00A0E1           MOV      R0,SP
+   \   000000FC   ........           _BLF     jpeg_finish_decompress,??jpeg_finish_decompress??rA
+    385            /* We can ignore the return value since suspension is not possible
+    386             * with the stdio data source.
+    387             */
+    388          
+    389            /* Step 8: Release JPEG decompression object */
+    390          
+    391            /* This is an important step since it will release a good deal of memory. */
+    392            jpeg_destroy_decompress(&cinfo);
+   \   00000100   0D00A0E1           MOV      R0,SP
+   \   00000104   ........           _BLF     jpeg_destroy_decompress,??jpeg_destroy_decompress??rA
+    393          
+    394            /* After finish_decompress, we can close the input file.
+    395             * Here we postpone it until after no more JPEG errors are possible,
+    396             * so as to simplify the setjmp error logic above.  (Actually, I don't
+    397             * think that jpeg_destroy can do an error exit, but why assume anything...)
+    398             */
+    399            fclose(infile,0);
+   \   00000108   0010A0E3           MOV      R1,#+0
+   \   0000010C   0400A0E1           MOV      R0,R4
+   \   00000110   0D0000EF           SWI      +13
+    400          
+    401            /* At this point you may want to check to see whether any corrupt-data
+    402             * warnings occurred (test whether jerr.pub.num_warnings is nonzero).
+    403             */
+    404          
+    405            /* And we're done! */
+    406            return 1;
+   \   00000114   0100A0E3           MOV      R0,#+1
+   \   00000118   A0DF8DE2           ADD      SP,SP,#+640
+   \   0000011C   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??read_JPEG_file_0:
+   \   00000120   ........           DC32     my_error_exit
+    407          }
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "can\\'t open">`:
+   \   00000000   63616E277420       DC8 "can't open"
+   \              6F70656E00  
+   \   0000000B   00                 DC8 0
+    408          
+    409          
+    410          /*
+    411           * SOME FINE POINTS:
+    412           *
+    413           * In the above code, we ignored the return value of jpeg_read_scanlines,
+    414           * which is the number of scanlines actually read.  We could get away with
+    415           * this because we asked for only one line at a time and we weren't using
+    416           * a suspending data source.  See libjpeg.txt for more info.
+    417           *
+    418           * We cheated a bit by calling alloc_sarray() after jpeg_start_decompress();
+    419           * we should have done it beforehand to ensure that the space would be
+    420           * counted against the JPEG max_memory setting.  In some systems the above
+    421           * code would risk an out-of-memory error.  However, in general we don't
+    422           * know the output image dimensions before jpeg_start_decompress(), unless we
+    423           * call jpeg_calc_output_dimensions().  See libjpeg.txt for more about this.
+    424           *
+    425           * Scanlines are returned in the same order as they appear in the JPEG file,
+    426           * which is standardly top-to-bottom.  If you must emit data bottom-to-top,
+    427           * you can use one of the virtual arrays provided by the JPEG memory manager
+    428           * to invert the data.  See wrbmp.c for an example.
+    429           *
+    430           * As with compression, some operating modes may require temporary files.
+    431           * On some systems you may need to set up a signal handler to ensure that
+    432           * temporary files are deleted if the program is interrupted.  See libjpeg.txt.
+    433           */
+
+   Maximum stack usage in bytes:
+
+     Function        CSTACK
+     --------        ------
+     my_error_exit       8
+     read_JPEG_file    656
+     write_JPEG_file   568
+
+
+   Segment part sizes:
+
+     Function/Label            Bytes
+     --------------            -----
+     write_JPEG_file            312
+     my_error_exit               32
+     read_JPEG_file             292
+     ?<Constant "can\'t open">   12
+      Others                    240
+
+ 
+ 876 bytes in segment CODE
+  12 bytes in segment DATA_C
+ 
+ 636 bytes of CODE  memory (+ 240 bytes shared)
+  12 bytes of CONST memory
+
+Errors: none
+Warnings: 3

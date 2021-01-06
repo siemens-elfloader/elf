@@ -1,0 +1,1031 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    19/Jan/2011  13:20:38 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\grabber\jpeg-7\jccolor.c                      #
+#    Command line    =  C:\arm\grabber\jpeg-7\jccolor.c -lC                  #
+#                       C:\arm\grabber\Release_SGOLD\List\ -o                #
+#                       C:\arm\grabber\Release_SGOLD\Obj\ -s9 --no_unroll    #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\grabber\Release_SGOLD\List\jccolor.lst        #
+#    Object file     =  C:\arm\grabber\Release_SGOLD\Obj\jccolor.r79         #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\grabber\jpeg-7\jccolor.c
+      1          /*
+                  ^
+Warning[Pa050]: non-native end of line sequence detected (this diagnostic is
+          only issued once)
+      2           * jccolor.c
+      3           *
+      4           * Copyright (C) 1991-1996, Thomas G. Lane.
+      5           * This file is part of the Independent JPEG Group's software.
+      6           * For conditions of distribution and use, see the accompanying README file.
+      7           *
+      8           * This file contains input colorspace conversion routines.
+      9           */
+     10          
+     11          #define JPEG_INTERNALS
+     12          #include "jinclude.h"
+     13          #include "jpeglib.h"
+     14          
+     15          
+     16          /* Private subobject */
+     17          
+     18          typedef struct {
+     19            struct jpeg_color_converter pub; /* public fields */
+     20          
+     21            /* Private state for RGB->YCC conversion */
+     22            INT32 * rgb_ycc_tab;		/* => table for RGB to YCbCr conversion */
+     23          } my_color_converter;
+     24          
+     25          typedef my_color_converter * my_cconvert_ptr;
+     26          
+     27          
+     28          /**************** RGB -> YCbCr conversion: most common case **************/
+     29          
+     30          /*
+     31           * YCbCr is defined per CCIR 601-1, except that Cb and Cr are
+     32           * normalized to the range 0..MAXJSAMPLE rather than -0.5 .. 0.5.
+     33           * The conversion equations to be implemented are therefore
+     34           *	Y  =  0.29900 * R + 0.58700 * G + 0.11400 * B
+     35           *	Cb = -0.16874 * R - 0.33126 * G + 0.50000 * B  + CENTERJSAMPLE
+     36           *	Cr =  0.50000 * R - 0.41869 * G - 0.08131 * B  + CENTERJSAMPLE
+     37           * (These numbers are derived from TIFF 6.0 section 21, dated 3-June-92.)
+     38           * Note: older versions of the IJG code used a zero offset of MAXJSAMPLE/2,
+     39           * rather than CENTERJSAMPLE, for Cb and Cr.  This gave equal positive and
+     40           * negative swings for Cb/Cr, but meant that grayscale values (Cb=Cr=0)
+     41           * were not represented exactly.  Now we sacrifice exact representation of
+     42           * maximum red and maximum blue in order to get exact grayscales.
+     43           *
+     44           * To avoid floating-point arithmetic, we represent the fractional constants
+     45           * as integers scaled up by 2^16 (about 4 digits precision); we have to divide
+     46           * the products by 2^16, with appropriate rounding, to get the correct answer.
+     47           *
+     48           * For even more speed, we avoid doing any multiplications in the inner loop
+     49           * by precalculating the constants times R,G,B for all possible values.
+     50           * For 8-bit JSAMPLEs this is very reasonable (only 256 entries per table);
+     51           * for 12-bit samples it is still acceptable.  It's not very reasonable for
+     52           * 16-bit samples, but if you want lossless storage you shouldn't be changing
+     53           * colorspace anyway.
+     54           * The CENTERJSAMPLE offsets and the rounding fudge-factor of 0.5 are included
+     55           * in the tables to save adding them separately in the inner loop.
+     56           */
+     57          
+     58          #define SCALEBITS	16	/* speediest right-shift on some machines */
+     59          #define CBCR_OFFSET	((INT32) CENTERJSAMPLE << SCALEBITS)
+     60          #define ONE_HALF	((INT32) 1 << (SCALEBITS-1))
+     61          #define FIX(x)		((INT32) ((x) * (1L<<SCALEBITS) + 0.5))
+     62          
+     63          /* We allocate one big table and divide it up into eight parts, instead of
+     64           * doing eight alloc_small requests.  This lets us use a single table base
+     65           * address, which can be held in a register in the inner loops on many
+     66           * machines (more than can hold all eight addresses, anyway).
+     67           */
+     68          
+     69          #define R_Y_OFF		0			/* offset to R => Y section */
+     70          #define G_Y_OFF		(1*(MAXJSAMPLE+1))	/* offset to G => Y section */
+     71          #define B_Y_OFF		(2*(MAXJSAMPLE+1))	/* etc. */
+     72          #define R_CB_OFF	(3*(MAXJSAMPLE+1))
+     73          #define G_CB_OFF	(4*(MAXJSAMPLE+1))
+     74          #define B_CB_OFF	(5*(MAXJSAMPLE+1))
+     75          #define R_CR_OFF	B_CB_OFF		/* B=>Cb, R=>Cr are the same */
+     76          #define G_CR_OFF	(6*(MAXJSAMPLE+1))
+     77          #define B_CR_OFF	(7*(MAXJSAMPLE+1))
+     78          #define TABLE_SIZE	(8*(MAXJSAMPLE+1))
+     79          
+     80          
+     81          /*
+     82           * Initialize for RGB->YCC colorspace conversion.
+     83           */
+     84          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     85          METHODDEF(void)
+     86          rgb_ycc_start (j_compress_ptr cinfo)
+     87          {
+   \                     rgb_ycc_start:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+     88            my_cconvert_ptr cconvert = (my_cconvert_ptr) cinfo->cconvert;
+     89            INT32 * rgb_ycc_tab;
+     90            INT32 i;
+     91          
+     92            /* Allocate and fill in the conversion tables. */
+     93            cconvert->rgb_ycc_tab = rgb_ycc_tab = (INT32 *)
+     94              (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_IMAGE,
+     95          				(TABLE_SIZE * SIZEOF(INT32)));
+   \   00000004   043090E5           LDR      R3,[R0, #+4]
+   \   00000008   884190E5           LDR      R4,[R0, #+392]
+   \   0000000C   003093E5           LDR      R3,[R3, #+0]
+   \   00000010   802DA0E3           MOV      R2,#+8192
+   \   00000014   0110A0E3           MOV      R1,#+1
+   \   00000018   33FF2FE1           BLX      R3
+   \   0000001C   080084E5           STR      R0,[R4, #+8]
+     96          
+     97            for (i = 0; i <= MAXJSAMPLE; i++) {
+   \   00000020   0010A0E3           MOV      R1,#+0
+     98              rgb_ycc_tab[i+R_Y_OFF] = FIX(0.29900) * i;
+   \                     ??rgb_ycc_start_0:
+   \   00000024   8B20A0E3           MOV      R2,#+139
+   \   00000028   4C2C82E3           ORR      R2,R2,#0x4C00
+   \   0000002C   920103E0           MUL      R3,R2,R1
+     99              rgb_ycc_tab[i+G_Y_OFF] = FIX(0.58700) * i;
+   \   00000030   4640A0E3           MOV      R4,#+70
+   \   00000034   964C84E3           ORR      R4,R4,#0x9600
+   \   00000038   94010CE0           MUL      R12,R4,R1
+   \   0000003C   013180E7           STR      R3,[R0, +R1, LSL #+2]
+   \   00000040   012180E0           ADD      R2,R0,R1, LSL #+2
+   \   00000044   403E82E2           ADD      R3,R2,#+1024
+   \   00000048   00C083E5           STR      R12,[R3, #+0]
+    100              rgb_ycc_tab[i+B_Y_OFF] = FIX(0.11400) * i     + ONE_HALF;
+   \   0000004C   2F40A0E3           MOV      R4,#+47
+   \   00000050   744D84E3           ORR      R4,R4,#0x1D00
+   \   00000054   94010CE0           MUL      R12,R4,R1
+    101              rgb_ycc_tab[i+R_CB_OFF] = (-FIX(0.16874)) * i;
+    102              rgb_ycc_tab[i+G_CB_OFF] = (-FIX(0.33126)) * i;
+   \   00000058   502D82E2           ADD      R2,R2,#+5120
+   \   0000005C   804C8CE2           ADD      R4,R12,#+32768
+   \   00000060   004483E5           STR      R4,[R3, #+1024]
+   \   00000064   3240E0E3           MVN      R4,#+50
+   \   00000068   AC4DC4E3           BIC      R4,R4,#0x2B00
+   \   0000006C   94010CE0           MUL      R12,R4,R1
+   \   00000070   CC40E0E3           MVN      R4,#+204
+   \   00000074   00C883E5           STR      R12,[R3, #+2048]
+   \   00000078   544CC4E3           BIC      R4,R4,#0x5400
+   \   0000007C   94010CE0           MUL      R12,R4,R1
+   \   00000080   00CC83E5           STR      R12,[R3, #+3072]
+   \   00000084   34309FE5           LDR      R3,??rgb_ycc_start_1  ;; 0x807fff
+   \   00000088   813783E0           ADD      R3,R3,R1, LSL #+15
+   \   0000008C   003082E5           STR      R3,[R2, #+0]
+    103              /* We use a rounding fudge-factor of 0.5-epsilon for Cb and Cr.
+    104               * This ensures that the maximum output will round to MAXJSAMPLE
+    105               * not MAXJSAMPLE+1, and thus that we don't have to range-limit.
+    106               */
+    107              rgb_ycc_tab[i+B_CB_OFF] = FIX(0.50000) * i    + CBCR_OFFSET + ONE_HALF-1;
+    108          /*  B=>Cb and R=>Cr tables are the same
+    109              rgb_ycc_tab[i+R_CR_OFF] = FIX(0.50000) * i    + CBCR_OFFSET + ONE_HALF-1;
+    110          */
+    111              rgb_ycc_tab[i+G_CR_OFF] = (-FIX(0.41869)) * i;
+   \   00000090   2E30E0E3           MVN      R3,#+46
+   \   00000094   6B3CC3E3           BIC      R3,R3,#0x6B00
+   \   00000098   930104E0           MUL      R4,R3,R1
+    112              rgb_ycc_tab[i+B_CR_OFF] = (-FIX(0.08131)) * i;
+   \   0000009C   D030E0E3           MVN      R3,#+208
+   \   000000A0   004482E5           STR      R4,[R2, #+1024]
+   \   000000A4   503DC3E3           BIC      R3,R3,#0x1400
+   \   000000A8   930104E0           MUL      R4,R3,R1
+    113            }
+   \   000000AC   011081E2           ADD      R1,R1,#+1
+   \   000000B0   004882E5           STR      R4,[R2, #+2048]
+   \   000000B4   400F51E3           CMP      R1,#+256
+   \   000000B8   D9FFFFBA           BLT      ??rgb_ycc_start_0
+    114          }
+   \   000000BC   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??rgb_ycc_start_1:
+   \   000000C0   FF7F8000           DC32     0x807fff
+    115          
+    116          
+    117          /*
+    118           * Convert some rows of samples to the JPEG colorspace.
+    119           *
+    120           * Note that we change from the application's interleaved-pixel format
+    121           * to our internal noninterleaved, one-plane-per-component format.
+    122           * The input buffer is therefore three times as wide as the output buffer.
+    123           *
+    124           * A starting row offset is provided only for the output buffer.  The caller
+    125           * can easily adjust the passed input_buf value to accommodate any row
+    126           * offset required on that side.
+    127           */
+    128          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    129          METHODDEF(void)
+    130          rgb_ycc_convert (j_compress_ptr cinfo,
+    131          		 JSAMPARRAY input_buf, JSAMPIMAGE output_buf,
+    132          		 JDIMENSION output_row, int num_rows)
+    133          {
+   \                     rgb_ycc_convert:
+   \   00000000   F64F2DE9           PUSH     {R1,R2,R4-R11,LR}
+   \   00000004   08D04DE2           SUB      SP,SP,#+8
+   \   00000008   34109DE5           LDR      R1,[SP, #+52]
+   \   0000000C   0020A0E1           MOV      R2,R0
+    134            my_cconvert_ptr cconvert = (my_cconvert_ptr) cinfo->cconvert;
+    135            register int r, g, b;
+    136            register INT32 * ctab = cconvert->rgb_ycc_tab;
+   \   00000010   880192E5           LDR      R0,[R2, #+392]
+    137            register JSAMPROW inptr;
+    138            register JSAMPROW outptr0, outptr1, outptr2;
+    139            register JDIMENSION col;
+    140            JDIMENSION num_cols = cinfo->image_width;
+   \   00000014   1C2092E5           LDR      R2,[R2, #+28]
+   \   00000018   080090E5           LDR      R0,[R0, #+8]
+   \   0000001C   00208DE5           STR      R2,[SP, #+0]
+    141          
+    142            while (--num_rows >= 0) {
+   \                     ??rgb_ycc_convert_0:
+   \   00000020   011051E2           SUBS     R1,R1,#+1
+   \   00000024   FF8FBD48           POPMI    {R0-R11,PC}
+    143              inptr = *input_buf++;
+   \   00000028   08509DE5           LDR      R5,[SP, #+8]
+    144              outptr0 = output_buf[0][output_row];
+    145              outptr1 = output_buf[1][output_row];
+   \   0000002C   0C409DE5           LDR      R4,[SP, #+12]
+   \   00000030   ........           LDR      R2,[R5], #+4
+    146              outptr2 = output_buf[2][output_row];
+    147              output_row++;
+    148              for (col = 0; col < num_cols; col++) {
+   \   00000034   00609DE5           LDR      R6,[SP, #+0]
+   \   00000038   08508DE5           STR      R5,[SP, #+8]
+   \   0000003C   0C509DE5           LDR      R5,[SP, #+12]
+   \   00000040   000056E3           CMP      R6,#+0
+   \   00000044   005095E5           LDR      R5,[R5, #+0]
+   \   00000048   035195E7           LDR      R5,[R5, +R3, LSL #+2]
+   \   0000004C   04508DE5           STR      R5,[SP, #+4]
+   \   00000050   044094E5           LDR      R4,[R4, #+4]
+   \   00000054   0050A0E3           MOV      R5,#+0
+   \   00000058   03C194E7           LDR      R12,[R4, +R3, LSL #+2]
+   \   0000005C   0C409DE5           LDR      R4,[SP, #+12]
+   \   00000060   084094E5           LDR      R4,[R4, #+8]
+   \   00000064   034194E7           LDR      R4,[R4, +R3, LSL #+2]
+   \   00000068   013083E2           ADD      R3,R3,#+1
+   \   0000006C   EBFFFF0A           BEQ      ??rgb_ycc_convert_0
+   \                     ??rgb_ycc_convert_1:
+   \   00000070   00609DE5           LDR      R6,[SP, #+0]
+   \   00000074   060055E1           CMP      R5,R6
+   \   00000078   E8FFFF2A           BCS      ??rgb_ycc_convert_0
+    149                r = GETJSAMPLE(inptr[RGB_RED]);
+   \   0000007C   ........           LDRB     R6,[R2], #+1
+    150                g = GETJSAMPLE(inptr[RGB_GREEN]);
+   \   00000080   ........           LDRB     R9,[R2], #+1
+    151                b = GETJSAMPLE(inptr[RGB_BLUE]);
+   \   00000084   ........           LDRB     R7,[R2], #+1
+    152                inptr += RGB_PIXELSIZE;
+    153                /* If the inputs are 0..MAXJSAMPLE, the outputs of these equations
+    154                 * must be too; we do not need an explicit range-limiting operation.
+    155                 * Hence the value being shifted is never negative, and we don't
+    156                 * need the general RIGHT_SHIFT macro.
+    157                 */
+    158                /* Y */
+    159                outptr0[col] = (JSAMPLE)
+    160          		((ctab[r+R_Y_OFF] + ctab[g+G_Y_OFF] + ctab[b+B_Y_OFF])
+    161          		 >> SCALEBITS);
+   \   00000088   04B09DE5           LDR      R11,[SP, #+4]
+   \   0000008C   099180E0           ADD      R9,R0,R9, LSL #+2
+   \   00000090   00082DE9           PUSH     {R11}
+   \   00000094   06E190E7           LDR      LR,[R0, +R6, LSL #+2]
+   \   00000098   40AE89E2           ADD      R10,R9,#+1024
+   \   0000009C   00B09AE5           LDR      R11,[R10, #+0]
+   \   000000A0   077180E0           ADD      R7,R0,R7, LSL #+2
+   \   000000A4   808E87E2           ADD      R8,R7,#+2048
+   \   000000A8   0EE08BE0           ADD      LR,R11,LR
+   \   000000AC   00B098E5           LDR      R11,[R8, #+0]
+    162                /* Cb */
+    163                outptr1[col] = (JSAMPLE)
+    164          		((ctab[r+R_CB_OFF] + ctab[g+G_CB_OFF] + ctab[b+B_CB_OFF])
+    165          		 >> SCALEBITS);
+   \   000000B0   066180E0           ADD      R6,R0,R6, LSL #+2
+   \   000000B4   0EB08BE0           ADD      R11,R11,LR
+   \   000000B8   0040BDE8           POP      {LR}
+   \   000000BC   4BB8A0E1           ASR      R11,R11,#+16
+   \   000000C0   0EB0C5E7           STRB     R11,[R5, +LR]
+   \   000000C4   00BCB6E5           LDR      R11,[R6, #+3072]!
+   \   000000C8   00AC9AE5           LDR      R10,[R10, #+3072]
+   \   000000CC   008C98E5           LDR      R8,[R8, #+3072]
+   \   000000D0   0BA08AE0           ADD      R10,R10,R11
+   \   000000D4   0A8088E0           ADD      R8,R8,R10
+   \   000000D8   4888A0E1           ASR      R8,R8,#+16
+   \   000000DC   0C80C5E7           STRB     R8,[R5, +R12]
+    166                /* Cr */
+    167                outptr2[col] = (JSAMPLE)
+    168          		((ctab[r+R_CR_OFF] + ctab[g+G_CR_OFF] + ctab[b+B_CR_OFF])
+    169          		 >> SCALEBITS);
+   \   000000E0   006896E5           LDR      R6,[R6, #+2048]
+   \   000000E4   608D89E2           ADD      R8,R9,#+6144
+   \   000000E8   008098E5           LDR      R8,[R8, #+0]
+   \   000000EC   707D87E2           ADD      R7,R7,#+7168
+   \   000000F0   007097E5           LDR      R7,[R7, #+0]
+   \   000000F4   066088E0           ADD      R6,R8,R6
+   \   000000F8   066087E0           ADD      R6,R7,R6
+   \   000000FC   4668A0E1           ASR      R6,R6,#+16
+   \   00000100   0460C5E7           STRB     R6,[R5, +R4]
+    170              }
+   \   00000104   015085E2           ADD      R5,R5,#+1
+   \   00000108   D8FFFFEA           B        ??rgb_ycc_convert_1
+    171            }
+    172          }
+    173          
+    174          
+    175          /**************** Cases other than RGB -> YCbCr **************/
+    176          
+    177          
+    178          /*
+    179           * Convert some rows of samples to the JPEG colorspace.
+    180           * This version handles RGB->grayscale conversion, which is the same
+    181           * as the RGB->Y portion of RGB->YCbCr.
+    182           * We assume rgb_ycc_start has been called (we only use the Y tables).
+    183           */
+    184          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    185          METHODDEF(void)
+    186          rgb_gray_convert (j_compress_ptr cinfo,
+    187          		  JSAMPARRAY input_buf, JSAMPIMAGE output_buf,
+    188          		  JDIMENSION output_row, int num_rows)
+    189          {
+   \                     rgb_gray_convert:
+   \   00000000   F0072DE9           PUSH     {R4-R10}
+    190            my_cconvert_ptr cconvert = (my_cconvert_ptr) cinfo->cconvert;
+    191            register int r, g, b;
+    192            register INT32 * ctab = cconvert->rgb_ycc_tab;
+   \   00000004   884190E5           LDR      R4,[R0, #+392]
+   \   00000008   1CC09DE5           LDR      R12,[SP, #+28]
+   \   0000000C   084094E5           LDR      R4,[R4, #+8]
+    193            register JSAMPROW inptr;
+    194            register JSAMPROW outptr;
+    195            register JDIMENSION col;
+    196            JDIMENSION num_cols = cinfo->image_width;
+   \   00000010   1C0090E5           LDR      R0,[R0, #+28]
+    197          
+    198            while (--num_rows >= 0) {
+   \                     ??rgb_gray_convert_0:
+   \   00000014   01C05CE2           SUBS     R12,R12,#+1
+   \   00000018   1600004A           BMI      ??rgb_gray_convert_1
+    199              inptr = *input_buf++;
+    200              outptr = output_buf[0][output_row];
+   \   0000001C   006092E5           LDR      R6,[R2, #+0]
+   \   00000020   ........           LDR      R5,[R1], #+4
+   \   00000024   036196E7           LDR      R6,[R6, +R3, LSL #+2]
+    201              output_row++;
+   \   00000028   013083E2           ADD      R3,R3,#+1
+    202              for (col = 0; col < num_cols; col++) {
+   \   0000002C   0070A0E3           MOV      R7,#+0
+   \   00000030   000050E3           CMP      R0,#+0
+   \   00000034   F6FFFF0A           BEQ      ??rgb_gray_convert_0
+   \                     ??rgb_gray_convert_2:
+   \   00000038   000057E1           CMP      R7,R0
+   \   0000003C   F4FFFF2A           BCS      ??rgb_gray_convert_0
+    203                r = GETJSAMPLE(inptr[RGB_RED]);
+   \   00000040   ........           LDRB     R9,[R5], #+1
+    204                g = GETJSAMPLE(inptr[RGB_GREEN]);
+   \   00000044   ........           LDRB     R10,[R5], #+1
+    205                b = GETJSAMPLE(inptr[RGB_BLUE]);
+   \   00000048   ........           LDRB     R8,[R5], #+1
+    206                inptr += RGB_PIXELSIZE;
+    207                /* Y */
+    208                outptr[col] = (JSAMPLE)
+    209          		((ctab[r+R_Y_OFF] + ctab[g+G_Y_OFF] + ctab[b+B_Y_OFF])
+    210          		 >> SCALEBITS);
+   \   0000004C   099194E7           LDR      R9,[R4, +R9, LSL #+2]
+   \   00000050   0AA184E0           ADD      R10,R4,R10, LSL #+2
+   \   00000054   00A49AE5           LDR      R10,[R10, #+1024]
+   \   00000058   088184E0           ADD      R8,R4,R8, LSL #+2
+   \   0000005C   008898E5           LDR      R8,[R8, #+2048]
+   \   00000060   09908AE0           ADD      R9,R10,R9
+   \   00000064   098088E0           ADD      R8,R8,R9
+   \   00000068   4888A0E1           ASR      R8,R8,#+16
+   \   0000006C   0680C7E7           STRB     R8,[R7, +R6]
+    211              }
+   \   00000070   017087E2           ADD      R7,R7,#+1
+   \   00000074   EFFFFFEA           B        ??rgb_gray_convert_2
+    212            }
+    213          }
+   \                     ??rgb_gray_convert_1:
+   \   00000078   F007BDE8           POP      {R4-R10}
+   \   0000007C   1EFF2FE1           BX       LR               ;; return
+    214          
+    215          
+    216          /*
+    217           * Convert some rows of samples to the JPEG colorspace.
+    218           * This version handles Adobe-style CMYK->YCCK conversion,
+    219           * where we convert R=1-C, G=1-M, and B=1-Y to YCbCr using the same
+    220           * conversion as above, while passing K (black) unchanged.
+    221           * We assume rgb_ycc_start has been called.
+    222           */
+    223          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    224          METHODDEF(void)
+    225          cmyk_ycck_convert (j_compress_ptr cinfo,
+    226          		   JSAMPARRAY input_buf, JSAMPIMAGE output_buf,
+    227          		   JDIMENSION output_row, int num_rows)
+    228          {
+   \                     cmyk_ycck_convert:
+   \   00000000   F64F2DE9           PUSH     {R1,R2,R4-R11,LR}
+   \   00000004   0CD04DE2           SUB      SP,SP,#+12
+   \   00000008   38109DE5           LDR      R1,[SP, #+56]
+   \   0000000C   0020A0E1           MOV      R2,R0
+    229            my_cconvert_ptr cconvert = (my_cconvert_ptr) cinfo->cconvert;
+    230            register int r, g, b;
+    231            register INT32 * ctab = cconvert->rgb_ycc_tab;
+   \   00000010   880192E5           LDR      R0,[R2, #+392]
+    232            register JSAMPROW inptr;
+    233            register JSAMPROW outptr0, outptr1, outptr2, outptr3;
+    234            register JDIMENSION col;
+    235            JDIMENSION num_cols = cinfo->image_width;
+   \   00000014   1C2092E5           LDR      R2,[R2, #+28]
+   \   00000018   080090E5           LDR      R0,[R0, #+8]
+   \   0000001C   00208DE5           STR      R2,[SP, #+0]
+    236          
+    237            while (--num_rows >= 0) {
+   \                     ??cmyk_ycck_convert_0:
+   \   00000020   011051E2           SUBS     R1,R1,#+1
+   \   00000024   4200004A           BMI      ??cmyk_ycck_convert_1
+    238              inptr = *input_buf++;
+   \   00000028   0C509DE5           LDR      R5,[SP, #+12]
+    239              outptr0 = output_buf[0][output_row];
+    240              outptr1 = output_buf[1][output_row];
+    241              outptr2 = output_buf[2][output_row];
+   \   0000002C   10409DE5           LDR      R4,[SP, #+16]
+   \   00000030   ........           LDR      R2,[R5], #+4
+    242              outptr3 = output_buf[3][output_row];
+    243              output_row++;
+    244              for (col = 0; col < num_cols; col++) {
+   \   00000034   00609DE5           LDR      R6,[SP, #+0]
+   \   00000038   0C508DE5           STR      R5,[SP, #+12]
+   \   0000003C   10509DE5           LDR      R5,[SP, #+16]
+   \   00000040   000056E3           CMP      R6,#+0
+   \   00000044   005095E5           LDR      R5,[R5, #+0]
+   \   00000048   035195E7           LDR      R5,[R5, +R3, LSL #+2]
+   \   0000004C   04508DE5           STR      R5,[SP, #+4]
+   \   00000050   10509DE5           LDR      R5,[SP, #+16]
+   \   00000054   045095E5           LDR      R5,[R5, #+4]
+   \   00000058   035195E7           LDR      R5,[R5, +R3, LSL #+2]
+   \   0000005C   08508DE5           STR      R5,[SP, #+8]
+   \   00000060   084094E5           LDR      R4,[R4, #+8]
+   \   00000064   0050A0E3           MOV      R5,#+0
+   \   00000068   03C194E7           LDR      R12,[R4, +R3, LSL #+2]
+   \   0000006C   10409DE5           LDR      R4,[SP, #+16]
+   \   00000070   0C4094E5           LDR      R4,[R4, #+12]
+   \   00000074   034194E7           LDR      R4,[R4, +R3, LSL #+2]
+   \   00000078   013083E2           ADD      R3,R3,#+1
+   \   0000007C   E7FFFF0A           BEQ      ??cmyk_ycck_convert_0
+   \                     ??cmyk_ycck_convert_2:
+   \   00000080   00609DE5           LDR      R6,[SP, #+0]
+   \   00000084   060055E1           CMP      R5,R6
+   \   00000088   E4FFFF2A           BCS      ??cmyk_ycck_convert_0
+    245                r = MAXJSAMPLE - GETJSAMPLE(inptr[0]);
+   \   0000008C   ........           LDRB     R6,[R2], #+1
+    246                g = MAXJSAMPLE - GETJSAMPLE(inptr[1]);
+   \   00000090   ........           LDRB     R7,[R2], #+1
+   \   00000094   FF6066E2           RSB      R6,R6,#+255
+   \   00000098   FF9067E2           RSB      R9,R7,#+255
+    247                b = MAXJSAMPLE - GETJSAMPLE(inptr[2]);
+   \   0000009C   ........           LDRB     R7,[R2], #+1
+    248                /* K passes through as-is */
+    249                outptr3[col] = inptr[3];	/* don't need GETJSAMPLE here */
+   \   000000A0   ........           LDRB     R8,[R2], #+1
+    250                inptr += 4;
+    251                /* If the inputs are 0..MAXJSAMPLE, the outputs of these equations
+    252                 * must be too; we do not need an explicit range-limiting operation.
+    253                 * Hence the value being shifted is never negative, and we don't
+    254                 * need the general RIGHT_SHIFT macro.
+    255                 */
+    256                /* Y */
+    257                outptr0[col] = (JSAMPLE)
+    258          		((ctab[r+R_Y_OFF] + ctab[g+G_Y_OFF] + ctab[b+B_Y_OFF])
+    259          		 >> SCALEBITS);
+   \   000000A4   099180E0           ADD      R9,R0,R9, LSL #+2
+   \   000000A8   40AE89E2           ADD      R10,R9,#+1024
+   \   000000AC   0480C5E7           STRB     R8,[R5, +R4]
+   \   000000B0   04B09DE5           LDR      R11,[SP, #+4]
+   \   000000B4   FF7067E2           RSB      R7,R7,#+255
+   \   000000B8   00082DE9           PUSH     {R11}
+   \   000000BC   06E190E7           LDR      LR,[R0, +R6, LSL #+2]
+   \   000000C0   00B09AE5           LDR      R11,[R10, #+0]
+   \   000000C4   077180E0           ADD      R7,R0,R7, LSL #+2
+   \   000000C8   808E87E2           ADD      R8,R7,#+2048
+   \   000000CC   0EE08BE0           ADD      LR,R11,LR
+   \   000000D0   00B098E5           LDR      R11,[R8, #+0]
+    260                /* Cb */
+    261                outptr1[col] = (JSAMPLE)
+    262          		((ctab[r+R_CB_OFF] + ctab[g+G_CB_OFF] + ctab[b+B_CB_OFF])
+    263          		 >> SCALEBITS);
+   \   000000D4   066180E0           ADD      R6,R0,R6, LSL #+2
+   \   000000D8   0EB08BE0           ADD      R11,R11,LR
+   \   000000DC   0040BDE8           POP      {LR}
+   \   000000E0   4BB8A0E1           ASR      R11,R11,#+16
+   \   000000E4   0EB0C5E7           STRB     R11,[R5, +LR]
+   \   000000E8   08B09DE5           LDR      R11,[SP, #+8]
+   \   000000EC   00ECB6E5           LDR      LR,[R6, #+3072]!
+   \   000000F0   00AC9AE5           LDR      R10,[R10, #+3072]
+   \   000000F4   008C98E5           LDR      R8,[R8, #+3072]
+   \   000000F8   0EA08AE0           ADD      R10,R10,LR
+   \   000000FC   0A8088E0           ADD      R8,R8,R10
+   \   00000100   4888A0E1           ASR      R8,R8,#+16
+   \   00000104   0B80C5E7           STRB     R8,[R5, +R11]
+    264                /* Cr */
+    265                outptr2[col] = (JSAMPLE)
+    266          		((ctab[r+R_CR_OFF] + ctab[g+G_CR_OFF] + ctab[b+B_CR_OFF])
+    267          		 >> SCALEBITS);
+   \   00000108   006896E5           LDR      R6,[R6, #+2048]
+   \   0000010C   608D89E2           ADD      R8,R9,#+6144
+   \   00000110   008098E5           LDR      R8,[R8, #+0]
+   \   00000114   707D87E2           ADD      R7,R7,#+7168
+   \   00000118   007097E5           LDR      R7,[R7, #+0]
+   \   0000011C   066088E0           ADD      R6,R8,R6
+   \   00000120   066087E0           ADD      R6,R7,R6
+   \   00000124   4668A0E1           ASR      R6,R6,#+16
+   \   00000128   0C60C5E7           STRB     R6,[R5, +R12]
+    268              }
+   \   0000012C   015085E2           ADD      R5,R5,#+1
+   \   00000130   D2FFFFEA           B        ??cmyk_ycck_convert_2
+    269            }
+    270          }
+   \                     ??cmyk_ycck_convert_1:
+   \   00000134   14D08DE2           ADD      SP,SP,#+20       ;; stack cleaning
+   \   00000138   F08FBDE8           POP      {R4-R11,PC}      ;; return
+    271          
+    272          
+    273          /*
+    274           * Convert some rows of samples to the JPEG colorspace.
+    275           * This version handles grayscale output with no conversion.
+    276           * The source can be either plain grayscale or YCbCr (since Y == gray).
+    277           */
+    278          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    279          METHODDEF(void)
+    280          grayscale_convert (j_compress_ptr cinfo,
+    281          		   JSAMPARRAY input_buf, JSAMPIMAGE output_buf,
+    282          		   JDIMENSION output_row, int num_rows)
+    283          {
+   \                     grayscale_convert:
+   \   00000000   F0012DE9           PUSH     {R4-R8}
+   \   00000004   14C09DE5           LDR      R12,[SP, #+20]
+    284            register JSAMPROW inptr;
+    285            register JSAMPROW outptr;
+    286            register JDIMENSION col;
+    287            JDIMENSION num_cols = cinfo->image_width;
+   \   00000008   1C4090E5           LDR      R4,[R0, #+28]
+    288            int instride = cinfo->input_components;
+   \   0000000C   240090E5           LDR      R0,[R0, #+36]
+    289          
+    290            while (--num_rows >= 0) {
+   \                     ??grayscale_convert_0:
+   \   00000010   01C05CE2           SUBS     R12,R12,#+1
+   \   00000014   0D00004A           BMI      ??grayscale_convert_1
+    291              inptr = *input_buf++;
+    292              outptr = output_buf[0][output_row];
+   \   00000018   006092E5           LDR      R6,[R2, #+0]
+   \   0000001C   ........           LDR      R5,[R1], #+4
+   \   00000020   036196E7           LDR      R6,[R6, +R3, LSL #+2]
+    293              output_row++;
+   \   00000024   013083E2           ADD      R3,R3,#+1
+    294              for (col = 0; col < num_cols; col++) {
+   \   00000028   0070A0E3           MOV      R7,#+0
+   \   0000002C   000054E3           CMP      R4,#+0
+   \   00000030   F6FFFF0A           BEQ      ??grayscale_convert_0
+   \                     ??grayscale_convert_2:
+   \   00000034   040057E1           CMP      R7,R4
+   \   00000038   F4FFFF2A           BCS      ??grayscale_convert_0
+    295                outptr[col] = inptr[0];	/* don't need GETJSAMPLE() here */
+   \   0000003C   0080D5E5           LDRB     R8,[R5, #+0]
+    296                inptr += instride;
+   \   00000040   055080E0           ADD      R5,R0,R5
+   \   00000044   0680C7E7           STRB     R8,[R7, +R6]
+    297              }
+   \   00000048   017087E2           ADD      R7,R7,#+1
+   \   0000004C   F8FFFFEA           B        ??grayscale_convert_2
+    298            }
+    299          }
+   \                     ??grayscale_convert_1:
+   \   00000050   F001BDE8           POP      {R4-R8}
+   \   00000054   1EFF2FE1           BX       LR               ;; return
+    300          
+    301          
+    302          /*
+    303           * Convert some rows of samples to the JPEG colorspace.
+    304           * This version handles multi-component colorspaces without conversion.
+    305           * We assume input_components == num_components.
+    306           */
+    307          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    308          METHODDEF(void)
+    309          null_convert (j_compress_ptr cinfo,
+    310          	      JSAMPARRAY input_buf, JSAMPIMAGE output_buf,
+    311          	      JDIMENSION output_row, int num_rows)
+    312          {
+   \                     null_convert:
+   \   00000000   F0032DE9           PUSH     {R4-R9}
+   \   00000004   18C09DE5           LDR      R12,[SP, #+24]
+    313            register JSAMPROW inptr;
+    314            register JSAMPROW outptr;
+    315            register JDIMENSION col;
+    316            register int ci;
+    317            int nc = cinfo->num_components;
+   \   00000008   484090E5           LDR      R4,[R0, #+72]
+    318            JDIMENSION num_cols = cinfo->image_width;
+   \   0000000C   1C0090E5           LDR      R0,[R0, #+28]
+   \   00000010   010000EA           B        ??null_convert_0
+    319          
+    320            while (--num_rows >= 0) {
+    321              /* It seems fastest to make a separate pass for each component. */
+    322              for (ci = 0; ci < nc; ci++) {
+    323                inptr = *input_buf;
+    324                outptr = output_buf[ci][output_row];
+    325                for (col = 0; col < num_cols; col++) {
+    326          	outptr[col] = inptr[ci]; /* don't need GETJSAMPLE() here */
+    327          	inptr += nc;
+    328                }
+    329              }
+    330              input_buf++;
+   \                     ??null_convert_1:
+   \   00000014   041081E2           ADD      R1,R1,#+4
+    331              output_row++;
+   \   00000018   013083E2           ADD      R3,R3,#+1
+   \                     ??null_convert_0:
+   \   0000001C   01C05CE2           SUBS     R12,R12,#+1
+   \   00000020   1300004A           BMI      ??null_convert_2
+   \   00000024   0050A0E3           MOV      R5,#+0
+   \   00000028   010054E3           CMP      R4,#+1
+   \   0000002C   070000AA           BGE      ??null_convert_3
+   \   00000030   F7FFFFEA           B        ??null_convert_1
+   \                     ??null_convert_4:
+   \   00000034   0890D5E7           LDRB     R9,[R5, +R8]
+   \   00000038   088084E0           ADD      R8,R4,R8
+   \   0000003C   0690C7E7           STRB     R9,[R7, +R6]
+   \   00000040   017087E2           ADD      R7,R7,#+1
+   \                     ??null_convert_5:
+   \   00000044   000057E1           CMP      R7,R0
+   \   00000048   F9FFFF3A           BCC      ??null_convert_4
+   \                     ??null_convert_6:
+   \   0000004C   015085E2           ADD      R5,R5,#+1
+   \                     ??null_convert_3:
+   \   00000050   040055E1           CMP      R5,R4
+   \   00000054   EEFFFFAA           BGE      ??null_convert_1
+   \   00000058   056192E7           LDR      R6,[R2, +R5, LSL #+2]
+   \   0000005C   008091E5           LDR      R8,[R1, #+0]
+   \   00000060   036196E7           LDR      R6,[R6, +R3, LSL #+2]
+   \   00000064   0070A0E3           MOV      R7,#+0
+   \   00000068   000050E3           CMP      R0,#+0
+   \   0000006C   F4FFFF1A           BNE      ??null_convert_5
+   \   00000070   F5FFFFEA           B        ??null_convert_6
+    332            }
+    333          }
+   \                     ??null_convert_2:
+   \   00000074   F003BDE8           POP      {R4-R9}
+   \   00000078   1EFF2FE1           BX       LR               ;; return
+    334          
+    335          
+    336          /*
+    337           * Empty method for start_pass.
+    338           */
+    339          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    340          METHODDEF(void)
+    341          null_method (j_compress_ptr cinfo)
+    342          {
+    343            /* no work needed */
+    344          }
+   \                     null_method:
+   \   00000000   1EFF2FE1           BX       LR               ;; return
+    345          
+    346          
+    347          /*
+    348           * Module initialization routine for input colorspace conversion.
+    349           */
+    350          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    351          GLOBAL(void)
+    352          jinit_color_converter (j_compress_ptr cinfo)
+    353          {
+   \                     jinit_color_converter:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    354            my_cconvert_ptr cconvert;
+    355          
+    356            cconvert = (my_cconvert_ptr)
+    357              (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_IMAGE,
+    358          				SIZEOF(my_color_converter));
+   \   00000008   043094E5           LDR      R3,[R4, #+4]
+   \   0000000C   0C20A0E3           MOV      R2,#+12
+   \   00000010   003093E5           LDR      R3,[R3, #+0]
+   \   00000014   0110A0E3           MOV      R1,#+1
+   \   00000018   33FF2FE1           BLX      R3
+   \   0000001C   0050A0E1           MOV      R5,R0
+    359            cinfo->cconvert = (struct jpeg_color_converter *) cconvert;
+    360            /* set start_pass to null method until we find out differently */
+    361            cconvert->pub.start_pass = null_method;
+   \   00000020   20029FE5           LDR      R0,??jinit_color_converter_1  ;; null_method
+   \   00000024   885184E5           STR      R5,[R4, #+392]
+   \   00000028   000085E5           STR      R0,[R5, #+0]
+    362          
+    363            /* Make sure input_components agrees with in_color_space */
+    364            switch (cinfo->in_color_space) {
+   \   0000002C   2800D4E5           LDRB     R0,[R4, #+40]
+   \   00000030   010050E2           SUBS     R0,R0,#+1
+   \   00000034   0600000A           BEQ      ??jinit_color_converter_2
+   \   00000038   010040E2           SUB      R0,R0,#+1
+   \   0000003C   010050E3           CMP      R0,#+1
+   \   00000040   0E00009A           BLS      ??jinit_color_converter_3
+   \   00000044   020040E2           SUB      R0,R0,#+2
+   \   00000048   010050E3           CMP      R0,#+1
+   \   0000004C   0F00009A           BLS      ??jinit_color_converter_4
+   \   00000050   110000EA           B        ??jinit_color_converter_5
+    365            case JCS_GRAYSCALE:
+    366              if (cinfo->input_components != 1)
+   \                     ??jinit_color_converter_2:
+   \   00000054   240094E5           LDR      R0,[R4, #+36]
+   \   00000058   010050E3           CMP      R0,#+1
+   \   0000005C   1100000A           BEQ      ??jinit_color_converter_6
+    367                ERREXIT(cinfo, JERR_BAD_IN_COLORSPACE);
+   \                     ??jinit_color_converter_7:
+   \   00000060   000094E5           LDR      R0,[R4, #+0]
+   \   00000064   0A10A0E3           MOV      R1,#+10
+   \   00000068   141080E5           STR      R1,[R0, #+20]
+   \   0000006C   001094E5           LDR      R1,[R4, #+0]
+   \   00000070   0400A0E1           MOV      R0,R4
+   \   00000074   001091E5           LDR      R1,[R1, #+0]
+   \   00000078   31FF2FE1           BLX      R1
+   \   0000007C   090000EA           B        ??jinit_color_converter_6
+    368              break;
+    369          
+    370            case JCS_RGB:
+    371          #if RGB_PIXELSIZE != 3
+    372              if (cinfo->input_components != RGB_PIXELSIZE)
+    373                ERREXIT(cinfo, JERR_BAD_IN_COLORSPACE);
+    374              break;
+    375          #endif /* else share code with YCbCr */
+    376          
+    377            case JCS_YCbCr:
+    378              if (cinfo->input_components != 3)
+   \                     ??jinit_color_converter_3:
+   \   00000080   240094E5           LDR      R0,[R4, #+36]
+   \   00000084   030050E3           CMP      R0,#+3
+   \                     ??jinit_color_converter_8:
+   \   00000088   F4FFFF1A           BNE      ??jinit_color_converter_7
+   \   0000008C   050000EA           B        ??jinit_color_converter_6
+    379                ERREXIT(cinfo, JERR_BAD_IN_COLORSPACE);
+    380              break;
+    381          
+    382            case JCS_CMYK:
+    383            case JCS_YCCK:
+    384              if (cinfo->input_components != 4)
+   \                     ??jinit_color_converter_4:
+   \   00000090   240094E5           LDR      R0,[R4, #+36]
+   \   00000094   040050E3           CMP      R0,#+4
+   \   00000098   FAFFFFEA           B        ??jinit_color_converter_8
+    385                ERREXIT(cinfo, JERR_BAD_IN_COLORSPACE);
+    386              break;
+    387          
+    388            default:			/* JCS_UNKNOWN can be anything */
+    389              if (cinfo->input_components < 1)
+   \                     ??jinit_color_converter_5:
+   \   0000009C   240094E5           LDR      R0,[R4, #+36]
+   \   000000A0   010050E3           CMP      R0,#+1
+   \   000000A4   EDFFFFBA           BLT      ??jinit_color_converter_7
+    390                ERREXIT(cinfo, JERR_BAD_IN_COLORSPACE);
+    391              break;
+    392            }
+    393          
+    394            /* Check num_components, set conversion method based on requested space */
+    395            switch (cinfo->jpeg_color_space) {
+   \                     ??jinit_color_converter_6:
+   \   000000A8   4C10D4E5           LDRB     R1,[R4, #+76]
+   \   000000AC   480094E5           LDR      R0,[R4, #+72]
+   \   000000B0   002094E5           LDR      R2,[R4, #+0]
+   \   000000B4   90719FE5           LDR      R7,??jinit_color_converter_1+0x4  ;; rgb_ycc_start
+   \   000000B8   1C60A0E3           MOV      R6,#+28
+   \   000000BC   0B30A0E3           MOV      R3,#+11
+   \   000000C0   01C041E2           SUB      R12,R1,#+1
+   \   000000C4   04005CE3           CMP      R12,#+4
+   \   000000C8   5300008A           BHI      ??jinit_color_converter_9
+   \   000000CC   01EF8FE2           ADR      LR,??jinit_color_converter_0
+   \   000000D0   0CE0DEE7           LDRB     LR,[LR, R12]
+   \   000000D4   0EF18FE0           ADD      PC,PC,LR, LSL #+2
+   \                     ??jinit_color_converter_0:
+   \   000000D8   011C2735           DC8      +1,+28,+39,+53
+   \   000000DC   3F000000           DC8      +63,+0,+0,+0
+    396            case JCS_GRAYSCALE:
+    397              if (cinfo->num_components != 1)
+   \                     ??jinit_color_converter_10:
+   \   000000E0   010050E3           CMP      R0,#+1
+   \   000000E4   0400000A           BEQ      ??jinit_color_converter_11
+    398                ERREXIT(cinfo, JERR_BAD_J_COLORSPACE);
+   \   000000E8   143082E5           STR      R3,[R2, #+20]
+   \   000000EC   001094E5           LDR      R1,[R4, #+0]
+   \   000000F0   0400A0E1           MOV      R0,R4
+   \   000000F4   001091E5           LDR      R1,[R1, #+0]
+   \   000000F8   31FF2FE1           BLX      R1
+    399              if (cinfo->in_color_space == JCS_GRAYSCALE)
+   \                     ??jinit_color_converter_11:
+   \   000000FC   2800D4E5           LDRB     R0,[R4, #+40]
+   \   00000100   010050E3           CMP      R0,#+1
+   \   00000104   0100001A           BNE      ??jinit_color_converter_12
+    400                cconvert->pub.color_convert = grayscale_convert;
+   \                     ??jinit_color_converter_13:
+   \   00000108   40019FE5           LDR      R0,??jinit_color_converter_1+0x8  ;; grayscale_convert
+   \   0000010C   400000EA           B        ??jinit_color_converter_14
+    401              else if (cinfo->in_color_space == JCS_RGB) {
+   \                     ??jinit_color_converter_12:
+   \   00000110   020050E3           CMP      R0,#+2
+   \   00000114   0300001A           BNE      ??jinit_color_converter_15
+    402                cconvert->pub.start_pass = rgb_ycc_start;
+    403                cconvert->pub.color_convert = rgb_gray_convert;
+   \   00000118   34019FE5           LDR      R0,??jinit_color_converter_1+0xC  ;; rgb_gray_convert
+   \   0000011C   007085E5           STR      R7,[R5, #+0]
+   \                     ??jinit_color_converter_16:
+   \   00000120   040085E5           STR      R0,[R5, #+4]
+   \   00000124   F080BDE8           POP      {R4-R7,PC}
+    404              } else if (cinfo->in_color_space == JCS_YCbCr)
+   \                     ??jinit_color_converter_15:
+   \   00000128   030050E3           CMP      R0,#+3
+   \   0000012C   F5FFFF0A           BEQ      ??jinit_color_converter_13
+    405                cconvert->pub.color_convert = grayscale_convert;
+    406              else
+    407                ERREXIT(cinfo, JERR_CONVERSION_NOTIMPL);
+   \                     ??jinit_color_converter_17:
+   \   00000130   000094E5           LDR      R0,[R4, #+0]
+   \   00000134   146080E5           STR      R6,[R0, #+20]
+   \   00000138   001094E5           LDR      R1,[R4, #+0]
+   \   0000013C   0400A0E1           MOV      R0,R4
+   \   00000140   001091E5           LDR      R1,[R1, #+0]
+   \   00000144   31FF2FE1           BLX      R1
+   \   00000148   F080BDE8           POP      {R4-R7,PC}
+    408              break;
+    409          
+    410            case JCS_RGB:
+    411              if (cinfo->num_components != 3)
+   \                     ??jinit_color_converter_18:
+   \   0000014C   030050E3           CMP      R0,#+3
+   \   00000150   0400000A           BEQ      ??jinit_color_converter_19
+    412                ERREXIT(cinfo, JERR_BAD_J_COLORSPACE);
+   \   00000154   143082E5           STR      R3,[R2, #+20]
+   \   00000158   001094E5           LDR      R1,[R4, #+0]
+   \   0000015C   0400A0E1           MOV      R0,R4
+   \   00000160   001091E5           LDR      R1,[R1, #+0]
+   \   00000164   31FF2FE1           BLX      R1
+    413              if (cinfo->in_color_space == JCS_RGB && RGB_PIXELSIZE == 3)
+   \                     ??jinit_color_converter_19:
+   \   00000168   2800D4E5           LDRB     R0,[R4, #+40]
+   \   0000016C   020050E3           CMP      R0,#+2
+   \   00000170   EEFFFF1A           BNE      ??jinit_color_converter_17
+    414                cconvert->pub.color_convert = null_convert;
+   \                     ??jinit_color_converter_20:
+   \   00000174   250000EA           B        ??jinit_color_converter_21
+    415              else
+    416                ERREXIT(cinfo, JERR_CONVERSION_NOTIMPL);
+    417              break;
+    418          
+    419            case JCS_YCbCr:
+    420              if (cinfo->num_components != 3)
+   \                     ??jinit_color_converter_22:
+   \   00000178   030050E3           CMP      R0,#+3
+   \   0000017C   0400000A           BEQ      ??jinit_color_converter_23
+    421                ERREXIT(cinfo, JERR_BAD_J_COLORSPACE);
+   \   00000180   143082E5           STR      R3,[R2, #+20]
+   \   00000184   001094E5           LDR      R1,[R4, #+0]
+   \   00000188   0400A0E1           MOV      R0,R4
+   \   0000018C   001091E5           LDR      R1,[R1, #+0]
+   \   00000190   31FF2FE1           BLX      R1
+    422              if (cinfo->in_color_space == JCS_RGB) {
+   \                     ??jinit_color_converter_23:
+   \   00000194   2800D4E5           LDRB     R0,[R4, #+40]
+   \   00000198   020050E3           CMP      R0,#+2
+    423                cconvert->pub.start_pass = rgb_ycc_start;
+    424                cconvert->pub.color_convert = rgb_ycc_convert;
+   \   0000019C   B4009F05           LDREQ    R0,??jinit_color_converter_1+0x10  ;; rgb_ycc_convert
+   \   000001A0   00708505           STREQ    R7,[R5, #+0]
+   \   000001A4   DDFFFF0A           BEQ      ??jinit_color_converter_16
+    425              } else if (cinfo->in_color_space == JCS_YCbCr)
+   \   000001A8   030050E3           CMP      R0,#+3
+   \                     ??jinit_color_converter_24:
+   \   000001AC   160000EA           B        ??jinit_color_converter_25
+    426                cconvert->pub.color_convert = null_convert;
+    427              else
+    428                ERREXIT(cinfo, JERR_CONVERSION_NOTIMPL);
+    429              break;
+    430          
+    431            case JCS_CMYK:
+    432              if (cinfo->num_components != 4)
+   \                     ??jinit_color_converter_26:
+   \   000001B0   040050E3           CMP      R0,#+4
+   \   000001B4   0400000A           BEQ      ??jinit_color_converter_27
+    433                ERREXIT(cinfo, JERR_BAD_J_COLORSPACE);
+   \   000001B8   143082E5           STR      R3,[R2, #+20]
+   \   000001BC   001094E5           LDR      R1,[R4, #+0]
+   \   000001C0   0400A0E1           MOV      R0,R4
+   \   000001C4   001091E5           LDR      R1,[R1, #+0]
+   \   000001C8   31FF2FE1           BLX      R1
+    434              if (cinfo->in_color_space == JCS_CMYK)
+   \                     ??jinit_color_converter_27:
+   \   000001CC   2800D4E5           LDRB     R0,[R4, #+40]
+   \   000001D0   040050E3           CMP      R0,#+4
+   \   000001D4   0C0000EA           B        ??jinit_color_converter_25
+    435                cconvert->pub.color_convert = null_convert;
+    436              else
+    437                ERREXIT(cinfo, JERR_CONVERSION_NOTIMPL);
+    438              break;
+    439          
+    440            case JCS_YCCK:
+    441              if (cinfo->num_components != 4)
+   \                     ??jinit_color_converter_28:
+   \   000001D8   040050E3           CMP      R0,#+4
+   \   000001DC   0400000A           BEQ      ??jinit_color_converter_29
+    442                ERREXIT(cinfo, JERR_BAD_J_COLORSPACE);
+   \   000001E0   143082E5           STR      R3,[R2, #+20]
+   \   000001E4   001094E5           LDR      R1,[R4, #+0]
+   \   000001E8   0400A0E1           MOV      R0,R4
+   \   000001EC   001091E5           LDR      R1,[R1, #+0]
+   \   000001F0   31FF2FE1           BLX      R1
+    443              if (cinfo->in_color_space == JCS_CMYK) {
+   \                     ??jinit_color_converter_29:
+   \   000001F4   2800D4E5           LDRB     R0,[R4, #+40]
+   \   000001F8   040050E3           CMP      R0,#+4
+    444                cconvert->pub.start_pass = rgb_ycc_start;
+    445                cconvert->pub.color_convert = cmyk_ycck_convert;
+   \   000001FC   58009F05           LDREQ    R0,??jinit_color_converter_1+0x14  ;; cmyk_ycck_convert
+   \   00000200   00708505           STREQ    R7,[R5, #+0]
+   \   00000204   C5FFFF0A           BEQ      ??jinit_color_converter_16
+    446              } else if (cinfo->in_color_space == JCS_YCCK)
+   \   00000208   050050E3           CMP      R0,#+5
+   \                     ??jinit_color_converter_25:
+   \   0000020C   C7FFFF1A           BNE      ??jinit_color_converter_17
+   \                     ??jinit_color_converter_21:
+   \   00000210   48009FE5           LDR      R0,??jinit_color_converter_1+0x18  ;; null_convert
+   \                     ??jinit_color_converter_14:
+   \   00000214   040085E5           STR      R0,[R5, #+4]
+   \   00000218   F080BDE8           POP      {R4-R7,PC}
+    447                cconvert->pub.color_convert = null_convert;
+    448              else
+    449                ERREXIT(cinfo, JERR_CONVERSION_NOTIMPL);
+    450              break;
+    451          
+    452            default:			/* allow null conversion of JCS_UNKNOWN */
+    453              if (cinfo->jpeg_color_space != cinfo->in_color_space ||
+    454          	cinfo->num_components != cinfo->input_components)
+   \                     ??jinit_color_converter_9:
+   \   0000021C   2830D4E5           LDRB     R3,[R4, #+40]
+   \   00000220   030051E1           CMP      R1,R3
+   \   00000224   24109405           LDREQ    R1,[R4, #+36]
+   \   00000228   01005001           CMPEQ    R0,R1
+   \   0000022C   F7FFFF0A           BEQ      ??jinit_color_converter_21
+    455                ERREXIT(cinfo, JERR_CONVERSION_NOTIMPL);
+   \   00000230   146082E5           STR      R6,[R2, #+20]
+   \   00000234   001094E5           LDR      R1,[R4, #+0]
+   \   00000238   0400A0E1           MOV      R0,R4
+   \   0000023C   001091E5           LDR      R1,[R1, #+0]
+   \   00000240   31FF2FE1           BLX      R1
+   \   00000244   F1FFFFEA           B        ??jinit_color_converter_21
+   \                     ??jinit_color_converter_1:
+   \   00000248   ........           DC32     null_method
+   \   0000024C   ........           DC32     rgb_ycc_start
+   \   00000250   ........           DC32     grayscale_convert
+   \   00000254   ........           DC32     rgb_gray_convert
+   \   00000258   ........           DC32     rgb_ycc_convert
+   \   0000025C   ........           DC32     cmyk_ycck_convert
+   \   00000260   ........           DC32     null_convert
+    456              cconvert->pub.color_convert = null_convert;
+    457              break;
+    458            }
+    459          }
+
+   Maximum stack usage in bytes:
+
+     Function              CSTACK
+     --------              ------
+     cmyk_ycck_convert        60
+     grayscale_convert        20
+     jinit_color_converter    20
+     null_convert             24
+     null_method               0
+     rgb_gray_convert         28
+     rgb_ycc_convert          56
+     rgb_ycc_start             8
+
+
+   Segment part sizes:
+
+     Function/Label        Bytes
+     --------------        -----
+     rgb_ycc_start          196
+     rgb_ycc_convert        268
+     rgb_gray_convert       128
+     cmyk_ycck_convert      316
+     grayscale_convert       88
+     null_convert           124
+     null_method              4
+     jinit_color_converter  612
+      Others                 32
+
+ 
+ 1 768 bytes in segment CODE
+ 
+ 1 736 bytes of CODE memory (+ 32 bytes shared)
+
+Errors: none
+Warnings: 1

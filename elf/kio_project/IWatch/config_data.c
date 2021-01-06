@@ -1,0 +1,62 @@
+#include "..\inc\cfg_items.h"
+__root const CFG_HDR cfghdr0={CFG_CBOX,"Use stops",0,2};
+__root const int cfg_st=0;
+__root const CFG_CBOX_ITEM cfgcbox0[2]={"No","Yes"};
+
+__root const CFG_HDR cfghdr1={CFG_UINT,"Sound 1",0,2000};
+__root const unsigned int cfg_s1=2000;
+__root const CFG_HDR cfghdr2={CFG_UINT,"Sound 2",0,2000};
+__root const unsigned int cfg_s2=2000;
+__root const CFG_HDR cfghdr3={CFG_UINT,"Pause(sec/100)",0,104800};
+__root const unsigned int cfg_p=0;
+
+__root const CFG_HDR cfghdr4={CFG_CBOX,"Key lock?",0,2};
+__root const int cfg_lk=1;
+__root const CFG_CBOX_ITEM cfgcbox1[2]={"No","Yes"};
+__root const CFG_HDR cfghdr5={CFG_UINT,"Text colour",0,2000};
+__root const unsigned int cfg_tx=0;
+__root const CFG_HDR cfghdr6={CFG_UINT,"BG Colour",0,2000};
+__root const unsigned int cfg_bg=20;
+__root const CFG_HDR cfghdr7={CFG_STR_WIN1251,"Test string",0,80};
+__root const char cfg_test[81]="ABCabc ÀÁÂ¨Úàáâ¸ú ²¯³¿ #;%:?()";
+
+__root const CFG_HDR cfghdr8={CFG_CBOX,"Key Hook",0,3};
+__root const int cfg_kh=0;
+__root const CFG_CBOX_ITEM cfgcbox8[3]={"No","Standart","End"};
+
+__root const CFG_HDR cfghdr21={CFG_STR_WIN1251,"Picture",0,20};
+__root const char pic[21]="Pic";
+__root const CFG_HDR cfghdr22={CFG_STR_WIN1251,"Sound",0,20};
+__root const char sound[21]="Sound";
+__root const CFG_HDR cfghdr23={CFG_STR_WIN1251,"WAIT",0,20};
+__root const char wait[21]="WAIT";
+__root const CFG_HDR cfghdr24={CFG_STR_WIN1251,"Font",0,20};
+__root const char font[21]="Font";
+__root const CFG_HDR cfghdr25={CFG_STR_WIN1251,"Atribute",0,20};
+__root const char atr[21]="Atr.";
+__root const CFG_HDR cfghdr26={CFG_STR_WIN1251,"Colour",0,20};
+__root const char colour[21]="Colour";
+__root const CFG_HDR cfghdr26_2={CFG_STR_WIN1251,"Key code",0,20};
+__root const char keyc[21]="Key code";
+__root const CFG_HDR cfghdr27={CFG_STR_WIN1251,"Item",0,20};
+__root const char item[21]="Item number:";
+__root const CFG_HDR cfghdr28={CFG_STR_WIN1251,"Sounds",0,20};
+__root const char sounds[21]="Sounds";
+__root const CFG_HDR cfghdr29={CFG_STR_WIN1251,"Pictures",0,20};
+__root const char pics[21]="Pictures";
+__root const CFG_HDR cfghdr20={CFG_STR_WIN1251,"Fonts",0,20};
+__root const char fonts[21]="Fonts";
+__root const CFG_HDR cfghdr211={CFG_STR_WIN1251,"RGB",0,20};
+__root const char colours[21]="RGB";
+__root const CFG_HDR cfghdr212={CFG_STR_WIN1251,"RGB24",0,20};
+__root const char colours24[21]="RGB24";
+__root const CFG_HDR cfghdr212_2={CFG_STR_WIN1251,"Key codes",0,20};
+__root const char keycs[21]="Key codes";
+__root const CFG_HDR cfghdr213={CFG_STR_WIN1251,"Options",0,20};
+__root const char options[21]="Options";
+__root const CFG_HDR cfghdr214={CFG_STR_WIN1251,"Exit",0,20};
+__root const char exit[21]="Exit";
+__root const CFG_HDR cfghdr215={CFG_STR_WIN1251,"Colour comp.",0,31};
+__root const char rgba[31]="R:    G:    B:    A:";
+__root const CFG_HDR cfghdr216={CFG_STR_WIN1251,"Test string",0,51};
+__root const char test[51]="This is test!!!";

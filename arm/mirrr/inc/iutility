@@ -1,0 +1,471 @@
+/* -*-c++-*- */
+#ifndef _IUTILITY_
+#define _IUTILITY_
+
+#ifndef _SYSTEM_BUILD
+#pragma system_include
+#endif
+
+#include <yvals.h>
+#include <stddef.h>
+
+_C_LIB_DECL
+/* memcpy style functions for stricter alignments */
+__INTRINSIC void *_Copy_a2(void const *_F, void const *_L, void *_D);
+__INTRINSIC void *_Copy_a4(void const *_F, void const *_L, void *_D);
+__INTRINSIC void *_Copy_a8(void const *_F, void const *_L, void *_D);
+/* memcpy backward style functions for stricter alignments */
+__INTRINSIC void *_Copy_backward_a2(void const *_F, void const *_L, void *_D);
+__INTRINSIC void *_Copy_backward_a4(void const *_F, void const *_L, void *_D);
+__INTRINSIC void *_Copy_backward_a8(void const *_F, void const *_L, void *_D);
+/* memmove style functions for stricter alignments */
+__INTRINSIC void *_Move_a2(void const *_F, void const *_L, void *_D);
+__INTRINSIC void *_Move_a4(void const *_F, void const *_L, void *_D);
+__INTRINSIC void *_Move_a8(void const *_F, void const *_L, void *_D);
+_END_C_LIB_DECL
+
+#ifdef __cplusplus
+_STD_BEGIN
+template<typename> struct iterator_traits;
+_STD_END
+
+namespace _TypeUtil {
+
+  template<bool _Flag, typename _T1, typename _T2>
+  struct _Select
+  {
+    typedef _T1 _Type;
+  };
+  template<typename _T1, typename _T2>
+  struct _Select<false, _T1, _T2>
+  {
+    typedef _T2 _Type;
+  };
+
+  // _StripRef<T>::_Type is the same type as T, only with any
+  // reference stripped off. "int &" -> "int".
+  template <typename _Ty>
+  class _StripRef
+  {
+  private:
+    template <class _U> struct _Helper { typedef _U _Type; };
+    template <class _U> struct _Helper<_U &> { typedef _U _Type; };
+  public:
+    typedef typename _Helper<_Ty>::_Type _Type;
+  };
+
+  // _StripConst<T>::_Type is the same type as T, only with any
+  // reference stripped off. "int const" -> "int".
+  template <typename _Ty>
+  class _StripConst
+  {
+  private:
+    template <class _U> struct _Helper { typedef _U _Type; };
+    template <class _U> struct _Helper<_U const> { typedef _U _Type; };
+  public:
+    typedef typename _Helper<_Ty>::_Type _Type;
+  };
+
+  // _StripMemory<T>::_Type is the same type as T, only with any
+  // memory attribute stripped off.
+  template <typename _Ty>
+  class _StripMemory
+  {
+  private:
+    template <class _U> struct _UnMem
+    {
+      typedef _U _Type;
+    };
+
+#define __DATA_MEM_HELPER1__(mem, i)              \
+    template <class _U> struct _UnMem<mem _U>     \
+    {                                             \
+      typedef typename _UnMem<_U>::_Type _Type;   \
+    };
+#pragma language = save
+#pragma language = extended
+  __DATA_MEMORY_LIST1__()
+#pragma language = restore  
+#undef __DATA_MEM_HELPER1__
+  public:
+    typedef typename _UnMem<_Ty>::_Type _Type;
+  };
+
+  // Check if two types are the same type
+  template<typename _Ty1, typename _Ty2>
+  struct _IsSameType
+  {
+    enum { _Result = false };
+  };
+  template<typename _Ty>
+  struct _IsSameType<_Ty, _Ty>
+  {
+    enum { _Result = true };
+  };
+
+
+  // Is the type _Ty1 convertible to the type _Ty2
+  template<typename _Ty1, typename _Ty2>
+  struct _IsConvertible
+  {
+    typedef char _No;
+    struct _Yes { char _A[17]; };
+    static _No _Test(...);
+    static _Yes _Test(_Ty2);
+    static _Ty1 _Make();
+    enum { _Result = sizeof(_Test(_Make())) == sizeof(_Yes) };
+  };
+
+  // Basic memory copying. _CopyMemory0<int __far, void>::_Type is 'void __far'
+  template<typename _Ty, typename _Other>
+  struct _CopyMemory0
+  {
+    typedef _Other _Type;
+  };
+#define __DATA_MEM_HELPER1__(mem, i)      \
+  template<typename _Ty, typename _Other> \
+  struct _CopyMemory0<_Ty mem, _Other>    \
+  {                                       \
+    typedef _Other mem _Type;             \
+  };
+#pragma language = save
+#pragma language = extended
+__DATA_MEMORY_LIST1__()
+#pragma language = restore
+#undef __DATA_MEM_HELPER1__
+
+  // Pick another type, only with the same memory attribute.
+  // _CopyMemory<int __far, void>::_Type is 'void __far'.
+  // Works for class memory as well:
+  // _CopyMemory<struct __far X, void>::_Type is 'void __far'.
+  template<typename _Ty, typename _Other>
+  struct _CopyMemory
+  {
+  private:
+    // This discards any default memory added by the other
+    template<typename _Ty1> struct _Helper1;
+    template<typename _Ty1>
+    struct _Helper1<_Ty1 *>
+    {
+      typedef typename _CopyMemory0<_Ty1, _Other>::_Type _Type;
+    };
+    template<typename _Ty1> struct _Helper2;
+#define __DATA_PTR_MEM_HELPER1__(mem, i)   \
+    template<typename _Ty1>                  \
+    struct _Helper2<_Ty1 mem *>              \
+    {                                        \
+      typedef _Other mem _Type;              \
+    };
+#pragma language = save
+#pragma language = extended
+  __DATA_PTR_MEMORY_LIST1__()
+#pragma language = restore
+#undef __DATA_PTR_MEM_HELPER1__
+    // Extra indirection to avoid the default pointer memory.
+    typedef typename _Helper2<_Ty *>::_Type _VType;
+  public:
+    typedef typename _Helper1<_VType *>::_Type _Type;
+  };
+
+  // Check if a pointer type is a default pointer.
+  template<typename _Ty>
+  struct _IsDefaultPointer
+  {
+    enum { _Result = false };
+  };
+  template<typename _Ty>
+  struct _IsDefaultPointer<_Ty *>
+  {
+    enum {
+      _Result =
+        _IsSameType<void *,
+                    typename _CopyMemory<_Ty, void>::_Type *>::_Result
+    };
+  };
+
+  // Make a template that can find the index and size type for a pointer
+  // Example: (__far * is a 16+16-bit pointer, __huge * is a 32-bit pointer,
+  //           int is 16-bit, long is 32-bit)
+  //   _PointerInfo<int __far  *>::_IndexType is int
+  //   _PointerInfo<int __huge *>::_IndexType is long
+  template<typename _Ty> 
+  struct _PointerInfo
+  {
+    typedef ptrdiff_t _IndexType;
+    typedef size_t    _SizeType;
+  };
+#define __DATA_PTR_MEM_HELPER1__(mem, i)                     \
+  template<class _Ty> struct _PointerInfo<_Ty mem*>          \
+  {                                                          \
+    typedef _GLUE3(__DATA_MEM, i, _INDEX_TYPE__) _IndexType; \
+    typedef _GLUE3(__DATA_MEM, i, _SIZE_TYPE__ ) _SizeType;  \
+  };
+#pragma language = save
+#pragma language = extended
+__DATA_PTR_MEMORY_LIST1__()
+#undef __DATA_PTR_MEM_HELPER1__
+#pragma language = restore
+
+  // Pick the appropriate type to use for parameters of a given type.
+  // The idea is that for fundamental types and pointers, it is best
+  // to pass by value, but otherwise we pass by const reference.
+  // This also has the advantage that you can pass, for instance, an
+  // int to a function that handles ints in __near memory,
+  // even if an "int __near &" cannot bind to a temporary int.
+  // If the original type was a non-const reference, leave it as it was.
+  // The "!__has_constructor" test below would not be necessary if the
+  // compiler was a little smarter.
+  template<typename _Ty>
+  struct _ParameterType
+  {
+    typedef typename _StripRef<_Ty>::_Type _Ty1;
+    typedef typename _StripConst<_Ty1>::_Type _Ty2;
+    typedef typename _StripMemory<_Ty2>::_Type _Ty0;
+    typedef typename
+            _Select<_TypeUtil::_IsSameType<_Ty2&, _Ty>::_Result,
+                    _Ty,
+                    typename
+                    _Select<    __construction_by_bitwise_copy_allowed(_Ty0)
+                            && __assignment_by_bitwise_copy_allowed(_Ty0)
+                            && !__has_destructor(_Ty0)
+                            && !__has_constructor(_Ty0)
+                            && sizeof(_Ty0) <= sizeof(double),
+                            _Ty0,
+                            _Ty2 const &>::_Type>::_Type
+            _Type;
+  };
+
+  // Used to disallow some instantiations of a template function.
+  // Use typename _TypeUtil::_AllowOnlyIterators<_Iter, ReturnType>::_Type
+  // instead of a return type ReturnType to make it impossible to instantiate
+  // a template function with a template parameter _Iter that is not an
+  // iterator (for which iterator_traits is not specialized).
+  template<typename _MustBeIter, typename _ActualType>
+  struct _AllowOnlyIterators
+  {
+    typedef typename
+            _Select<true,
+                    _ActualType,
+                    typename _STD iterator_traits<_MustBeIter>::iterator_category
+                   >::_Type _Type;
+  };
+
+#define _ALLOW_ONLY_ITERATORS(MUST_BE_ITER, ACTUAL_TYPE)                     \
+  typename _TypeUtil::_Select<                                               \
+                   true,                                                     \
+                   ACTUAL_TYPE,                                              \
+                   typename iterator_traits<MUST_BE_ITER>::iterator_category \
+                              >::_Type
+
+} // END _TypeUtil namespace
+
+namespace _ClassUtil
+{
+  // Template class to handle the empty base class optimization.
+  template <class _Base, class _Member>
+  struct _EmptyBase : _Base
+  {
+    _Member _Val;
+    _EmptyBase(_Base const& a, _Member const& v) : _Base(a), _Val(v) { }
+  };
+
+  template<typename _Ty>
+  struct _CanConstructTemporary
+  {
+    // _Result is true if temporaries of the given type can be constructed.
+    // The only case when they cannot is if construction/destruction cannot
+    // run in default memory (strictly stack memory, but default memory is
+    // likely good enough).
+    typedef typename _TypeUtil::_StripMemory<_Ty>::_Type _BaseTy;
+    typedef typename _TypeUtil::_CopyMemory<_BaseTy, void>::_Type
+            _VoidTy;
+    enum { _Result =
+              (   !__has_constructor(_Ty)
+               && !__has_destructor(_Ty))
+            || _TypeUtil::_IsConvertible<void *, _VoidTy *>::_Result };
+  };
+
+  // Hold a temporary value of type _Ty. If possible will just have a member
+  // of that type. If not, a temporary will be allocated on the heap.
+  template<typename _Ty>
+  class _TmpHolder
+  {
+  private:
+    class _HeapHolder
+    {
+    public:
+      typedef _Ty const & _RefType;
+      _HeapHolder() : _MyPtr(new _Ty()) { }
+      _HeapHolder(_Ty const & _Val)
+        : _MyPtr(new _Ty(_Val)) { }
+      template<typename _Ty2>
+      _HeapHolder(_Ty2 const & _Val)
+        : _MyPtr(new _Ty(_Val)) { }
+      ~_HeapHolder() { delete _MyPtr; }
+
+      template<typename _Ty2>
+      void operator = (_Ty2 const & _Val) { *_MyPtr = _Val; }
+
+      operator _Ty const & () const { return *_MyPtr; }
+
+    private:
+      _HeapHolder(_HeapHolder const &);          // Not implemented
+      void operator = (_HeapHolder const &); // Not implemented
+
+      _Ty * _MyPtr;
+    };
+
+  public:
+    enum { _OnHeap = !_CanConstructTemporary<_Ty>::_Result };
+    typedef typename _TypeUtil::_Select<_OnHeap, _HeapHolder, _Ty>::_Type _Type;
+  };
+
+#pragma language = save
+#pragma language = extended
+  // Class to hold an object, either as a member, or as a heap allocated copy.
+  template<typename _MemModel, typename _Ty>
+  class __memory_of(_MemModel) _MemHolder
+  {
+    template<typename _Ty1, bool _UseHeap>
+    class __memory_of(_MemModel) _Helper
+    {
+    public:
+      _Helper() {}
+      template<typename _Ty2>
+      _Helper(_Ty2 const & _Val) : _MyVal(_Val) {}
+      _Helper(_Helper const & _X) : _MyVal(_X._MyVal) {}
+
+      _Ty const & Ref() const { return _MyVal; }
+      _Ty       & Ref()       { return _MyVal; }
+
+    private:
+      void operator = (_Helper const &); // Not implemented
+
+      _Ty _MyVal;
+    };
+    template<typename _Ty2>
+    class __memory_of(_MemModel) _Helper<_Ty2, true>
+    {
+    public:
+      _Helper() : _MyPtr(new _Ty) {}
+      template<typename _Ty3>
+      _Helper(_Ty3 const & _Val) : _MyPtr(new _Ty(_Val)) {}
+      _Helper(_Helper const & _X) : _MyPtr(new _Ty(*_X._MyPtr)) {}
+      ~_Helper() { delete _MyPtr; }
+
+      _Ty const & Ref() const { return *_MyPtr; }
+      _Ty       & Ref()       { return *_MyPtr; }
+
+    private:
+      void operator = (_Helper const &); // Not implemented
+
+      _Ty * _MyPtr;
+    };
+
+  public:
+    _MemHolder()
+    {
+    }
+
+    template<typename _Ty1>
+    _MemHolder(_Ty1 const & _Val)
+      : _MyVal(_Val)
+    {
+    }
+
+    _MemHolder(_MemHolder const & _X)
+      : _MyVal(_X._MyVal)
+    {
+    }
+
+    operator _Ty const & () const { return _MyVal.Ref(); }
+    operator _Ty       & ()       { return _MyVal.Ref(); }
+
+  private:
+    void operator = (_MemHolder const &); // Not implemented
+
+    _Helper<_Ty,
+            !_TypeUtil::_IsConvertible<
+              typename _TypeUtil::_CopyMemory<_MemModel, void>::_Type *,
+              typename _TypeUtil::_CopyMemory<_Ty,       void>::_Type *
+                                      >::_Result>
+      _MyVal;
+  };
+
+  // Class to hold an allocator, which uses no space if no instance is
+  // needed. Inherit from this to take advantage of empty base class
+  // optimization.
+  template<typename _Alloc, bool _NeedInstance>
+  class __memory_of(typename _Alloc::value_type) _AllocHolder
+  {
+  public:
+    _AllocHolder()
+    {
+    }
+
+    _AllocHolder(_Alloc a)
+      : _MyAlloc(a)
+    {
+    }
+
+    _Alloc       & _Alval()       { return _MyAlloc; }
+    _Alloc const & _Alval() const { return _MyAlloc; }
+
+  private:
+    typedef typename _Alloc::value_type _MemModel;
+    _MemHolder<_MemModel, _Alloc> _MyAlloc;
+  };
+
+  template<typename _Alloc>
+  class __memory_of(typename _Alloc::value_type) _AllocHolder<_Alloc, false>
+  {
+  public:
+    _AllocHolder()
+    {
+    }
+
+    _AllocHolder(_Alloc a)
+    {
+    }
+
+    _Alloc       _Alval()       { return _Alloc(); }
+    _Alloc const _Alval() const { return _Alloc(); }
+  };
+#pragma language = restore
+  template<typename _Ty1, typename _Ty2>
+  struct _Inheritor : public _Ty1
+  {
+    _Ty2 _X;
+  };
+
+  template<typename _Ty>
+  struct _IsZeroSize
+  {
+    enum { _Result = sizeof(_Inheritor<_Ty, double>) == sizeof(double) };
+  };
+
+  // To init something which doesn't get inited by default construction.
+  template<typename _Ty>
+  struct _Init
+  {
+  private:
+    struct _Nop { template<typename _Ty1> static void _Doit(_Ty1 *) { } };
+    struct _Set
+    {
+      template<typename _Ty1>
+      static void _Doit(_Ty1 * _P)
+      {
+        *const_cast<typename _TypeUtil::_StripConst<_Ty1>::_Type *>(_P) = _Ty();
+      }
+    };
+
+  public:
+    template<typename _Ty1>
+    static void _Doit(_Ty1 * _P)
+    {
+      _TypeUtil::_Select<__has_constructor(_Ty), _Nop, _Set>::_Type::_Doit(_P);
+    }
+  };
+} // END _ClassUtil namespace
+#endif /* __cplusplus */
+#endif /* _IUTILITY_ */

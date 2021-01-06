@@ -1,0 +1,3042 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    19/Jan/2011  13:20:49 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\grabber\jpeg-7\jcdctmgr.c                     #
+#    Command line    =  C:\arm\grabber\jpeg-7\jcdctmgr.c -lC                 #
+#                       C:\arm\grabber\Release_SGOLD\List\ -o                #
+#                       C:\arm\grabber\Release_SGOLD\Obj\ -s9 --no_unroll    #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\grabber\Release_SGOLD\List\jcdctmgr.lst       #
+#    Object file     =  C:\arm\grabber\Release_SGOLD\Obj\jcdctmgr.r79        #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\grabber\jpeg-7\jcdctmgr.c
+      1          /*
+                  ^
+Warning[Pa050]: non-native end of line sequence detected (this diagnostic is
+          only issued once)
+      2           * jcdctmgr.c
+      3           *
+      4           * Copyright (C) 1994-1996, Thomas G. Lane.
+      5           * This file is part of the Independent JPEG Group's software.
+      6           * For conditions of distribution and use, see the accompanying README file.
+      7           *
+      8           * This file contains the forward-DCT management logic.
+      9           * This code selects a particular DCT implementation to be used,
+     10           * and it performs related housekeeping chores including coefficient
+     11           * quantization.
+     12           */
+     13          
+     14          #define JPEG_INTERNALS
+     15          #include "jinclude.h"
+     16          #include "jpeglib.h"
+     17          #include "jdct.h"		/* Private declarations for DCT subsystem */
+     18          
+     19          
+     20          /* Private subobject for this module */
+     21          
+     22          typedef struct {
+     23            struct jpeg_forward_dct pub;	/* public fields */
+     24          
+     25            /* Pointer to the DCT routine actually in use */
+     26            forward_DCT_method_ptr do_dct[MAX_COMPONENTS];
+     27          
+     28            /* The actual post-DCT divisors --- not identical to the quant table
+     29             * entries, because of scaling (especially for an unnormalized DCT).
+     30             * Each table is given in normal array order.
+     31             */
+     32            DCTELEM * divisors[NUM_QUANT_TBLS];
+     33          
+     34          #ifdef DCT_FLOAT_SUPPORTED
+     35            /* Same as above for the floating-point case. */
+     36            float_DCT_method_ptr do_float_dct[MAX_COMPONENTS];
+     37            FAST_FLOAT * float_divisors[NUM_QUANT_TBLS];
+     38          #endif
+     39          } my_fdct_controller;
+     40          
+     41          typedef my_fdct_controller * my_fdct_ptr;
+     42          
+     43          
+     44          /* The current scaled-DCT routines require ISLOW-style divisor tables,
+     45           * so be sure to compile that code if either ISLOW or SCALING is requested.
+     46           */
+     47          #ifdef DCT_ISLOW_SUPPORTED
+     48          #define PROVIDE_ISLOW_TABLES
+     49          #else
+     50          #ifdef DCT_SCALING_SUPPORTED
+     51          #define PROVIDE_ISLOW_TABLES
+     52          #endif
+     53          #endif
+     54          
+     55          
+     56          /*
+     57           * Perform forward DCT on one or more blocks of a component.
+     58           *
+     59           * The input samples are taken from the sample_data[] array starting at
+     60           * position start_row/start_col, and moving to the right for any additional
+     61           * blocks. The quantized coefficients are returned in coef_blocks[].
+     62           */
+     63          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     64          METHODDEF(void)
+     65          forward_DCT (j_compress_ptr cinfo, jpeg_component_info * compptr,
+     66          	     JSAMPARRAY sample_data, JBLOCKROW coef_blocks,
+     67          	     JDIMENSION start_row, JDIMENSION start_col,
+     68          	     JDIMENSION num_blocks)
+     69          /* This version is used for integer DCT implementations. */
+     70          {
+   \                     forward_DCT:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+   \   00000004   40DF4DE2           SUB      SP,SP,#+256
+     71            /* This routine is heavily used, so it's worth coding it tightly. */
+     72            my_fdct_ptr fdct = (my_fdct_ptr) cinfo->fdct;
+   \   00000008   900190E5           LDR      R0,[R0, #+400]
+   \   0000000C   0140A0E1           MOV      R4,R1
+   \   00000010   24119DE5           LDR      R1,[SP, #+292]
+   \   00000014   28619DE5           LDR      R6,[SP, #+296]
+   \   00000018   2C719DE5           LDR      R7,[SP, #+300]
+   \   0000001C   0350A0E1           MOV      R5,R3
+     73            forward_DCT_method_ptr do_dct = fdct->do_dct[compptr->component_index];
+   \   00000020   043094E5           LDR      R3,[R4, #+4]
+     74            DCTELEM * divisors = fdct->divisors[compptr->quant_tbl_no];
+     75            DCTELEM workspace[DCTSIZE2];	/* work area for FDCT subroutine */
+     76            JDIMENSION bi;
+     77          
+     78            sample_data += start_row;	/* fold in the vertical offset once */
+   \   00000024   01A182E0           ADD      R10,R2,R1, LSL #+2
+   \   00000028   033180E0           ADD      R3,R0,R3, LSL #+2
+   \   0000002C   2C8093E5           LDR      R8,[R3, #+44]
+   \   00000030   103094E5           LDR      R3,[R4, #+16]
+     79          
+     80            for (bi = 0; bi < num_blocks; bi++, start_col += compptr->DCT_h_scaled_size) {
+   \   00000034   00B0A0E3           MOV      R11,#+0
+   \   00000038   030180E0           ADD      R0,R0,R3, LSL #+2
+   \   0000003C   549090E5           LDR      R9,[R0, #+84]
+   \   00000040   000057E3           CMP      R7,#+0
+   \   00000044   0A00001A           BNE      ??forward_DCT_0
+     81              /* Perform the DCT */
+     82              (*do_dct) (workspace, sample_data, start_col);
+     83          
+     84              /* Quantize/descale the coefficients, and store into coef_blocks[] */
+     85              { register DCTELEM temp, qval;
+     86                register int i;
+     87                register JCOEFPTR output_ptr = coef_blocks[bi];
+     88          
+     89                for (i = 0; i < DCTSIZE2; i++) {
+     90          	qval = divisors[i];
+     91          	temp = workspace[i];
+     92          	/* Divide the coefficient value by qval, ensuring proper rounding.
+     93          	 * Since C does not specify the direction of rounding for negative
+     94          	 * quotients, we have to force the dividend positive for portability.
+     95          	 *
+     96          	 * In most files, at least half of the output values will be zero
+     97          	 * (at default quantization settings, more like three-quarters...)
+     98          	 * so we should ensure that this case is fast.  On many machines,
+     99          	 * a comparison is enough cheaper than a divide to make a special test
+    100          	 * a win.  Since both inputs will be nonnegative, we need only test
+    101          	 * for a < b to discover whether a/b is 0.
+    102          	 * If your machine's division is fast enough, define FAST_DIVIDE.
+    103          	 */
+    104          #ifdef FAST_DIVIDE
+    105          #define DIVIDE_BY(a,b)	a /= b
+    106          #else
+    107          #define DIVIDE_BY(a,b)	if (a >= b) a /= b; else a = 0
+    108          #endif
+    109          	if (temp < 0) {
+    110          	  temp = -temp;
+    111          	  temp += qval>>1;	/* for rounding */
+    112          	  DIVIDE_BY(temp, qval);
+    113          	  temp = -temp;
+    114          	} else {
+    115          	  temp += qval>>1;	/* for rounding */
+    116          	  DIVIDE_BY(temp, qval);
+    117          	}
+    118          	output_ptr[i] = (JCOEF) temp;
+    119                }
+    120              }
+    121            }
+    122          }
+   \                     ??forward_DCT_1:
+   \   00000048   40DF8DE2           ADD      SP,SP,#+256      ;; stack cleaning
+   \   0000004C   F08FBDE8           POP      {R4-R11,PC}      ;; return
+   \                     ??forward_DCT_2:
+   \   00000050   0010A0E3           MOV      R1,#+0
+   \                     ??forward_DCT_3:
+   \   00000054   830082E0           ADD      R0,R2,R3, LSL #+1
+   \   00000058   B010C0E1           STRH     R1,[R0, #+0]
+   \   0000005C   013083E2           ADD      R3,R3,#+1
+   \   00000060   400053E3           CMP      R3,#+64
+   \   00000064   0B0000BA           BLT      ??forward_DCT_4
+   \   00000068   240094E5           LDR      R0,[R4, #+36]
+   \   0000006C   01B08BE2           ADD      R11,R11,#+1
+   \   00000070   066080E0           ADD      R6,R0,R6
+   \                     ??forward_DCT_0:
+   \   00000074   07005BE1           CMP      R11,R7
+   \   00000078   F2FFFF2A           BCS      ??forward_DCT_1
+   \   0000007C   0620A0E1           MOV      R2,R6
+   \   00000080   0A10A0E1           MOV      R1,R10
+   \   00000084   0D00A0E1           MOV      R0,SP
+   \   00000088   0830A0E1           MOV      R3,R8
+   \   0000008C   33FF2FE1           BLX      R3
+   \   00000090   8B2385E0           ADD      R2,R5,R11, LSL #+7
+   \   00000094   0030A0E3           MOV      R3,#+0
+   \                     ??forward_DCT_4:
+   \   00000098   031199E7           LDR      R1,[R9, +R3, LSL #+2]
+   \   0000009C   0D00A0E1           MOV      R0,SP
+   \   000000A0   030190E7           LDR      R0,[R0, +R3, LSL #+2]
+   \   000000A4   000050E3           CMP      R0,#+0
+   \   000000A8   0500005A           BPL      ??forward_DCT_5
+   \   000000AC   C10060E0           RSB      R0,R0,R1, ASR #+1
+   \   000000B0   010050E1           CMP      R0,R1
+   \   000000B4   0010A0B3           MOVLT    R1,#+0
+   \   000000B8   ........           _BLFGE   ??div32_a,??rA??div32_a
+   \   000000BC   001061E2           RSB      R1,R1,#+0
+   \   000000C0   E3FFFFEA           B        ??forward_DCT_3
+   \                     ??forward_DCT_5:
+   \   000000C4   C10080E0           ADD      R0,R0,R1, ASR #+1
+   \   000000C8   010050E1           CMP      R0,R1
+   \   000000CC   DFFFFFBA           BLT      ??forward_DCT_2
+   \   000000D0   ........           _BLF     ??div32_a,??rA??div32_a
+   \   000000D4   DEFFFFEA           B        ??forward_DCT_3
+    123          
+    124          
+    125          #ifdef DCT_FLOAT_SUPPORTED
+    126          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    127          METHODDEF(void)
+    128          forward_DCT_float (j_compress_ptr cinfo, jpeg_component_info * compptr,
+    129          		   JSAMPARRAY sample_data, JBLOCKROW coef_blocks,
+    130          		   JDIMENSION start_row, JDIMENSION start_col,
+    131          		   JDIMENSION num_blocks)
+    132          /* This version is used for floating-point DCT implementations. */
+    133          {
+   \                     forward_DCT_float:
+   \   00000000   F84F2DE9           PUSH     {R3-R11,LR}
+   \   00000004   42DF4DE2           SUB      SP,SP,#+264
+    134            /* This routine is heavily used, so it's worth coding it tightly. */
+    135            my_fdct_ptr fdct = (my_fdct_ptr) cinfo->fdct;
+   \   00000008   900190E5           LDR      R0,[R0, #+400]
+   \   0000000C   34519DE5           LDR      R5,[SP, #+308]
+   \   00000010   38619DE5           LDR      R6,[SP, #+312]
+   \   00000014   0140A0E1           MOV      R4,R1
+    136            float_DCT_method_ptr do_dct = fdct->do_float_dct[compptr->component_index];
+   \   00000018   047094E5           LDR      R7,[R4, #+4]
+   \   0000001C   30119DE5           LDR      R1,[SP, #+304]
+   \   00000020   077180E0           ADD      R7,R0,R7, LSL #+2
+   \   00000024   647097E5           LDR      R7,[R7, #+100]
+    137            FAST_FLOAT * divisors = fdct->float_divisors[compptr->quant_tbl_no];
+    138            FAST_FLOAT workspace[DCTSIZE2]; /* work area for FDCT subroutine */
+    139            JDIMENSION bi;
+    140          
+    141            sample_data += start_row;	/* fold in the vertical offset once */
+   \   00000028   011182E0           ADD      R1,R2,R1, LSL #+2
+   \   0000002C   00708DE5           STR      R7,[SP, #+0]
+   \   00000030   103094E5           LDR      R3,[R4, #+16]
+    142          
+    143            for (bi = 0; bi < num_blocks; bi++, start_col += compptr->DCT_h_scaled_size) {
+   \   00000034   0080A0E3           MOV      R8,#+0
+   \   00000038   030180E0           ADD      R0,R0,R3, LSL #+2
+   \   0000003C   8C7090E5           LDR      R7,[R0, #+140]
+   \   00000040   04108DE5           STR      R1,[SP, #+4]
+   \   00000044   000056E3           CMP      R6,#+0
+   \   00000048   1900001A           BNE      ??forward_DCT_float_0
+   \   0000004C   43DF8DE2           ADD      SP,SP,#+268
+   \   00000050   F08FBDE8           POP      {R4-R11,PC}
+    144              /* Perform the DCT */
+    145              (*do_dct) (workspace, sample_data, start_col);
+   \                     ??forward_DCT_float_1:
+   \   00000054   04109DE5           LDR      R1,[SP, #+4]
+   \   00000058   00309DE5           LDR      R3,[SP, #+0]
+   \   0000005C   0520A0E1           MOV      R2,R5
+   \   00000060   08008DE2           ADD      R0,SP,#+8
+   \   00000064   33FF2FE1           BLX      R3
+    146          
+    147              /* Quantize/descale the coefficients, and store into coef_blocks[] */
+    148              { register FAST_FLOAT temp;
+    149                register int i;
+    150                register JCOEFPTR output_ptr = coef_blocks[bi];
+   \   00000068   08019DE5           LDR      R0,[SP, #+264]
+    151          
+    152                for (i = 0; i < DCTSIZE2; i++) {
+   \   0000006C   00A0A0E3           MOV      R10,#+0
+   \   00000070   889380E0           ADD      R9,R0,R8, LSL #+7
+    153          	/* Apply the quantization and scaling factor */
+    154          	temp = workspace[i] * divisors[i];
+    155          	/* Round to nearest integer.
+    156          	 * Since C does not specify the direction of rounding for negative
+    157          	 * quotients, we have to force the dividend positive for portability.
+    158          	 * The maximum coefficient size is +-16K (for 12-bit data), so this
+    159          	 * code should work for either 16-bit or 32-bit ints.
+    160          	 */
+    161          	output_ptr[i] = (JCOEF) ((int) (temp + (FAST_FLOAT) 16384.5) - 16384);
+   \                     ??forward_DCT_float_2:
+   \   00000074   0A1197E7           LDR      R1,[R7, +R10, LSL #+2]
+   \   00000078   08008DE2           ADD      R0,SP,#+8
+   \   0000007C   0A0190E7           LDR      R0,[R0, +R10, LSL #+2]
+   \   00000080   8AB089E0           ADD      R11,R9,R10, LSL #+1
+   \   00000084   ........           _BLF     __fMul,??__fMul??rA
+   \   00000088   34109FE5           LDR      R1,??forward_DCT_float_3  ;; 0x46800100
+    162                }
+   \   0000008C   01A08AE2           ADD      R10,R10,#+1
+   \   00000090   ........           _BLF     __fAdd,??__fAdd??rA
+   \   00000094   ........           _BLF     __floatToLong,??__floatToLong??rA
+   \   00000098   400C40E2           SUB      R0,R0,#+16384
+   \   0000009C   B000CBE1           STRH     R0,[R11, #+0]
+   \   000000A0   40005AE3           CMP      R10,#+64
+   \   000000A4   F2FFFFBA           BLT      ??forward_DCT_float_2
+    163              }
+    164            }
+   \   000000A8   240094E5           LDR      R0,[R4, #+36]
+   \   000000AC   018088E2           ADD      R8,R8,#+1
+   \   000000B0   055080E0           ADD      R5,R0,R5
+   \                     ??forward_DCT_float_0:
+   \   000000B4   060058E1           CMP      R8,R6
+   \   000000B8   E5FFFF3A           BCC      ??forward_DCT_float_1
+    165          }
+   \   000000BC   43DF8DE2           ADD      SP,SP,#+268      ;; stack cleaning
+   \   000000C0   F08FBDE8           POP      {R4-R11,PC}      ;; return
+   \                     ??forward_DCT_float_3:
+   \   000000C4   00018046           DC32     0x46800100
+    166          
+    167          #endif /* DCT_FLOAT_SUPPORTED */
+    168          
+    169          
+    170          /*
+    171           * Initialize for a processing pass.
+    172           * Verify that all referenced Q-tables are present, and set up
+    173           * the divisor table for each one.
+    174           * In the current implementation, DCT of all components is done during
+    175           * the first pass, even if only some components will be output in the
+    176           * first scan.  Hence all components should be examined here.
+    177           */
+    178          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    179          METHODDEF(void)
+    180          start_pass_fdctmgr (j_compress_ptr cinfo)
+    181          {
+   \                     start_pass_fdctmgr:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+   \   00000004   10D04DE2           SUB      SP,SP,#+16
+    182            my_fdct_ptr fdct = (my_fdct_ptr) cinfo->fdct;
+    183            int ci, qtblno, i;
+    184            jpeg_component_info *compptr;
+    185            int method = 0;
+    186            JQUANT_TBL * qtbl;
+    187            DCTELEM * dtbl;
+    188          
+    189            for (ci = 0, compptr = cinfo->comp_info; ci < cinfo->num_components;
+   \   00000008   2C909FE5           LDR      R9,??start_pass_fdctmgr_1  ;; ??aanscalefactor
+   \   0000000C   0040A0E1           MOV      R4,R0
+   \   00000010   901194E5           LDR      R1,[R4, #+400]
+   \   00000014   0050A0E3           MOV      R5,#+0
+   \   00000018   08108DE5           STR      R1,[SP, #+8]
+   \   0000001C   0010A0E3           MOV      R1,#+0
+   \   00000020   04108DE5           STR      R1,[SP, #+4]
+   \   00000024   501094E5           LDR      R1,[R4, #+80]
+   \   00000028   00108DE5           STR      R1,[SP, #+0]
+   \   0000002C   480094E5           LDR      R0,[R4, #+72]
+   \   00000030   010050E3           CMP      R0,#+1
+   \   00000034   0D0000AA           BGE      ??start_pass_fdctmgr_2
+    190                 ci++, compptr++) {
+    191              /* Select the proper DCT routine for this component's scaling */
+    192              switch ((compptr->DCT_h_scaled_size << 8) + compptr->DCT_v_scaled_size) {
+    193          #ifdef DCT_SCALING_SUPPORTED
+    194              case ((1 << 8) + 1):
+    195                fdct->do_dct[ci] = jpeg_fdct_1x1;
+    196                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    197                break;
+    198              case ((2 << 8) + 2):
+    199                fdct->do_dct[ci] = jpeg_fdct_2x2;
+    200                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    201                break;
+    202              case ((3 << 8) + 3):
+    203                fdct->do_dct[ci] = jpeg_fdct_3x3;
+    204                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    205                break;
+    206              case ((4 << 8) + 4):
+    207                fdct->do_dct[ci] = jpeg_fdct_4x4;
+    208                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    209                break;
+    210              case ((5 << 8) + 5):
+    211                fdct->do_dct[ci] = jpeg_fdct_5x5;
+    212                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    213                break;
+    214              case ((6 << 8) + 6):
+    215                fdct->do_dct[ci] = jpeg_fdct_6x6;
+    216                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    217                break;
+    218              case ((7 << 8) + 7):
+    219                fdct->do_dct[ci] = jpeg_fdct_7x7;
+    220                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    221                break;
+    222              case ((9 << 8) + 9):
+    223                fdct->do_dct[ci] = jpeg_fdct_9x9;
+    224                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    225                break;
+    226              case ((10 << 8) + 10):
+    227                fdct->do_dct[ci] = jpeg_fdct_10x10;
+    228                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    229                break;
+    230              case ((11 << 8) + 11):
+    231                fdct->do_dct[ci] = jpeg_fdct_11x11;
+    232                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    233                break;
+    234              case ((12 << 8) + 12):
+    235                fdct->do_dct[ci] = jpeg_fdct_12x12;
+    236                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    237                break;
+    238              case ((13 << 8) + 13):
+    239                fdct->do_dct[ci] = jpeg_fdct_13x13;
+    240                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    241                break;
+    242              case ((14 << 8) + 14):
+    243                fdct->do_dct[ci] = jpeg_fdct_14x14;
+    244                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    245                break;
+    246              case ((15 << 8) + 15):
+    247                fdct->do_dct[ci] = jpeg_fdct_15x15;
+    248                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    249                break;
+    250              case ((16 << 8) + 16):
+    251                fdct->do_dct[ci] = jpeg_fdct_16x16;
+    252                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    253                break;
+    254              case ((16 << 8) + 8):
+    255                fdct->do_dct[ci] = jpeg_fdct_16x8;
+    256                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    257                break;
+    258              case ((14 << 8) + 7):
+    259                fdct->do_dct[ci] = jpeg_fdct_14x7;
+    260                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    261                break;
+    262              case ((12 << 8) + 6):
+    263                fdct->do_dct[ci] = jpeg_fdct_12x6;
+    264                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    265                break;
+    266              case ((10 << 8) + 5):
+    267                fdct->do_dct[ci] = jpeg_fdct_10x5;
+    268                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    269                break;
+    270              case ((8 << 8) + 4):
+    271                fdct->do_dct[ci] = jpeg_fdct_8x4;
+    272                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    273                break;
+    274              case ((6 << 8) + 3):
+    275                fdct->do_dct[ci] = jpeg_fdct_6x3;
+    276                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    277                break;
+    278              case ((4 << 8) + 2):
+    279                fdct->do_dct[ci] = jpeg_fdct_4x2;
+    280                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    281                break;
+    282              case ((2 << 8) + 1):
+    283                fdct->do_dct[ci] = jpeg_fdct_2x1;
+    284                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    285                break;
+    286              case ((8 << 8) + 16):
+    287                fdct->do_dct[ci] = jpeg_fdct_8x16;
+    288                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    289                break;
+    290              case ((7 << 8) + 14):
+    291                fdct->do_dct[ci] = jpeg_fdct_7x14;
+    292                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    293                break;
+    294              case ((6 << 8) + 12):
+    295                fdct->do_dct[ci] = jpeg_fdct_6x12;
+    296                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    297                break;
+    298              case ((5 << 8) + 10):
+    299                fdct->do_dct[ci] = jpeg_fdct_5x10;
+    300                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    301                break;
+    302              case ((4 << 8) + 8):
+    303                fdct->do_dct[ci] = jpeg_fdct_4x8;
+    304                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    305                break;
+    306              case ((3 << 8) + 6):
+    307                fdct->do_dct[ci] = jpeg_fdct_3x6;
+    308                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    309                break;
+    310              case ((2 << 8) + 4):
+    311                fdct->do_dct[ci] = jpeg_fdct_2x4;
+    312                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    313                break;
+    314              case ((1 << 8) + 2):
+    315                fdct->do_dct[ci] = jpeg_fdct_1x2;
+    316                method = JDCT_ISLOW;	/* jfdctint uses islow-style table */
+    317                break;
+    318          #endif
+    319              case ((DCTSIZE << 8) + DCTSIZE):
+    320                switch (cinfo->dct_method) {
+    321          #ifdef DCT_ISLOW_SUPPORTED
+    322                case JDCT_ISLOW:
+    323          	fdct->do_dct[ci] = jpeg_fdct_islow;
+    324          	method = JDCT_ISLOW;
+    325          	break;
+    326          #endif
+    327          #ifdef DCT_IFAST_SUPPORTED
+    328                case JDCT_IFAST:
+    329          	fdct->do_dct[ci] = jpeg_fdct_ifast;
+    330          	method = JDCT_IFAST;
+    331          	break;
+    332          #endif
+    333          #ifdef DCT_FLOAT_SUPPORTED
+    334                case JDCT_FLOAT:
+    335          	fdct->do_float_dct[ci] = jpeg_fdct_float;
+    336          	method = JDCT_FLOAT;
+    337          	break;
+    338          #endif
+    339                default:
+    340          	ERREXIT(cinfo, JERR_NOT_COMPILED);
+    341          	break;
+    342                }
+    343                break;
+    344              default:
+    345                ERREXIT2(cinfo, JERR_BAD_DCTSIZE,
+    346          	       compptr->DCT_h_scaled_size, compptr->DCT_v_scaled_size);
+    347                break;
+    348              }
+    349              qtblno = compptr->quant_tbl_no;
+    350              /* Make sure specified quantization table is present */
+    351              if (qtblno < 0 || qtblno >= NUM_QUANT_TBLS ||
+    352          	cinfo->quant_tbl_ptrs[qtblno] == NULL)
+    353                ERREXIT1(cinfo, JERR_NO_QUANT_TABLE, qtblno);
+    354              qtbl = cinfo->quant_tbl_ptrs[qtblno];
+    355              /* Compute divisors for this quant table */
+    356              /* We may do this more than once for same table, but it's not a big deal */
+    357              switch (method) {
+    358          #ifdef PROVIDE_ISLOW_TABLES
+    359              case JDCT_ISLOW:
+    360                /* For LL&M IDCT method, divisors are equal to raw quantization
+    361                 * coefficients multiplied by 8 (to counteract scaling).
+    362                 */
+    363                if (fdct->divisors[qtblno] == NULL) {
+    364          	fdct->divisors[qtblno] = (DCTELEM *)
+    365          	  (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_IMAGE,
+    366          				      DCTSIZE2 * SIZEOF(DCTELEM));
+    367                }
+    368                dtbl = fdct->divisors[qtblno];
+    369                for (i = 0; i < DCTSIZE2; i++) {
+    370          	dtbl[i] = ((DCTELEM) qtbl->quantval[i]) << 3;
+    371                }
+    372                fdct->pub.forward_DCT[ci] = forward_DCT;
+    373                break;
+    374          #endif
+    375          #ifdef DCT_IFAST_SUPPORTED
+    376              case JDCT_IFAST:
+    377                {
+    378          	/* For AA&N IDCT method, divisors are equal to quantization
+    379          	 * coefficients scaled by scalefactor[row]*scalefactor[col], where
+    380          	 *   scalefactor[0] = 1
+    381          	 *   scalefactor[k] = cos(k*PI/16) * sqrt(2)    for k=1..7
+    382          	 * We apply a further scale factor of 8.
+    383          	 */
+    384          #define CONST_BITS 14
+    385          	static const INT16 aanscales[DCTSIZE2] = {
+    386          	  /* precomputed values scaled up by 14 bits */
+    387          	  16384, 22725, 21407, 19266, 16384, 12873,  8867,  4520,
+    388          	  22725, 31521, 29692, 26722, 22725, 17855, 12299,  6270,
+    389          	  21407, 29692, 27969, 25172, 21407, 16819, 11585,  5906,
+    390          	  19266, 26722, 25172, 22654, 19266, 15137, 10426,  5315,
+    391          	  16384, 22725, 21407, 19266, 16384, 12873,  8867,  4520,
+    392          	  12873, 17855, 16819, 15137, 12873, 10114,  6967,  3552,
+    393          	   8867, 12299, 11585, 10426,  8867,  6967,  4799,  2446,
+    394          	   4520,  6270,  5906,  5315,  4520,  3552,  2446,  1247
+    395          	};
+    396          	SHIFT_TEMPS
+    397          
+    398          	if (fdct->divisors[qtblno] == NULL) {
+    399          	  fdct->divisors[qtblno] = (DCTELEM *)
+    400          	    (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_IMAGE,
+    401          					DCTSIZE2 * SIZEOF(DCTELEM));
+    402          	}
+    403          	dtbl = fdct->divisors[qtblno];
+    404          	for (i = 0; i < DCTSIZE2; i++) {
+    405          	  dtbl[i] = (DCTELEM)
+    406          	    DESCALE(MULTIPLY16V16((INT32) qtbl->quantval[i],
+    407          				  (INT32) aanscales[i]),
+    408          		    CONST_BITS-3);
+    409          	}
+    410                }
+    411                fdct->pub.forward_DCT[ci] = forward_DCT;
+    412                break;
+    413          #endif
+    414          #ifdef DCT_FLOAT_SUPPORTED
+    415              case JDCT_FLOAT:
+    416                {
+    417          	/* For float AA&N IDCT method, divisors are equal to quantization
+    418          	 * coefficients scaled by scalefactor[row]*scalefactor[col], where
+    419          	 *   scalefactor[0] = 1
+    420          	 *   scalefactor[k] = cos(k*PI/16) * sqrt(2)    for k=1..7
+    421          	 * We apply a further scale factor of 8.
+    422          	 * What's actually stored is 1/divisor so that the inner loop can
+    423          	 * use a multiplication rather than a division.
+    424          	 */
+    425          	FAST_FLOAT * fdtbl;
+    426          	int row, col;
+    427          	static const double aanscalefactor[DCTSIZE] = {
+    428          	  1.0, 1.387039845, 1.306562965, 1.175875602,
+    429          	  1.0, 0.785694958, 0.541196100, 0.275899379
+    430          	};
+    431          
+    432          	if (fdct->float_divisors[qtblno] == NULL) {
+    433          	  fdct->float_divisors[qtblno] = (FAST_FLOAT *)
+    434          	    (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_IMAGE,
+    435          					DCTSIZE2 * SIZEOF(FAST_FLOAT));
+    436          	}
+    437          	fdtbl = fdct->float_divisors[qtblno];
+    438          	i = 0;
+    439          	for (row = 0; row < DCTSIZE; row++) {
+    440          	  for (col = 0; col < DCTSIZE; col++) {
+    441          	    fdtbl[i] = (FAST_FLOAT)
+    442          	      (1.0 / (((double) qtbl->quantval[i] *
+    443          		       aanscalefactor[row] * aanscalefactor[col] * 8.0)));
+    444          	    i++;
+    445          	  }
+    446          	}
+    447                }
+    448                fdct->pub.forward_DCT[ci] = forward_DCT_float;
+    449                break;
+    450          #endif
+    451              default:
+    452                ERREXIT(cinfo, JERR_NOT_COMPILED);
+    453                break;
+    454              }
+    455            }
+    456          }
+   \   00000038   FF8FBDE8           POP      {R0-R11,PC}      ;; return
+   \                     ??start_pass_fdctmgr_1:
+   \   0000003C   ........           DC32     ??aanscalefactor
+   \                     ??start_pass_fdctmgr_3:
+   \   00000040   000094E5           LDR      R0,[R4, #+0]
+   \   00000044   147080E5           STR      R7,[R0, #+20]
+   \   00000048   001094E5           LDR      R1,[R4, #+0]
+   \   0000004C   0400A0E1           MOV      R0,R4
+   \   00000050   001091E5           LDR      R1,[R1, #+0]
+   \   00000054   31FF2FE1           BLX      R1
+   \                     ??start_pass_fdctmgr_4:
+   \   00000058   04109DE5           LDR      R1,[SP, #+4]
+   \   0000005C   011081E2           ADD      R1,R1,#+1
+   \   00000060   04108DE5           STR      R1,[SP, #+4]
+   \   00000064   00109DE5           LDR      R1,[SP, #+0]
+   \   00000068   581081E2           ADD      R1,R1,#+88
+   \   0000006C   00108DE5           STR      R1,[SP, #+0]
+   \                     ??start_pass_fdctmgr_2:
+   \   00000070   04009DE5           LDR      R0,[SP, #+4]
+   \   00000074   481094E5           LDR      R1,[R4, #+72]
+   \   00000078   010050E1           CMP      R0,R1
+   \   0000007C   FF8FBDA8           POPGE    {R0-R11,PC}
+   \   00000080   08109DE5           LDR      R1,[SP, #+8]
+   \   00000084   3170A0E3           MOV      R7,#+49
+   \   00000088   006181E0           ADD      R6,R1,R0, LSL #+2
+   \   0000008C   00009DE5           LDR      R0,[SP, #+0]
+   \   00000090   00109DE5           LDR      R1,[SP, #+0]
+   \   00000094   240090E5           LDR      R0,[R0, #+36]
+   \   00000098   281091E5           LDR      R1,[R1, #+40]
+   \   0000009C   000481E0           ADD      R0,R1,R0, LSL #+8
+   \   000000A0   010040E2           SUB      R0,R0,#+1
+   \   000000A4   400F40E2           SUB      R0,R0,#+256
+   \   000000A8   0F10A0E3           MOV      R1,#+15
+   \   000000AC   F01E81E3           ORR      R1,R1,#0xF00
+   \   000000B0   010050E1           CMP      R0,R1
+   \   000000B4   E107008A           BHI      ??start_pass_fdctmgr_5
+   \   000000B8   021F8FE2           ADR      R1,??start_pass_fdctmgr_0
+   \   000000BC   8000A0E1           MOV      R0,R0, LSL #+1
+   \   000000C0   B01091E1           LDRH     R1,[R1, R0]
+   \   000000C4   01F18FE0           ADD      PC,PC,R1, LSL #+2
+   \                     ??start_pass_fdctmgr_0:
+   \   000000C8   8707C707DD07       DC16     +1927,+1991,+2013,+2013
+   \              DD07        
+   \   000000D0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000000D8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000000E0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000000E8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000000F0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000000F8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000100   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000108   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000110   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000118   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000120   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000128   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000130   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000138   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000140   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000148   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000150   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000158   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000160   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000168   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000170   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000178   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000180   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000188   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000190   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000198   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000001A0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000001A8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000001B0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000001B8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000001C0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000001C8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000001D0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000001D8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000001E0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000001E8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000001F0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000001F8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000200   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000208   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000210   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000218   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000220   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000228   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000230   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000238   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000240   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000248   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000250   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000258   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000260   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000268   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000270   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000278   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000280   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000288   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000290   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000298   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000002A0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000002A8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000002B0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000002B8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000002C0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000002C8   B7078B07DD07       DC16     +1975,+1931,+2013,+1989
+   \              C507        
+   \   000002D0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000002D8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000002E0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000002E8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000002F0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000002F8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000300   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000308   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000310   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000318   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000320   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000328   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000330   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000338   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000340   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000348   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000350   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000358   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000360   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000368   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000370   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000378   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000380   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000388   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000390   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000398   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000003A0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000003A8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000003B0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000003B8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000003C0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000003C8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000003D0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000003D8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000003E0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000003E8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000003F0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000003F8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000400   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000408   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000410   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000418   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000420   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000428   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000430   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000438   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000440   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000448   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000450   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000458   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000460   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000468   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000470   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000478   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000480   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000488   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000490   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000498   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000004A0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000004A8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000004B0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000004B8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000004C0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000004C8   DD07DD078D07       DC16     +2013,+2013,+1933,+2013
+   \              DD07        
+   \   000004D0   DD07C307DD07       DC16     +2013,+1987,+2013,+2013
+   \              DD07        
+   \   000004D8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000004E0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000004E8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000004F0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000004F8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000500   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000508   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000510   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000518   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000520   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000528   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000530   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000538   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000540   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000548   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000550   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000558   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000560   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000568   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000570   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000578   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000580   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000588   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000590   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000598   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000005A0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000005A8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000005B0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000005B8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000005C0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000005C8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000005D0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000005D8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000005E0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000005E8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000005F0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000005F8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000600   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000608   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000610   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000618   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000620   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000628   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000630   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000638   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000640   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000648   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000650   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000658   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000660   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000668   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000670   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000678   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000680   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000688   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000690   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000698   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000006A0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000006A8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000006B0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000006B8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000006C0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000006C8   DD07B507DD07       DC16     +2013,+1973,+2013,+1935
+   \              8F07        
+   \   000006D0   DD07DD07DD07       DC16     +2013,+2013,+2013,+1985
+   \              C107        
+   \   000006D8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000006E0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000006E8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000006F0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000006F8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000700   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000708   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000710   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000718   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000720   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000728   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000730   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000738   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000740   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000748   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000750   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000758   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000760   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000768   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000770   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000778   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000780   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000788   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000790   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000798   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000007A0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000007A8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000007B0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000007B8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000007C0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000007C8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000007D0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000007D8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000007E0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000007E8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000007F0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000007F8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000800   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000808   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000810   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000818   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000820   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000828   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000830   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000838   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000840   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000848   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000850   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000858   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000860   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000868   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000870   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000878   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000880   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000888   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000890   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000898   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000008A0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000008A8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000008B0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000008B8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000008C0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000008C8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000008D0   9107DD07DD07       DC16     +1937,+2013,+2013,+2013
+   \              DD07        
+   \   000008D8   DD07BF07DD07       DC16     +2013,+1983,+2013,+2013
+   \              DD07        
+   \   000008E0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000008E8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000008F0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000008F8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000900   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000908   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000910   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000918   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000920   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000928   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000930   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000938   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000940   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000948   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000950   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000958   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000960   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000968   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000970   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000978   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000980   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000988   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000990   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000998   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000009A0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000009A8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000009B0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000009B8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000009C0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000009C8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000009D0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000009D8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000009E0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000009E8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000009F0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000009F8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000A00   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000A08   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000A10   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000A18   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000A20   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000A28   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000A30   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000A38   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000A40   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000A48   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000A50   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000A58   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000A60   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000A68   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000A70   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000A78   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000A80   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000A88   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000A90   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000A98   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000AA0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000AA8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000AB0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000AB8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000AC0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000AC8   DD07DD07B307       DC16     +2013,+2013,+1971,+2013
+   \              DD07        
+   \   00000AD0   DD079307DD07       DC16     +2013,+1939,+2013,+2013
+   \              DD07        
+   \   00000AD8   DD07DD07DD07       DC16     +2013,+2013,+2013,+1981
+   \              BD07        
+   \   00000AE0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000AE8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000AF0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000AF8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000B00   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000B08   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000B10   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000B18   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000B20   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000B28   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000B30   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000B38   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000B40   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000B48   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000B50   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000B58   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000B60   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000B68   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000B70   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000B78   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000B80   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000B88   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000B90   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000B98   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000BA0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000BA8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000BB0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000BB8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000BC0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000BC8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000BD0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000BD8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000BE0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000BE8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000BF0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000BF8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000C00   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000C08   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000C10   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000C18   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000C20   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000C28   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000C30   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000C38   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000C40   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000C48   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000C50   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000C58   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000C60   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000C68   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000C70   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000C78   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000C80   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000C88   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000C90   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000C98   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000CA0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000CA8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000CB0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000CB8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000CC0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000CC8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000CD0   DD07DD079507       DC16     +2013,+2013,+1941,+2013
+   \              DD07        
+   \   00000CD8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000CE0   DD07BB07DD07       DC16     +2013,+1979,+2013,+2013
+   \              DD07        
+   \   00000CE8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000CF0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000CF8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000D00   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000D08   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000D10   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000D18   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000D20   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000D28   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000D30   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000D38   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000D40   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000D48   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000D50   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000D58   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000D60   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000D68   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000D70   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000D78   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000D80   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000D88   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000D90   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000D98   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000DA0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000DA8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000DB0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000DB8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000DC0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000DC8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000DD0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000DD8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000DE0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000DE8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000DF0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000DF8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000E00   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000E08   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000E10   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000E18   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000E20   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000E28   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000E30   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000E38   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000E40   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000E48   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000E50   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000E58   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000E60   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000E68   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000E70   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000E78   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000E80   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000E88   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000E90   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000E98   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000EA0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000EA8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000EB0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000EB8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000EC0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000EC8   DD07DD07DD07       DC16     +2013,+2013,+2013,+1969
+   \              B107        
+   \   00000ED0   DD07DD07DD07       DC16     +2013,+2013,+2013,+1993
+   \              C907        
+   \   00000ED8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000EE0   DD07DD07DD07       DC16     +2013,+2013,+2013,+1977
+   \              B907        
+   \   00000EE8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000EF0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000EF8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000F00   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000F08   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000F10   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000F18   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000F20   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000F28   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000F30   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000F38   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000F40   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000F48   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000F50   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000F58   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000F60   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000F68   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000F70   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000F78   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000F80   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000F88   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000F90   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000F98   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000FA0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000FA8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000FB0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000FB8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000FC0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000FC8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000FD0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000FD8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000FE0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000FE8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000FF0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00000FF8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001000   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001008   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001010   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001018   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001020   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001028   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001030   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001038   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001040   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001048   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001050   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001058   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001060   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001068   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001070   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001078   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001080   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001088   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001090   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001098   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000010A0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000010A8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000010B0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000010B8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000010C0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000010C8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000010D0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000010D8   9907DD07DD07       DC16     +1945,+2013,+2013,+2013
+   \              DD07        
+   \   000010E0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000010E8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000010F0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000010F8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001100   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001108   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001110   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001118   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001120   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001128   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001130   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001138   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001140   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001148   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001150   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001158   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001160   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001168   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001170   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001178   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001180   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001188   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001190   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001198   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000011A0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000011A8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000011B0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000011B8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000011C0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000011C8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000011D0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000011D8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000011E0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000011E8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000011F0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000011F8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001200   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001208   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001210   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001218   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001220   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001228   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001230   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001238   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001240   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001248   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001250   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001258   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001260   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001268   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001270   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001278   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001280   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001288   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001290   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001298   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000012A0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000012A8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000012B0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000012B8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000012C0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000012C8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000012D0   AF07DD07DD07       DC16     +1967,+2013,+2013,+2013
+   \              DD07        
+   \   000012D8   DD079B07DD07       DC16     +2013,+1947,+2013,+2013
+   \              DD07        
+   \   000012E0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000012E8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000012F0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000012F8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001300   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001308   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001310   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001318   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001320   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001328   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001330   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001338   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001340   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001348   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001350   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001358   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001360   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001368   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001370   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001378   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001380   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001388   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001390   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001398   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000013A0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000013A8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000013B0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000013B8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000013C0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000013C8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000013D0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000013D8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000013E0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000013E8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000013F0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000013F8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001400   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001408   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001410   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001418   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001420   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001428   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001430   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001438   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001440   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001448   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001450   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001458   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001460   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001468   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001470   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001478   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001480   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001488   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001490   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001498   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000014A0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000014A8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000014B0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000014B8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000014C0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000014C8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000014D0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000014D8   DD07DD079D07       DC16     +2013,+2013,+1949,+2013
+   \              DD07        
+   \   000014E0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000014E8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000014F0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000014F8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001500   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001508   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001510   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001518   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001520   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001528   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001530   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001538   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001540   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001548   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001550   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001558   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001560   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001568   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001570   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001578   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001580   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001588   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001590   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001598   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000015A0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000015A8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000015B0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000015B8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000015C0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000015C8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000015D0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000015D8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000015E0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000015E8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000015F0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000015F8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001600   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001608   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001610   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001618   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001620   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001628   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001630   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001638   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001640   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001648   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001650   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001658   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001660   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001668   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001670   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001678   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001680   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001688   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001690   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001698   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000016A0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000016A8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000016B0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000016B8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000016C0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000016C8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000016D0   DD07AD07DD07       DC16     +2013,+1965,+2013,+2013
+   \              DD07        
+   \   000016D8   DD07DD07DD07       DC16     +2013,+2013,+2013,+1951
+   \              9F07        
+   \   000016E0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000016E8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000016F0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000016F8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001700   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001708   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001710   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001718   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001720   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001728   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001730   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001738   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001740   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001748   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001750   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001758   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001760   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001768   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001770   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001778   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001780   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001788   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001790   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001798   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000017A0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000017A8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000017B0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000017B8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000017C0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000017C8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000017D0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000017D8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000017E0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000017E8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000017F0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000017F8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001800   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001808   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001810   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001818   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001820   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001828   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001830   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001838   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001840   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001848   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001850   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001858   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001860   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001868   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001870   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001878   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001880   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001888   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001890   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001898   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000018A0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000018A8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000018B0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000018B8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000018C0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000018C8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000018D0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000018D8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000018E0   A107DD07DD07       DC16     +1953,+2013,+2013,+2013
+   \              DD07        
+   \   000018E8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000018F0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000018F8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001900   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001908   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001910   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001918   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001920   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001928   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001930   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001938   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001940   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001948   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001950   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001958   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001960   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001968   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001970   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001978   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001980   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001988   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001990   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001998   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000019A0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000019A8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000019B0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000019B8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000019C0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000019C8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000019D0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000019D8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000019E0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000019E8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000019F0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   000019F8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001A00   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001A08   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001A10   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001A18   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001A20   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001A28   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001A30   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001A38   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001A40   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001A48   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001A50   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001A58   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001A60   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001A68   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001A70   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001A78   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001A80   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001A88   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001A90   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001A98   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001AA0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001AA8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001AB0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001AB8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001AC0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001AC8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001AD0   DD07DD07AB07       DC16     +2013,+2013,+1963,+2013
+   \              DD07        
+   \   00001AD8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001AE0   DD07A307DD07       DC16     +2013,+1955,+2013,+2013
+   \              DD07        
+   \   00001AE8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001AF0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001AF8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001B00   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001B08   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001B10   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001B18   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001B20   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001B28   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001B30   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001B38   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001B40   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001B48   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001B50   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001B58   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001B60   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001B68   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001B70   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001B78   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001B80   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001B88   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001B90   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001B98   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001BA0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001BA8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001BB0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001BB8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001BC0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001BC8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001BD0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001BD8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001BE0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001BE8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001BF0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001BF8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001C00   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001C08   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001C10   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001C18   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001C20   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001C28   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001C30   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001C38   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001C40   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001C48   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001C50   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001C58   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001C60   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001C68   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001C70   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001C78   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001C80   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001C88   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001C90   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001C98   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001CA0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001CA8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001CB0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001CB8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001CC0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001CC8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001CD0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001CD8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001CE0   DD07DD07A507       DC16     +2013,+2013,+1957,+2013
+   \              DD07        
+   \   00001CE8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001CF0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001CF8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001D00   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001D08   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001D10   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001D18   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001D20   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001D28   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001D30   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001D38   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001D40   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001D48   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001D50   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001D58   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001D60   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001D68   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001D70   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001D78   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001D80   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001D88   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001D90   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001D98   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001DA0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001DA8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001DB0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001DB8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001DC0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001DC8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001DD0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001DD8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001DE0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001DE8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001DF0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001DF8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001E00   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001E08   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001E10   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001E18   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001E20   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001E28   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001E30   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001E38   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001E40   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001E48   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001E50   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001E58   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001E60   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001E68   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001E70   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001E78   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001E80   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001E88   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001E90   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001E98   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001EA0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001EA8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001EB0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001EB8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001EC0   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001EC8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001ED0   DD07DD07DD07       DC16     +2013,+2013,+2013,+1961
+   \              A907        
+   \   00001ED8   DD07DD07DD07       DC16     +2013,+2013,+2013,+2013
+   \              DD07        
+   \   00001EE0   DD07DD07DD07       DC16     +2013,+2013,+2013,+1959
+   \              A707        
+   \                     ??start_pass_fdctmgr_6:
+   \   00001EE8   98039FE5           LDR      R0,??start_pass_fdctmgr_7  ;; jpeg_fdct_1x1
+   \                     ??start_pass_fdctmgr_8:
+   \   00001EEC   0050A0E3           MOV      R5,#+0
+   \                     ??start_pass_fdctmgr_9:
+   \   00001EF0   2C0086E5           STR      R0,[R6, #+44]
+   \   00001EF4   600000EA           B        ??start_pass_fdctmgr_10
+   \                     ??start_pass_fdctmgr_11:
+   \   00001EF8   8C039FE5           LDR      R0,??start_pass_fdctmgr_7+0x4  ;; jpeg_fdct_2x2
+   \   00001EFC   FAFFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_12:
+   \   00001F00   88039FE5           LDR      R0,??start_pass_fdctmgr_7+0x8  ;; jpeg_fdct_3x3
+   \                     ??start_pass_fdctmgr_13:
+   \   00001F04   F8FFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_14:
+   \   00001F08   84039FE5           LDR      R0,??start_pass_fdctmgr_7+0xC  ;; jpeg_fdct_4x4
+   \   00001F0C   F6FFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_15:
+   \   00001F10   80039FE5           LDR      R0,??start_pass_fdctmgr_7+0x10  ;; jpeg_fdct_5x5
+   \   00001F14   F4FFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_16:
+   \   00001F18   7C039FE5           LDR      R0,??start_pass_fdctmgr_7+0x14  ;; jpeg_fdct_6x6
+   \   00001F1C   F2FFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_17:
+   \   00001F20   78039FE5           LDR      R0,??start_pass_fdctmgr_7+0x18  ;; jpeg_fdct_7x7
+   \                     ??start_pass_fdctmgr_18:
+   \   00001F24   0050A0E3           MOV      R5,#+0
+   \   00001F28   2C0086E5           STR      R0,[R6, #+44]
+   \   00001F2C   520000EA           B        ??start_pass_fdctmgr_10
+   \                     ??start_pass_fdctmgr_19:
+   \   00001F30   6C039FE5           LDR      R0,??start_pass_fdctmgr_7+0x1C  ;; jpeg_fdct_9x9
+   \   00001F34   ECFFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_20:
+   \   00001F38   68039FE5           LDR      R0,??start_pass_fdctmgr_7+0x20  ;; jpeg_fdct_10x10
+   \   00001F3C   EAFFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_21:
+   \   00001F40   64039FE5           LDR      R0,??start_pass_fdctmgr_7+0x24  ;; jpeg_fdct_11x11
+   \   00001F44   E8FFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_22:
+   \   00001F48   60039FE5           LDR      R0,??start_pass_fdctmgr_7+0x28  ;; jpeg_fdct_12x12
+   \   00001F4C   F4FFFFEA           B        ??start_pass_fdctmgr_18
+   \                     ??start_pass_fdctmgr_23:
+   \   00001F50   5C039FE5           LDR      R0,??start_pass_fdctmgr_7+0x2C  ;; jpeg_fdct_13x13
+   \   00001F54   E4FFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_24:
+   \   00001F58   58039FE5           LDR      R0,??start_pass_fdctmgr_7+0x30  ;; jpeg_fdct_14x14
+   \   00001F5C   E2FFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_25:
+   \   00001F60   54039FE5           LDR      R0,??start_pass_fdctmgr_7+0x34  ;; jpeg_fdct_15x15
+   \   00001F64   E0FFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_26:
+   \   00001F68   50039FE5           LDR      R0,??start_pass_fdctmgr_7+0x38  ;; jpeg_fdct_16x16
+   \                     ??start_pass_fdctmgr_27:
+   \   00001F6C   DEFFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_28:
+   \   00001F70   4C039FE5           LDR      R0,??start_pass_fdctmgr_7+0x3C  ;; jpeg_fdct_16x8
+   \   00001F74   DCFFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_29:
+   \   00001F78   48039FE5           LDR      R0,??start_pass_fdctmgr_7+0x40  ;; jpeg_fdct_14x7
+   \   00001F7C   DAFFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_30:
+   \   00001F80   44039FE5           LDR      R0,??start_pass_fdctmgr_7+0x44  ;; jpeg_fdct_12x6
+   \   00001F84   D8FFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_31:
+   \   00001F88   40039FE5           LDR      R0,??start_pass_fdctmgr_7+0x48  ;; jpeg_fdct_10x5
+   \   00001F8C   E4FFFFEA           B        ??start_pass_fdctmgr_18
+   \                     ??start_pass_fdctmgr_32:
+   \   00001F90   3C039FE5           LDR      R0,??start_pass_fdctmgr_7+0x4C  ;; jpeg_fdct_8x4
+   \   00001F94   D4FFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_33:
+   \   00001F98   38039FE5           LDR      R0,??start_pass_fdctmgr_7+0x50  ;; jpeg_fdct_6x3
+   \   00001F9C   D2FFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_34:
+   \   00001FA0   34039FE5           LDR      R0,??start_pass_fdctmgr_7+0x54  ;; jpeg_fdct_4x2
+   \   00001FA4   D0FFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_35:
+   \   00001FA8   30039FE5           LDR      R0,??start_pass_fdctmgr_7+0x58  ;; jpeg_fdct_2x1
+   \   00001FAC   CEFFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_36:
+   \   00001FB0   2C039FE5           LDR      R0,??start_pass_fdctmgr_7+0x5C  ;; jpeg_fdct_8x16
+   \   00001FB4   CCFFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_37:
+   \   00001FB8   28039FE5           LDR      R0,??start_pass_fdctmgr_7+0x60  ;; jpeg_fdct_7x14
+   \   00001FBC   CAFFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_38:
+   \   00001FC0   24039FE5           LDR      R0,??start_pass_fdctmgr_7+0x64  ;; jpeg_fdct_6x12
+   \   00001FC4   C8FFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_39:
+   \   00001FC8   20039FE5           LDR      R0,??start_pass_fdctmgr_7+0x68  ;; jpeg_fdct_5x10
+   \   00001FCC   D4FFFFEA           B        ??start_pass_fdctmgr_18
+   \                     ??start_pass_fdctmgr_40:
+   \   00001FD0   1C039FE5           LDR      R0,??start_pass_fdctmgr_7+0x6C  ;; jpeg_fdct_4x8
+   \   00001FD4   C4FFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_41:
+   \   00001FD8   18039FE5           LDR      R0,??start_pass_fdctmgr_7+0x70  ;; jpeg_fdct_3x6
+   \   00001FDC   C2FFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_42:
+   \   00001FE0   14039FE5           LDR      R0,??start_pass_fdctmgr_7+0x74  ;; jpeg_fdct_2x4
+   \   00001FE4   C0FFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_43:
+   \   00001FE8   10039FE5           LDR      R0,??start_pass_fdctmgr_7+0x78  ;; jpeg_fdct_1x2
+   \   00001FEC   CCFFFFEA           B        ??start_pass_fdctmgr_18
+   \                     ??start_pass_fdctmgr_44:
+   \   00001FF0   E400D4E5           LDRB     R0,[R4, #+228]
+   \   00001FF4   000050E3           CMP      R0,#+0
+   \   00001FF8   0400000A           BEQ      ??start_pass_fdctmgr_45
+   \   00001FFC   010050E2           SUBS     R0,R0,#+1
+   \   00002000   0400000A           BEQ      ??start_pass_fdctmgr_46
+   \   00002004   010050E2           SUBS     R0,R0,#+1
+   \   00002008   0500000A           BEQ      ??start_pass_fdctmgr_47
+   \   0000200C   080000EA           B        ??start_pass_fdctmgr_48
+   \                     ??start_pass_fdctmgr_45:
+   \   00002010   EC029FE5           LDR      R0,??start_pass_fdctmgr_7+0x7C  ;; jpeg_fdct_islow
+   \   00002014   B4FFFFEA           B        ??start_pass_fdctmgr_8
+   \                     ??start_pass_fdctmgr_46:
+   \   00002018   E8029FE5           LDR      R0,??start_pass_fdctmgr_7+0x80  ;; jpeg_fdct_ifast
+   \   0000201C   0150A0E3           MOV      R5,#+1
+   \   00002020   B2FFFFEA           B        ??start_pass_fdctmgr_9
+   \                     ??start_pass_fdctmgr_47:
+   \   00002024   E0029FE5           LDR      R0,??start_pass_fdctmgr_7+0x84  ;; jpeg_fdct_float
+   \   00002028   0250A0E3           MOV      R5,#+2
+   \   0000202C   640086E5           STR      R0,[R6, #+100]
+   \   00002030   110000EA           B        ??start_pass_fdctmgr_10
+   \                     ??start_pass_fdctmgr_48:
+   \   00002034   000094E5           LDR      R0,[R4, #+0]
+   \   00002038   147080E5           STR      R7,[R0, #+20]
+   \   0000203C   0A0000EA           B        ??start_pass_fdctmgr_49
+   \                     ??start_pass_fdctmgr_5:
+   \   00002040   000094E5           LDR      R0,[R4, #+0]
+   \   00002044   0710A0E3           MOV      R1,#+7
+   \   00002048   141080E5           STR      R1,[R0, #+20]
+   \   0000204C   00109DE5           LDR      R1,[SP, #+0]
+   \   00002050   000094E5           LDR      R0,[R4, #+0]
+   \   00002054   241091E5           LDR      R1,[R1, #+36]
+   \   00002058   181080E5           STR      R1,[R0, #+24]
+   \   0000205C   00109DE5           LDR      R1,[SP, #+0]
+   \   00002060   000094E5           LDR      R0,[R4, #+0]
+   \   00002064   281091E5           LDR      R1,[R1, #+40]
+   \   00002068   1C1080E5           STR      R1,[R0, #+28]
+   \                     ??start_pass_fdctmgr_49:
+   \   0000206C   001094E5           LDR      R1,[R4, #+0]
+   \   00002070   0400A0E1           MOV      R0,R4
+   \   00002074   001091E5           LDR      R1,[R1, #+0]
+   \   00002078   31FF2FE1           BLX      R1
+   \                     ??start_pass_fdctmgr_10:
+   \   0000207C   00009DE5           LDR      R0,[SP, #+0]
+   \   00002080   108090E5           LDR      R8,[R0, #+16]
+   \   00002084   000058E3           CMP      R8,#+0
+   \   00002088   0500004A           BMI      ??start_pass_fdctmgr_50
+   \   0000208C   040058E3           CMP      R8,#+4
+   \   00002090   030000AA           BGE      ??start_pass_fdctmgr_50
+   \   00002094   080184E0           ADD      R0,R4,R8, LSL #+2
+   \   00002098   540090E5           LDR      R0,[R0, #+84]
+   \   0000209C   000050E3           CMP      R0,#+0
+   \   000020A0   0800001A           BNE      ??start_pass_fdctmgr_51
+   \                     ??start_pass_fdctmgr_50:
+   \   000020A4   000094E5           LDR      R0,[R4, #+0]
+   \   000020A8   3610A0E3           MOV      R1,#+54
+   \   000020AC   141080E5           STR      R1,[R0, #+20]
+   \   000020B0   000094E5           LDR      R0,[R4, #+0]
+   \   000020B4   188080E5           STR      R8,[R0, #+24]
+   \   000020B8   001094E5           LDR      R1,[R4, #+0]
+   \   000020BC   0400A0E1           MOV      R0,R4
+   \   000020C0   001091E5           LDR      R1,[R1, #+0]
+   \   000020C4   31FF2FE1           BLX      R1
+   \                     ??start_pass_fdctmgr_51:
+   \   000020C8   080184E0           ADD      R0,R4,R8, LSL #+2
+   \   000020CC   54B090E5           LDR      R11,[R0, #+84]
+   \   000020D0   08009DE5           LDR      R0,[SP, #+8]
+   \   000020D4   088180E0           ADD      R8,R0,R8, LSL #+2
+   \   000020D8   0500B0E1           MOVS     R0,R5
+   \   000020DC   0400000A           BEQ      ??start_pass_fdctmgr_52
+   \   000020E0   010055E2           SUBS     R0,R5,#+1
+   \   000020E4   1800000A           BEQ      ??start_pass_fdctmgr_53
+   \   000020E8   010050E2           SUBS     R0,R0,#+1
+   \   000020EC   2F00000A           BEQ      ??start_pass_fdctmgr_54
+   \   000020F0   D2F7FFEA           B        ??start_pass_fdctmgr_3
+   \                     ??start_pass_fdctmgr_52:
+   \   000020F4   540098E5           LDR      R0,[R8, #+84]
+   \   000020F8   000050E3           CMP      R0,#+0
+   \   000020FC   0600001A           BNE      ??start_pass_fdctmgr_55
+   \   00002100   043094E5           LDR      R3,[R4, #+4]
+   \   00002104   402FA0E3           MOV      R2,#+256
+   \   00002108   003093E5           LDR      R3,[R3, #+0]
+   \   0000210C   0110A0E3           MOV      R1,#+1
+   \   00002110   0400A0E1           MOV      R0,R4
+   \   00002114   33FF2FE1           BLX      R3
+   \   00002118   540088E5           STR      R0,[R8, #+84]
+   \                     ??start_pass_fdctmgr_55:
+   \   0000211C   540098E5           LDR      R0,[R8, #+84]
+   \   00002120   0070A0E3           MOV      R7,#+0
+   \                     ??start_pass_fdctmgr_56:
+   \   00002124   87108BE0           ADD      R1,R11,R7, LSL #+1
+   \   00002128   B010D1E1           LDRH     R1,[R1, #+0]
+   \   0000212C   8111A0E1           LSL      R1,R1,#+3
+   \   00002130   071180E7           STR      R1,[R0, +R7, LSL #+2]
+   \   00002134   017087E2           ADD      R7,R7,#+1
+   \   00002138   400057E3           CMP      R7,#+64
+   \   0000213C   F8FFFFBA           BLT      ??start_pass_fdctmgr_56
+   \                     ??start_pass_fdctmgr_57:
+   \   00002140   C8019FE5           LDR      R0,??start_pass_fdctmgr_7+0x88  ;; forward_DCT
+   \                     ??start_pass_fdctmgr_58:
+   \   00002144   040086E5           STR      R0,[R6, #+4]
+   \   00002148   C2F7FFEA           B        ??start_pass_fdctmgr_4
+   \                     ??start_pass_fdctmgr_53:
+   \   0000214C   540098E5           LDR      R0,[R8, #+84]
+   \   00002150   000050E3           CMP      R0,#+0
+   \   00002154   0600001A           BNE      ??start_pass_fdctmgr_59
+   \   00002158   043094E5           LDR      R3,[R4, #+4]
+   \   0000215C   402FA0E3           MOV      R2,#+256
+   \   00002160   003093E5           LDR      R3,[R3, #+0]
+   \   00002164   0110A0E3           MOV      R1,#+1
+   \   00002168   0400A0E1           MOV      R0,R4
+   \   0000216C   33FF2FE1           BLX      R3
+   \   00002170   540088E5           STR      R0,[R8, #+84]
+   \                     ??start_pass_fdctmgr_59:
+   \   00002174   540098E5           LDR      R0,[R8, #+84]
+   \   00002178   0070A0E3           MOV      R7,#+0
+   \                     ??start_pass_fdctmgr_60:
+   \   0000217C   90219FE5           LDR      R2,??start_pass_fdctmgr_7+0x8C  ;; ??aanscales
+   \   00002180   87108BE0           ADD      R1,R11,R7, LSL #+1
+   \   00002184   B010D1E1           LDRH     R1,[R1, #+0]
+   \   00002188   872082E0           ADD      R2,R2,R7, LSL #+1
+   \   0000218C   F020D2E1           LDRSH    R2,[R2, #+0]
+   \   00002190   920101E0           MUL      R1,R2,R1
+   \   00002194   401E81E2           ADD      R1,R1,#+1024
+   \   00002198   C115A0E1           ASR      R1,R1,#+11
+   \   0000219C   071180E7           STR      R1,[R0, +R7, LSL #+2]
+   \   000021A0   017087E2           ADD      R7,R7,#+1
+   \   000021A4   400057E3           CMP      R7,#+64
+   \   000021A8   E4FFFFAA           BGE      ??start_pass_fdctmgr_57
+   \   000021AC   F2FFFFEA           B        ??start_pass_fdctmgr_60
+   \                     ??start_pass_fdctmgr_54:
+   \   000021B0   8C0098E5           LDR      R0,[R8, #+140]
+   \   000021B4   000050E3           CMP      R0,#+0
+   \   000021B8   0600001A           BNE      ??start_pass_fdctmgr_61
+   \   000021BC   043094E5           LDR      R3,[R4, #+4]
+   \   000021C0   402FA0E3           MOV      R2,#+256
+   \   000021C4   003093E5           LDR      R3,[R3, #+0]
+   \   000021C8   0110A0E3           MOV      R1,#+1
+   \   000021CC   0400A0E1           MOV      R0,R4
+   \   000021D0   33FF2FE1           BLX      R3
+   \   000021D4   8C0088E5           STR      R0,[R8, #+140]
+   \                     ??start_pass_fdctmgr_61:
+   \   000021D8   8C1098E5           LDR      R1,[R8, #+140]
+   \   000021DC   0070A0E3           MOV      R7,#+0
+   \   000021E0   0C108DE5           STR      R1,[SP, #+12]
+   \   000021E4   00A0A0E3           MOV      R10,#+0
+   \                     ??start_pass_fdctmgr_62:
+   \   000021E8   0080A0E3           MOV      R8,#+0
+   \                     ??start_pass_fdctmgr_63:
+   \   000021EC   0C009DE5           LDR      R0,[SP, #+12]
+   \   000021F0   01002DE9           PUSH     {R0}
+   \   000021F4   87008BE0           ADD      R0,R11,R7, LSL #+1
+   \   000021F8   B000D0E1           LDRH     R0,[R0, #+0]
+   \   000021FC   ........           _BLF     __ulongToDouble,??__ulongToDouble??rA
+   \   00002200   0020A0E1           MOV      R2,R0
+   \   00002204   0130A0E1           MOV      R3,R1
+   \   00002208   8A0189E0           ADD      R0,R9,R10, LSL #+3
+   \   0000220C   030090E8           LDM      R0,{R0,R1}
+   \   00002210   ........           _BLF     __dMul,??__dMul??rA
+   \   00002214   0020A0E1           MOV      R2,R0
+   \   00002218   0130A0E1           MOV      R3,R1
+   \   0000221C   880189E0           ADD      R0,R9,R8, LSL #+3
+   \   00002220   030090E8           LDM      R0,{R0,R1}
+   \   00002224   018088E2           ADD      R8,R8,#+1
+   \   00002228   ........           _BLF     __dMul,??__dMul??rA
+   \   0000222C   0020A0E1           MOV      R2,R0
+   \   00002230   0130A0E1           MOV      R3,R1
+   \   00002234   0000A0E3           MOV      R0,#+0
+   \   00002238   4014A0E3           MOV      R1,#+1073741824
+   \   0000223C   801981E3           ORR      R1,R1,#0x200000
+   \   00002240   ........           _BLF     __dMul,??__dMul??rA
+   \   00002244   0020A0E1           MOV      R2,R0
+   \   00002248   0130A0E1           MOV      R3,R1
+   \   0000224C   0000A0E3           MOV      R0,#+0
+   \   00002250   C015A0E3           MOV      R1,#+805306368
+   \   00002254   FF1681E3           ORR      R1,R1,#0xFF00000
+   \   00002258   ........           _BLF     __dDiv,??__dDiv??rA
+   \   0000225C   ........           _BLF     __doubleToFloat,??__doubleToFloat??rA
+   \   00002260   0200BDE8           POP      {R1}
+   \   00002264   080058E3           CMP      R8,#+8
+   \   00002268   070181E7           STR      R0,[R1, +R7, LSL #+2]
+   \   0000226C   017087E2           ADD      R7,R7,#+1
+   \   00002270   DDFFFFBA           BLT      ??start_pass_fdctmgr_63
+   \   00002274   01A08AE2           ADD      R10,R10,#+1
+   \   00002278   08005AE3           CMP      R10,#+8
+   \   0000227C   D9FFFFBA           BLT      ??start_pass_fdctmgr_62
+   \   00002280   90009FE5           LDR      R0,??start_pass_fdctmgr_7+0x90  ;; forward_DCT_float
+   \   00002284   AEFFFFEA           B        ??start_pass_fdctmgr_58
+   \                     ??start_pass_fdctmgr_7:
+   \   00002288   ........           DC32     jpeg_fdct_1x1
+   \   0000228C   ........           DC32     jpeg_fdct_2x2
+   \   00002290   ........           DC32     jpeg_fdct_3x3
+   \   00002294   ........           DC32     jpeg_fdct_4x4
+   \   00002298   ........           DC32     jpeg_fdct_5x5
+   \   0000229C   ........           DC32     jpeg_fdct_6x6
+   \   000022A0   ........           DC32     jpeg_fdct_7x7
+   \   000022A4   ........           DC32     jpeg_fdct_9x9
+   \   000022A8   ........           DC32     jpeg_fdct_10x10
+   \   000022AC   ........           DC32     jpeg_fdct_11x11
+   \   000022B0   ........           DC32     jpeg_fdct_12x12
+   \   000022B4   ........           DC32     jpeg_fdct_13x13
+   \   000022B8   ........           DC32     jpeg_fdct_14x14
+   \   000022BC   ........           DC32     jpeg_fdct_15x15
+   \   000022C0   ........           DC32     jpeg_fdct_16x16
+   \   000022C4   ........           DC32     jpeg_fdct_16x8
+   \   000022C8   ........           DC32     jpeg_fdct_14x7
+   \   000022CC   ........           DC32     jpeg_fdct_12x6
+   \   000022D0   ........           DC32     jpeg_fdct_10x5
+   \   000022D4   ........           DC32     jpeg_fdct_8x4
+   \   000022D8   ........           DC32     jpeg_fdct_6x3
+   \   000022DC   ........           DC32     jpeg_fdct_4x2
+   \   000022E0   ........           DC32     jpeg_fdct_2x1
+   \   000022E4   ........           DC32     jpeg_fdct_8x16
+   \   000022E8   ........           DC32     jpeg_fdct_7x14
+   \   000022EC   ........           DC32     jpeg_fdct_6x12
+   \   000022F0   ........           DC32     jpeg_fdct_5x10
+   \   000022F4   ........           DC32     jpeg_fdct_4x8
+   \   000022F8   ........           DC32     jpeg_fdct_3x6
+   \   000022FC   ........           DC32     jpeg_fdct_2x4
+   \   00002300   ........           DC32     jpeg_fdct_1x2
+   \   00002304   ........           DC32     jpeg_fdct_islow
+   \   00002308   ........           DC32     jpeg_fdct_ifast
+   \   0000230C   ........           DC32     jpeg_fdct_float
+   \   00002310   ........           DC32     forward_DCT
+   \   00002314   ........           DC32     ??aanscales
+   \   00002318   ........           DC32     forward_DCT_float
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     ??aanscales:
+   \   00000000   0040C5589F53       DC16 16384, 22725, 21407, 19266, 16384, 12873, 8867, 4520, 22725, 31521
+   \              424B00404932
+   \              A322A811C558
+   \              217B        
+   \   00000014   FC736268C558       DC16 29692, 26722, 22725, 17855, 12299, 6270, 21407, 29692, 27969
+   \              BF450B307E18
+   \              9F53FC73416D
+   \   00000026   54629F53B341       DC16 25172, 21407, 16819, 11585, 5906, 19266, 26722, 25172, 22654
+   \              412D1217424B
+   \              626854627E58
+   \   00000038   424B213BBA28       DC16 19266, 15137, 10426, 5315, 16384, 22725, 21407, 19266, 16384
+   \              C3140040C558
+   \              9F53424B0040
+   \   0000004A   4932A322A811       DC16 12873, 8867, 4520, 12873, 17855, 16819, 15137, 12873, 10114, 6967
+   \              4932BF45B341
+   \              213B49328227
+   \              371B        
+   \   0000005E   E00DA3220B30       DC16 3552, 8867, 12299, 11585, 10426, 8867, 6967, 4799, 2446, 4520
+   \              412DBA28A322
+   \              371BBF128E09
+   \              A811        
+   \   00000072   7E181217C314       DC16 6270, 5906, 5315, 4520, 3552, 2446, 1247
+   \              A811E00D8E09
+   \              DF04        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     ??aanscalefactor:
+   \   00000000   000000000000       DC32 0H, 3FF00000H, 0B14861EFH, 3FF63150H, 914D6FCAH, 3FF4E7AEH
+   \              F03FEF6148B1
+   \              5031F63FCA6F
+   \              4D91AEE7F43F
+   \   00000018   AA116CEF62D0       DC32 0EF6C11AAH, 3FF2D062H, 0H, 3FF00000H, 0C0A7BF3BH, 3FE92469H
+   \              F23F00000000
+   \              0000F03F3BBF
+   \              A7C06924E93F
+   \   00000030   BB20C77B7A51       DC32 7BC720BBH, 3FE1517AH, 0DE72AB5DH, 3FD1A855H
+   \              E13F5DAB72DE
+   \              55A8D13F    
+    457          
+    458          
+    459          /*
+    460           * Initialize FDCT manager.
+    461           */
+    462          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    463          GLOBAL(void)
+    464          jinit_forward_dct (j_compress_ptr cinfo)
+    465          {
+   \                     jinit_forward_dct:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    466            my_fdct_ptr fdct;
+    467            int i;
+    468          
+    469            fdct = (my_fdct_ptr)
+    470              (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_IMAGE,
+    471          				SIZEOF(my_fdct_controller));
+   \   00000004   9C20A0E3           MOV      R2,#+156
+   \   00000008   0110A0E3           MOV      R1,#+1
+   \   0000000C   0040A0E1           MOV      R4,R0
+   \   00000010   043094E5           LDR      R3,[R4, #+4]
+   \   00000014   003093E5           LDR      R3,[R3, #+0]
+   \   00000018   33FF2FE1           BLX      R3
+    472            cinfo->fdct = (struct jpeg_forward_dct *) fdct;
+    473            fdct->pub.start_pass = start_pass_fdctmgr;
+   \   0000001C   28109FE5           LDR      R1,??jinit_forward_dct_0  ;; start_pass_fdctmgr
+   \   00000020   900184E5           STR      R0,[R4, #+400]
+   \   00000024   001080E5           STR      R1,[R0, #+0]
+    474          
+    475            /* Mark divisor tables unallocated */
+    476            for (i = 0; i < NUM_QUANT_TBLS; i++) {
+   \   00000028   0010A0E3           MOV      R1,#+0
+   \   0000002C   0030A0E3           MOV      R3,#+0
+    477              fdct->divisors[i] = NULL;
+   \                     ??jinit_forward_dct_1:
+   \   00000030   012180E0           ADD      R2,R0,R1, LSL #+2
+   \   00000034   543082E5           STR      R3,[R2, #+84]
+    478          #ifdef DCT_FLOAT_SUPPORTED
+    479              fdct->float_divisors[i] = NULL;
+   \   00000038   8C3082E5           STR      R3,[R2, #+140]
+    480          #endif
+    481            }
+   \   0000003C   011081E2           ADD      R1,R1,#+1
+   \   00000040   040051E3           CMP      R1,#+4
+   \   00000044   F9FFFFBA           BLT      ??jinit_forward_dct_1
+    482          }
+   \   00000048   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??jinit_forward_dct_0:
+   \   0000004C   ........           DC32     start_pass_fdctmgr
+
+   Maximum stack usage in bytes:
+
+     Function           CSTACK
+     --------           ------
+     forward_DCT          292
+     forward_DCT_float    304
+     jinit_forward_dct      8
+     start_pass_fdctmgr    56
+
+
+   Segment part sizes:
+
+     Function/Label     Bytes
+     --------------     -----
+     forward_DCT         216
+     forward_DCT_float   200
+     start_pass_fdctmgr 8988
+     aanscales           128
+     aanscalefactor       64
+     jinit_forward_dct    80
+      Others             112
+
+ 
+ 9 596 bytes in segment CODE
+   192 bytes in segment DATA_C
+ 
+ 9 484 bytes of CODE  memory (+ 112 bytes shared)
+   192 bytes of CONST memory
+
+Errors: none
+Warnings: 1

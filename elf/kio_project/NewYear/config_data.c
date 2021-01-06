@@ -1,0 +1,132 @@
+#include "..\inc\cfg_items.h"
+
+__root const CFG_HDR cfghdr0={CFG_CBOX,"Hello mess.",0,2};
+__root const int cfg_mes=1;
+__root const CFG_CBOX_ITEM cfgcbox0[2]={"No","Yes"};
+
+__root const CFG_HDR cfghdr1={CFG_CBOX,"Screensaver",0,2};
+__root const int cfg_ss=1;
+__root const CFG_CBOX_ITEM cfgcbox1[2]={"No","Yes"};
+
+__root const CFG_HDR cfghdr2 = {CFG_CBOX, "MS show in", 0, 4};
+__root const int cfg_ms = 3;
+__root const CFG_CBOX_ITEM cfgcbox2[4] = {"None","Lock", "Unlock", "Both"};
+
+__root const CFG_HDR cfghdr9={CFG_UINT,"SS:Update(sec/10)",0,104800};
+__root const unsigned int cfg_upd=100;
+__root const CFG_HDR cfghdr10={CFG_CBOX,"SS:Show seconds",0,2};
+__root const int cfg_sec=0;
+__root const CFG_CBOX_ITEM cfgcbox10[2]={"No","Yes"};
+__root const CFG_HDR cfghdr11={CFG_CBOX,"SS:Show time",0,2};
+__root const int cfg_tim=1;
+__root const CFG_CBOX_ITEM cfgcbox11[2]={"No","Yes"};
+__root const CFG_HDR cfghdr12={CFG_CBOX,"SS:Show picture",0,2};
+__root const int cfg_pic=1;
+__root const CFG_CBOX_ITEM cfgcbox12[2]={"No","Yes"};
+__root const CFG_HDR cfghdr13={CFG_UINT,"SS:Pict x",0,132};
+__root const unsigned int cfg_px=40;
+__root const CFG_HDR cfghdr14={CFG_UINT,"SS:Pict y",0,176};
+__root const unsigned int cfg_py=120;
+__root const CFG_HDR cfghdr15={CFG_UINT,"SS:Pict num",0,104800};
+__root const unsigned int cfg_pn=13;
+__root const CFG_HDR cfghdr16={CFG_UINT,"SS:Message y",0,176};
+__root const unsigned int cfg_my=15;
+__root const CFG_HDR cfghdr17={CFG_UINT,"SS:Text colour",0,100};
+__root const unsigned int cfg_tc=0;
+__root const CFG_HDR cfghdr18={CFG_UINT,"SS:Text BG colour",0,100};
+__root const unsigned int cfg_tb=1;
+__root const CFG_HDR cfghdr19={CFG_UINT,"SS:Text Font",0,100};
+__root const unsigned int cfg_tf=0;
+__root const CFG_HDR cfghdr20={CFG_UINT,"SS:Text Atr.",0,255};
+__root const unsigned int cfg_ta=34;
+__root const CFG_HDR cfghdr21={CFG_UINT,"SS:Timer y",0,176};
+__root const unsigned int cfg_tmy=65;
+__root const CFG_HDR cfghdr22={CFG_UINT,"SS:Timer colour",0,100};
+__root const unsigned int cfg_tmc=0;
+__root const CFG_HDR cfghdr23={CFG_UINT,"SS:Timer BG colour",0,100};
+__root const unsigned int cfg_tmb=1;
+__root const CFG_HDR cfghdr24={CFG_UINT,"SS:Timer Font",0,100};
+__root const unsigned int cfg_tmf=2;
+__root const CFG_HDR cfghdr25={CFG_UINT,"SS:Timer Atr.",0,255};
+__root const unsigned int cfg_tma=34;
+__root const CFG_HDR cfghdr26={CFG_UINT,"SS:Clock y",0,176};
+__root const unsigned int cfg_cly=150;
+__root const CFG_HDR cfghdr27={CFG_UINT,"SS:Clock colour",0,100};
+__root const unsigned int cfg_clc=0;
+__root const CFG_HDR cfghdr28={CFG_UINT,"SS:Clock BG colour",0,100};
+__root const unsigned int cfg_clb=1;
+__root const CFG_HDR cfghdr29={CFG_UINT,"SS:Clock Font",0,100};
+__root const unsigned int cfg_clf=0;
+__root const CFG_HDR cfghdr290={CFG_UINT,"SS:Clock Atr.",0,255};
+__root const unsigned int cfg_cla=34;
+
+
+
+__root const CFG_HDR cfghdr30 = {CFG_UINT, "MS:Text x", 0, 132};
+__root const unsigned int cfg_msx = 50;
+__root const CFG_HDR cfghdr31 = {CFG_UINT, "MS:Text y", 0, 176};
+__root const unsigned int cfg_msy = 25;
+__root const CFG_HDR cfghdr32 = {CFG_UINT, "MS:Text width", 0, 132};
+__root const unsigned int cfg_msw = 82;
+__root const CFG_HDR cfghdr33 = {CFG_UINT, "MS:Text height", 0, 176};
+__root const unsigned int cfg_msh = 12;
+__root const CFG_HDR cfghdr34={CFG_UINT,"MS:Text colour",0,100};
+__root const unsigned int cfg_msc=0;
+__root const CFG_HDR cfghdr35={CFG_UINT,"MS:Text BG colour",0,100};
+__root const unsigned int cfg_msb=1;
+__root const CFG_HDR cfghdr36={CFG_UINT,"MS:Text font",0,100};
+__root const unsigned int cfg_msf=7;
+__root const CFG_HDR cfghdr37={CFG_UINT,"MS:Text Atr.",0,255};
+__root const unsigned int cfg_msa=160;
+
+__root const CFG_HDR cfghdr50 = {CFG_UINT, "MS:Timer x", 0, 132};
+__root const unsigned int cfg_mstx = 1;
+__root const CFG_HDR cfghdr51 = {CFG_UINT, "MS:Timer y", 0, 176};
+__root const unsigned int cfg_msty = 25;
+__root const CFG_HDR cfghdr52 = {CFG_UINT, "MS:Timer width", 0, 132};
+__root const unsigned int cfg_mstw = 70;
+__root const CFG_HDR cfghdr53 = {CFG_UINT, "MS:Timer height", 0, 176};
+__root const unsigned int cfg_msth = 20;
+__root const CFG_HDR cfghdr54={CFG_UINT,"MS:Timer colour",0,100};
+__root const unsigned int cfg_mstc=0;
+__root const CFG_HDR cfghdr55={CFG_UINT,"MS:Timer BG colour",0,100};
+__root const unsigned int cfg_mstb=1;
+__root const CFG_HDR cfghdr56={CFG_UINT,"MS:Timer font",0,100};
+__root const unsigned int cfg_mstf=7;
+__root const CFG_HDR cfghdr57={CFG_UINT,"MS:Timer Atr.",0,255};
+__root const unsigned int cfg_msta=32;
+
+__root const CFG_HDR cfghdr90 = {CFG_UINT, "MS:Addition x", 0, 132};
+__root const unsigned int cfg_msax = 0;
+__root const CFG_HDR cfghdr91 = {CFG_UINT, "MS:Addition y", 0, 176};
+__root const unsigned int cfg_msay = 147;
+__root const CFG_HDR cfghdr92 = {CFG_UINT, "MS:Addition width", 0, 132};
+__root const unsigned int cfg_msaw = 132;
+__root const CFG_HDR cfghdr93 = {CFG_UINT, "MS:Addition height", 0, 176};
+__root const unsigned int cfg_msah = 12;
+__root const CFG_HDR cfghdr94={CFG_UINT,"MS:Addition colour",0,100};
+__root const unsigned int cfg_msac=0;
+__root const CFG_HDR cfghdr95={CFG_UINT,"MS:Addition BG colour",0,100};
+__root const unsigned int cfg_msab=1;
+__root const CFG_HDR cfghdr96={CFG_UINT,"MS:Addition font",0,100};
+__root const unsigned int cfg_msaf=7;
+__root const CFG_HDR cfghdr97={CFG_UINT,"MS:Addition Atr.",0,255};
+__root const unsigned int cfg_msaa=160;
+__root const CFG_HDR cfghdr98={CFG_STR_WIN1251,"Addition file",0,80};
+__root const char cfg_msap[81]="0:\\R.txt";
+__root const CFG_HDR cfghdr99 = {CFG_UINT, "MS:Scroll count", 0, 500};
+__root const unsigned int cfg_mssc = 1;
+__root const CFG_HDR cfghdr100 = {CFG_UINT, "MS:Scroll time(sec/100)", 0, 10000};
+__root const unsigned int cfg_msst = 25;
+
+
+__root const CFG_HDR cfghdr70={CFG_STR_WIN1251,"It' time",0,20};
+__root const char tx_late[21]="Сейчас!!!";
+__root const CFG_HDR cfghdr71={CFG_STR_WIN1251,"Years",0,20};
+__root const char tx_year[21]="Лет";
+__root const CFG_HDR cfghdr72={CFG_STR_WIN1251,"Months",0,20};
+__root const char tx_month[21]="Месяцев";
+__root const CFG_HDR cfghdr73={CFG_STR_WIN1251,"Days",0,20};
+__root const char tx_day[21]="Дней";
+__root const CFG_HDR cfghdr74={CFG_STR_WIN1251,"Times left",0,50};
+__root const char tx_left[51]="До события осталось:";

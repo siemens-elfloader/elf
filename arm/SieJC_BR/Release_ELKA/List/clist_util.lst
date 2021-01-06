@@ -1,0 +1,3073 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    15/Feb/2011  01:38:39 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\SieJC_BR\clist_util.c                         #
+#    Command line    =  C:\arm\SieJC_BR\clist_util.c -D NEWSGOLD -D ELKA     #
+#                       --preprocess C:\arm\SieJC_BR\Release_ELKA\List\ -lC  #
+#                       C:\arm\SieJC_BR\Release_ELKA\List\ -o                #
+#                       C:\arm\SieJC_BR\Release_ELKA\Obj\ -s9 --no_unroll    #
+#                       --cpu_mode arm --endian little --cpu ARM926EJ-S      #
+#                       --stack_align 4 --interwork -e --fpu None            #
+#                       --dlib_config "C:\arm2\Embedded Workbench 4.0        #
+#                       Evaluation\ARM\LIB\dl5tpainl8n.h" -I                 #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\SieJC_BR\Release_ELKA\List\clist_util.lst     #
+#    Object file     =  C:\arm\SieJC_BR\Release_ELKA\Obj\clist_util.r79      #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\SieJC_BR\clist_util.c
+      1          #include "../inc/swilib.h"
+      2          #include "main.h"
+      3          #include "jabber.h"
+      4          #include "clist_util.h"
+      5          #include "jabber_util.h"
+      6          #include "string_util.h"
+      7          #include "groups_util.h"
+      8          #include "roster_icons.h"
+      9          #include "history.h"
+     10          #include "item_info.h"
+     11          #include "vCard.h"
+     12          #include "lang.h"
+     13          #include "..\inc\pnglist.h"
+     14          #include "smiles.h"
+     15          #include "color.h"
+     16          
+     17          extern const unsigned int DEF_SKR;
+
+   \                                 In segment DATA_I, align 4, align-sorted
+     18          CLIST* cltop = NULL;
+   \                     cltop:
+   \   00000000                      DS8 4
+   \   00000004                      REQUIRE `?<Initializer for cltop>`
+     19          
+     20          char Display_Offline;         // Отображать ли оффлайн-пользователей
+     21          
+     22          unsigned int NContacts = 0;       // Всего контактов (и ресурсов) в списке
+   \                     NContacts:
+   \   00000004                      DS8 4
+   \   00000008                      REQUIRE `?<Initializer for NContacts>`
+     23          unsigned int N_Disp_Contacts = 0; // Сколько из них должны отображаться
+   \                     N_Disp_Contacts:
+   \   00000008                      DS8 4
+   \   0000000C                      REQUIRE `?<Initializer for N_Disp_Contacts>`
+     24          
+     25          unsigned int Active_page = 1;     // Текущая активная страница списка
+   \                     Active_page:
+   \   0000000C                      DS8 4
+   \   00000010                      REQUIRE `?<Initializer for Active_page>`
+     26          unsigned int N_cont_disp=0;       // Сколько контактов на странице
+   \                     N_cont_disp:
+   \   00000010                      DS8 4
+   \   00000014                      REQUIRE `?<Initializer for N_cont_disp>`
+     27          unsigned int CursorPos = 1;       // Текущая позиция курсора
+   \                     CursorPos:
+   \   00000014                      DS8 4
+   \   00000018                      REQUIRE `?<Initializer for CursorPos>`
+     28          
+     29          TRESOURCE* ActiveContact = NULL;
+   \                     ActiveContact:
+   \   00000018                      DS8 4
+   \   0000001C                      REQUIRE `?<Initializer for ActiveContact>`
+   \                     Display_Offline:
+   \   0000001C                      DS8 1
+   \   0000001D                      REQUIRE `?<Initializer for Display_Offline>`
+     30          
+     31          extern char logmsg[512];
+     32          extern char My_Presence;
+     33          extern const char* PRESENCES[PRES_COUNT];
+     34          extern JABBER_STATE Jabber_state;
+     35          extern int CLIST_FONT;
+     36          /*
+     37          Единственная процедура, которая занимается отрисовкой контакт-листа
+     38          */
+
+   \                                 In segment CODE, align 4, keep-with-next
+     39          void CList_RedrawCList()
+     40          {
+   \                     CList_RedrawCList:
+   \   00000000   34049FE5           LDR      R0,??CList_RedrawCList_0+0x4  ;; CLIST_FONT
+   \   00000004   F04B2DE9           PUSH     {R4-R9,R11,LR}
+     41            // Определяем, скока контактов поместится на странице списка
+     42            int font_y = GetFontYSIZE(CLIST_FONT)+2; // ad: думаю что нужно сделать чтобы была 1 строка... пусть контакт вылетает за пределы экрана
+     43            int scr_w=ScreenW();
+     44          #ifdef USE_PNG_EXT
+     45            char path_to_pic[128];
+     46          #else
+     47            int icon_num=0;
+     48          #endif
+     49          #ifdef ELKA
+     50            N_cont_disp = sdiv(font_y,ScreenH()-CLIST_Y1-SCR_START)-2;
+   \   00000008   ........           LDR      R4,??DataTable9  ;; cltop
+   \   0000000C   A0D04DE2           SUB      SP,SP,#+160
+   \   00000010   000090E5           LDR      R0,[R0, #+0]
+   \   00000014   C50100EF           SWI      +453
+   \   00000018   020080E2           ADD      R0,R0,#+2
+   \   0000001C   08008DE5           STR      R0,[SP, #+8]
+   \   00000020   888100EF           SWI      +33160
+   \   00000024   1C008DE5           STR      R0,[SP, #+28]
+   \   00000028   898100EF           SWI      +33161
+   \   0000002C   051040E2           SUB      R1,R0,#+5
+   \   00000030   08009DE5           LDR      R0,[SP, #+8]
+   \   00000034   B80000EF           SWI      +184
+   \   00000038   020040E2           SUB      R0,R0,#+2
+   \   0000003C   100084E5           STR      R0,[R4, #+16]
+     51          #else
+     52            N_cont_disp = sdiv(font_y,ScreenH()-CLIST_Y1-SCR_START)-1;
+     53          #endif
+     54            if(!cltop)return;
+   \   00000040   000094E5           LDR      R0,[R4, #+0]
+   \   00000044   000050E3           CMP      R0,#+0
+   \   00000048   F800000A           BEQ      ??CList_RedrawCList_1
+     55          
+     56            LockSched();
+   \   0000004C   460100EF           SWI      +326
+     57            N_Disp_Contacts = Display_Offline? CList_GetNumberOfUsers_Visible() : CList_GetNumberOfOnlineUsers();
+   \   00000050   1C00D4E5           LDRB     R0,[R4, #+28]
+   \   00000054   000050E3           CMP      R0,#+0
+   \   00000058   0100000A           BEQ      ??CList_RedrawCList_2
+   \   0000005C   ........           BL       CList_GetNumberOfUsers_Visible
+   \   00000060   000000EA           B        ??CList_RedrawCList_3
+   \                     ??CList_RedrawCList_2:
+   \   00000064   ........           BL       CList_GetNumberOfOnlineUsers
+   \                     ??CList_RedrawCList_3:
+   \   00000068   080084E5           STR      R0,[R4, #+8]
+     58            // Определяем количество страниц списка контактов
+     59            int pages_number = sdiv(N_cont_disp, N_Disp_Contacts);
+   \   0000006C   0010A0E1           MOV      R1,R0
+   \   00000070   100094E5           LDR      R0,[R4, #+16]
+     60            if(N_cont_disp*pages_number<N_Disp_Contacts){pages_number++;};
+     61          
+     62            CLIST* ClEx = cltop;
+     63            WSHDR* out_ws = AllocWS(256);
+     64            int i=1;
+   \   00000074   0170A0E3           MOV      R7,#+1
+   \   00000078   B80000EF           SWI      +184
+   \   0000007C   005094E5           LDR      R5,[R4, #+0]
+   \   00000080   400FA0E3           MOV      R0,#+256
+   \   00000084   250100EF           SWI      +293
+   \   00000088   0060A0E1           MOV      R6,R0
+   \   0000008C   0180A0E3           MOV      R8,#+1
+     65            int start_y;
+     66          
+     67            RGBA fcolor;
+     68            TRESOURCE* resEx;
+     69          
+     70            char Alternation = 1;             // ad: состояние чередования
+     71            char Is_Right_Vis_Mode = 0;       // Допустимо ли показывать с точки зрения свернутости групп
+     72          
+     73            WSHDR* ClEx_name = AllocWS(128);
+   \   00000090   8000A0E3           MOV      R0,#+128
+   \   00000094   250100EF           SWI      +293
+   \   00000098   0C008DE5           STR      R0,[SP, #+12]
+     74            WSHDR* ResEx_name = AllocWS(128);
+   \   0000009C   8000A0E3           MOV      R0,#+128
+   \   000000A0   250100EF           SWI      +293
+   \   000000A4   00008DE5           STR      R0,[SP, #+0]
+   \                     ??CList_RedrawCList_4:
+   \   000000A8   000055E3           CMP      R5,#+0
+   \   000000AC   CD00000A           BEQ      ??CList_RedrawCList_5
+     75          
+     76            while(ClEx)
+     77            {
+     78              if(ClEx->ResourceCount)
+   \   000000B0   080095E5           LDR      R0,[R5, #+8]
+   \   000000B4   000050E3           CMP      R0,#+0
+   \   000000B8   C400000A           BEQ      ??CList_RedrawCList_6
+     79              {
+     80                resEx = ClEx->res_list;
+   \   000000BC   0C9095E5           LDR      R9,[R5, #+12]
+     81                while(resEx)
+   \                     ??CList_RedrawCList_7:
+   \   000000C0   000059E3           CMP      R9,#+0
+   \   000000C4   C100000A           BEQ      ??CList_RedrawCList_6
+     82                {
+     83          
+     84                  Is_Right_Vis_Mode = (resEx->entry_type!=T_GROUP && resEx->entry_type!=T_CONF_ROOT && ClEx->IsVisible==1) || (resEx->entry_type==T_CONF_ROOT || resEx->entry_type==T_GROUP) ;
+   \   000000C8   0800D9E5           LDRB     R0,[R9, #+8]
+   \   000000CC   050050E3           CMP      R0,#+5
+   \   000000D0   02005013           CMPNE    R0,#+2
+   \   000000D4   0E00000A           BEQ      ??CList_RedrawCList_8
+   \   000000D8   0400D5E5           LDRB     R0,[R5, #+4]
+   \   000000DC   010050E3           CMP      R0,#+1
+   \   000000E0   0E00000A           BEQ      ??CList_RedrawCList_9
+   \                     ??CList_RedrawCList_10:
+   \   000000E4   00B0A0E3           MOV      R11,#+0
+     85                  if((i>(Active_page-1)*N_cont_disp) && ((Display_Offline  |  resEx->status!=PRESENCE_OFFLINE | resEx->has_unread_msg) && Is_Right_Vis_Mode))
+   \                     ??CList_RedrawCList_11:
+   \   000000E8   0C0094E5           LDR      R0,[R4, #+12]
+   \   000000EC   101094E5           LDR      R1,[R4, #+16]
+   \   000000F0   010040E2           SUB      R0,R0,#+1
+   \   000000F4   910000E0           MUL      R0,R1,R0
+   \   000000F8   070050E1           CMP      R0,R7
+   \   000000FC   A300002A           BCS      ??CList_RedrawCList_12
+   \   00000100   0900D9E5           LDRB     R0,[R9, #+9]
+   \   00000104   060050E3           CMP      R0,#+6
+   \   00000108   0000A003           MOVEQ    R0,#+0
+   \   0000010C   0100A013           MOVNE    R0,#+1
+   \   00000110   040000EA           B        ??CList_RedrawCList_13
+   \                     ??CList_RedrawCList_8:
+   \   00000114   020050E3           CMP      R0,#+2
+   \   00000118   05005013           CMPNE    R0,#+5
+   \   0000011C   F0FFFF1A           BNE      ??CList_RedrawCList_10
+   \                     ??CList_RedrawCList_9:
+   \   00000120   01B0A0E3           MOV      R11,#+1
+   \   00000124   EFFFFFEA           B        ??CList_RedrawCList_11
+   \                     ??CList_RedrawCList_13:
+   \   00000128   1C10D4E5           LDRB     R1,[R4, #+28]
+   \   0000012C   010080E1           ORR      R0,R0,R1
+   \   00000130   141099E5           LDR      R1,[R9, #+20]
+   \   00000134   000091E1           ORRS     R0,R1,R0
+   \   00000138   00005B13           CMPNE    R11,#+0
+   \   0000013C   9300000A           BEQ      ??CList_RedrawCList_12
+   \   00000140   140094E5           LDR      R0,[R4, #+20]
+   \   00000144   000057E1           CMP      R7,R0
+   \   00000148   1500001A           BNE      ??CList_RedrawCList_14
+     86                  {
+     87                    if(i==CursorPos)
+     88                    {
+     89                      lineColor=CURSOR;
+   \   0000014C   EC129FE5           LDR      R1,??CList_RedrawCList_0+0x8  ;; CURSOR
+   \   00000150   EC029FE5           LDR      R0,??CList_RedrawCList_0+0xC  ;; lineColor
+   \   00000154   0020D1E5           LDRB     R2,[R1, #0]
+     90                      borderColor=CURSOR_BORDER; //бортик курсора
+     91                      ActiveContact = resEx;
+   \   00000158   189084E5           STR      R9,[R4, #+24]
+   \   0000015C   0020C0E5           STRB     R2,[R0, #+0]
+   \   00000160   0120D1E5           LDRB     R2,[R1, #+1]
+   \   00000164   0120C0E5           STRB     R2,[R0, #+1]
+   \   00000168   0220D1E5           LDRB     R2,[R1, #+2]
+   \   0000016C   0220C0E5           STRB     R2,[R0, #+2]
+   \   00000170   0320D1E5           LDRB     R2,[R1, #+3]
+   \   00000174   CC129FE5           LDR      R1,??CList_RedrawCList_0+0x10  ;; CURSOR_BORDER
+   \   00000178   0320C0E5           STRB     R2,[R0, #+3]
+   \   0000017C   0020D1E5           LDRB     R2,[R1, #0]
+   \   00000180   C4029FE5           LDR      R0,??CList_RedrawCList_0+0x14  ;; borderColor
+   \   00000184   0020C0E5           STRB     R2,[R0, #+0]
+   \   00000188   0120D1E5           LDRB     R2,[R1, #+1]
+   \   0000018C   0120C0E5           STRB     R2,[R0, #+1]
+   \   00000190   0220D1E5           LDRB     R2,[R1, #+2]
+   \   00000194   0220C0E5           STRB     R2,[R0, #+2]
+   \   00000198   0320D1E5           LDRB     R2,[R1, #+3]
+   \   0000019C   0320C0E5           STRB     R2,[R0, #+3]
+   \   000001A0   090000EA           B        ??CList_RedrawCList_15
+     92                    }
+     93                    else
+     94                    {
+     95                      borderColor=lineColor=(Alternation==1)? CONTACT_BG_0 : CONTACT_BG_1;
+   \                     ??CList_RedrawCList_14:
+   \   000001A4   010058E3           CMP      R8,#+1
+   \   000001A8   A0329F05           LDREQ    R3,??CList_RedrawCList_0+0x18  ;; CONTACT_BG_0
+   \   000001AC   A0329F15           LDRNE    R3,??CList_RedrawCList_0+0x1C  ;; CONTACT_BG_1
+   \   000001B0   ........           _BLF     ??ldr32b_a,??rA??ldr32b_a
+   \   000001B4   88329FE5           LDR      R3,??CList_RedrawCList_0+0xC  ;; lineColor
+   \   000001B8   0010A0E1           MOV      R1,R0
+   \   000001BC   ........           _BLF     ??str32b_a,??rA??str32b_a
+   \   000001C0   84329FE5           LDR      R3,??CList_RedrawCList_0+0x14  ;; borderColor
+   \   000001C4   0100A0E1           MOV      R0,R1
+   \   000001C8   ........           _BLF     ??str32b_a,??rA??str32b_a
+     96                    }
+     97          
+     98                    //ascii2ws(ClEx_name, ClEx->name);
+     99                    utf8_2ws(ClEx_name, ClEx->name, 128);
+   \                     ??CList_RedrawCList_15:
+   \   000001CC   101095E5           LDR      R1,[R5, #+16]
+   \   000001D0   0C009DE5           LDR      R0,[SP, #+12]
+   \   000001D4   8020A0E3           MOV      R2,#+128
+   \   000001D8   E30100EF           SWI      +483
+    100          
+    101                    if(resEx->name)
+   \   000001DC   001099E5           LDR      R1,[R9, #+0]
+   \   000001E0   000051E3           CMP      R1,#+0
+   \   000001E4   0F00000A           BEQ      ??CList_RedrawCList_16
+    102                    {
+    103                      ascii2ws(ResEx_name,resEx->name);
+   \   000001E8   00009DE5           LDR      R0,[SP, #+0]
+   \   000001EC   ........           _BLF     ascii2ws,??ascii2ws??rA
+    104                      utf8_2ws(ResEx_name,resEx->name, 128);
+   \   000001F0   001099E5           LDR      R1,[R9, #+0]
+   \   000001F4   00009DE5           LDR      R0,[SP, #+0]
+   \   000001F8   8020A0E3           MOV      R2,#+128
+   \   000001FC   E30100EF           SWI      +483
+    105                      if(resEx->entry_type==T_CONF_NODE)
+   \   00000200   0800D9E5           LDRB     R0,[R9, #+8]
+   \   00000204   030050E3           CMP      R0,#+3
+    106                      {
+    107                        wsprintf(out_ws,"%w", ResEx_name); // это участник конференции
+   \   00000208   00209D05           LDREQ    R2,[SP, #+0]
+   \   0000020C   0600000A           BEQ      ??CList_RedrawCList_17
+    108                      }
+    109                      else wsprintf(out_ws,"%w/%w", ClEx_name, ResEx_name); //Это просто ресурс
+   \   00000210   00309DE5           LDR      R3,[SP, #+0]
+   \   00000214   0C209DE5           LDR      R2,[SP, #+12]
+   \   00000218   38129FE5           LDR      R1,??CList_RedrawCList_0+0x20  ;; `?<Constant "%w/%w">`
+   \   0000021C   0600A0E1           MOV      R0,R6
+   \   00000220   240100EF           SWI      +292
+   \   00000224   030000EA           B        ??CList_RedrawCList_18
+    110                    }
+    111                    else
+    112                    {
+    113                      wsprintf(out_ws,"%w", ClEx_name);  //другой вид, имхо удобнее
+   \                     ??CList_RedrawCList_16:
+   \   00000228   0C209DE5           LDR      R2,[SP, #+12]
+   \                     ??CList_RedrawCList_17:
+   \   0000022C   811F8FE2           ADR      R1,??CList_RedrawCList_0  ;; "%w"
+   \   00000230   0600A0E1           MOV      R0,R6
+   \   00000234   240100EF           SWI      +292
+    114                    }
+    115          
+    116          
+    117                    start_y = CLIST_Y1 + (i - (Active_page-1)*N_cont_disp)*font_y;
+   \                     ??CList_RedrawCList_18:
+   \   00000238   0C1094E5           LDR      R1,[R4, #+12]
+   \   0000023C   102094E5           LDR      R2,[R4, #+16]
+   \   00000240   011041E2           SUB      R1,R1,#+1
+   \   00000244   920101E0           MUL      R1,R2,R1
+   \   00000248   08209DE5           LDR      R2,[SP, #+8]
+   \   0000024C   011047E0           SUB      R1,R7,R1
+   \   00000250   920101E0           MUL      R1,R2,R1
+   \   00000254   1D1081E2           ADD      R1,R1,#+29
+   \   00000258   04108DE5           STR      R1,[SP, #+4]
+    118          
+    119                    if(resEx->has_unread_msg){fcolor=CLIST_F_COLOR_0;}
+   \   0000025C   140099E5           LDR      R0,[R9, #+20]
+   \   00000260   000050E3           CMP      R0,#+0
+    120                    else {fcolor=PRES_COLORS[resEx->status];}
+   \   00000264   0910D905           LDRBEQ   R1,[R9, #+9]
+   \   00000268   EC219F05           LDREQ    R2,??CList_RedrawCList_0+0x24  ;; PRES_COLORS
+   \   0000026C   10008DE2           ADD      R0,SP,#+16
+   \   00000270   E8119F15           LDRNE    R1,??CList_RedrawCList_0+0x28  ;; CLIST_F_COLOR_0
+   \   00000274   01118200           ADDEQ    R1,R2,R1, LSL #+2
+   \   00000278   0020D1E5           LDRB     R2,[R1, #0]
+   \   0000027C   0020C0E5           STRB     R2,[R0, #+0]
+   \   00000280   0120D1E5           LDRB     R2,[R1, #+1]
+   \   00000284   0120C0E5           STRB     R2,[R0, #+1]
+   \   00000288   0220D1E5           LDRB     R2,[R1, #+2]
+   \   0000028C   0220C0E5           STRB     R2,[R0, #+2]
+   \   00000290   0320D1E5           LDRB     R2,[R1, #+3]
+   \   00000294   0320C0E5           STRB     R2,[R0, #+3]
+    121          
+    122                    DrawRoundedFrame(0,start_y+1,scr_w-1,start_y+font_y,0,0,0,
+    123                                     color(borderColor),  //ad: ободок
+    124                                     color(lineColor));   //ad: рисуем с чередованием... для наглядности
+   \   00000298   04109DE5           LDR      R1,[SP, #+4]
+   \   0000029C   08209DE5           LDR      R2,[SP, #+8]
+   \   000002A0   9C019FE5           LDR      R0,??CList_RedrawCList_0+0xC  ;; lineColor
+   \   000002A4   011082E0           ADD      R1,R2,R1
+   \   000002A8   14108DE5           STR      R1,[SP, #+20]
+   \   000002AC   1C109DE5           LDR      R1,[SP, #+28]
+   \   000002B0   011041E2           SUB      R1,R1,#+1
+   \   000002B4   18108DE5           STR      R1,[SP, #+24]
+   \   000002B8   01002DE9           PUSH     {R0}
+   \   000002BC   88019FE5           LDR      R0,??CList_RedrawCList_0+0x14  ;; borderColor
+   \   000002C0   0120A0E1           MOV      R2,R1
+   \   000002C4   01002DE9           PUSH     {R0}
+   \   000002C8   0000A0E3           MOV      R0,#+0
+   \   000002CC   01002DE9           PUSH     {R0}
+   \   000002D0   01002DE9           PUSH     {R0}
+   \   000002D4   01002DE9           PUSH     {R0}
+   \   000002D8   28309DE5           LDR      R3,[SP, #+40]
+   \   000002DC   18009DE5           LDR      R0,[SP, #+24]
+   \   000002E0   011080E2           ADD      R1,R0,#+1
+   \   000002E4   0000A0E3           MOV      R0,#+0
+   \   000002E8   500100EF           SWI      +336
+    125          
+    126                    CutWSTR(out_ws, CHAR_ON_LINE);
+   \   000002EC   1410A0E3           MOV      R1,#+20
+   \   000002F0   0600A0E1           MOV      R0,R6
+   \   000002F4   260100EF           SWI      +294
+    127                    //DrawString(out_ws,16,start_y+2,scr_w-1,start_y+font_y,CLIST_FONT,0,color(fcolor),0); // Перенесено дальше иконки
+    128          
+    129          #ifdef USE_PNG_EXT
+    130                    Roster_getIcon(path_to_pic, ClEx, resEx);
+   \   000002F8   0920A0E1           MOV      R2,R9
+   \   000002FC   0510A0E1           MOV      R1,R5
+   \   00000300   34008DE2           ADD      R0,SP,#+52
+   \   00000304   ........           _BLF     Roster_getIcon,??Roster_getIcon??rA
+    131                    Roster_DrawIcon(1, start_y+((font_y-Roster_getIconHeight(path_to_pic))>>1), (int)path_to_pic);
+   \   00000308   34008DE2           ADD      R0,SP,#+52
+   \   0000030C   ........           _BLF     Roster_getIconHeight,??Roster_getIconHeight??rA
+   \   00000310   18109DE5           LDR      R1,[SP, #+24]
+   \   00000314   1C309DE5           LDR      R3,[SP, #+28]
+   \   00000318   34208DE2           ADD      R2,SP,#+52
+   \   0000031C   000043E0           SUB      R0,R3,R0
+   \   00000320   C01081E0           ADD      R1,R1,R0, ASR #+1
+   \   00000324   0118A0E1           MOV      R1,R1, LSL #+16
+   \   00000328   2118A0E1           MOV      R1,R1, LSR #+16
+   \   0000032C   0100A0E3           MOV      R0,#+1
+   \   00000330   ........           _BLF     Roster_DrawIcon,??Roster_DrawIcon??rA
+    132                    DrawString(out_ws,Roster_getIconWidth(path_to_pic)+2,start_y+2,scr_w-1,start_y+font_y,CLIST_FONT,0,color(fcolor),0);
+   \   00000334   34008DE2           ADD      R0,SP,#+52
+   \   00000338   ........           _BLF     Roster_getIconWidth,??Roster_getIconWidth??rA
+   \   0000033C   0010A0E3           MOV      R1,#+0
+   \   00000340   02002DE9           PUSH     {R1}
+   \   00000344   28108DE2           ADD      R1,SP,#+40
+   \   00000348   02002DE9           PUSH     {R1}
+   \   0000034C   0010A0E3           MOV      R1,#+0
+   \   00000350   02002DE9           PUSH     {R1}
+   \   00000354   E0109FE5           LDR      R1,??CList_RedrawCList_0+0x4  ;; CLIST_FONT
+   \   00000358   001091E5           LDR      R1,[R1, #+0]
+   \   0000035C   02002DE9           PUSH     {R1}
+   \   00000360   38109DE5           LDR      R1,[SP, #+56]
+   \   00000364   02002DE9           PUSH     {R1}
+   \   00000368   40309DE5           LDR      R3,[SP, #+64]
+   \   0000036C   2C109DE5           LDR      R1,[SP, #+44]
+   \   00000370   022081E2           ADD      R2,R1,#+2
+   \   00000374   021080E2           ADD      R1,R0,#+2
+   \   00000378   0600A0E1           MOV      R0,R6
+   \   0000037C   4C0100EF           SWI      +332
+   \   00000380   28D08DE2           ADD      SP,SP,#+40
+    133          #else
+    134                    if (resEx->has_unread_msg)
+    135                      icon_num=Roster_getIconByStatus(50); //иконка сообщения
+    136                    else
+    137                      icon_num=Roster_getIcon(ClEx, resEx);
+    138          
+    139                    Roster_DrawIcon(1, start_y, icon_num) ; //иконка сообщения
+    140                    DrawString(out_ws,Roster_getIconWidth(icon_num)+2,start_y+2,scr_w-1,start_y+font_y,CLIST_FONT,0,color(fcolor),0);
+    141          #endif
+    142          
+    143                    Alternation=!Alternation; //ad: перещелкиваем чередование
+   \   00000384   000058E3           CMP      R8,#+0
+   \   00000388   0180A003           MOVEQ    R8,#+1
+   \   0000038C   0080A013           MOVNE    R8,#+0
+    144                  }
+    145                  if((Display_Offline  |  resEx->status!=PRESENCE_OFFLINE | resEx->has_unread_msg) && Is_Right_Vis_Mode) i++;
+   \                     ??CList_RedrawCList_12:
+   \   00000390   0900D9E5           LDRB     R0,[R9, #+9]
+   \   00000394   1C10D4E5           LDRB     R1,[R4, #+28]
+   \   00000398   060050E3           CMP      R0,#+6
+   \   0000039C   0100A013           MOVNE    R0,#+1
+   \   000003A0   0000A003           MOVEQ    R0,#+0
+   \   000003A4   010080E1           ORR      R0,R0,R1
+   \   000003A8   141099E5           LDR      R1,[R9, #+20]
+    146                  resEx = resEx->next;
+   \   000003AC   2C9099E5           LDR      R9,[R9, #+44]
+   \   000003B0   000091E1           ORRS     R0,R1,R0
+    147                  if(i>Active_page*N_cont_disp)break;
+   \   000003B4   0C0094E5           LDR      R0,[R4, #+12]
+   \   000003B8   101094E5           LDR      R1,[R4, #+16]
+   \   000003BC   00005B13           CMPNE    R11,#+0
+   \   000003C0   910000E0           MUL      R0,R1,R0
+   \   000003C4   01708712           ADDNE    R7,R7,#+1
+   \   000003C8   070050E1           CMP      R0,R7
+   \   000003CC   3BFFFF2A           BCS      ??CList_RedrawCList_7
+    148                }
+    149              }
+    150              ClEx = ClEx->next;
+    151              if(i>Active_page*N_cont_disp)break;
+   \                     ??CList_RedrawCList_6:
+   \   000003D0   0C0094E5           LDR      R0,[R4, #+12]
+   \   000003D4   101094E5           LDR      R1,[R4, #+16]
+   \   000003D8   1C5095E5           LDR      R5,[R5, #+28]
+   \   000003DC   910000E0           MUL      R0,R1,R0
+   \   000003E0   070050E1           CMP      R0,R7
+   \   000003E4   2FFFFF2A           BCS      ??CList_RedrawCList_4
+    152            }
+    153          
+    154            //  sprintf(logmsg, "P=%d;C=%d;N=%d;ND=%d",Active_page, CursorPos,N_Disp_Contacts,N_cont_disp);
+    155            if(Jabber_state==JS_ONLINE)sprintf(logmsg, "Self=%s",PRESENCES[My_Presence]);
+   \                     ??CList_RedrawCList_5:
+   \   000003E8   74009FE5           LDR      R0,??CList_RedrawCList_0+0x2C  ;; Jabber_state
+   \   000003EC   0000D0E5           LDRB     R0,[R0, #+0]
+   \   000003F0   0C0050E3           CMP      R0,#+12
+   \   000003F4   0600001A           BNE      ??CList_RedrawCList_19
+   \   000003F8   68009FE5           LDR      R0,??CList_RedrawCList_0+0x30  ;; My_Presence
+   \   000003FC   68109FE5           LDR      R1,??CList_RedrawCList_0+0x34  ;; PRESENCES
+   \   00000400   0000D0E5           LDRB     R0,[R0, #+0]
+   \   00000404   002191E7           LDR      R2,[R1, +R0, LSL #+2]
+   \   00000408   60109FE5           LDR      R1,??CList_RedrawCList_0+0x38  ;; `?<Constant "%w/%w">` + 8
+   \   0000040C   60009FE5           LDR      R0,??CList_RedrawCList_0+0x3C  ;; logmsg
+   \   00000410   160000EF           SWI      +22
+    156            //  sprintf(logmsg, "Jabber=%d",Jabber_state);
+    157            UnlockSched();
+   \                     ??CList_RedrawCList_19:
+   \   00000414   470100EF           SWI      +327
+    158            FreeWS(ClEx_name);
+   \   00000418   0C009DE5           LDR      R0,[SP, #+12]
+   \   0000041C   290100EF           SWI      +297
+    159            FreeWS(ResEx_name);
+   \   00000420   00009DE5           LDR      R0,[SP, #+0]
+   \   00000424   290100EF           SWI      +297
+    160            FreeWS(out_ws);
+   \   00000428   0600A0E1           MOV      R0,R6
+   \   0000042C   290100EF           SWI      +297
+    161          }
+   \                     ??CList_RedrawCList_1:
+   \   00000430   A0D08DE2           ADD      SP,SP,#+160      ;; stack cleaning
+   \   00000434   F08BBDE8           POP      {R4-R9,R11,PC}
+   \                     ??CList_RedrawCList_0:
+   \   00000438   25770000           DC8      "%w",+0
+   \   0000043C   ........           DC32     CLIST_FONT
+   \   00000440   ........           DC32     CURSOR
+   \   00000444   ........           DC32     lineColor
+   \   00000448   ........           DC32     CURSOR_BORDER
+   \   0000044C   ........           DC32     borderColor
+   \   00000450   ........           DC32     CONTACT_BG_0
+   \   00000454   ........           DC32     CONTACT_BG_1
+   \   00000458   ........           DC32     `?<Constant "%w/%w">`
+   \   0000045C   ........           DC32     PRES_COLORS
+   \   00000460   ........           DC32     CLIST_F_COLOR_0
+   \   00000464   ........           DC32     Jabber_state
+   \   00000468   ........           DC32     My_Presence
+   \   0000046C   ........           DC32     PRESENCES
+   \   00000470   ........           DC32     `?<Constant "%w/%w">` + 8
+   \   00000474   ........           DC32     logmsg
+    162          
+    163          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    164          TRESOURCE* CList_GetActiveContact()
+    165          {
+    166            return ActiveContact;
+   \                     CList_GetActiveContact:
+   \   00000000   04009FE5           LDR      R0,??CList_GetActiveContact_0  ;; cltop + 24
+   \   00000004   000090E5           LDR      R0,[R0, #+0]
+   \   00000008   1EFF2FE1           BX       LR               ;; return
+   \                     ??CList_GetActiveContact_0:
+   \   0000000C   ........           DC32     cltop + 24
+    167          }
+    168          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    169          unsigned int CList_GetNumberOfOnlineUsers()
+    170          {
+    171            unsigned int Online=0;
+    172            CLIST* ClEx;
+    173            TRESOURCE* ResEx;
+    174            if(!(ClEx = cltop))return 0;
+   \                     CList_GetNumberOfOnlineUsers:
+   \   00000000   ........           LDR      R1,??DataTable9  ;; cltop
+   \   00000004   0000A0E3           MOV      R0,#+0
+   \   00000008   001091E5           LDR      R1,[R1, #+0]
+   \   0000000C   110000EA           B        ??CList_GetNumberOfOnlineUsers_0
+    175            while(ClEx)
+    176            {
+    177              ResEx = ClEx->res_list;
+   \                     ??CList_GetNumberOfOnlineUsers_1:
+   \   00000010   0C2091E5           LDR      R2,[R1, #+12]
+   \   00000014   000052E3           CMP      R2,#+0
+   \   00000018   0D00000A           BEQ      ??CList_GetNumberOfOnlineUsers_2
+    178              while(ResEx)
+    179              {
+    180                if((ResEx->status!=PRESENCE_OFFLINE || ResEx->has_unread_msg) && (ClEx->IsVisible==1 || ResEx->entry_type==T_GROUP || ResEx->entry_type==T_CONF_ROOT))
+   \                     ??CList_GetNumberOfOnlineUsers_3:
+   \   0000001C   0930D2E5           LDRB     R3,[R2, #+9]
+   \   00000020   060053E3           CMP      R3,#+6
+   \   00000024   14309205           LDREQ    R3,[R2, #+20]
+   \   00000028   00005303           CMPEQ    R3,#+0
+   \   0000002C   0500000A           BEQ      ??CList_GetNumberOfOnlineUsers_4
+   \   00000030   0430D1E5           LDRB     R3,[R1, #+4]
+   \   00000034   010053E3           CMP      R3,#+1
+   \   00000038   0830D215           LDRBNE   R3,[R2, #+8]
+   \   0000003C   05005313           CMPNE    R3,#+5
+   \   00000040   02005313           CMPNE    R3,#+2
+    181                  Online++;
+   \   00000044   01008002           ADDEQ    R0,R0,#+1
+    182                ResEx=ResEx->next;
+   \                     ??CList_GetNumberOfOnlineUsers_4:
+   \   00000048   2C2092E5           LDR      R2,[R2, #+44]
+    183              }
+   \   0000004C   000052E3           CMP      R2,#+0
+   \   00000050   F1FFFF1A           BNE      ??CList_GetNumberOfOnlineUsers_3
+    184              ClEx = ClEx->next;
+   \                     ??CList_GetNumberOfOnlineUsers_2:
+   \   00000054   1C1091E5           LDR      R1,[R1, #+28]
+    185            }
+   \                     ??CList_GetNumberOfOnlineUsers_0:
+   \   00000058   000051E3           CMP      R1,#+0
+   \   0000005C   EBFFFF1A           BNE      ??CList_GetNumberOfOnlineUsers_1
+    186            return Online;
+   \   00000060   1EFF2FE1           BX       LR               ;; return
+    187          }
+    188          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    189          unsigned int CList_GetNumberOfUsers() //количество контактов
+    190          {
+    191            return NContacts;
+   \                     CList_GetNumberOfUsers:
+   \   00000000   04009FE5           LDR      R0,??CList_GetNumberOfUsers_0  ;; cltop + 4
+   \   00000004   000090E5           LDR      R0,[R0, #+0]
+   \   00000008   1EFF2FE1           BX       LR               ;; return
+   \                     ??CList_GetNumberOfUsers_0:
+   \   0000000C   ........           DC32     cltop + 4
+    192          }
+    193          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    194          unsigned int CList_GetNumberOfUsers_Visible()
+    195          {
+    196            unsigned int N_Cont = 0;
+    197            CLIST* ClEx;
+    198            TRESOURCE* ResEx;
+    199            if(!(ClEx = cltop)) return 0;
+   \                     CList_GetNumberOfUsers_Visible:
+   \   00000000   ........           LDR      R0,??DataTable9  ;; cltop
+   \   00000004   30402DE9           PUSH     {R4,R5,LR}
+   \   00000008   005090E5           LDR      R5,[R0, #+0]
+   \   0000000C   0040A0E3           MOV      R4,#+0
+   \   00000010   000055E3           CMP      R5,#+0
+   \   00000014   0900001A           BNE      ??CList_GetNumberOfUsers_Visible_0
+   \   00000018   0400A0E1           MOV      R0,R4
+   \   0000001C   3080BDE8           POP      {R4,R5,PC}
+    200          
+    201            while(ClEx)
+    202            {
+    203              while(ClEx && (CList_isGroup(ClEx) || CList_isMUC(ClEx)) && ClEx->IsVisible == NULL) //Перескакиваем через свернутые группы и конференции, иначе промахнемся
+    204              {
+    205                char c_group = ClEx->group;
+    206                if (c_group & 0x80) // Пропускаем конференции
+    207                  ClEx = ClEx->next;
+    208                else
+    209                  while(ClEx && ClEx->group == c_group) // Пропускаем группы
+    210                    ClEx = ClEx->next;
+    211                N_Cont++;
+    212              }
+    213          
+    214              if (!ClEx) return N_Cont;
+    215              
+    216              ResEx = ClEx->res_list;
+   \                     ??CList_GetNumberOfUsers_Visible_1:
+   \   00000020   0C0095E5           LDR      R0,[R5, #+12]
+   \   00000024   000050E3           CMP      R0,#+0
+   \   00000028   0300000A           BEQ      ??CList_GetNumberOfUsers_Visible_2
+    217              while(ResEx)
+    218              {
+    219                N_Cont++;
+    220                ResEx=ResEx->next;
+   \                     ??CList_GetNumberOfUsers_Visible_3:
+   \   0000002C   2C0090E5           LDR      R0,[R0, #+44]
+   \   00000030   014084E2           ADD      R4,R4,#+1
+    221              }
+   \   00000034   000050E3           CMP      R0,#+0
+   \   00000038   FBFFFF1A           BNE      ??CList_GetNumberOfUsers_Visible_3
+    222              ClEx = ClEx->next;
+   \                     ??CList_GetNumberOfUsers_Visible_2:
+   \   0000003C   1C5095E5           LDR      R5,[R5, #+28]
+   \                     ??CList_GetNumberOfUsers_Visible_0:
+   \   00000040   000055E3           CMP      R5,#+0
+   \   00000044   0800001A           BNE      ??CList_GetNumberOfUsers_Visible_4
+   \                     ??CList_GetNumberOfUsers_Visible_5:
+   \   00000048   0400A0E1           MOV      R0,R4
+   \   0000004C   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??CList_GetNumberOfUsers_Visible_6:
+   \   00000050   1610D5E5           LDRB     R1,[R5, #+22]
+   \   00000054   000051E1           CMP      R1,R0
+   \   00000058   0200001A           BNE      ??CList_GetNumberOfUsers_Visible_7
+   \   0000005C   1C5095E5           LDR      R5,[R5, #+28]
+   \   00000060   000055E3           CMP      R5,#+0
+   \   00000064   F9FFFF1A           BNE      ??CList_GetNumberOfUsers_Visible_6
+   \                     ??CList_GetNumberOfUsers_Visible_7:
+   \   00000068   014084E2           ADD      R4,R4,#+1
+   \                     ??CList_GetNumberOfUsers_Visible_4:
+   \   0000006C   000055E3           CMP      R5,#+0
+   \   00000070   F4FFFF0A           BEQ      ??CList_GetNumberOfUsers_Visible_5
+   \   00000074   0500A0E1           MOV      R0,R5
+   \   00000078   ........           BL       CList_isGroup
+   \   0000007C   000050E3           CMP      R0,#+0
+   \   00000080   0300001A           BNE      ??CList_GetNumberOfUsers_Visible_8
+   \   00000084   0500A0E1           MOV      R0,R5
+   \   00000088   ........           BL       CList_isMUC
+   \   0000008C   000050E3           CMP      R0,#+0
+   \   00000090   E2FFFF0A           BEQ      ??CList_GetNumberOfUsers_Visible_1
+   \                     ??CList_GetNumberOfUsers_Visible_8:
+   \   00000094   0400D5E5           LDRB     R0,[R5, #+4]
+   \   00000098   000050E3           CMP      R0,#+0
+   \   0000009C   DFFFFF1A           BNE      ??CList_GetNumberOfUsers_Visible_1
+   \   000000A0   1600D5E5           LDRB     R0,[R5, #+22]
+   \   000000A4   800010E3           TST      R0,#0x80
+   \   000000A8   E8FFFF0A           BEQ      ??CList_GetNumberOfUsers_Visible_6
+   \   000000AC   1C5095E5           LDR      R5,[R5, #+28]
+   \   000000B0   ECFFFFEA           B        ??CList_GetNumberOfUsers_Visible_7
+    223            }
+    224            return N_Cont;
+    225          }
+    226          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    227          void CList_ToggleOfflineDisplay()
+    228          {
+   \                     CList_ToggleOfflineDisplay:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    229            Display_Offline = !Display_Offline;
+   \   00000004   ........           LDR      R4,??DataTable3  ;; cltop
+   \   00000008   1C00D4E5           LDRB     R0,[R4, #+28]
+   \   0000000C   000050E3           CMP      R0,#+0
+   \   00000010   0100A003           MOVEQ    R0,#+1
+   \   00000014   0000A013           MOVNE    R0,#+0
+   \   00000018   1C00C4E5           STRB     R0,[R4, #+28]
+    230            if (CursorPos>CList_GetNumberOfOnlineUsers())
+   \   0000001C   ........           BL       CList_GetNumberOfOnlineUsers
+   \   00000020   141094E5           LDR      R1,[R4, #+20]
+   \   00000024   010050E1           CMP      R0,R1
+   \   00000028   0100002A           BCS      ??CList_ToggleOfflineDisplay_0
+    231            CursorPos=CList_GetNumberOfOnlineUsers();
+   \   0000002C   ........           BL       CList_GetNumberOfOnlineUsers
+   \   00000030   140084E5           STR      R0,[R4, #+20]
+    232            REDRAW();
+   \                     ??CList_ToggleOfflineDisplay_0:
+   \   00000034   720100EF           SWI      +370
+    233          }
+   \   00000038   1080BDE8           POP      {R4,PC}          ;; return
+    234          
+    235          // Убить список сообщений
+
+   \                                 In segment CODE, align 4, keep-with-next
+    236          void KillMsgList(LOG_MESSAGE* messtop)
+    237          {
+   \                     KillMsgList:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040B0E1           MOVS     R4,R0
+    238            LOG_MESSAGE* cl=messtop;
+    239            messtop=NULL;
+   \   00000008   1080BD08           POPEQ    {R4,PC}
+    240            while(cl)
+    241            {
+    242              LOG_MESSAGE *p;
+    243              mfree(cl->mess);
+   \                     ??KillMsgList_0:
+   \   0000000C   080094E5           LDR      R0,[R4, #+8]
+   \   00000010   150000EF           SWI      +21
+    244              if(cl->muc_author)mfree(cl->muc_author);
+   \   00000014   040094E5           LDR      R0,[R4, #+4]
+   \   00000018   000050E3           CMP      R0,#+0
+   \   0000001C   0000000A           BEQ      ??KillMsgList_1
+   \   00000020   150000EF           SWI      +21
+    245              p=cl;
+   \                     ??KillMsgList_1:
+   \   00000024   0400A0E1           MOV      R0,R4
+    246              cl=cl->next;
+   \   00000028   0C4094E5           LDR      R4,[R4, #+12]
+    247              mfree(p);
+   \   0000002C   150000EF           SWI      +21
+    248            }
+   \   00000030   000054E3           CMP      R4,#+0
+   \   00000034   F4FFFF1A           BNE      ??KillMsgList_0
+    249          }
+   \   00000038   1080BDE8           POP      {R4,PC}          ;; return
+    250          
+    251          
+    252          // Убить список ресурсов
+
+   \                                 In segment CODE, align 4, keep-with-next
+    253          void KillResourceList(TRESOURCE* res_list)
+    254          {
+   \                     KillResourceList:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040B0E1           MOVS     R4,R0
+    255            TRESOURCE* cl=res_list;
+   \   00000008   1080BD08           POPEQ    {R4,PC}
+    256            while(cl)
+    257            {
+    258              TRESOURCE *p;
+    259              if(cl->name)mfree(cl->name);
+   \                     ??KillResourceList_0:
+   \   0000000C   000094E5           LDR      R0,[R4, #+0]
+   \   00000010   000050E3           CMP      R0,#+0
+   \   00000014   0000000A           BEQ      ??KillResourceList_1
+   \   00000018   150000EF           SWI      +21
+    260              mfree(cl->full_name);
+   \                     ??KillResourceList_1:
+   \   0000001C   040094E5           LDR      R0,[R4, #+4]
+   \   00000020   150000EF           SWI      +21
+    261              if(cl->status_msg)mfree(cl->status_msg);
+   \   00000024   0C0094E5           LDR      R0,[R4, #+12]
+   \   00000028   000050E3           CMP      R0,#+0
+   \   0000002C   0000000A           BEQ      ??KillResourceList_2
+   \   00000030   150000EF           SWI      +21
+    262              if(cl->log)KillMsgList(cl->log);
+   \                     ??KillResourceList_2:
+   \   00000034   1C0094E5           LDR      R0,[R4, #+28]
+   \   00000038   000050E3           CMP      R0,#+0
+   \   0000003C   0000000A           BEQ      ??KillResourceList_3
+   \   00000040   ........           BL       KillMsgList
+    263              if(cl->muc_privs.real_jid)mfree(cl->muc_privs.real_jid);
+   \                     ??KillResourceList_3:
+   \   00000044   240094E5           LDR      R0,[R4, #+36]
+   \   00000048   000050E3           CMP      R0,#+0
+   \   0000004C   0000000A           BEQ      ??KillResourceList_4
+   \   00000050   150000EF           SWI      +21
+    264              Free_vCard(cl->vcard);
+   \                     ??KillResourceList_4:
+   \   00000054   280094E5           LDR      R0,[R4, #+40]
+   \   00000058   ........           _BLF     Free_vCard,??Free_vCard??rA
+    265              p=cl;
+   \   0000005C   0400A0E1           MOV      R0,R4
+    266              cl=cl->next;
+   \   00000060   2C4094E5           LDR      R4,[R4, #+44]
+    267              mfree(p);
+   \   00000064   150000EF           SWI      +21
+    268              p=NULL;
+    269            }
+   \   00000068   000054E3           CMP      R4,#+0
+   \   0000006C   E6FFFF1A           BNE      ??KillResourceList_0
+    270          }
+   \   00000070   1080BDE8           POP      {R4,PC}          ;; return
+    271          
+    272          // Получить дескриптор контакта по FullJID (JID вместе с ресурсом)
+
+   \                                 In segment CODE, align 4, keep-with-next
+    273          CLIST* CList_FindContactByJID(char* jid)
+    274          {
+   \                     CList_FindContactByJID:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    275            LockSched();
+   \   00000008   460100EF           SWI      +326
+    276            // Преобразуем жид в нижний регистр
+    277            //  char lc_jid[128];
+    278            //  strcpy(lc_jid, jid);
+    279            //  str2lower(lc_jid);
+    280            CLIST* ClEx = cltop;
+   \   0000000C   ........           LDR      R0,??DataTable9  ;; cltop
+   \   00000010   005090E5           LDR      R5,[R0, #+0]
+   \   00000014   000000EA           B        ??CList_FindContactByJID_0
+    281            while(ClEx)
+    282            {
+    283              //    if(strstr(lc_jid,ClEx->JID)==lc_jid)
+    284              if(stristr(jid,ClEx->JID)==jid && ClEx->res_list->entry_type!=T_GROUP)
+    285              {
+    286                UnlockSched();
+    287                return ClEx;
+    288              }
+    289              ClEx = ClEx->next;
+   \                     ??CList_FindContactByJID_1:
+   \   00000018   1C5095E5           LDR      R5,[R5, #+28]
+   \                     ??CList_FindContactByJID_0:
+   \   0000001C   000055E3           CMP      R5,#+0
+   \   00000020   0B00000A           BEQ      ??CList_FindContactByJID_2
+   \   00000024   001095E5           LDR      R1,[R5, #+0]
+   \   00000028   0400A0E1           MOV      R0,R4
+   \   0000002C   ........           _BLF     stristr,??stristr??rA
+   \   00000030   040050E1           CMP      R0,R4
+   \   00000034   F7FFFF1A           BNE      ??CList_FindContactByJID_1
+   \   00000038   0C0095E5           LDR      R0,[R5, #+12]
+   \   0000003C   0800D0E5           LDRB     R0,[R0, #+8]
+   \   00000040   050050E3           CMP      R0,#+5
+   \   00000044   F3FFFF0A           BEQ      ??CList_FindContactByJID_1
+   \   00000048   470100EF           SWI      +327
+   \   0000004C   0500A0E1           MOV      R0,R5
+   \   00000050   3080BDE8           POP      {R4,R5,PC}
+    290            }
+    291            UnlockSched();
+   \                     ??CList_FindContactByJID_2:
+   \   00000054   470100EF           SWI      +327
+    292            return NULL;
+   \   00000058   0000A0E3           MOV      R0,#+0
+   \   0000005C   3080BDE8           POP      {R4,R5,PC}       ;; return
+    293          }
+    294          //поиск конфы
+
+   \                                 In segment CODE, align 4, keep-with-next
+    295          MUC_ITEM* CList_FindMUCByJID(char* jid)
+    296          {
+   \                     CList_FindMUCByJID:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    297            LockSched();
+   \   00000008   460100EF           SWI      +326
+    298            extern MUC_ITEM* muctop;
+    299            MUC_ITEM* McEx = muctop;
+   \   0000000C   44009FE5           LDR      R0,??CList_FindMUCByJID_0  ;; muctop
+   \   00000010   005090E5           LDR      R5,[R0, #+0]
+    300            if(McEx)
+   \   00000014   000055E3           CMP      R5,#+0
+   \   00000018   0300001A           BNE      ??CList_FindMUCByJID_1
+    301            while(McEx)
+    302            {
+    303              if(stristr(McEx->conf_jid,jid)==McEx->conf_jid)
+    304              {
+    305                UnlockSched();
+    306                return McEx;
+    307              }
+    308              McEx = McEx->next;
+    309            }
+    310            UnlockSched();
+   \                     ??CList_FindMUCByJID_2:
+   \   0000001C   470100EF           SWI      +327
+    311            return NULL;
+   \   00000020   0000A0E3           MOV      R0,#+0
+   \   00000024   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??CList_FindMUCByJID_3:
+   \   00000028   085095E5           LDR      R5,[R5, #+8]
+   \                     ??CList_FindMUCByJID_1:
+   \   0000002C   000055E3           CMP      R5,#+0
+   \   00000030   F9FFFF0A           BEQ      ??CList_FindMUCByJID_2
+   \   00000034   000095E5           LDR      R0,[R5, #+0]
+   \   00000038   0410A0E1           MOV      R1,R4
+   \   0000003C   ........           _BLF     stristr,??stristr??rA
+   \   00000040   001095E5           LDR      R1,[R5, #+0]
+   \   00000044   010050E1           CMP      R0,R1
+   \   00000048   F6FFFF1A           BNE      ??CList_FindMUCByJID_3
+   \   0000004C   470100EF           SWI      +327
+   \   00000050   0500A0E1           MOV      R0,R5
+   \   00000054   3080BDE8           POP      {R4,R5,PC}
+   \                     ??CList_FindMUCByJID_0:
+   \   00000058   ........           DC32     muctop
+    312          }
+    313          
+    314          // Добавляет в список контактов системное сообщение
+    315          // Полезно, когда происходят действия с подпиской
+
+   \                                 In segment CODE, align 4, keep-with-next
+    316          void CList_AddSystemMessage(char* jid, char status, char* status_msg)
+    317          {
+   \                     CList_AddSystemMessage:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   04D04DE2           SUB      SP,SP,#+4
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   0150A0E1           MOV      R5,R1
+    318            if(status<=PRESENCE_ERROR)
+   \   00000010   080055E3           CMP      R5,#+8
+   \   00000014   0400002A           BCS      ??CList_AddSystemMessage_0
+    319            {
+    320              if(!status_msg)return;
+   \   00000018   000052E3           CMP      R2,#+0
+   \   0000001C   7180BD08           POPEQ    {R0,R4-R6,PC}
+    321              CList_AddMessage(jid, MSG_STATUS, status_msg);
+   \   00000020   0510A0E3           MOV      R1,#+5
+   \   00000024   ........           BL       CList_AddMessage
+    322              return;
+   \   00000028   7180BDE8           POP      {R0,R4-R6,PC}
+    323            }
+    324            char *sws = malloc(128);
+   \                     ??CList_AddSystemMessage_0:
+   \   0000002C   8000A0E3           MOV      R0,#+128
+   \   00000030   140000EF           SWI      +20
+    325            switch (status)
+   \   00000034   C4109FE5           LDR      R1,??CList_AddSystemMessage_1+0x4  ;; `?<Constant "\\317\\360\\350\\370\\345\\353 \\347\\340\\`
+   \   00000038   0060A0E1           MOV      R6,R0
+   \   0000003C   085055E2           SUBS     R5,R5,#+8
+   \   00000040   0B00000A           BEQ      ??CList_AddSystemMessage_2
+   \   00000044   015055E2           SUBS     R5,R5,#+1
+   \   00000048   0400000A           BEQ      ??CList_AddSystemMessage_3
+   \   0000004C   015055E2           SUBS     R5,R5,#+1
+   \   00000050   0400000A           BEQ      ??CList_AddSystemMessage_4
+   \   00000054   015055E2           SUBS     R5,R5,#+1
+   \   00000058   0400000A           BEQ      ??CList_AddSystemMessage_5
+   \   0000005C   050000EA           B        ??CList_AddSystemMessage_6
+    326            {
+    327            case PRESENCE_SUBSCRIBE:   strcpy(sws,LG_AUTHORCAME); break;
+    328            case PRESENCE_SUBSCRIBED:  strcpy(sws,LG_AUTHORGRANTED); break;
+   \                     ??CList_AddSystemMessage_3:
+   \   00000060   201081E2           ADD      R1,R1,#+32
+   \   00000064   020000EA           B        ??CList_AddSystemMessage_2
+    329            case PRESENCE_UNSUBSCRIBE: strcpy(sws,LG_AUTHORREM); break;
+   \                     ??CList_AddSystemMessage_4:
+   \   00000068   341081E2           ADD      R1,R1,#+52
+   \   0000006C   000000EA           B        ??CList_AddSystemMessage_2
+    330            case PRESENCE_UNSUBSCRIBED:strcpy(sws,LG_AUTHORDECLINE); break;
+   \                     ??CList_AddSystemMessage_5:
+   \   00000070   4C1081E2           ADD      R1,R1,#+76
+   \                     ??CList_AddSystemMessage_2:
+   \   00000074   1A0000EF           SWI      +26
+    331            }
+    332            WSHDR *wsaut = AllocWS(256);
+   \                     ??CList_AddSystemMessage_6:
+   \   00000078   400FA0E3           MOV      R0,#+256
+   \   0000007C   250100EF           SWI      +293
+   \   00000080   0050A0E1           MOV      R5,R0
+    333            wsprintf(wsaut, "%t", sws);
+   \   00000084   0620A0E1           MOV      R2,R6
+   \   00000088   1B1F8FE2           ADR      R1,??CList_AddSystemMessage_1  ;; "%t"
+   \   0000008C   240100EF           SWI      +292
+    334            mfree(sws);
+   \   00000090   0600A0E1           MOV      R0,R6
+   \   00000094   150000EF           SWI      +21
+    335            int len;
+    336            char *saut=malloc(256);
+   \   00000098   400FA0E3           MOV      R0,#+256
+   \   0000009C   140000EF           SWI      +20
+   \   000000A0   0060A0E1           MOV      R6,R0
+    337            ws_2utf8(wsaut, saut, &len, 256);
+   \   000000A4   403FA0E3           MOV      R3,#+256
+   \   000000A8   0D20A0E1           MOV      R2,SP
+   \   000000AC   0610A0E1           MOV      R1,R6
+   \   000000B0   0500A0E1           MOV      R0,R5
+   \   000000B4   E20100EF           SWI      +482
+    338            saut = realloc(saut, len + 1);
+   \   000000B8   00009DE5           LDR      R0,[SP, #+0]
+   \   000000BC   011080E2           ADD      R1,R0,#+1
+   \   000000C0   0600A0E1           MOV      R0,R6
+   \   000000C4   BA0000EF           SWI      +186
+   \   000000C8   0060A0E1           MOV      R6,R0
+    339            saut[len] = '\0';
+   \   000000CC   00009DE5           LDR      R0,[SP, #+0]
+   \   000000D0   0010A0E3           MOV      R1,#+0
+   \   000000D4   0610C0E7           STRB     R1,[R0, +R6]
+    340            CList_AddMessage(jid, MSG_SYSTEM, saut);
+   \   000000D8   0620A0E1           MOV      R2,R6
+   \   000000DC   0410A0E3           MOV      R1,#+4
+   \   000000E0   0400A0E1           MOV      R0,R4
+   \   000000E4   ........           BL       CList_AddMessage
+    341            mfree(saut);
+   \   000000E8   0600A0E1           MOV      R0,R6
+   \   000000EC   150000EF           SWI      +21
+    342            FreeWS(wsaut);
+   \   000000F0   0500A0E1           MOV      R0,R5
+   \   000000F4   290100EF           SWI      +297
+    343          }
+   \   000000F8   7180BDE8           POP      {R0,R4-R6,PC}    ;; return
+   \                     ??CList_AddSystemMessage_1:
+   \   000000FC   25740000           DC8      "%t",+0
+   \   00000100   ........           DC32     `?<Constant "\\317\\360\\350\\370\\345\\353 \\347\\340\\`
+    344          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    345          void CList_AddSystemMessageA(char* jid, char status, char* ansi_status_msg)
+    346          {
+   \                     CList_AddSystemMessageA:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+   \   0000000C   0200A0E1           MOV      R0,R2
+    347            char *utf8_msg=ANSI2UTF8(ansi_status_msg, 512);
+   \   00000010   801FA0E3           MOV      R1,#+512
+   \   00000014   ........           _BLF     ANSI2UTF8,??ANSI2UTF8??rA
+   \   00000018   0060A0E1           MOV      R6,R0
+    348            CList_AddSystemMessage(jid, status, utf8_msg);
+   \   0000001C   0620A0E1           MOV      R2,R6
+   \   00000020   0510A0E1           MOV      R1,R5
+   \   00000024   0400A0E1           MOV      R0,R4
+   \   00000028   ........           BL       CList_AddSystemMessage
+    349            mfree(utf8_msg);
+   \   0000002C   0600A0E1           MOV      R0,R6
+   \   00000030   150000EF           SWI      +21
+    350          }
+   \   00000034   7080BDE8           POP      {R4-R6,PC}       ;; return
+    351          
+    352          // Узнать, есть ли уже такой ресурс у контакта, по FullJID
+
+   \                                 In segment CODE, align 4, keep-with-next
+    353          TRESOURCE* CList_IsResourceInList(char* jid)
+    354          {
+   \                     CList_IsResourceInList:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    355            CLIST* ClEx = CList_FindContactByJID(jid);
+   \   00000008   ........           BL       CList_FindContactByJID
+   \   0000000C   0050B0E1           MOVS     R5,R0
+    356            if(!ClEx)return NULL;
+   \   00000010   0E00000A           BEQ      ??CList_IsResourceInList_0
+    357            LockSched();
+   \   00000014   460100EF           SWI      +326
+    358            TRESOURCE* ResEx = ClEx->res_list;
+   \   00000018   0C5095E5           LDR      R5,[R5, #+12]
+   \   0000001C   000000EA           B        ??CList_IsResourceInList_1
+    359            while(ResEx)
+    360            {
+    361              if(!stricmp(ResEx->full_name, jid))
+    362              {
+    363                UnlockSched();
+    364                return ResEx;
+    365              }
+    366              ResEx = ResEx->next;
+   \                     ??CList_IsResourceInList_2:
+   \   00000020   2C5095E5           LDR      R5,[R5, #+44]
+   \                     ??CList_IsResourceInList_1:
+   \   00000024   000055E3           CMP      R5,#+0
+   \   00000028   0700000A           BEQ      ??CList_IsResourceInList_3
+   \   0000002C   040095E5           LDR      R0,[R5, #+4]
+   \   00000030   0410A0E1           MOV      R1,R4
+   \   00000034   ........           _BLF     stricmp,??stricmp??rA
+   \   00000038   000050E3           CMP      R0,#+0
+   \   0000003C   F7FFFF1A           BNE      ??CList_IsResourceInList_2
+   \   00000040   470100EF           SWI      +327
+   \   00000044   0500A0E1           MOV      R0,R5
+   \   00000048   3080BDE8           POP      {R4,R5,PC}
+    367            }
+    368            UnlockSched();
+   \                     ??CList_IsResourceInList_3:
+   \   0000004C   470100EF           SWI      +327
+    369            return NULL;
+   \                     ??CList_IsResourceInList_0:
+   \   00000050   0000A0E3           MOV      R0,#+0
+   \   00000054   3080BDE8           POP      {R4,R5,PC}       ;; return
+    370          }
+    371          
+    372          
+    373          // Поменять статус у контакта
+
+   \                                 In segment CODE, align 4, keep-with-next
+    374          void CList_Ch_Status(TRESOURCE* resource,
+    375                               char status,
+    376                               char* status_msg,
+    377                               short priority
+    378                                 )
+    379          {
+   \                     CList_Ch_Status:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+   \   0000000C   0260A0E1           MOV      R6,R2
+   \   00000010   0370A0E1           MOV      R7,R3
+    380            LockSched();
+   \   00000014   460100EF           SWI      +326
+    381            if(resource->status_msg)
+   \   00000018   0C0094E5           LDR      R0,[R4, #+12]
+   \   0000001C   000050E3           CMP      R0,#+0
+   \   00000020   0200000A           BEQ      ??CList_Ch_Status_0
+    382            {
+    383              mfree(resource->status_msg);
+   \   00000024   150000EF           SWI      +21
+    384              resource->status_msg = NULL;
+   \   00000028   0000A0E3           MOV      R0,#+0
+   \   0000002C   0C0084E5           STR      R0,[R4, #+12]
+    385            }
+    386            if(status_msg)
+   \                     ??CList_Ch_Status_0:
+   \   00000030   000056E3           CMP      R6,#+0
+   \   00000034   0600000A           BEQ      ??CList_Ch_Status_1
+    387            {
+    388              resource->status_msg = malloc(strlen(status_msg)+1);
+   \   00000038   0600A0E1           MOV      R0,R6
+   \   0000003C   1B0000EF           SWI      +27
+   \   00000040   010080E2           ADD      R0,R0,#+1
+   \   00000044   140000EF           SWI      +20
+   \   00000048   0C0084E5           STR      R0,[R4, #+12]
+    389              strcpy(resource->status_msg, status_msg);
+   \   0000004C   0610A0E1           MOV      R1,R6
+   \   00000050   1A0000EF           SWI      +26
+    390            }
+    391            resource->status = status;
+   \                     ??CList_Ch_Status_1:
+   \   00000054   0950C4E5           STRB     R5,[R4, #+9]
+    392            resource->priority = priority;
+   \   00000058   B071C4E1           STRH     R7,[R4, #+16]
+    393            if (status>PRESENCE_INVISIBLE) resource->compos = 0; //сброс компосинга если остался
+   \   0000005C   060055E3           CMP      R5,#+6
+   \   00000060   0A00D425           LDRBCS   R0,[R4, #+10]
+   \   00000064   FE000022           ANDCS    R0,R0,#0xFE
+   \   00000068   0A00C425           STRBCS   R0,[R4, #+10]
+    394            UnlockSched();
+   \   0000006C   470100EF           SWI      +327
+    395            CList_AddSystemMessage(resource->full_name, status, status_msg);
+   \   00000070   040094E5           LDR      R0,[R4, #+4]
+   \   00000074   0620A0E1           MOV      R2,R6
+   \   00000078   0510A0E1           MOV      R1,R5
+   \   0000007C   ........           BL       CList_AddSystemMessage
+    396          }
+   \   00000080   F080BDE8           POP      {R4-R7,PC}       ;; return
+    397          
+    398          
+    399          // Делаем оффлайнами все ресурсы заданного контакта. Useful для конференций.
+
+   \                                 In segment CODE, align 4, keep-with-next
+    400          void CList_MakeAllResourcesOFFLINE(CLIST* ClEx)
+    401          {
+   \                     CList_MakeAllResourcesOFFLINE:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    402            if(!ClEx)return;
+   \   00000004   000050E3           CMP      R0,#+0
+    403            TRESOURCE* ResEx = ClEx->res_list;
+   \   00000008   0C409015           LDRNE    R4,[R0, #+12]
+   \   0000000C   00005413           CMPNE    R4,#+0
+   \   00000010   1080BD08           POPEQ    {R4,PC}
+    404          
+    405            while(ResEx)
+    406            {
+    407              CList_Ch_Status(ResEx,
+    408                              PRESENCE_OFFLINE,
+    409                              NULL, 0
+    410                                );
+   \                     ??CList_MakeAllResourcesOFFLINE_0:
+   \   00000014   0030A0E3           MOV      R3,#+0
+   \   00000018   0020A0E3           MOV      R2,#+0
+   \   0000001C   0610A0E3           MOV      R1,#+6
+   \   00000020   0400A0E1           MOV      R0,R4
+   \   00000024   ........           BL       CList_Ch_Status
+    411              ResEx = ResEx->next;
+   \   00000028   2C4094E5           LDR      R4,[R4, #+44]
+    412            }
+   \   0000002C   000054E3           CMP      R4,#+0
+   \   00000030   F7FFFF1A           BNE      ??CList_MakeAllResourcesOFFLINE_0
+   \   00000034   1080BDE8           POP      {R4,PC}          ;; return
+    413          }
+    414          
+    415          // Делаем оффлайнами все контакты. Useful для реконнекта *Ы*
+
+   \                                 In segment CODE, align 4, keep-with-next
+    416          void CList_MakeAllContactsOFFLINE()
+    417          {
+    418            CLIST *ClEx;
+    419            if(!(ClEx=cltop))return;
+   \                     CList_MakeAllContactsOFFLINE:
+   \   00000000   ........           LDR      R0,??DataTable9  ;; cltop
+   \   00000004   30402DE9           PUSH     {R4,R5,LR}
+   \   00000008   004090E5           LDR      R4,[R0, #+0]
+   \   0000000C   000054E3           CMP      R4,#+0
+   \   00000010   3080BD08           POPEQ    {R4,R5,PC}
+    420            while(ClEx)
+    421            {
+    422              TRESOURCE* ResEx = ClEx->res_list;
+   \                     ??CList_MakeAllContactsOFFLINE_0:
+   \   00000014   0C5094E5           LDR      R5,[R4, #+12]
+   \   00000018   000055E3           CMP      R5,#+0
+   \   0000001C   0A00000A           BEQ      ??CList_MakeAllContactsOFFLINE_1
+    423              while(ResEx)
+    424              {
+    425                if(ResEx->entry_type!=T_GROUP)
+   \                     ??CList_MakeAllContactsOFFLINE_2:
+   \   00000020   0800D5E5           LDRB     R0,[R5, #+8]
+   \   00000024   050050E3           CMP      R0,#+5
+   \   00000028   0400000A           BEQ      ??CList_MakeAllContactsOFFLINE_3
+    426                  CList_Ch_Status(ResEx,
+    427                                PRESENCE_OFFLINE,
+    428                                 NULL,0
+    429                                 );
+   \   0000002C   0030A0E3           MOV      R3,#+0
+   \   00000030   0020A0E3           MOV      R2,#+0
+   \   00000034   0610A0E3           MOV      R1,#+6
+   \   00000038   0500A0E1           MOV      R0,R5
+   \   0000003C   ........           BL       CList_Ch_Status
+    430                ResEx = ResEx->next;
+   \                     ??CList_MakeAllContactsOFFLINE_3:
+   \   00000040   2C5095E5           LDR      R5,[R5, #+44]
+    431              }
+   \   00000044   000055E3           CMP      R5,#+0
+   \   00000048   F4FFFF1A           BNE      ??CList_MakeAllContactsOFFLINE_2
+    432              ClEx = ClEx->next;
+   \                     ??CList_MakeAllContactsOFFLINE_1:
+   \   0000004C   1C4094E5           LDR      R4,[R4, #+28]
+    433            }
+   \   00000050   000054E3           CMP      R4,#+0
+   \   00000054   EEFFFF1A           BNE      ??CList_MakeAllContactsOFFLINE_0
+   \   00000058   3080BDE8           POP      {R4,R5,PC}       ;; return
+    434          }
+    435          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    436          void CList_ToggleVisibilityForGroup(int GID)
+    437          {
+    438            CLIST* ClEx = cltop;
+    439            ClEx = ClEx->next;  //skip (me)
+   \                     CList_ToggleVisibilityForGroup:
+   \   00000000   ........           LDR      R1,??DataTable9  ;; cltop
+   \   00000004   001091E5           LDR      R1,[R1, #+0]
+   \   00000008   1C1091E5           LDR      R1,[R1, #+28]
+   \   0000000C   000051E3           CMP      R1,#+0
+   \   00000010   1EFF2F01           BXEQ     LR
+    440            while(ClEx)
+    441            {
+    442              if(ClEx->group==GID)
+   \                     ??CList_ToggleVisibilityForGroup_0:
+   \   00000014   1620D1E5           LDRB     R2,[R1, #+22]
+   \   00000018   000052E1           CMP      R2,R0
+   \   0000001C   0400001A           BNE      ??CList_ToggleVisibilityForGroup_1
+    443              {
+    444                ClEx->IsVisible = !ClEx->IsVisible;
+   \   00000020   0420D1E5           LDRB     R2,[R1, #+4]
+   \   00000024   000052E3           CMP      R2,#+0
+   \   00000028   0120A003           MOVEQ    R2,#+1
+   \   0000002C   0020A013           MOVNE    R2,#+0
+   \   00000030   0420C1E5           STRB     R2,[R1, #+4]
+    445              }
+    446              ClEx = ClEx->next;
+   \                     ??CList_ToggleVisibilityForGroup_1:
+   \   00000034   1C1091E5           LDR      R1,[R1, #+28]
+    447            }
+   \   00000038   000051E3           CMP      R1,#+0
+   \   0000003C   F4FFFF1A           BNE      ??CList_ToggleVisibilityForGroup_0
+    448          }
+   \   00000040   1EFF2FE1           BX       LR               ;; return
+    449          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    450          int CList_GetVisibilityForGroup(int GID)
+    451          {
+   \                     CList_GetVisibilityForGroup:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    452            CLIST* ClEx = cltop;
+   \   00000008   ........           LDR      R0,??DataTable9  ;; cltop
+   \   0000000C   005090E5           LDR      R5,[R0, #+0]
+   \   00000010   000000EA           B        ??CList_GetVisibilityForGroup_0
+    453            while(ClEx)
+    454            {
+    455              if(ClEx->group==GID&&(CList_isGroup(ClEx)))
+    456              {
+    457                return ClEx->IsVisible;
+    458              }
+    459              ClEx = ClEx->next;
+   \                     ??CList_GetVisibilityForGroup_1:
+   \   00000014   1C5095E5           LDR      R5,[R5, #+28]
+   \                     ??CList_GetVisibilityForGroup_0:
+   \   00000018   000055E3           CMP      R5,#+0
+   \   0000001C   0800000A           BEQ      ??CList_GetVisibilityForGroup_2
+   \   00000020   1600D5E5           LDRB     R0,[R5, #+22]
+   \   00000024   040050E1           CMP      R0,R4
+   \   00000028   F9FFFF1A           BNE      ??CList_GetVisibilityForGroup_1
+   \   0000002C   0500A0E1           MOV      R0,R5
+   \   00000030   ........           BL       CList_isGroup
+   \   00000034   000050E3           CMP      R0,#+0
+   \   00000038   F5FFFF0A           BEQ      ??CList_GetVisibilityForGroup_1
+   \   0000003C   0400D5E5           LDRB     R0,[R5, #+4]
+   \   00000040   3080BDE8           POP      {R4,R5,PC}
+    460            }
+    461            return 1; //Такая группа не найдена. Такого вообще-то не должно быть, но для конференций это именно так.
+   \                     ??CList_GetVisibilityForGroup_2:
+   \   00000044   0100A0E3           MOV      R0,#+1
+   \   00000048   3080BDE8           POP      {R4,R5,PC}       ;; return
+    462          }
+    463          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    464          TRESOURCE* CList_AddResourceWithPresence(char* jid, char status, char* status_msg, short priority)
+    465          {
+   \                     CList_AddResourceWithPresence:
+   \   00000000   F84F2DE9           PUSH     {R3-R11,LR}
+   \   00000004   0140A0E1           MOV      R4,R1
+   \   00000008   00A0A0E1           MOV      R10,R0
+   \   0000000C   0290A0E1           MOV      R9,R2
+    466            TRESOURCE* qq = CList_IsResourceInList(jid);
+   \   00000010   ........           BL       CList_IsResourceInList
+   \   00000014   0050B0E1           MOVS     R5,R0
+    467          
+    468            // Если такой ресурс уже есть, его не добавляем.
+    469            // Нужно ему статус поменять.
+    470            if(qq)
+   \   00000018   0500000A           BEQ      ??CList_AddResourceWithPresence_0
+    471            {
+    472              CList_Ch_Status(qq, status, status_msg, priority);
+   \   0000001C   F030DDE1           LDRSH    R3,[SP, #+0]
+   \   00000020   0920A0E1           MOV      R2,R9
+   \   00000024   0410A0E1           MOV      R1,R4
+   \   00000028   ........           BL       CList_Ch_Status
+    473              return qq;
+   \   0000002C   0500A0E1           MOV      R0,R5
+   \   00000030   F28FBDE8           POP      {R1,R4-R11,PC}
+    474            }
+    475            CLIST* ClEx = cltop;
+   \                     ??CList_AddResourceWithPresence_0:
+   \   00000034   ........           LDR      R5,??DataTable9  ;; cltop
+   \   00000038   006095E5           LDR      R6,[R5, #+0]
+    476            LockSched();
+   \   0000003C   460100EF           SWI      +326
+   \   00000040   000000EA           B        ??CList_AddResourceWithPresence_1
+    477            while(ClEx)
+    478            {
+    479          
+    480              if(stristr(jid,ClEx->JID)==jid && ClEx->res_list->entry_type!=T_GROUP) // Ага, именно так, ибо это соответствует началу строки!
+    481              {
+    482                TRESOURCE* ResEx=malloc(sizeof(TRESOURCE));//ClEx->res_list;
+    483                char *resname_ptr=Get_Resource_Name_By_FullJID(jid);
+    484                if(resname_ptr)
+    485                {
+    486                  ResEx->name = malloc(strlen(resname_ptr)+1);
+    487                  strcpy(ResEx->name, resname_ptr);
+    488                }
+    489                else
+    490                {
+    491                  ResEx->name = NULL;
+    492                }
+    493                ResEx->full_name = malloc(strlen(jid)+1);
+    494                strcpy(ResEx->full_name, jid);
+    495          
+    496                if(status_msg)
+    497                {
+    498                  ResEx->status_msg = malloc(strlen(status_msg)+1);
+    499                  strcpy(ResEx->status_msg, status_msg);
+    500                }
+    501                else
+    502                {
+    503                  ResEx->status_msg = NULL;
+    504                }
+    505          
+    506                ResEx->status = status;
+    507                ResEx->priority = priority;
+    508                ResEx->compos = 0;
+    509                ResEx->muc_privs.aff = AFFILIATION_NONE;
+    510                ResEx->muc_privs.role=  ROLE_NONE;
+    511                ResEx->muc_privs.real_jid =  NULL;
+    512                ResEx->vcard = NULL;
+    513                if(!CList_isMUC(ClEx))
+    514                   ResEx->entry_type = T_NORMAL;
+    515                else
+    516                  ResEx->entry_type = T_CONF_NODE;
+    517                ResEx->has_unread_msg=0;
+    518                ResEx->total_msg_count=0;
+    519                ResEx->log = NULL;
+    520          
+    521                // Удаляем псевдоресурс, если он есть
+    522                if(ClEx->res_list->entry_type==T_VIRTUAL && ClEx->res_list->has_unread_msg==0)
+    523                {
+    524                  KillResourceList(ClEx->res_list);
+    525                  ClEx->ResourceCount=0;
+    526                  NContacts--;
+    527                  ClEx->res_list=NULL;
+    528                }
+    529          
+    530                TRESOURCE* existing_res=ClEx->res_list;
+    531          
+    532                if(!existing_res)
+    533                {
+    534                  ClEx->res_list = ResEx;
+    535                  ClEx->ResourceCount=1;
+    536                }
+    537                else
+    538                {
+    539                  while(existing_res->next){existing_res=existing_res->next;}
+    540                  existing_res->next = ResEx;
+    541                  ClEx->ResourceCount++;
+    542                }
+    543                NContacts++;
+    544                ResEx->next=NULL;
+    545                //CursorPos = 1;
+    546                Active_page=1;
+    547                UnlockSched();
+    548                CList_AddSystemMessage(ResEx->full_name, status, ResEx->status_msg);
+    549                return ResEx;
+    550              }
+    551              ClEx = ClEx->next;
+   \                     ??CList_AddResourceWithPresence_2:
+   \   00000044   1C6096E5           LDR      R6,[R6, #+28]
+   \                     ??CList_AddResourceWithPresence_1:
+   \   00000048   000056E3           CMP      R6,#+0
+   \   0000004C   6300000A           BEQ      ??CList_AddResourceWithPresence_3
+   \   00000050   001096E5           LDR      R1,[R6, #+0]
+   \   00000054   0A00A0E1           MOV      R0,R10
+   \   00000058   ........           _BLF     stristr,??stristr??rA
+   \   0000005C   0A0050E1           CMP      R0,R10
+   \   00000060   F7FFFF1A           BNE      ??CList_AddResourceWithPresence_2
+   \   00000064   0C0096E5           LDR      R0,[R6, #+12]
+   \   00000068   0800D0E5           LDRB     R0,[R0, #+8]
+   \   0000006C   050050E3           CMP      R0,#+5
+   \   00000070   F3FFFF0A           BEQ      ??CList_AddResourceWithPresence_2
+   \   00000074   3000A0E3           MOV      R0,#+48
+   \   00000078   140000EF           SWI      +20
+   \   0000007C   0070A0E1           MOV      R7,R0
+   \   00000080   0A00A0E1           MOV      R0,R10
+   \   00000084   ........           _BLF     Get_Resource_Name_By_FullJID,??Get_Resource_Name_By_FullJID??rA
+   \   00000088   00B0B0E1           MOVS     R11,R0
+   \   0000008C   0080A0E3           MOV      R8,#+0
+   \   00000090   0600000A           BEQ      ??CList_AddResourceWithPresence_4
+   \   00000094   1B0000EF           SWI      +27
+   \   00000098   010080E2           ADD      R0,R0,#+1
+   \   0000009C   140000EF           SWI      +20
+   \   000000A0   000087E5           STR      R0,[R7, #+0]
+   \   000000A4   0B10A0E1           MOV      R1,R11
+   \   000000A8   1A0000EF           SWI      +26
+   \   000000AC   000000EA           B        ??CList_AddResourceWithPresence_5
+   \                     ??CList_AddResourceWithPresence_4:
+   \   000000B0   008087E5           STR      R8,[R7, #+0]
+   \                     ??CList_AddResourceWithPresence_5:
+   \   000000B4   0A00A0E1           MOV      R0,R10
+   \   000000B8   1B0000EF           SWI      +27
+   \   000000BC   010080E2           ADD      R0,R0,#+1
+   \   000000C0   140000EF           SWI      +20
+   \   000000C4   040087E5           STR      R0,[R7, #+4]
+   \   000000C8   0A10A0E1           MOV      R1,R10
+   \   000000CC   1A0000EF           SWI      +26
+   \   000000D0   000059E3           CMP      R9,#+0
+   \   000000D4   0700000A           BEQ      ??CList_AddResourceWithPresence_6
+   \   000000D8   0900A0E1           MOV      R0,R9
+   \   000000DC   1B0000EF           SWI      +27
+   \   000000E0   010080E2           ADD      R0,R0,#+1
+   \   000000E4   140000EF           SWI      +20
+   \   000000E8   0C0087E5           STR      R0,[R7, #+12]
+   \   000000EC   0910A0E1           MOV      R1,R9
+   \   000000F0   1A0000EF           SWI      +26
+   \   000000F4   000000EA           B        ??CList_AddResourceWithPresence_7
+   \                     ??CList_AddResourceWithPresence_6:
+   \   000000F8   0C8087E5           STR      R8,[R7, #+12]
+   \                     ??CList_AddResourceWithPresence_7:
+   \   000000FC   0940C7E5           STRB     R4,[R7, #+9]
+   \   00000100   F000DDE1           LDRSH    R0,[SP, #+0]
+   \   00000104   B001C7E1           STRH     R0,[R7, #+16]
+   \   00000108   0A00D7E5           LDRB     R0,[R7, #+10]
+   \   0000010C   FE0000E2           AND      R0,R0,#0xFE
+   \   00000110   0A00C7E5           STRB     R0,[R7, #+10]
+   \   00000114   2080C7E5           STRB     R8,[R7, #+32]
+   \   00000118   2180C7E5           STRB     R8,[R7, #+33]
+   \   0000011C   248087E5           STR      R8,[R7, #+36]
+   \   00000120   288087E5           STR      R8,[R7, #+40]
+   \   00000124   0600A0E1           MOV      R0,R6
+   \   00000128   ........           BL       CList_isMUC
+   \   0000012C   000050E3           CMP      R0,#+0
+   \   00000130   0300A013           MOVNE    R0,#+3
+   \   00000134   0800C7E5           STRB     R0,[R7, #+8]
+   \   00000138   148087E5           STR      R8,[R7, #+20]
+   \   0000013C   188087E5           STR      R8,[R7, #+24]
+   \   00000140   1C8087E5           STR      R8,[R7, #+28]
+   \   00000144   0C0096E5           LDR      R0,[R6, #+12]
+   \   00000148   0810D0E5           LDRB     R1,[R0, #+8]
+   \   0000014C   010051E3           CMP      R1,#+1
+   \   00000150   14109005           LDREQ    R1,[R0, #+20]
+   \   00000154   00005103           CMPEQ    R1,#+0
+   \   00000158   0500001A           BNE      ??CList_AddResourceWithPresence_8
+   \   0000015C   ........           BL       KillResourceList
+   \   00000160   088086E5           STR      R8,[R6, #+8]
+   \   00000164   040095E5           LDR      R0,[R5, #+4]
+   \   00000168   010040E2           SUB      R0,R0,#+1
+   \   0000016C   040085E5           STR      R0,[R5, #+4]
+   \   00000170   0C8086E5           STR      R8,[R6, #+12]
+   \                     ??CList_AddResourceWithPresence_8:
+   \   00000174   0C0096E5           LDR      R0,[R6, #+12]
+   \   00000178   0110A0E3           MOV      R1,#+1
+   \   0000017C   000050E3           CMP      R0,#+0
+   \   00000180   0300001A           BNE      ??CList_AddResourceWithPresence_9
+   \   00000184   0C7086E5           STR      R7,[R6, #+12]
+   \   00000188   081086E5           STR      R1,[R6, #+8]
+   \   0000018C   070000EA           B        ??CList_AddResourceWithPresence_10
+   \                     ??CList_AddResourceWithPresence_11:
+   \   00000190   0200A0E1           MOV      R0,R2
+   \                     ??CList_AddResourceWithPresence_9:
+   \   00000194   2C2090E5           LDR      R2,[R0, #+44]
+   \   00000198   000052E3           CMP      R2,#+0
+   \   0000019C   FBFFFF1A           BNE      ??CList_AddResourceWithPresence_11
+   \   000001A0   2C7080E5           STR      R7,[R0, #+44]
+   \   000001A4   080096E5           LDR      R0,[R6, #+8]
+   \   000001A8   010080E2           ADD      R0,R0,#+1
+   \   000001AC   080086E5           STR      R0,[R6, #+8]
+   \                     ??CList_AddResourceWithPresence_10:
+   \   000001B0   040095E5           LDR      R0,[R5, #+4]
+   \   000001B4   010080E2           ADD      R0,R0,#+1
+   \   000001B8   040085E5           STR      R0,[R5, #+4]
+   \   000001BC   2C8087E5           STR      R8,[R7, #+44]
+   \   000001C0   0C1085E5           STR      R1,[R5, #+12]
+   \   000001C4   470100EF           SWI      +327
+   \   000001C8   0C2097E5           LDR      R2,[R7, #+12]
+   \   000001CC   040097E5           LDR      R0,[R7, #+4]
+   \   000001D0   0410A0E1           MOV      R1,R4
+   \   000001D4   ........           BL       CList_AddSystemMessage
+   \   000001D8   0700A0E1           MOV      R0,R7
+   \   000001DC   F28FBDE8           POP      {R1,R4-R11,PC}
+    552            }
+    553            //CursorPos = 1;
+    554            Active_page=1;
+   \                     ??CList_AddResourceWithPresence_3:
+   \   000001E0   0100A0E3           MOV      R0,#+1
+   \   000001E4   0C0085E5           STR      R0,[R5, #+12]
+    555            UnlockSched();
+   \   000001E8   470100EF           SWI      +327
+    556            return NULL;
+   \   000001EC   0000A0E3           MOV      R0,#+0
+   \   000001F0   F28FBDE8           POP      {R1,R4-R11,PC}   ;; return
+    557          }
+    558          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    559          void CList_ChangeContactParams(CLIST* Cont_Ex,
+    560                                         char* name,
+    561                                         JABBER_SUBSCRIPTION subscription,
+    562                                         char wants_subscription,
+    563                                         char group)
+    564          {
+   \                     CList_ChangeContactParams:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+   \   0000000C   1880DDE5           LDRB     R8,[SP, #+24]
+   \   00000010   0260A0E1           MOV      R6,R2
+   \   00000014   0370A0E1           MOV      R7,R3
+    565          
+    566            if(!Cont_Ex)return;
+   \   00000018   000054E3           CMP      R4,#+0
+   \   0000001C   F081BD08           POPEQ    {R4-R8,PC}
+    567            if(Cont_Ex->name)mfree(Cont_Ex->name);
+   \   00000020   100094E5           LDR      R0,[R4, #+16]
+   \   00000024   000050E3           CMP      R0,#+0
+   \   00000028   0000000A           BEQ      ??CList_ChangeContactParams_0
+   \   0000002C   150000EF           SWI      +21
+    568            // Имя может быть не заполнено
+    569            if(name)
+   \                     ??CList_ChangeContactParams_0:
+   \   00000030   000055E3           CMP      R5,#+0
+   \   00000034   0600000A           BEQ      ??CList_ChangeContactParams_1
+    570            {
+    571              Cont_Ex->name = malloc(strlen(name)+1);
+   \   00000038   0500A0E1           MOV      R0,R5
+   \   0000003C   1B0000EF           SWI      +27
+   \   00000040   010080E2           ADD      R0,R0,#+1
+   \   00000044   140000EF           SWI      +20
+   \   00000048   100084E5           STR      R0,[R4, #+16]
+    572              strcpy(Cont_Ex->name, name);
+   \   0000004C   0510A0E1           MOV      R1,R5
+   \   00000050   050000EA           B        ??CList_ChangeContactParams_2
+    573            }
+    574            else
+    575            {
+    576              Cont_Ex->name = malloc(strlen(Cont_Ex->JID)+1);
+   \                     ??CList_ChangeContactParams_1:
+   \   00000054   000094E5           LDR      R0,[R4, #+0]
+   \   00000058   1B0000EF           SWI      +27
+   \   0000005C   010080E2           ADD      R0,R0,#+1
+   \   00000060   140000EF           SWI      +20
+   \   00000064   100084E5           STR      R0,[R4, #+16]
+    577              strcpy(Cont_Ex->name, Cont_Ex->JID);
+   \   00000068   001094E5           LDR      R1,[R4, #+0]
+   \                     ??CList_ChangeContactParams_2:
+   \   0000006C   1A0000EF           SWI      +26
+    578            }
+    579            Cont_Ex->subscription = subscription;
+   \   00000070   1460C4E5           STRB     R6,[R4, #+20]
+    580            Cont_Ex->wants_subscription = wants_subscription;
+   \   00000074   1570C4E5           STRB     R7,[R4, #+21]
+    581            Cont_Ex->group = group;
+   \   00000078   1680C4E5           STRB     R8,[R4, #+22]
+    582            Cont_Ex->IsVisible = CList_GetVisibilityForGroup(group);
+   \   0000007C   0800A0E1           MOV      R0,R8
+   \   00000080   ........           BL       CList_GetVisibilityForGroup
+   \   00000084   0400C4E5           STRB     R0,[R4, #+4]
+    583          }
+   \   00000088   F081BDE8           POP      {R4-R8,PC}       ;; return
+    584          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    585          void CList_ChangeComposingStatus(TRESOURCE* Res_Ex, char composing)
+    586          {
+    587            if(!Res_Ex)return;
+   \                     CList_ChangeComposingStatus:
+   \   00000000   000050E3           CMP      R0,#+0
+   \   00000004   1EFF2F01           BXEQ     LR
+    588            Res_Ex->compos = composing;
+   \   00000008   0A20D0E5           LDRB     R2,[R0, #+10]
+   \   0000000C   011001E2           AND      R1,R1,#0x1
+   \   00000010   FE2002E2           AND      R2,R2,#0xFE
+   \   00000014   021081E1           ORR      R1,R1,R2
+   \   00000018   0A10C0E5           STRB     R1,[R0, #+10]
+    589          }
+   \   0000001C   1EFF2FE1           BX       LR               ;; return
+    590          
+    591          // Пишет роли контакта в конфе в структуру
+
+   \                                 In segment CODE, align 4, keep-with-next
+    592          void CList_MUC_SetRole(char* jid, CONF_DATA priv)
+    593          {
+   \                     CList_MUC_SetRole:
+   \   00000000   06402DE9           PUSH     {R1,R2,LR}
+    594            TRESOURCE* ResEx = CList_IsResourceInList(jid);
+   \   00000004   ........           BL       CList_IsResourceInList
+    595            if(!ResEx)
+   \   00000008   000050E3           CMP      R0,#+0
+   \   0000000C   0380BD08           POPEQ    {R0,R1,PC}
+    596            {
+    597              return;
+    598            }
+    599            if(ResEx->entry_type!=T_CONF_NODE)return;
+   \   00000010   0810D0E5           LDRB     R1,[R0, #+8]
+   \   00000014   030051E3           CMP      R1,#+3
+   \   00000018   0380BD18           POPNE    {R0,R1,PC}
+    600            ResEx->muc_privs.aff=priv.aff;
+   \   0000001C   0010DDE5           LDRB     R1,[SP, #+0]
+   \   00000020   2010C0E5           STRB     R1,[R0, #+32]
+    601            ResEx->muc_privs.role=priv.role;
+   \   00000024   0110DDE5           LDRB     R1,[SP, #+1]
+   \   00000028   2110C0E5           STRB     R1,[R0, #+33]
+    602          }
+   \   0000002C   0380BDE8           POP      {R0,R1,PC}       ;; return
+    603          
+    604          // Добавить к листу контакт. Возвращает структуру созданного контакта.
+
+   \                                 In segment CODE, align 4, keep-with-next
+    605          CLIST* CList_AddContact(char* jid,
+    606                                  char* name,
+    607                                  JABBER_SUBSCRIPTION subscription,
+    608                                  char wants_subscription,
+    609                                  char group)
+    610          {
+   \                     CList_AddContact:
+   \   00000000   F0432DE9           PUSH     {R4-R9,LR}
+   \   00000004   1C50DDE5           LDRB     R5,[SP, #+28]
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   0190A0E1           MOV      R9,R1
+   \   00000010   0270A0E1           MOV      R7,R2
+   \   00000014   0380A0E1           MOV      R8,R3
+    611          
+    612            str2lower(jid);
+   \   00000018   ........           _BLF     str2lower,??str2lower??rA
+    613            CLIST* Cont_Ex = malloc(sizeof(CLIST));
+   \   0000001C   2000A0E3           MOV      R0,#+32
+   \   00000020   140000EF           SWI      +20
+   \   00000024   0060A0E1           MOV      R6,R0
+    614          
+    615            // Имя может быть не заполнено
+    616            if(name)
+   \   00000028   000059E3           CMP      R9,#+0
+   \   0000002C   0600000A           BEQ      ??CList_AddContact_0
+    617            {
+    618              Cont_Ex->name = malloc(strlen(name)+1);
+   \   00000030   0900A0E1           MOV      R0,R9
+   \   00000034   1B0000EF           SWI      +27
+   \   00000038   010080E2           ADD      R0,R0,#+1
+   \   0000003C   140000EF           SWI      +20
+   \   00000040   100086E5           STR      R0,[R6, #+16]
+    619              strcpy(Cont_Ex->name, name);
+   \   00000044   0910A0E1           MOV      R1,R9
+   \   00000048   050000EA           B        ??CList_AddContact_1
+    620            }
+    621            else
+    622            {
+    623              Cont_Ex->name = malloc(strlen(jid)+1);
+   \                     ??CList_AddContact_0:
+   \   0000004C   0400A0E1           MOV      R0,R4
+   \   00000050   1B0000EF           SWI      +27
+   \   00000054   010080E2           ADD      R0,R0,#+1
+   \   00000058   140000EF           SWI      +20
+   \   0000005C   100086E5           STR      R0,[R6, #+16]
+    624              strcpy(Cont_Ex->name, jid);
+   \   00000060   0410A0E1           MOV      R1,R4
+   \                     ??CList_AddContact_1:
+   \   00000064   1A0000EF           SWI      +26
+    625            }
+    626          
+    627            Cont_Ex->JID = malloc(strlen(jid)+1);
+   \   00000068   0400A0E1           MOV      R0,R4
+   \   0000006C   1B0000EF           SWI      +27
+   \   00000070   010080E2           ADD      R0,R0,#+1
+   \   00000074   140000EF           SWI      +20
+   \   00000078   000086E5           STR      R0,[R6, #+0]
+    628            strcpy(Cont_Ex->JID, jid);
+   \   0000007C   0410A0E1           MOV      R1,R4
+   \   00000080   1A0000EF           SWI      +26
+    629            Cont_Ex->subscription = subscription;
+   \   00000084   1470C6E5           STRB     R7,[R6, #+20]
+    630            Cont_Ex->wants_subscription = wants_subscription;
+   \   00000088   1580C6E5           STRB     R8,[R6, #+21]
+    631            Cont_Ex->group = group;
+   \   0000008C   1650C6E5           STRB     R5,[R6, #+22]
+    632            Cont_Ex->IsVisible = CList_GetVisibilityForGroup(group);
+   \   00000090   0500A0E1           MOV      R0,R5
+   \   00000094   ........           BL       CList_GetVisibilityForGroup
+   \   00000098   0400C6E5           STRB     R0,[R6, #+4]
+    633            Cont_Ex->next = NULL;
+   \   0000009C   0090A0E3           MOV      R9,#+0
+   \   000000A0   1C9086E5           STR      R9,[R6, #+28]
+    634            Cont_Ex->vcard = NULL; // Не запросили еще
+   \   000000A4   189086E5           STR      R9,[R6, #+24]
+    635          
+    636            TRESOURCE* ResEx = malloc(sizeof(TRESOURCE));
+   \   000000A8   3000A0E3           MOV      R0,#+48
+   \   000000AC   140000EF           SWI      +20
+   \   000000B0   0080A0E1           MOV      R8,R0
+    637            ResEx->vcard = NULL;
+   \   000000B4   289088E5           STR      R9,[R8, #+40]
+    638            ResEx->log=NULL;
+   \   000000B8   1C9088E5           STR      R9,[R8, #+28]
+    639            ResEx->next=NULL;
+   \   000000BC   2C9088E5           STR      R9,[R8, #+44]
+    640            ResEx->status_msg=NULL;
+   \   000000C0   0C9088E5           STR      R9,[R8, #+12]
+    641            ResEx->priority=0;
+   \   000000C4   B091C8E1           STRH     R9,[R8, #+16]
+    642            ResEx->muc_privs.real_jid =  NULL;
+   \   000000C8   249088E5           STR      R9,[R8, #+36]
+    643            ResEx->has_unread_msg=0;
+   \   000000CC   149088E5           STR      R9,[R8, #+20]
+    644            ResEx->total_msg_count=0;
+   \   000000D0   189088E5           STR      R9,[R8, #+24]
+    645            ResEx->compos=0;
+   \   000000D4   0A00D8E5           LDRB     R0,[R8, #+10]
+    646            if(group & 0x80)
+   \   000000D8   0170A0E3           MOV      R7,#+1
+   \   000000DC   800015E3           TST      R5,#0x80
+   \   000000E0   FE0000E2           AND      R0,R0,#0xFE
+   \   000000E4   0A00C8E5           STRB     R0,[R8, #+10]
+    647            {
+    648              ResEx->entry_type=T_CONF_ROOT; // Корень конференции
+   \   000000E8   0200A013           MOVNE    R0,#+2
+   \   000000EC   0600001A           BNE      ??CList_AddContact_2
+    649            }
+    650            else
+    651            {
+    652              ResEx->entry_type=T_VIRTUAL; // По этому признаку потом его убъём
+   \   000000F0   0870C8E5           STRB     R7,[R8, #+8]
+    653              if(!strchr(jid, '@'))
+   \   000000F4   4010A0E3           MOV      R1,#+64
+   \   000000F8   0400A0E1           MOV      R0,R4
+   \   000000FC   180000EF           SWI      +24
+   \   00000100   000050E3           CMP      R0,#+0
+   \   00000104   0100001A           BNE      ??CList_AddContact_3
+    654              {
+    655                ResEx->entry_type=T_TRANSPORT; // Транспортный агент
+   \   00000108   0400A0E3           MOV      R0,#+4
+   \                     ??CList_AddContact_2:
+   \   0000010C   0800C8E5           STRB     R0,[R8, #+8]
+    656              }
+    657            }
+    658            ResEx->status=PRESENCE_OFFLINE;
+   \                     ??CList_AddContact_3:
+   \   00000110   0600A0E3           MOV      R0,#+6
+   \   00000114   0900C8E5           STRB     R0,[R8, #+9]
+    659            
+    660            ResEx->name = NULL;
+   \   00000118   009088E5           STR      R9,[R8, #+0]
+    661            ResEx->full_name = malloc(strlen(jid)+1);
+   \   0000011C   0400A0E1           MOV      R0,R4
+   \   00000120   1B0000EF           SWI      +27
+   \   00000124   010080E2           ADD      R0,R0,#+1
+   \   00000128   140000EF           SWI      +20
+    662            strcpy(ResEx->full_name, jid);
+   \   0000012C   0410A0E1           MOV      R1,R4
+    663            //  strcat(ResEx->full_name, "/");
+    664            //  strcat(ResEx->full_name, ResEx->name);
+    665            Cont_Ex->res_list=ResEx;
+    666            Cont_Ex->ResourceCount=1;
+    667          
+    668            LockSched();
+    669            if(!cltop)
+   \   00000130   ........           LDR      R4,??DataTable9  ;; cltop
+   \   00000134   040088E5           STR      R0,[R8, #+4]
+   \   00000138   1A0000EF           SWI      +26
+   \   0000013C   0C8086E5           STR      R8,[R6, #+12]
+   \   00000140   087086E5           STR      R7,[R6, #+8]
+   \   00000144   460100EF           SWI      +326
+   \   00000148   000094E5           LDR      R0,[R4, #+0]
+   \   0000014C   000050E3           CMP      R0,#+0
+    670            {
+    671              cltop = Cont_Ex;
+   \   00000150   00608405           STREQ    R6,[R4, #+0]
+   \   00000154   0900000A           BEQ      ??CList_AddContact_4
+    672            }
+    673            else
+    674            {
+    675              CLIST* tmp=cltop; // А на самом деле наверху списка у нас селф-контакт ;)
+    676              while(tmp->next)
+   \                     ??CList_AddContact_5:
+   \   00000158   1C1090E5           LDR      R1,[R0, #+28]
+   \   0000015C   000051E3           CMP      R1,#+0
+   \   00000160   0300000A           BEQ      ??CList_AddContact_6
+    677              {
+    678                tmp=tmp->next;
+   \   00000164   0100A0E1           MOV      R0,R1
+    679                if(tmp->group==group)break;
+   \   00000168   1610D0E5           LDRB     R1,[R0, #+22]
+   \   0000016C   050051E1           CMP      R1,R5
+   \   00000170   F8FFFF1A           BNE      ??CList_AddContact_5
+    680              }
+    681              CLIST *after_tmp = tmp->next;
+   \                     ??CList_AddContact_6:
+   \   00000174   1C1090E5           LDR      R1,[R0, #+28]
+    682              tmp->next=Cont_Ex;
+   \   00000178   1C6080E5           STR      R6,[R0, #+28]
+    683              Cont_Ex->next =after_tmp;
+   \   0000017C   1C1086E5           STR      R1,[R6, #+28]
+    684            }
+    685          
+    686            NContacts++;
+   \                     ??CList_AddContact_4:
+   \   00000180   040094E5           LDR      R0,[R4, #+4]
+   \   00000184   010080E2           ADD      R0,R0,#+1
+   \   00000188   040084E5           STR      R0,[R4, #+4]
+    687            UnlockSched();
+   \   0000018C   470100EF           SWI      +327
+    688            //CursorPos = 1;
+    689            Active_page=1;
+   \   00000190   0C7084E5           STR      R7,[R4, #+12]
+    690            return Cont_Ex;
+   \   00000194   0600A0E1           MOV      R0,R6
+   \   00000198   F083BDE8           POP      {R4-R9,PC}       ;; return
+    691          }
+    692          
+    693          
+    694          // Добавить сообщение в список сообщений контакта
+
+   \                                 In segment CODE, align 4, keep-with-next
+    695          void CList_AddMessage(char* jid, MESS_TYPE mtype, char* mtext)
+    696          {
+   \                     CList_AddMessage:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+    697            TTime now_time;
+    698            TDate now_date;
+    699            GetDateTime(&now_date,&now_time);
+   \   00000004   04A49FE5           LDR      R10,??CList_AddMessage_0+0x8  ;; `?<Constant "[%02d:%02d] ">`
+   \   00000008   41DF4DE2           SUB      SP,SP,#+260
+   \   0000000C   0050A0E1           MOV      R5,R0
+   \   00000010   0160A0E1           MOV      R6,R1
+   \   00000014   0240A0E1           MOV      R4,R2
+   \   00000018   04108DE2           ADD      R1,SP,#+4
+   \   0000001C   1C008DE2           ADD      R0,SP,#+28
+   \   00000020   B40000EF           SWI      +180
+   \   00000024   10108AE2           ADD      R1,R10,#+16
+   \   00000028   0400A0E1           MOV      R0,R4
+    700            char datestr[200];
+    701          
+    702            char IsMe = strstr(mtext,"/me ")==mtext ? 1 : 0; // Флаг наличия /me
+   \   0000002C   180100EF           SWI      +280
+    703            if(mtype==MSG_ME)
+   \   00000030   2110DDE5           LDRB     R1,[SP, #+33]
+   \   00000034   2020DDE5           LDRB     R2,[SP, #+32]
+   \   00000038   0430DDE5           LDRB     R3,[SP, #+4]
+   \   0000003C   040050E1           CMP      R0,R4
+   \   00000040   0500DDE5           LDRB     R0,[SP, #+5]
+   \   00000044   04002DE9           PUSH     {R2}
+   \   00000048   02002DE9           PUSH     {R1}
+   \   0000004C   01002DE9           PUSH     {R0}
+   \   00000050   0190A003           MOVEQ    R9,#+1
+   \   00000054   0090A013           MOVNE    R9,#+0
+   \   00000058   010056E3           CMP      R6,#+1
+    704            {
+    705              extern char My_JID[128];
+    706              sprintf(datestr, "%s: %02d:%02d %02d-%02d\r\n",My_JID,now_time.hour,now_time.min,now_date.day,now_date.month);
+   \   0000005C   B0239F05           LDREQ    R2,??CList_AddMessage_0+0xC  ;; My_JID
+    707            }
+    708            else
+    709            {
+    710              sprintf(datestr, "%s: %02d:%02d %02d-%02d\r\n",jid,now_time.hour,now_time.min,now_date.day,now_date.month);
+   \   00000060   18108AE2           ADD      R1,R10,#+24
+   \   00000064   0520A011           MOVNE    R2,R5
+   \   00000068   48008DE2           ADD      R0,SP,#+72
+   \   0000006C   160000EF           SWI      +22
+   \   00000070   0CD08DE2           ADD      SP,SP,#+12
+    711            }
+    712          
+    713          
+    714            CLIST* contEx = CList_FindContactByJID(jid);
+   \   00000074   0500A0E1           MOV      R0,R5
+   \   00000078   ........           BL       CList_FindContactByJID
+   \   0000007C   0080B0E1           MOVS     R8,R0
+    715            if(!contEx)
+   \   00000080   2000001A           BNE      ??CList_AddMessage_1
+    716            {
+    717              // Фикс - добавляем контакт в ростер, временно
+    718              unsigned short jidlen = ((int)strchr(jid, '/') - (int)jid);
+   \   00000084   2F10A0E3           MOV      R1,#+47
+   \   00000088   0500A0E1           MOV      R0,R5
+   \   0000008C   180000EF           SWI      +24
+   \   00000090   058040E0           SUB      R8,R0,R5
+   \   00000094   0888A0E1           MOV      R8,R8, LSL #+16
+   \   00000098   2888A0E1           MOV      R8,R8, LSR #+16
+    719              char *qjid = malloc(jidlen+1);
+   \   0000009C   010088E2           ADD      R0,R8,#+1
+   \   000000A0   140000EF           SWI      +20
+   \   000000A4   0070A0E1           MOV      R7,R0
+    720              strncpy(qjid, jid, jidlen);
+   \   000000A8   0820A0E1           MOV      R2,R8
+   \   000000AC   0510A0E1           MOV      R1,R5
+   \   000000B0   160100EF           SWI      +278
+    721              qjid[jidlen]=0x0;
+   \   000000B4   0000A0E3           MOV      R0,#+0
+   \   000000B8   0700C8E7           STRB     R0,[R8, +R7]
+    722              ShowMSG(1,(int)qjid);
+   \   000000BC   0710A0E1           MOV      R1,R7
+   \   000000C0   0100A0E3           MOV      R0,#+1
+   \   000000C4   480100EF           SWI      +328
+    723              contEx = CList_AddContact(qjid, qjid, SUB_NONE, 0, 0);
+   \   000000C8   0000A0E3           MOV      R0,#+0
+   \   000000CC   01002DE9           PUSH     {R0}
+   \   000000D0   0030A0E3           MOV      R3,#+0
+   \   000000D4   0020A0E1           MOV      R2,R0
+   \   000000D8   0710A0E1           MOV      R1,R7
+   \   000000DC   0700A0E1           MOV      R0,R7
+   \   000000E0   ........           BL       CList_AddContact
+   \   000000E4   0080A0E1           MOV      R8,R0
+    724              mfree(qjid);
+   \   000000E8   0700A0E1           MOV      R0,R7
+   \   000000EC   150000EF           SWI      +21
+    725              CList_AddResourceWithPresence(jid, PRESENCE_OFFLINE, NULL,0);
+   \   000000F0   0030A0E3           MOV      R3,#+0
+   \   000000F4   0320A0E1           MOV      R2,R3
+   \   000000F8   0610A0E3           MOV      R1,#+6
+   \   000000FC   0500A0E1           MOV      R0,R5
+   \   00000100   ........           BL       CList_AddResourceWithPresence
+   \   00000104   04D08DE2           ADD      SP,SP,#+4
+    726            }
+    727            TRESOURCE* cont = (contEx->group & 0x80 && (mtype==MSG_GCHAT || mtype==MSG_SUBJECT)) ? contEx->res_list : CList_IsResourceInList(jid);
+   \                     ??CList_AddMessage_1:
+   \   00000108   1600D8E5           LDRB     R0,[R8, #+22]
+   \   0000010C   800010E3           TST      R0,#0x80
+   \   00000110   0300000A           BEQ      ??CList_AddMessage_2
+   \   00000114   030056E3           CMP      R6,#+3
+   \   00000118   06005613           CMPNE    R6,#+6
+   \   0000011C   0C709805           LDREQ    R7,[R8, #+12]
+   \   00000120   0200000A           BEQ      ??CList_AddMessage_3
+   \                     ??CList_AddMessage_2:
+   \   00000124   0500A0E1           MOV      R0,R5
+   \   00000128   ........           BL       CList_IsResourceInList
+   \   0000012C   0070A0E1           MOV      R7,R0
+    728            if(!cont)
+   \                     ??CList_AddMessage_3:
+   \   00000130   000057E3           CMP      R7,#+0
+    729            {
+    730              // У контакта нет ресурсов или такого ресурса нет. Добавляем на первый же.
+    731              // Такая ситуация, скорее всего, возникает, если у контакта ресурсов не
+    732              // бывает в принципе (MRIM)
+    733              cont=contEx->res_list;
+   \   00000134   0C709805           LDREQ    R7,[R8, #+12]
+    734            }
+    735          
+    736            if(!cont->total_msg_count && mtype==MSG_STATUS && cont->entry_type!=T_CONF_ROOT)return;  // Не записываем статусные сообщения, если нет беседы
+   \   00000138   180097E5           LDR      R0,[R7, #+24]
+   \   0000013C   000050E3           CMP      R0,#+0
+   \   00000140   05005603           CMPEQ    R6,#+5
+   \   00000144   0300001A           BNE      ??CList_AddMessage_4
+   \   00000148   0800D7E5           LDRB     R0,[R7, #+8]
+   \   0000014C   020050E3           CMP      R0,#+2
+   \   00000150   AA00001A           BNE      ??CList_AddMessage_5
+   \   00000154   040000EA           B        ??CList_AddMessage_6
+    737          
+    738            if(mtype!=MSG_ME && mtype!=MSG_STATUS)cont->has_unread_msg++;
+   \                     ??CList_AddMessage_4:
+   \   00000158   010056E3           CMP      R6,#+1
+   \   0000015C   05005613           CMPNE    R6,#+5
+   \   00000160   14009715           LDRNE    R0,[R7, #+20]
+   \   00000164   01008012           ADDNE    R0,R0,#+1
+   \   00000168   14008715           STRNE    R0,[R7, #+20]
+    739            LOG_MESSAGE* mess = malloc(sizeof(LOG_MESSAGE));
+   \                     ??CList_AddMessage_6:
+   \   0000016C   1000A0E3           MOV      R0,#+16
+   \   00000170   140000EF           SWI      +20
+    740            char timestamp[]="[%02d:%02d] ";
+   \   00000174   0E089AE8           LDM      R10,{R1-R3,R11}
+   \   00000178   0080A0E1           MOV      R8,R0
+   \   0000017C   0C008DE2           ADD      R0,SP,#+12
+   \   00000180   0E0880E8           STM      R0,{R1-R3,R11}
+    741            snprintf(timestamp, 12, timestamp, now_time.hour, now_time.min);
+   \   00000184   0500DDE5           LDRB     R0,[SP, #+5]
+   \   00000188   0C10A0E3           MOV      R1,#+12
+   \   0000018C   01002DE9           PUSH     {R0}
+   \   00000190   0830DDE5           LDRB     R3,[SP, #+8]
+   \   00000194   10208DE2           ADD      R2,SP,#+16
+   \   00000198   10008DE2           ADD      R0,SP,#+16
+   \   0000019C   1B0100EF           SWI      +283
+    742            switch(mtype)
+   \   000001A0   04D08DE2           ADD      SP,SP,#+4
+   \   000001A4   030056E2           SUBS     R0,R6,#+3
+   \   000001A8   0200000A           BEQ      ??CList_AddMessage_7
+   \   000001AC   030050E2           SUBS     R0,R0,#+3
+   \   000001B0   3000000A           BEQ      ??CList_AddMessage_8
+   \   000001B4   5B0000EA           B        ??CList_AddMessage_9
+    743            {
+    744            case MSG_GCHAT:
+    745              {
+    746                char* conf_nickname = Get_Resource_Name_By_FullJID(jid);
+   \                     ??CList_AddMessage_7:
+   \   000001B8   0500A0E1           MOV      R0,R5
+   \   000001BC   ........           _BLF     Get_Resource_Name_By_FullJID,??Get_Resource_Name_By_FullJID??rA
+   \   000001C0   00A0B0E1           MOVS     R10,R0
+    747                if(!conf_nickname)
+    748                {
+    749                  extern const char empty_t[];
+    750                  conf_nickname=(char*)&empty_t;
+   \   000001C4   4CA29F05           LDREQ    R10,??CList_AddMessage_0+0x10  ;; empty_t
+    751                }
+    752                mess->mess = malloc(strlen(mtext)+strlen(conf_nickname)+strlen(timestamp)+2+1);
+   \   000001C8   0400A0E1           MOV      R0,R4
+   \   000001CC   1B0000EF           SWI      +27
+   \   000001D0   00008DE5           STR      R0,[SP, #+0]
+   \   000001D4   0A00A0E1           MOV      R0,R10
+   \   000001D8   1B0000EF           SWI      +27
+   \   000001DC   00B0A0E1           MOV      R11,R0
+   \   000001E0   0C008DE2           ADD      R0,SP,#+12
+   \   000001E4   1B0000EF           SWI      +27
+   \   000001E8   00109DE5           LDR      R1,[SP, #+0]
+   \   000001EC   01108BE0           ADD      R1,R11,R1
+   \   000001F0   010080E0           ADD      R0,R0,R1
+   \   000001F4   030080E2           ADD      R0,R0,#+3
+   \   000001F8   140000EF           SWI      +20
+   \   000001FC   080088E5           STR      R0,[R8, #+8]
+    753                mess->muc_author = malloc(strlen(conf_nickname)+1);
+   \   00000200   0A00A0E1           MOV      R0,R10
+   \   00000204   1B0000EF           SWI      +27
+   \   00000208   010080E2           ADD      R0,R0,#+1
+   \   0000020C   140000EF           SWI      +20
+   \   00000210   040088E5           STR      R0,[R8, #+4]
+    754                strcpy(mess->muc_author, conf_nickname);
+   \   00000214   0A10A0E1           MOV      R1,R10
+   \   00000218   1A0000EF           SWI      +26
+    755                strcpy(mess->mess, timestamp);
+   \   0000021C   080098E5           LDR      R0,[R8, #+8]
+   \   00000220   0C108DE2           ADD      R1,SP,#+12
+   \   00000224   1A0000EF           SWI      +26
+    756                if(IsMe)
+   \   00000228   000059E3           CMP      R9,#+0
+   \   0000022C   0900000A           BEQ      ??CList_AddMessage_10
+    757                {
+    758                  strcat(mess->mess, "*");
+   \   00000230   080098E5           LDR      R0,[R8, #+8]
+   \   00000234   731F8FE2           ADR      R1,??CList_AddMessage_0  ;; "*"
+   \   00000238   170000EF           SWI      +23
+    759                  strcat(mess->mess, conf_nickname);
+   \   0000023C   080098E5           LDR      R0,[R8, #+8]
+   \   00000240   0A10A0E1           MOV      R1,R10
+   \   00000244   170000EF           SWI      +23
+    760                  strcat(mess->mess, mtext+3);  // пропуск /me
+   \   00000248   031084E2           ADD      R1,R4,#+3
+   \                     ??CList_AddMessage_11:
+   \   0000024C   080098E5           LDR      R0,[R8, #+8]
+   \                     ??CList_AddMessage_12:
+   \   00000250   170000EF           SWI      +23
+   \   00000254   430000EA           B        ??CList_AddMessage_13
+    761                }
+    762                else
+    763                {
+    764                  strcat(mess->mess, conf_nickname);
+   \                     ??CList_AddMessage_10:
+   \   00000258   080098E5           LDR      R0,[R8, #+8]
+   \   0000025C   0A10A0E1           MOV      R1,R10
+   \   00000260   170000EF           SWI      +23
+    765                  strcat(mess->mess, ": ");
+   \   00000264   080098E5           LDR      R0,[R8, #+8]
+   \   00000268   671F8FE2           ADR      R1,??CList_AddMessage_0+0x4  ;; ": "
+   \   0000026C   170000EF           SWI      +23
+    766                  strcat(mess->mess, mtext);
+   \   00000270   0410A0E1           MOV      R1,R4
+   \   00000274   F4FFFFEA           B        ??CList_AddMessage_11
+    767                }
+    768                break;
+    769              }
+    770            case MSG_SUBJECT:
+    771              {
+    772                char* conf_nickname = Get_Resource_Name_By_FullJID(jid);
+   \                     ??CList_AddMessage_8:
+   \   00000278   0500A0E1           MOV      R0,R5
+   \   0000027C   ........           _BLF     Get_Resource_Name_By_FullJID,??Get_Resource_Name_By_FullJID??rA
+    773                char subj_set_to[] = " has set the subject: ";
+   \   00000280   94119FE5           LDR      R1,??CList_AddMessage_0+0x14  ;; `?<Constant " has set the subject: ">`
+   \   00000284   0090A0E1           MOV      R9,R0
+   \   00000288   0C5C91E8           LDM      R1,{R2,R3,R10-R12,LR}
+   \   0000028C   24008DE2           ADD      R0,SP,#+36
+   \   00000290   0C5C80E8           STM      R0,{R2,R3,R10-R12,LR}
+    774                mess->mess = malloc(strlen(mtext)+strlen(conf_nickname)+strlen(timestamp)+strlen(subj_set_to)+1);
+   \   00000294   0400A0E1           MOV      R0,R4
+   \   00000298   1B0000EF           SWI      +27
+   \   0000029C   00008DE5           STR      R0,[SP, #+0]
+   \   000002A0   0900A0E1           MOV      R0,R9
+   \   000002A4   1B0000EF           SWI      +27
+   \   000002A8   00A0A0E1           MOV      R10,R0
+   \   000002AC   0C008DE2           ADD      R0,SP,#+12
+   \   000002B0   1B0000EF           SWI      +27
+   \   000002B4   00B0A0E1           MOV      R11,R0
+   \   000002B8   24008DE2           ADD      R0,SP,#+36
+   \   000002BC   1B0000EF           SWI      +27
+   \   000002C0   00109DE5           LDR      R1,[SP, #+0]
+   \   000002C4   01108AE0           ADD      R1,R10,R1
+   \   000002C8   01108BE0           ADD      R1,R11,R1
+   \   000002CC   010080E0           ADD      R0,R0,R1
+   \   000002D0   010080E2           ADD      R0,R0,#+1
+   \   000002D4   140000EF           SWI      +20
+   \   000002D8   080088E5           STR      R0,[R8, #+8]
+    775                mess->muc_author = malloc(strlen(conf_nickname)+1);
+   \   000002DC   0900A0E1           MOV      R0,R9
+   \   000002E0   1B0000EF           SWI      +27
+   \   000002E4   010080E2           ADD      R0,R0,#+1
+   \   000002E8   140000EF           SWI      +20
+   \   000002EC   040088E5           STR      R0,[R8, #+4]
+    776                strcpy(mess->muc_author, conf_nickname);
+   \   000002F0   0910A0E1           MOV      R1,R9
+   \   000002F4   1A0000EF           SWI      +26
+    777                strcpy(mess->mess, timestamp);
+   \   000002F8   080098E5           LDR      R0,[R8, #+8]
+   \   000002FC   0C108DE2           ADD      R1,SP,#+12
+   \   00000300   1A0000EF           SWI      +26
+    778                strcat(mess->mess, conf_nickname);
+   \   00000304   080098E5           LDR      R0,[R8, #+8]
+   \   00000308   0910A0E1           MOV      R1,R9
+   \   0000030C   170000EF           SWI      +23
+    779                strcat(mess->mess, subj_set_to);
+   \   00000310   080098E5           LDR      R0,[R8, #+8]
+   \   00000314   24108DE2           ADD      R1,SP,#+36
+   \   00000318   170000EF           SWI      +23
+    780                strcat(mess->mess, mtext);
+   \   0000031C   080098E5           LDR      R0,[R8, #+8]
+   \   00000320   0410A0E1           MOV      R1,R4
+   \   00000324   C9FFFFEA           B        ??CList_AddMessage_12
+    781                break;
+    782              }
+    783            default:
+    784              {
+    785                mess->mess = malloc(strlen(mtext)+strlen(timestamp)+1);
+   \                     ??CList_AddMessage_9:
+   \   00000328   0400A0E1           MOV      R0,R4
+   \   0000032C   1B0000EF           SWI      +27
+   \   00000330   0090A0E1           MOV      R9,R0
+   \   00000334   0C008DE2           ADD      R0,SP,#+12
+   \   00000338   1B0000EF           SWI      +27
+   \   0000033C   090080E0           ADD      R0,R0,R9
+   \   00000340   010080E2           ADD      R0,R0,#+1
+   \   00000344   140000EF           SWI      +20
+   \   00000348   080088E5           STR      R0,[R8, #+8]
+    786                strcpy(mess->mess, timestamp);
+   \   0000034C   0C108DE2           ADD      R1,SP,#+12
+   \   00000350   1A0000EF           SWI      +26
+    787                strcat(mess->mess, mtext);
+   \   00000354   080098E5           LDR      R0,[R8, #+8]
+   \   00000358   0410A0E1           MOV      R1,R4
+   \   0000035C   170000EF           SWI      +23
+    788                mess->muc_author = NULL;
+   \   00000360   0000A0E3           MOV      R0,#+0
+   \   00000364   040088E5           STR      R0,[R8, #+4]
+    789              }
+    790            }
+    791            mess->mtype=mtype;
+   \                     ??CList_AddMessage_13:
+   \   00000368   0060C8E5           STRB     R6,[R8, #+0]
+    792            LockSched();
+   \   0000036C   460100EF           SWI      +326
+    793            if(!cont->log)
+   \   00000370   1C0097E5           LDR      R0,[R7, #+28]
+   \   00000374   000050E3           CMP      R0,#+0
+    794            {
+    795              cont->log = mess;
+   \   00000378   1C808705           STREQ    R8,[R7, #+28]
+   \   0000037C   0700000A           BEQ      ??CList_AddMessage_14
+    796            }
+    797            else
+    798            {
+    799              LOG_MESSAGE* tmp=cont->log;
+   \   00000380   0C1090E5           LDR      R1,[R0, #+12]
+   \   00000384   000051E3           CMP      R1,#+0
+   \   00000388   0300000A           BEQ      ??CList_AddMessage_15
+    800              while(tmp->next){tmp=tmp->next;}
+   \                     ??CList_AddMessage_16:
+   \   0000038C   0C0090E5           LDR      R0,[R0, #+12]
+   \   00000390   0C1090E5           LDR      R1,[R0, #+12]
+   \   00000394   000051E3           CMP      R1,#+0
+   \   00000398   FBFFFF1A           BNE      ??CList_AddMessage_16
+    801              tmp->next=mess;
+   \                     ??CList_AddMessage_15:
+   \   0000039C   0C8080E5           STR      R8,[R0, #+12]
+    802            }
+    803            cont->total_msg_count++;
+   \                     ??CList_AddMessage_14:
+   \   000003A0   180097E5           LDR      R0,[R7, #+24]
+   \   000003A4   010080E2           ADD      R0,R0,#+1
+   \   000003A8   180087E5           STR      R0,[R7, #+24]
+    804            mess->next=NULL;
+   \   000003AC   0000A0E3           MOV      R0,#+0
+   \   000003B0   0C0088E5           STR      R0,[R8, #+12]
+    805            UnlockSched();
+   \   000003B4   470100EF           SWI      +327
+    806          
+    807            extern const int WRITE_HISTORY, WRITE_MUC_HISTORY;
+    808          
+    809          
+    810            if((WRITE_HISTORY && !(cont->entry_type==T_CONF_ROOT)) || (WRITE_MUC_HISTORY && (cont->entry_type==T_CONF_ROOT)))
+   \   000003B8   60009FE5           LDR      R0,??CList_AddMessage_0+0x18  ;; WRITE_HISTORY
+   \   000003BC   000090E5           LDR      R0,[R0, #+0]
+   \   000003C0   000050E3           CMP      R0,#+0
+   \   000003C4   0800D715           LDRBNE   R0,[R7, #+8]
+   \   000003C8   02005013           CMPNE    R0,#+2
+   \   000003CC   0600001A           BNE      ??CList_AddMessage_17
+   \   000003D0   4C009FE5           LDR      R0,??CList_AddMessage_0+0x1C  ;; WRITE_MUC_HISTORY
+   \   000003D4   000090E5           LDR      R0,[R0, #+0]
+   \   000003D8   000050E3           CMP      R0,#+0
+   \   000003DC   0700000A           BEQ      ??CList_AddMessage_5
+   \   000003E0   0800D7E5           LDRB     R0,[R7, #+8]
+   \   000003E4   020050E3           CMP      R0,#+2
+   \   000003E8   0400001A           BNE      ??CList_AddMessage_5
+    811            {
+    812              Add2History(CList_FindContactByJID(jid), datestr,mtext);
+   \                     ??CList_AddMessage_17:
+   \   000003EC   0500A0E1           MOV      R0,R5
+   \   000003F0   ........           BL       CList_FindContactByJID
+   \   000003F4   0420A0E1           MOV      R2,R4
+   \   000003F8   3C108DE2           ADD      R1,SP,#+60
+   \   000003FC   ........           _BLF     Add2History,??Add2History??rA
+   \                     ??CList_AddMessage_5:
+   \   00000400   41DF8DE2           ADD      SP,SP,#+260      ;; stack cleaning
+   \   00000404   F08FBDE8           POP      {R4-R11,PC}      ;; return
+   \                     ??CList_AddMessage_0:
+   \   00000408   2A000000           DC8      "*",+0,+0
+   \   0000040C   3A200000           DC8      ": ",+0
+   \   00000410   ........           DC32     `?<Constant "[%02d:%02d] ">`
+   \   00000414   ........           DC32     My_JID
+   \   00000418   ........           DC32     empty_t
+   \   0000041C   ........           DC32     `?<Constant " has set the subject: ">`
+   \   00000420   ........           DC32     WRITE_HISTORY
+   \   00000424   ........           DC32     WRITE_MUC_HISTORY
+    813            }
+    814          }
+    815          // Уничтожить список контактов
+
+   \                                 In segment CODE, align 4, keep-with-next
+    816          void CList_Destroy()
+    817          {
+   \                     CList_Destroy:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+    818            LockSched();
+   \   00000004   460100EF           SWI      +326
+    819            CLIST* cl=cltop;
+   \   00000008   ........           LDR      R0,??DataTable13  ;; cltop
+    820            cltop=NULL;
+   \   0000000C   0050A0E3           MOV      R5,#+0
+   \   00000010   004090E5           LDR      R4,[R0, #+0]
+   \   00000014   005080E5           STR      R5,[R0, #+0]
+   \   00000018   000054E3           CMP      R4,#+0
+   \   0000001C   0F00000A           BEQ      ??CList_Destroy_0
+    821            while(cl)
+    822            {
+    823              CLIST *p;
+    824              if(cl->res_list) KillResourceList(cl->res_list);
+   \                     ??CList_Destroy_1:
+   \   00000020   0C0094E5           LDR      R0,[R4, #+12]
+   \   00000024   000050E3           CMP      R0,#+0
+   \   00000028   0000000A           BEQ      ??CList_Destroy_2
+   \   0000002C   ........           BL       KillResourceList
+    825              cl->ResourceCount=0;
+   \                     ??CList_Destroy_2:
+   \   00000030   085084E5           STR      R5,[R4, #+8]
+    826              Free_vCard(cl->vcard);
+   \   00000034   180094E5           LDR      R0,[R4, #+24]
+   \   00000038   ........           _BLF     Free_vCard,??Free_vCard??rA
+    827              mfree(cl->JID);
+   \   0000003C   000094E5           LDR      R0,[R4, #+0]
+   \   00000040   150000EF           SWI      +21
+    828              mfree(cl->name);
+   \   00000044   100094E5           LDR      R0,[R4, #+16]
+   \   00000048   150000EF           SWI      +21
+    829              p=cl;
+   \   0000004C   0400A0E1           MOV      R0,R4
+    830              cl=(CLIST*)(cl->next);
+   \   00000050   1C4094E5           LDR      R4,[R4, #+28]
+    831              mfree(p);
+   \   00000054   150000EF           SWI      +21
+    832              p=NULL;
+    833            }
+   \   00000058   000054E3           CMP      R4,#+0
+   \   0000005C   EFFFFF1A           BNE      ??CList_Destroy_1
+    834            UnlockSched();
+   \                     ??CList_Destroy_0:
+   \   00000060   470100EF           SWI      +327
+    835          }
+   \   00000064   3080BDE8           POP      {R4,R5,PC}       ;; return
+    836          
+    837          
+    838          // Отображение всякого спама про контакт
+
+   \                                 In segment CODE, align 4, keep-with-next
+    839          void CList_Display_Popup_Info(TRESOURCE* ResEx)
+    840          {
+   \                     CList_Display_Popup_Info:
+   \   00000000   00402DE9           PUSH     {LR}
+    841            if(!ResEx)return;
+   \   00000004   000050E3           CMP      R0,#+0
+   \   00000008   0080BD08           POPEQ    {PC}
+    842            Disp_Info(ResEx);
+   \   0000000C   ........           _BLF     Disp_Info,??Disp_Info??rA
+    843          }
+   \   00000010   0080BDE8           POP      {PC}             ;; return
+    844          
+    845          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    846          char qqq[100];
+   \                     qqq:
+   \   00000000                      DS8 100
+    847          
+    848          // бегаем по контактам с сообщениями
+
+   \                                 In segment CODE, align 4, keep-with-next
+    849          void nextUnread()
+    850          {
+   \                     nextUnread:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+    851            if (CList_GetUnreadMessages()==0) return; //выйдем если нет непрочитанных
+   \   00000004   ........           BL       CList_GetUnreadMessages
+   \   00000008   000050E3           CMP      R0,#+0
+   \   0000000C   F080BD08           POPEQ    {R4-R7,PC}
+    852            CLIST* ClEx;
+    853            TRESOURCE* ResEx;
+    854            if(!(ClEx = cltop))return;
+   \   00000010   ........           LDR      R4,??DataTable13  ;; cltop
+   \   00000014   005094E5           LDR      R5,[R4, #+0]
+   \   00000018   000055E3           CMP      R5,#+0
+   \   0000001C   F080BD08           POPEQ    {R4-R7,PC}
+    855            LockSched();
+   \   00000020   460100EF           SWI      +326
+    856            while(ClEx) //идем по списку контактов
+    857            {
+    858              ResEx = ClEx->res_list;
+   \                     ??nextUnread_0:
+   \   00000024   0C6095E5           LDR      R6,[R5, #+12]
+   \   00000028   000000EA           B        ??nextUnread_1
+    859              while(ResEx) //идем по списку ресурсов
+    860              {
+    861                if(ResEx->has_unread_msg) //если есть непрочитанное
+    862                {
+    863                  if (CList_GetActiveContact()!=ResEx)//если мы не стоим на этом контакте
+    864                  {
+    865                    if (!CList_isMUC(ClEx))
+    866                    {
+    867                      if (!CList_GetVisibilityForGroup(ClEx->group)) //если группа контакта свернута, надо ее развернуть, иначе плохо будет
+    868                        CList_ToggleVisibilityForGroup(ClEx->group);
+    869                    }
+    870                    else
+    871                    {
+    872                      if (!ClEx->IsVisible) // Разворачиваем конференцию
+    873                        ClEx->IsVisible = 1;
+    874                    }
+    875                    MoveCursorTo(ResEx);
+    876                    break;
+    877                  }
+    878                }
+    879                ResEx=ResEx->next; //следующий ресурс
+   \                     ??nextUnread_2:
+   \   0000002C   2C6096E5           LDR      R6,[R6, #+44]
+   \                     ??nextUnread_1:
+   \   00000030   000056E3           CMP      R6,#+0
+   \   00000034   1600000A           BEQ      ??nextUnread_3
+   \   00000038   140096E5           LDR      R0,[R6, #+20]
+   \   0000003C   000050E3           CMP      R0,#+0
+   \   00000040   18009415           LDRNE    R0,[R4, #+24]
+   \   00000044   06005011           CMPNE    R0,R6
+   \   00000048   F7FFFF0A           BEQ      ??nextUnread_2
+   \   0000004C   0500A0E1           MOV      R0,R5
+   \   00000050   ........           BL       CList_isMUC
+   \   00000054   000050E3           CMP      R0,#+0
+   \   00000058   0700001A           BNE      ??nextUnread_4
+   \   0000005C   1670D5E5           LDRB     R7,[R5, #+22]
+   \   00000060   0700A0E1           MOV      R0,R7
+   \   00000064   ........           BL       CList_GetVisibilityForGroup
+   \   00000068   000050E3           CMP      R0,#+0
+   \   0000006C   0600001A           BNE      ??nextUnread_5
+   \   00000070   0700A0E1           MOV      R0,R7
+   \   00000074   ........           BL       CList_ToggleVisibilityForGroup
+   \   00000078   030000EA           B        ??nextUnread_5
+   \                     ??nextUnread_4:
+   \   0000007C   0400D5E5           LDRB     R0,[R5, #+4]
+   \   00000080   000050E3           CMP      R0,#+0
+   \   00000084   0100A003           MOVEQ    R0,#+1
+   \   00000088   0400C505           STRBEQ   R0,[R5, #+4]
+   \                     ??nextUnread_5:
+   \   0000008C   0600A0E1           MOV      R0,R6
+   \   00000090   ........           BL       MoveCursorTo
+    880              }
+    881              ClEx = ClEx->next; //следующий контакт
+   \                     ??nextUnread_3:
+   \   00000094   1C5095E5           LDR      R5,[R5, #+28]
+    882            }
+   \   00000098   000055E3           CMP      R5,#+0
+   \   0000009C   E0FFFF1A           BNE      ??nextUnread_0
+    883            UnlockSched();
+   \   000000A0   470100EF           SWI      +327
+    884          }
+   \   000000A4   F080BDE8           POP      {R4-R7,PC}       ;; return
+    885          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    886          unsigned int CList_GetUnreadMessages() //количество непрочитанных сообщений
+    887          {
+    888            unsigned int unread=0;
+    889            CLIST* ClEx;
+    890            TRESOURCE* ResEx;
+    891            if(!(ClEx = cltop))return 0;
+   \                     CList_GetUnreadMessages:
+   \   00000000   ........           LDR      R1,??DataTable13  ;; cltop
+   \   00000004   0000A0E3           MOV      R0,#+0
+   \   00000008   001091E5           LDR      R1,[R1, #+0]
+   \   0000000C   090000EA           B        ??CList_GetUnreadMessages_0
+    892            while(ClEx)
+    893            {
+    894              ResEx = ClEx->res_list;
+   \                     ??CList_GetUnreadMessages_1:
+   \   00000010   0C2091E5           LDR      R2,[R1, #+12]
+   \   00000014   000052E3           CMP      R2,#+0
+   \   00000018   0500000A           BEQ      ??CList_GetUnreadMessages_2
+    895              while(ResEx)
+    896              {
+    897                if(ResEx->has_unread_msg)
+   \                     ??CList_GetUnreadMessages_3:
+   \   0000001C   143092E5           LDR      R3,[R2, #+20]
+    898                  unread+=ResEx->has_unread_msg;
+    899                ResEx=ResEx->next;
+   \   00000020   2C2092E5           LDR      R2,[R2, #+44]
+   \   00000024   000053E3           CMP      R3,#+0
+   \   00000028   00008310           ADDNE    R0,R3,R0
+    900              }
+   \   0000002C   000052E3           CMP      R2,#+0
+   \   00000030   F9FFFF1A           BNE      ??CList_GetUnreadMessages_3
+    901              ClEx = ClEx->next;
+   \                     ??CList_GetUnreadMessages_2:
+   \   00000034   1C1091E5           LDR      R1,[R1, #+28]
+    902            }
+   \                     ??CList_GetUnreadMessages_0:
+   \   00000038   000051E3           CMP      R1,#+0
+   \   0000003C   F3FFFF1A           BNE      ??CList_GetUnreadMessages_1
+    903            return unread;
+   \   00000040   1EFF2FE1           BX       LR               ;; return
+    904          };
+    905          
+    906          // Ставим курсор на нужный ресурс
+
+   \                                 In segment CODE, align 4, keep-with-next
+    907          void MoveCursorTo(TRESOURCE* NewResEx)
+    908          {
+   \                     MoveCursorTo:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   0040B0E1           MOVS     R4,R0
+    909            if(!NewResEx)return;
+   \   00000008   F080BD08           POPEQ    {R4-R7,PC}
+    910          
+    911            CLIST* ClEx;
+    912            TRESOURCE* ResEx;
+    913            if(!(ClEx = cltop))return;
+   \   0000000C   ........           LDR      R5,??DataTable13  ;; cltop
+   \   00000010   007095E5           LDR      R7,[R5, #+0]
+   \   00000014   000057E3           CMP      R7,#+0
+   \   00000018   F080BD08           POPEQ    {R4-R7,PC}
+    914          
+    915            int pos=0;
+   \   0000001C   0060A0E3           MOV      R6,#+0
+   \   00000020   060000EA           B        ??MoveCursorTo_0
+    916            while(ClEx)
+    917            {
+    918              while((CList_isGroup(ClEx) || CList_isMUC(ClEx)) && ClEx->IsVisible == NULL) //Перескакиваем через свернутые группы и конференции, иначе промахнемся
+    919              {
+    920                char c_group = ClEx->group;
+    921                if (c_group & 0x80) // Пропускаем конференции
+    922                {
+    923                  if (!ClEx->next) return;
+    924                  ClEx = ClEx->next;
+    925                }
+    926                else
+    927                {
+    928                  while(ClEx->group == c_group) // Пропускаем группы
+    929                  {
+    930                    if (!ClEx->next) return;
+   \                     ??MoveCursorTo_1:
+   \   00000024   1C7097E5           LDR      R7,[R7, #+28]
+   \   00000028   000057E3           CMP      R7,#+0
+   \   0000002C   F080BD08           POPEQ    {R4-R7,PC}
+    931                    ClEx = ClEx->next;
+    932                  }
+   \                     ??MoveCursorTo_2:
+   \   00000030   1610D7E5           LDRB     R1,[R7, #+22]
+   \   00000034   000051E1           CMP      R1,R0
+   \   00000038   F9FFFF0A           BEQ      ??MoveCursorTo_1
+    933                }
+    934                pos ++;
+   \                     ??MoveCursorTo_3:
+   \   0000003C   016086E2           ADD      R6,R6,#+1
+   \                     ??MoveCursorTo_0:
+   \   00000040   0700A0E1           MOV      R0,R7
+   \   00000044   ........           BL       CList_isGroup
+   \   00000048   000050E3           CMP      R0,#+0
+   \   0000004C   0300001A           BNE      ??MoveCursorTo_4
+   \   00000050   0700A0E1           MOV      R0,R7
+   \   00000054   ........           BL       CList_isMUC
+   \   00000058   000050E3           CMP      R0,#+0
+   \   0000005C   0900000A           BEQ      ??MoveCursorTo_5
+   \                     ??MoveCursorTo_4:
+   \   00000060   0400D7E5           LDRB     R0,[R7, #+4]
+   \   00000064   000050E3           CMP      R0,#+0
+   \   00000068   0600001A           BNE      ??MoveCursorTo_5
+   \   0000006C   1600D7E5           LDRB     R0,[R7, #+22]
+   \   00000070   800010E3           TST      R0,#0x80
+   \   00000074   EDFFFF0A           BEQ      ??MoveCursorTo_2
+   \   00000078   1C7097E5           LDR      R7,[R7, #+28]
+   \   0000007C   000057E3           CMP      R7,#+0
+   \   00000080   F080BD08           POPEQ    {R4-R7,PC}
+   \   00000084   ECFFFFEA           B        ??MoveCursorTo_3
+    935              }
+    936          
+    937              ResEx = ClEx->res_list;
+   \                     ??MoveCursorTo_5:
+   \   00000088   0C0097E5           LDR      R0,[R7, #+12]
+   \   0000008C   050000EA           B        ??MoveCursorTo_6
+    938              while(ResEx)
+    939              {
+    940                if(ResEx==NewResEx)
+    941                {
+    942                  //ставим курсор на клиента
+    943                  CursorPos=pos+1;
+    944                  //тут надо бы еще проверит на какой мы странице.. а то вдруг не там и курсор проебется :-D
+    945                  // сначала считаем на какой странице должен быть курсор
+    946                  if (CursorPos>N_cont_disp)
+    947                    Active_page = sdiv(N_cont_disp, CursorPos)+1;
+    948                  else
+    949                    Active_page=1;
+    950                  REDRAW();
+    951                  break;
+    952                }
+    953                if (Display_Offline || ResEx->status!=PRESENCE_OFFLINE)
+   \                     ??MoveCursorTo_7:
+   \   00000090   1C20D5E5           LDRB     R2,[R5, #+28]
+   \   00000094   000052E3           CMP      R2,#+0
+   \   00000098   0920D005           LDRBEQ   R2,[R0, #+9]
+    954                  pos++;
+    955                ResEx=ResEx->next;
+   \   0000009C   2C0090E5           LDR      R0,[R0, #+44]
+   \   000000A0   06005203           CMPEQ    R2,#+6
+   \   000000A4   0160A011           MOVNE    R6,R1
+   \                     ??MoveCursorTo_6:
+   \   000000A8   000050E3           CMP      R0,#+0
+   \   000000AC   0C00000A           BEQ      ??MoveCursorTo_8
+   \   000000B0   011086E2           ADD      R1,R6,#+1
+   \   000000B4   040050E1           CMP      R0,R4
+   \   000000B8   F4FFFF1A           BNE      ??MoveCursorTo_7
+   \   000000BC   100095E5           LDR      R0,[R5, #+16]
+   \   000000C0   141085E5           STR      R1,[R5, #+20]
+   \   000000C4   010050E1           CMP      R0,R1
+   \   000000C8   0200002A           BCS      ??MoveCursorTo_9
+   \   000000CC   B80000EF           SWI      +184
+   \   000000D0   010080E2           ADD      R0,R0,#+1
+   \   000000D4   000000EA           B        ??MoveCursorTo_10
+   \                     ??MoveCursorTo_9:
+   \   000000D8   0100A0E3           MOV      R0,#+1
+   \                     ??MoveCursorTo_10:
+   \   000000DC   0C0085E5           STR      R0,[R5, #+12]
+   \   000000E0   720100EF           SWI      +370
+    956              }
+    957              ClEx = ClEx->next;
+   \                     ??MoveCursorTo_8:
+   \   000000E4   1C7097E5           LDR      R7,[R7, #+28]
+    958            }
+   \   000000E8   000057E3           CMP      R7,#+0
+   \   000000EC   D3FFFF1A           BNE      ??MoveCursorTo_0
+   \   000000F0   F080BDE8           POP      {R4-R7,PC}       ;; return
+    959          };
+    960          
+    961          
+    962          // Управление курсором
+
+   \                                 In segment CODE, align 4, keep-with-next
+    963          void CList_MoveCursorUp(int flagi)
+    964          {
+   \                     CList_MoveCursorUp:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    965            if(!N_Disp_Contacts)return;
+   \   00000004   ........           LDR      R4,??DataTable19  ;; cltop
+   \   00000008   081094E5           LDR      R1,[R4, #+8]
+   \   0000000C   000051E3           CMP      R1,#+0
+   \   00000010   1080BD08           POPEQ    {R4,PC}
+    966            if(CursorPos<=1)
+   \   00000014   143094E5           LDR      R3,[R4, #+20]
+   \   00000018   102094E5           LDR      R2,[R4, #+16]
+   \   0000001C   020053E3           CMP      R3,#+2
+   \   00000020   0A00002A           BCS      ??CList_MoveCursorUp_0
+    967            {
+    968              CursorPos=N_Disp_Contacts;
+   \   00000024   141084E5           STR      R1,[R4, #+20]
+    969              if (N_cont_disp==N_Disp_Contacts)
+   \   00000028   010052E1           CMP      R2,R1
+   \   0000002C   0300001A           BNE      ??CList_MoveCursorUp_1
+    970                Active_page = 1;
+   \   00000030   0100A0E3           MOV      R0,#+1
+   \                     ??CList_MoveCursorUp_2:
+   \   00000034   0C0084E5           STR      R0,[R4, #+12]
+   \   00000038   720100EF           SWI      +370
+   \   0000003C   1080BDE8           POP      {R4,PC}
+    971              else
+    972                Active_page = sdiv(N_cont_disp, N_Disp_Contacts)+1;
+   \                     ??CList_MoveCursorUp_1:
+   \   00000040   0200A0E1           MOV      R0,R2
+   \   00000044   B80000EF           SWI      +184
+   \   00000048   010080E2           ADD      R0,R0,#+1
+   \   0000004C   F8FFFFEA           B        ??CList_MoveCursorUp_2
+    973            }
+    974            else
+    975            {
+    976              if (flagi)
+   \                     ??CList_MoveCursorUp_0:
+   \   00000050   000050E3           CMP      R0,#+0
+   \   00000054   0300000A           BEQ      ??CList_MoveCursorUp_3
+    977                CursorPos=CursorPos-DEF_SKR;
+   \   00000058   ........           LDR      R0,??DataTable17  ;; DEF_SKR
+   \   0000005C   000090E5           LDR      R0,[R0, #+0]
+   \   00000060   000043E0           SUB      R0,R3,R0
+   \   00000064   000000EA           B        ??CList_MoveCursorUp_4
+    978              else
+    979                CursorPos--;
+   \                     ??CList_MoveCursorUp_3:
+   \   00000068   010043E2           SUB      R0,R3,#+1
+   \                     ??CList_MoveCursorUp_4:
+   \   0000006C   0C1094E5           LDR      R1,[R4, #+12]
+   \   00000070   140084E5           STR      R0,[R4, #+20]
+   \   00000074   011041E2           SUB      R1,R1,#+1
+   \   00000078   920103E0           MUL      R3,R2,R1
+   \   0000007C   000053E1           CMP      R3,R0
+    980              
+    981              if (CursorPos<=(Active_page-1)*N_cont_disp)
+    982                Active_page--;
+   \   00000080   0C108425           STRCS    R1,[R4, #+12]
+    983            }
+    984            REDRAW();
+   \   00000084   720100EF           SWI      +370
+    985          };
+   \   00000088   1080BDE8           POP      {R4,PC}          ;; return
+    986          
+    987          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    988          void CList_MoveCursorDown(int flagi)
+    989          {
+   \                     CList_MoveCursorDown:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+    990            if (!N_Disp_Contacts)
+   \   00000004   ........           LDR      R4,??DataTable19  ;; cltop
+   \   00000008   0050A0E1           MOV      R5,R0
+   \   0000000C   081094E5           LDR      R1,[R4, #+8]
+   \   00000010   000051E3           CMP      R1,#+0
+   \   00000014   7080BD08           POPEQ    {R4-R6,PC}
+    991              return;
+    992            if(flagi==1)
+   \   00000018   0160A0E3           MOV      R6,#+1
+   \   0000001C   010055E3           CMP      R5,#+1
+   \   00000020   1000001A           BNE      ??CList_MoveCursorDown_0
+    993            {
+    994              if (CursorPos==(N_Disp_Contacts+1))
+   \   00000024   142094E5           LDR      R2,[R4, #+20]
+   \   00000028   010081E2           ADD      R0,R1,#+1
+   \   0000002C   000052E1           CMP      R2,R0
+    995              {
+    996                CursorPos=1;
+   \   00000030   14608405           STREQ    R6,[R4, #+20]
+    997                Active_page=1;
+   \   00000034   0C608405           STREQ    R6,[R4, #+12]
+   \   00000038   0A00000A           BEQ      ??CList_MoveCursorDown_0
+    998              }
+    999              else
+   1000              {
+   1001                CursorPos=CursorPos+DEF_SKR;
+   \   0000003C   ........           LDR      R3,??DataTable17  ;; DEF_SKR
+   \   00000040   003093E5           LDR      R3,[R3, #+0]
+   \   00000044   022083E0           ADD      R2,R3,R2
+   \   00000048   142084E5           STR      R2,[R4, #+20]
+   1002                if(CursorPos>(N_Disp_Contacts+1))
+   \   0000004C   020050E1           CMP      R0,R2
+   \   00000050   0400002A           BCS      ??CList_MoveCursorDown_0
+   1003                {
+   1004                  CursorPos=(N_Disp_Contacts+1);
+   \   00000054   140084E5           STR      R0,[R4, #+20]
+   1005                  Active_page = sdiv(N_cont_disp, N_Disp_Contacts)+1;
+   \   00000058   100094E5           LDR      R0,[R4, #+16]
+   \   0000005C   B80000EF           SWI      +184
+   \   00000060   010080E2           ADD      R0,R0,#+1
+   \   00000064   0C0084E5           STR      R0,[R4, #+12]
+   1006                }
+   1007              }
+   1008            }
+   1009            if(flagi==0)
+   \                     ??CList_MoveCursorDown_0:
+   \   00000068   140094E5           LDR      R0,[R4, #+20]
+   \   0000006C   000055E3           CMP      R5,#+0
+   \   00000070   0400001A           BNE      ??CList_MoveCursorDown_1
+   1010            {
+   1011              CursorPos++;
+   1012              if(CursorPos>N_Disp_Contacts/*+1*/)
+   \   00000074   081094E5           LDR      R1,[R4, #+8]
+   \   00000078   010080E2           ADD      R0,R0,#+1
+   \   0000007C   000051E1           CMP      R1,R0
+   1013              {
+   1014                CursorPos=1;
+   \   00000080   0100A033           MOVCC    R0,#+1
+   1015                Active_page=1;
+   \   00000084   0C608435           STRCC    R6,[R4, #+12]
+   1016              }
+   1017            }
+   1018            if(Active_page*N_cont_disp<CursorPos){Active_page++;}
+   \                     ??CList_MoveCursorDown_1:
+   \   00000088   0C1094E5           LDR      R1,[R4, #+12]
+   \   0000008C   102094E5           LDR      R2,[R4, #+16]
+   \   00000090   140084E5           STR      R0,[R4, #+20]
+   \   00000094   920103E0           MUL      R3,R2,R1
+   \   00000098   000053E1           CMP      R3,R0
+   \   0000009C   01008132           ADDCC    R0,R1,#+1
+   \   000000A0   0C008435           STRCC    R0,[R4, #+12]
+   1019            REDRAW();
+   \   000000A4   720100EF           SWI      +370
+   1020          }
+   \   000000A8   7080BDE8           POP      {R4-R6,PC}       ;; return
+
+   \                                 In segment CODE, align 4, keep-with-next
+   1021          void CList_MoveCursorHome()
+   1022          {
+   1023            if(!N_Disp_Contacts)return;
+   \                     CList_MoveCursorHome:
+   \   00000000   ........           LDR      R0,??DataTable19  ;; cltop
+   \   00000004   00402DE9           PUSH     {LR}
+   \   00000008   081090E5           LDR      R1,[R0, #+8]
+   \   0000000C   000051E3           CMP      R1,#+0
+   \   00000010   0080BD08           POPEQ    {PC}
+   1024            CursorPos =1;
+   \   00000014   0110A0E3           MOV      R1,#+1
+   \   00000018   141080E5           STR      R1,[R0, #+20]
+   1025            Active_page = 1;
+   \   0000001C   0C1080E5           STR      R1,[R0, #+12]
+   1026            REDRAW();
+   \   00000020   720100EF           SWI      +370
+   1027          }
+   \   00000024   0080BDE8           POP      {PC}             ;; return
+   1028          
+
+   \                                 In segment CODE, align 4, keep-with-next
+   1029          void CList_MoveCursorEnd()
+   1030          {
+   \                     CList_MoveCursorEnd:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   1031            if(!N_Disp_Contacts)return;
+   \   00000004   ........           LDR      R4,??DataTable19  ;; cltop
+   \   00000008   081094E5           LDR      R1,[R4, #+8]
+   \   0000000C   000051E3           CMP      R1,#+0
+   \   00000010   1080BD08           POPEQ    {R4,PC}
+   1032            CursorPos = N_Disp_Contacts;
+   1033            Active_page = sdiv(N_cont_disp, N_Disp_Contacts)+1;
+   \   00000014   100094E5           LDR      R0,[R4, #+16]
+   \   00000018   141084E5           STR      R1,[R4, #+20]
+   \   0000001C   B80000EF           SWI      +184
+   \   00000020   010080E2           ADD      R0,R0,#+1
+   \   00000024   0C0084E5           STR      R0,[R4, #+12]
+   1034            REDRAW();
+   \   00000028   720100EF           SWI      +370
+   1035          }
+   \   0000002C   1080BDE8           POP      {R4,PC}          ;; return
+   1036          
+
+   \                                 In segment CODE, align 4, keep-with-next
+   1037          int CList_isGroup(CLIST *cont)
+   1038          {
+   1039            if(cont->ResourceCount==0) return 0;
+   \                     CList_isGroup:
+   \   00000000   081090E5           LDR      R1,[R0, #+8]
+   \   00000004   000051E3           CMP      R1,#+0
+   \   00000008   0400000A           BEQ      ??CList_isGroup_0
+   1040            if(cont->res_list->entry_type==T_GROUP) return 1;
+   \   0000000C   0C0090E5           LDR      R0,[R0, #+12]
+   \   00000010   0800D0E5           LDRB     R0,[R0, #+8]
+   \   00000014   050050E3           CMP      R0,#+5
+   \   00000018   0100A003           MOVEQ    R0,#+1
+   \   0000001C   1EFF2F01           BXEQ     LR
+   1041            return 0;
+   \                     ??CList_isGroup_0:
+   \   00000020   0000A0E3           MOV      R0,#+0
+   \   00000024   1EFF2FE1           BX       LR               ;; return
+   1042          }
+   1043          
+
+   \                                 In segment CODE, align 4, keep-with-next
+   1044          int CList_isMUC(CLIST *cont)
+   1045          {
+   1046            if(cont->ResourceCount==0) return 0;
+   \                     CList_isMUC:
+   \   00000000   081090E5           LDR      R1,[R0, #+8]
+   \   00000004   000051E3           CMP      R1,#+0
+   \   00000008   0400000A           BEQ      ??CList_isMUC_0
+   1047            if(cont->res_list->entry_type==T_CONF_ROOT) return 1;
+   \   0000000C   0C0090E5           LDR      R0,[R0, #+12]
+   \   00000010   0800D0E5           LDRB     R0,[R0, #+8]
+   \   00000014   020050E3           CMP      R0,#+2
+   \   00000018   0100A003           MOVEQ    R0,#+1
+   \   0000001C   1EFF2F01           BXEQ     LR
+   1048            return 0;
+   \                     ??CList_isMUC_0:
+   \   00000020   0000A0E3           MOV      R0,#+0
+   \   00000024   1EFF2FE1           BX       LR               ;; return
+   1049          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable3:
+   \   00000000   ........           DC32     cltop
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable9:
+   \   00000000   ........           DC32     cltop
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable13:
+   \   00000000   ........           DC32     cltop
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable17:
+   \   00000000   ........           DC32     DEF_SKR
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable19:
+   \   00000000   ........           DC32     cltop
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for cltop>`:
+   \   00000000   00000000           DC32 0H
+   \                     `?<Initializer for NContacts>`:
+   \   00000004   00000000           DC32 0
+   \                     `?<Initializer for N_Disp_Contacts>`:
+   \   00000008   00000000           DC32 0
+   \                     `?<Initializer for Active_page>`:
+   \   0000000C   01000000           DC32 1
+   \                     `?<Initializer for N_cont_disp>`:
+   \   00000010   00000000           DC32 0
+   \                     `?<Initializer for CursorPos>`:
+   \   00000014   01000000           DC32 1
+   \                     `?<Initializer for ActiveContact>`:
+   \   00000018   00000000           DC32 0H
+   \                     `?<Initializer for Display_Offline>`:
+   \   0000001C   00                 DC8 0
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \   00000000   257700             DC8 "%w"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "%w/%w">`:
+   \   00000000   25772F257700       DC8 "%w/%w"
+   \   00000006   0000               DC8 0, 0
+   \   00000008   53656C663D25       DC8 "Self=%s"
+   \              7300        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\317\\360\\350\\370\\345\\353 \\347\\340\\`:
+   \   00000000   CFF0E8F8E5EB       DC8 "\317\360\350\370\345\353 \347\340\357\360\356\361 \355\340 \340\342\362\356\360\350\347\340\366\350\376"
+   \              20E7E0EFF0EE
+   \              F120EDE020E0
+   \              E2F2EEF0E8E7
+   \              E0F6E8FE00  
+   \   0000001D   000000             DC8 0, 0, 0
+   \   00000020   C0E2F2EEF0E8       DC8 "\300\342\362\356\360\350\347\340\366\350\377 \344\340\355\340!"
+   \              E7E0F6E8FF20
+   \              E4E0EDE02100
+   \   00000032   0000               DC8 0, 0
+   \   00000034   C0E2F2EEF0E8       DC8 "\300\342\362\356\360\350\347\340\366\350\377 \363\344\340\353\345\355\340!"
+   \              E7E0F6E8FF20
+   \              F3E4E0EBE5ED
+   \              E02100      
+   \   00000049   000000             DC8 0, 0, 0
+   \   0000004C   C220E0E2F2EE       DC8 "\302 \340\342\362\356\360\350\347\340\366\350\350 \356\362\352\340\347\340\355\356"
+   \              F0E8E7E0F6E8
+   \              E820EEF2EAE0
+   \              E7E0EDEE00  
+   \   00000063   00                 DC8 0
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \   00000000   257400             DC8 "%t"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "[%02d:%02d] ">`:
+   \   00000000   5B253032643A       DC8 "[%02d:%02d] "
+   \              253032645D20
+   \              00          
+   \   0000000D   000000             DC8 0, 0, 0
+   \   00000010   2F6D652000         DC8 "/me "
+   \   00000015   000000             DC8 0, 0, 0
+   \   00000018   25733A202530       DC8 "%s: %02d:%02d %02d-%02d\015\012"
+   \              32643A253032
+   \              642025303264
+   \              2D253032640D
+   \              0A00        
+   \   00000032   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \   00000000   2A00               DC8 "*"
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \   00000000   3A2000             DC8 ": "
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant " has set the subject: ">`:
+   \   00000000   206861732073       DC8 " has set the subject: "
+   \              657420746865
+   \              207375626A65
+   \              63743A2000  
+   \   00000017   00                 DC8 0
+   1050          //EOL,EOF
+
+   Maximum stack usage in bytes:
+
+     Function                       CSTACK
+     --------                       ------
+     CList_AddContact                  28
+     CList_AddMessage                 308
+     CList_AddResourceWithPresence     40
+     CList_AddSystemMessage            20
+     CList_AddSystemMessageA           16
+     CList_Ch_Status                   20
+     CList_ChangeComposingStatus        0
+     CList_ChangeContactParams         24
+     CList_Destroy                     12
+     CList_Display_Popup_Info           4
+     CList_FindContactByJID            12
+     CList_FindMUCByJID                12
+     CList_GetActiveContact             0
+     CList_GetNumberOfOnlineUsers       0
+     CList_GetNumberOfUsers             0
+     CList_GetNumberOfUsers_Visible    12
+     CList_GetUnreadMessages            0
+     CList_GetVisibilityForGroup       12
+     CList_IsResourceInList            12
+     CList_MUC_SetRole                 12
+     CList_MakeAllContactsOFFLINE      12
+     CList_MakeAllResourcesOFFLINE      8
+     CList_MoveCursorDown              16
+     CList_MoveCursorEnd                8
+     CList_MoveCursorHome               4
+     CList_MoveCursorUp                 8
+     CList_RedrawCList                236
+     CList_ToggleOfflineDisplay         8
+     CList_ToggleVisibilityForGroup     0
+     CList_isGroup                      0
+     CList_isMUC                        0
+     KillMsgList                        8
+     KillResourceList                   8
+     MoveCursorTo                      20
+     nextUnread                        20
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     cltop                            29
+     CList_RedrawCList              1144
+     CList_GetActiveContact           16
+     CList_GetNumberOfOnlineUsers    100
+     CList_GetNumberOfUsers           16
+     CList_GetNumberOfUsers_Visible  180
+     CList_ToggleOfflineDisplay       60
+     KillMsgList                      60
+     KillResourceList                116
+     CList_FindContactByJID           96
+     CList_FindMUCByJID               92
+     CList_AddSystemMessage          260
+     CList_AddSystemMessageA          56
+     CList_IsResourceInList           88
+     CList_Ch_Status                 132
+     CList_MakeAllResourcesOFFLINE    56
+     CList_MakeAllContactsOFFLINE     92
+     CList_ToggleVisibilityForGroup   68
+     CList_GetVisibilityForGroup      76
+     CList_AddResourceWithPresence   500
+     CList_ChangeContactParams       140
+     CList_ChangeComposingStatus      32
+     CList_MUC_SetRole                48
+     CList_AddContact                412
+     CList_AddMessage               1064
+     CList_Destroy                   104
+     CList_Display_Popup_Info         20
+     qqq                             100
+     nextUnread                      168
+     CList_GetUnreadMessages          68
+     MoveCursorTo                    244
+     CList_MoveCursorUp              140
+     CList_MoveCursorDown            172
+     CList_MoveCursorHome             40
+     CList_MoveCursorEnd              48
+     CList_isGroup                    40
+     CList_isMUC                      40
+     ??DataTable3                      4
+     ??DataTable9                      4
+     ??DataTable13                     4
+     ??DataTable17                     4
+     ??DataTable19                     4
+     ?<Initializer for cltop>         29
+     ?<Constant "%w">                  3
+     ?<Constant "%w/%w">              16
+     ?<Constant "\317\360\350\370\345\353 \347\340\
+                                     100
+     ?<Constant "%t">                  3
+     ?<Constant "[%02d:%02d] ">       52
+     ?<Constant "*">                   2
+     ?<Constant ": ">                  3
+     ?<Constant " has set the subject: ">
+                                      24
+      Others                         344
+
+ 
+ 6 328 bytes in segment CODE
+   203 bytes in segment DATA_C
+    29 bytes in segment DATA_I
+    29 bytes in segment DATA_ID
+   100 bytes in segment DATA_Z
+    24 bytes in segment INITTAB
+ 
+ 6 008 bytes of CODE  memory (+ 344 bytes shared)
+   232 bytes of CONST memory
+   129 bytes of DATA  memory
+
+Errors: none
+Warnings: none

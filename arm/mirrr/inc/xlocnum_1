@@ -1,0 +1,489 @@
+// xlocnum internal header (from <locale>)
+#ifndef _XLOCNUM_
+#define _XLOCNUM_
+
+#ifndef _SYSTEM_BUILD
+#pragma system_include
+#endif
+
+#include <cerrno>
+#include <climits>
+#include <clocale>
+#include <cstdio>
+#include <cstdlib>
+#include <streambuf>
+
+#define _MAKLOCBYTE(Ty, Val, Cvt)       ((Ty)(Val))     /* convert to byte */
+#define _MAKLOCCHR(Ty, Val, Cvt)        ((Ty)(Val))     /* convert from byte */
+
+// TEXT-TO-NUMERIC CONVERSION FUNCTIONS
+_C_STD_BEGIN
+_C_LIB_DECL
+extern __INTRINSIC float _Stof(const char *, char **, long);
+extern __INTRINSIC double _Stod(const char *, char **, long);
+extern __INTRINSIC long double _Stold(const char *, char **, long);
+
+#ifdef _LONGLONG
+  extern __INTRINSIC _LONGLONG _Stoll(const char *, char **, int);
+  extern __INTRINSIC _ULONGLONG _Stoull(const char *, char **, int);
+
+  #define _STOLL(buf, ptr, base)        _Stoll(buf, ptr, base)
+  #define _STOULL(buf, ptr, base)       _Stoull(buf, ptr, base)
+#endif /* _LONGLONG */
+_END_C_LIB_DECL
+_C_STD_END
+
+_STD_BEGIN
+// CLASS _Istrit
+class _Istrit
+{       // input iterator for reading istream
+public:
+  typedef _Istrit _Myt;
+  typedef char char_type;
+  typedef char_traits traits_type;
+  typedef traits_type::int_type int_type;
+  typedef streambuf streambuf_type;
+
+  _Istrit(streambuf_type *_Sb = 0) _THROW0()
+    : _Sbuf(_Sb), _Got(_Sb == 0)
+  {       // construct iterator for stream buffer _Sb
+  }
+
+  const char_type& operator*() const
+  {       // return designated value
+    if (!_Got)
+      ((_Myt *)this)->_Peek();
+    return (_Val);
+  }
+
+  _Myt& operator++()
+  {       // preincrement
+    _Inc();
+    return (*this);
+  }
+
+  _Myt operator++(int)
+  {       // postincrement
+    if (!_Got)
+      _Peek();
+    _Myt _Tmp = *this;
+    _Inc();
+    return (_Tmp);
+  }
+
+  bool equal(const _Myt& _Right) const
+  {       // test if equal to _Right
+    if (!_Got)
+      ((_Myt *)this)->_Peek();
+    if (!_Right._Got)
+      ((_Myt *)&_Right)->_Peek();
+    return (_Sbuf == 0 && _Right._Sbuf == 0
+            || _Sbuf != 0 && _Right._Sbuf != 0);
+  }
+
+private:
+  void _Inc()
+  {       // point past current element
+    if (_Sbuf == 0
+        || traits_type::eq_int_type(traits_type::eof(),
+                                    _Sbuf->sbumpc()))
+      _Sbuf = 0, _Got = true;
+    else
+      _Got = false;
+  }
+
+  char_type _Peek()
+  {       // peek at current element
+    int_type _Meta;
+    if (_Sbuf == 0
+        || traits_type::eq_int_type(traits_type::eof(),
+                                    _Meta = _Sbuf->sgetc()))
+      _Sbuf = 0;
+    else
+      _Val = traits_type::to_char_type(_Meta);
+    _Got = true;
+    return (_Val);
+  }
+
+  streambuf_type *_Sbuf;  // the stream buffer to read
+  bool _Got;      // true if _Val is valid
+  char_type _Val; // current element value
+};
+
+// _Istrit OPERATORS
+inline bool operator==(const _Istrit& _Left, const _Istrit& _Right)
+{       // test for iterator equality
+  return (_Left.equal(_Right));
+}
+
+inline bool operator!=(const _Istrit& _Left, const _Istrit& _Right)
+{       // test for iterator inequality
+  return (!(_Left == _Right));
+}
+
+// CLASS _Ostrit
+class _Ostrit
+{       // output iterator for writing ostream
+public:
+  typedef _Ostrit _Myt;
+  typedef char char_type;
+  typedef char_traits traits_type;
+  typedef streambuf streambuf_type;
+
+  _Ostrit(streambuf_type *_Sb) _THROW0()
+    : _Failed(false), _Sbuf(_Sb)
+  {       // construct iterator for stream buffer _Sb
+  }
+
+  _Myt& operator=(char_type _Right)
+  {       // store element and increment
+    if (_Sbuf == 0
+        || traits_type::eq_int_type(traits_type::eof(),
+                                    _Sbuf->sputc(_Right)))
+      _Failed = true;
+    return (*this);
+  }
+
+  _Myt& operator*()
+  {       // pretend to get designated element
+    return (*this);
+  }
+
+  _Myt& operator++()
+  {       // pretend to preincrement
+    return (*this);
+  }
+
+  _Myt& operator++(int)
+  {       // pretend to postincrement
+    return (*this);
+  }
+
+  bool failed() const _THROW0()
+  {       // report true only if any stores failed
+    return (_Failed);
+  }
+
+private:
+  bool _Failed;   // true if any stores failed
+  streambuf_type *_Sbuf;  // the stream buffer to write
+};
+
+//      FUNCTION _Getloctxt
+int _Getloctxt(_Istrit& _First, _Istrit& _Last, size_t _Numfields,
+               const char *_Ptr);
+
+// CLASS numpunct
+class numpunct
+{       // facet for defining numeric punctuation text
+public:
+  typedef string string_type;
+
+  static char decimal_point()
+  {       // return decimal point
+    return ('.');
+  }
+
+  static char thousands_sep()
+  {       // return thousands separator
+    return ('\0');
+  }
+
+  static string grouping()
+  {       // return grouping string
+    return ("");
+  }
+
+  static string_type falsename()
+  {       // return false name
+    return ("false");
+  }
+
+  static string_type truename()
+  {       // return true name
+    return ("true");
+  }
+};
+
+
+// Placeholder for non-virtual functions in Embedded C++ that should
+// be "virtual" it this would have been full C++.
+#define _VIRTUAL
+
+// CLASS num_get
+class num_get
+{       // facet for converting text to encoded numbers
+public:
+  typedef char _Elem;
+  typedef _Istrit _InIt;
+  typedef numpunct _Mypunct;
+  typedef string _Mystr;
+
+  typedef _Elem char_type;
+  typedef _InIt iter_type;
+
+  _InIt get(_InIt _First, _InIt _Last, ios_base& _Iosbase,
+            ios_base::iostate& _State, _Bool& _Val) const
+  {       // get bool from [_First, _Last) into _Val
+    return (do_get(_First, _Last, _Iosbase, _State, _Val));
+  }
+
+  _InIt get(_InIt _First, _InIt _Last, ios_base& _Iosbase,
+            ios_base::iostate& _State, unsigned short& _Val) const
+  {       // get unsigned short from [_First, _Last) into _Val
+    return (do_get(_First, _Last, _Iosbase, _State, _Val));
+  }
+
+  _InIt get(_InIt _First, _InIt _Last, ios_base& _Iosbase,
+            ios_base::iostate& _State, unsigned int& _Val) const
+  {       // get unsigned int from [_First, _Last) into _Val
+    return (do_get(_First, _Last, _Iosbase, _State, _Val));
+  }
+
+  _InIt get(_InIt _First, _InIt _Last, ios_base& _Iosbase,
+            ios_base::iostate& _State, long& _Val) const
+  {       // get long from [_First, _Last) into _Val
+    return (do_get(_First, _Last, _Iosbase, _State, _Val));
+  }
+
+  _InIt get(_InIt _First, _InIt _Last, ios_base& _Iosbase,
+            ios_base::iostate& _State, unsigned long& _Val) const
+  {       // get unsigned long from [_First, _Last) into _Val
+    return (do_get(_First, _Last, _Iosbase, _State, _Val));
+  }
+#ifdef _LONGLONG
+
+  _InIt get(_InIt _First, _InIt _Last, ios_base& _Iosbase,
+            ios_base::iostate& _State, _LONGLONG& _Val) const
+  {       // get long long from [_First, _Last) into _Val
+    return (do_get(_First, _Last, _Iosbase, _State, _Val));
+  }
+
+  _InIt get(_InIt _First, _InIt _Last, ios_base& _Iosbase,
+            ios_base::iostate& _State, _ULONGLONG& _Val) const
+  {       // get unsigned long long from [_First, _Last) into _Val
+    return (do_get(_First, _Last, _Iosbase, _State, _Val));
+  }
+#endif /* _LONGLONG */
+
+  _InIt get(_InIt _First, _InIt _Last, ios_base& _Iosbase,
+            ios_base::iostate& _State, float& _Val) const
+  {       // get float from [_First, _Last) into _Val
+    return (do_get(_First, _Last, _Iosbase, _State, _Val));
+  }
+
+  _InIt get(_InIt _First, _InIt _Last, ios_base& _Iosbase,
+            ios_base::iostate& _State, double& _Val) const
+  {       // get double from [_First, _Last) into _Val
+    return (do_get(_First, _Last, _Iosbase, _State, _Val));
+  }
+
+  _InIt get(_InIt _First, _InIt _Last, ios_base& _Iosbase,
+            ios_base::iostate& _State, long double& _Val) const
+  {       // get long double from [_First, _Last) into _Val
+    return (do_get(_First, _Last, _Iosbase, _State, _Val));
+  }
+
+  _InIt get(_InIt _First, _InIt _Last, ios_base& _Iosbase,
+            ios_base::iostate& _State, void *& _Val) const
+  {       // get void pointer from [_First, _Last) into _Val
+    return (do_get(_First, _Last, _Iosbase, _State, _Val));
+  }
+
+protected:
+  _VIRTUAL _InIt do_get(_InIt _First, _InIt _Last, ios_base& _Iosbase,
+                        ios_base::iostate& _State, _Bool& _Val) const;
+
+  _VIRTUAL _InIt do_get(_InIt _First, _InIt _Last, ios_base& _Iosbase,
+                        ios_base::iostate& _State, unsigned short& _Val) const;
+
+  _VIRTUAL _InIt do_get(_InIt _First, _InIt _Last, ios_base& _Iosbase,
+                        ios_base::iostate& _State, unsigned int& _Val) const;
+
+  _VIRTUAL _InIt do_get(_InIt _First, _InIt _Last, ios_base& _Iosbase,
+                        ios_base::iostate& _State, long& _Val) const;
+
+  _VIRTUAL _InIt do_get(_InIt _First, _InIt _Last, ios_base& _Iosbase,
+                        ios_base::iostate& _State, unsigned long& _Val) const;
+#ifdef _LONGLONG
+
+  _VIRTUAL _InIt do_get(_InIt _First, _InIt _Last, ios_base& _Iosbase,
+                        ios_base::iostate& _State, _LONGLONG& _Val) const;
+
+  _VIRTUAL _InIt do_get(_InIt _First, _InIt _Last, ios_base& _Iosbase,
+                        ios_base::iostate& _State, _ULONGLONG& _Val) const;
+#endif /* _LONGLONG */
+
+  _VIRTUAL _InIt do_get(_InIt _First, _InIt _Last, ios_base& _Iosbase,
+                        ios_base::iostate& _State, float& _Val) const;
+
+  _VIRTUAL _InIt do_get(_InIt _First, _InIt _Last, ios_base& _Iosbase,
+                        ios_base::iostate& _State, double& _Val) const;
+
+  _VIRTUAL _InIt do_get(_InIt _First, _InIt _Last, ios_base& _Iosbase,
+                        ios_base::iostate& _State, long double& _Val) const;
+
+  _VIRTUAL _InIt do_get(_InIt _First, _InIt _Last, ios_base& _Iosbase,
+                        ios_base::iostate& _State, void *& _Val) const;
+
+
+private:
+  int _Getifld(char *_Ac, _InIt& _First, _InIt& _Last,
+               ios_base::fmtflags _Basefield, const locale& _Loc) const;
+
+
+  int _Getffld(char *_Ac, _InIt& _First, _InIt &_Last,
+               const locale& _Loc) const;
+};
+
+
+// CLASS num_put
+class num_put
+{       // facet for converting encoded numbers to text
+public:
+  typedef char _Elem;
+  typedef _Ostrit _OutIt;
+  typedef numpunct _Mypunct;
+  typedef string _Mystr;
+
+  typedef _Elem char_type;
+  typedef _OutIt iter_type;
+
+  _OutIt put(_OutIt _Dest, ios_base& _Iosbase, _Elem _Fill,
+             _Bool _Val) const
+  {       // put formatted bool to _Dest
+    return (do_put(_Dest, _Iosbase, _Fill, _Val));
+  }
+
+  _OutIt put(_OutIt _Dest, ios_base& _Iosbase, _Elem _Fill,
+             long _Val) const
+  {       // put formatted long to _Dest
+    return (do_put(_Dest, _Iosbase, _Fill, _Val));
+  }
+
+  _OutIt put(_OutIt _Dest, ios_base& _Iosbase, _Elem _Fill,
+             unsigned long _Val) const
+  {       // put formatted unsigned long to _Dest
+    return (do_put(_Dest, _Iosbase, _Fill, _Val));
+  }
+#ifdef _LONGLONG
+
+  _OutIt put(_OutIt _Dest, ios_base& _Iosbase, _Elem _Fill,
+             _LONGLONG _Val) const
+  {       // put formatted long long to _Dest
+    return (do_put(_Dest, _Iosbase, _Fill, _Val));
+  }
+
+  _OutIt put(_OutIt _Dest, ios_base& _Iosbase, _Elem _Fill,
+             _ULONGLONG _Val) const
+  {       // put formatted unsigned long long to _Dest
+    return (do_put(_Dest, _Iosbase, _Fill, _Val));
+  }
+#endif /* _LONGLONG */
+
+  _OutIt put(_OutIt _Dest, ios_base& _Iosbase, _Elem _Fill,
+             double _Val) const
+  {       // put formatted double to _Dest
+    return (do_put(_Dest, _Iosbase, _Fill, _Val));
+  }
+
+  _OutIt put(_OutIt _Dest, ios_base& _Iosbase, _Elem _Fill,
+             long double _Val) const
+  {       // put formatted long double to _Dest
+    return (do_put(_Dest, _Iosbase, _Fill, _Val));
+  }
+
+  _OutIt put(_OutIt _Dest, ios_base& _Iosbase, _Elem _Fill,
+             const void *_Val) const
+  {       // put formatted void pointer to _Dest
+    return (do_put(_Dest, _Iosbase, _Fill, _Val));
+  }
+
+protected:
+  _VIRTUAL _OutIt do_put(_OutIt _Dest, ios_base& _Iosbase, _Elem _Fill,
+                         _Bool _Val) const;
+
+  _VIRTUAL _OutIt do_put(_OutIt _Dest, ios_base& _Iosbase, _Elem _Fill,
+                         long _Val) const;
+
+  //_VIRTUAL
+  _OutIt do_put(_OutIt _Dest, ios_base& _Iosbase, _Elem _Fill,
+                        unsigned long _Val) const
+  {       // put formatted unsigned long to _Dest
+    char _Buf[2 * _MAX_INT_DIG], _Fmt[6];
+    return (_Iput(_Dest, _Iosbase, _Fill, _Buf,
+                  _CSTD sprintf(_Buf, _Ifmt(_Fmt, "lu",
+                                            _Iosbase.flags()), _Val)));
+  }
+#ifdef _LONGLONG
+
+  //_VIRTUAL
+  _OutIt do_put(_OutIt _Dest, ios_base& _Iosbase, _Elem _Fill,
+                        _LONGLONG _Val) const
+  {       // put formatted long long to _Dest
+    char _Buf[2 * _MAX_INT_DIG], _Fmt[8];
+    return (_Iput(_Dest, _Iosbase, _Fill, _Buf,
+                  _CSTD sprintf(_Buf, _Ifmt(_Fmt, "Ld",
+                                            _Iosbase.flags()), _Val)));
+  }
+
+  //_VIRTUAL
+  _OutIt do_put(_OutIt _Dest, ios_base& _Iosbase, _Elem _Fill,
+                        _ULONGLONG _Val) const
+  {       // put formatted unsigned long long to _Dest
+    char _Buf[2 * _MAX_INT_DIG], _Fmt[8];
+    return (_Iput(_Dest, _Iosbase, _Fill, _Buf,
+                  _CSTD sprintf(_Buf, _Ifmt(_Fmt, "Lu",
+                                            _Iosbase.flags()), _Val)));
+  }
+#endif /* _LONGLONG */
+
+  //_VIRTUAL
+  _OutIt do_put(_OutIt _Dest, ios_base& _Iosbase, _Elem _Fill,
+                        double _Val) const;
+
+  //_VIRTUAL
+  _OutIt do_put(_OutIt _Dest, ios_base& _Iosbase, _Elem _Fill,
+                        long double _Val) const;
+
+  // _VIRTUAL
+  _OutIt do_put(_OutIt _Dest, ios_base& _Iosbase, _Elem _Fill,
+                        const void *_Val) const
+  {       // put formatted void pointer to _Dest
+
+  char _Buf[2 * _MAX_INT_DIG];
+  return (_Iput(_Dest, _Iosbase, _Fill, _Buf,
+                _CSTD sprintf(_Buf, "%p", _Val)));
+  }
+
+private:
+  char *_Ffmt(char *_Fmt, char _Spec,
+              ios_base::fmtflags _Flags) const;
+
+  _OutIt _Fput(_OutIt _Dest, ios_base& _Iosbase,
+               _Elem _Fill, const char *_Buf,
+               size_t _Beforepoint, size_t _Afterpoint,
+               size_t _Trailing, size_t _Count) const;
+
+  char *_Ifmt(char *_Fmt, const char *_Spec,
+              ios_base::fmtflags _Flags) const;
+
+  _OutIt _Iput(_OutIt _Dest, ios_base& _Iosbase, _Elem _Fill,
+               char *_Buf, size_t _Count) const;
+
+  _OutIt _Put(_OutIt _Dest, const _Elem *_Ptr, size_t _Count) const;
+
+  _OutIt _Putc(_OutIt _Dest, const char *_Ptr, size_t _Count) const;
+
+  _OutIt _Putgrouped(_OutIt _Dest, const char *_Ptr,
+                     size_t _Count, _Elem _Kseparator) const;
+
+  _OutIt _Rep(_OutIt _Dest, _Elem _Ch, size_t _Count) const;
+};
+_STD_END
+#endif /* _XLOCNUM_ */
+
+/*
+ * Copyright (c) 1992-2002 by P.J. Plauger.  ALL RIGHTS RESERVED.
+ * Consult your license regarding permissions and restrictions.
+V3.12:0576 */

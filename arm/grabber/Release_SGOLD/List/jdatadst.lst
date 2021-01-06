@@ -1,0 +1,308 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    19/Jan/2011  13:20:30 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\grabber\jpeg-7\jdatadst.c                     #
+#    Command line    =  C:\arm\grabber\jpeg-7\jdatadst.c -lC                 #
+#                       C:\arm\grabber\Release_SGOLD\List\ -o                #
+#                       C:\arm\grabber\Release_SGOLD\Obj\ -s9 --no_unroll    #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\grabber\Release_SGOLD\List\jdatadst.lst       #
+#    Object file     =  C:\arm\grabber\Release_SGOLD\Obj\jdatadst.r79        #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\grabber\jpeg-7\jdatadst.c
+      1          /*
+      2           * jdatadst.c
+      3           *
+      4           * Copyright (C) 1994-1996, Thomas G. Lane.
+      5           * This file is part of the Independent JPEG Group's software.
+      6           * For conditions of distribution and use, see the accompanying README file.
+      7           *
+      8           * This file contains compression data destination routines for the case of
+      9           * emitting JPEG data to a file (or any stdio stream).  While these routines
+     10           * are sufficient for most applications, some will want to use a different
+     11           * destination manager.
+     12           * IMPORTANT: we assume that fwrite() will correctly transcribe an array of
+     13           * JOCTETs into 8-bit-wide elements on external storage.  If char is wider
+     14           * than 8 bits on your machine, you may need to do some tweaking.
+     15           */
+     16          
+     17          /* this is not a core library module, so it doesn't define JPEG_INTERNALS */
+     18          #include "jinclude.h"
+     19          #include "jpeglib.h"
+     20          #include "jerror.h"
+     21          
+     22          
+     23          /* Expanded data destination object for stdio output */
+     24          
+     25          typedef struct {
+     26            struct jpeg_destination_mgr pub; /* public fields */
+     27          
+     28            int outfile;		/* target stream */
+     29            JOCTET * buffer;		/* start of buffer */
+     30          } my_destination_mgr;
+     31          
+     32          typedef my_destination_mgr * my_dest_ptr;
+     33          
+     34          #define OUTPUT_BUF_SIZE  4096	/* choose an efficiently fwrite'able size */
+     35          
+     36          
+     37          /*
+     38           * Initialize destination --- called by jpeg_start_compress
+     39           * before any data is actually written.
+     40           */
+     41          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     42          METHODDEF(void)
+     43          init_destination (j_compress_ptr cinfo)
+     44          {
+   \                     init_destination:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+     45            my_dest_ptr dest = (my_dest_ptr) cinfo->dest;
+     46          
+     47            /* Allocate the output buffer --- it will be released when done with image */
+     48            dest->buffer = (JOCTET *)
+     49                (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_IMAGE,
+     50          				  OUTPUT_BUF_SIZE * SIZEOF(JOCTET));
+   \   00000004   043090E5           LDR      R3,[R0, #+4]
+   \   00000008   184090E5           LDR      R4,[R0, #+24]
+   \   0000000C   003093E5           LDR      R3,[R3, #+0]
+   \   00000010   402DA0E3           MOV      R2,#+4096
+   \   00000014   0110A0E3           MOV      R1,#+1
+   \   00000018   33FF2FE1           BLX      R3
+   \   0000001C   180084E5           STR      R0,[R4, #+24]
+     51          
+     52            dest->pub.next_output_byte = dest->buffer;
+   \   00000020   000084E5           STR      R0,[R4, #+0]
+     53            dest->pub.free_in_buffer = OUTPUT_BUF_SIZE;
+   \   00000024   400DA0E3           MOV      R0,#+4096
+   \   00000028   040084E5           STR      R0,[R4, #+4]
+     54          }
+   \   0000002C   1080BDE8           POP      {R4,PC}          ;; return
+     55          
+     56          
+     57          /*
+     58           * Empty the output buffer --- called whenever buffer fills up.
+     59           *
+     60           * In typical applications, this should write the entire output buffer
+     61           * (ignoring the current state of next_output_byte & free_in_buffer),
+     62           * reset the pointer & count to the start of the buffer, and return TRUE
+     63           * indicating that the buffer has been dumped.
+     64           *
+     65           * In applications that need to be able to suspend compression due to output
+     66           * overrun, a FALSE return indicates that the buffer cannot be emptied now.
+     67           * In this situation, the compressor will return to its caller (possibly with
+     68           * an indication that it has not accepted all the supplied scanlines).  The
+     69           * application should resume compression after it has made more room in the
+     70           * output buffer.  Note that there are substantial restrictions on the use of
+     71           * suspension --- see the documentation.
+     72           *
+     73           * When suspending, the compressor will back up to a convenient restart point
+     74           * (typically the start of the current MCU). next_output_byte & free_in_buffer
+     75           * indicate where the restart point will be if the current call returns FALSE.
+     76           * Data beyond this point will be regenerated after resumption, so do not
+     77           * write it out when emptying the buffer externally.
+     78           */
+     79          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     80          METHODDEF(boolean)
+     81          empty_output_buffer (j_compress_ptr cinfo)
+     82          {
+   \                     empty_output_buffer:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+     83            my_dest_ptr dest = (my_dest_ptr) cinfo->dest;
+     84          
+     85            if (JFWRITE(dest->outfile, dest->buffer, OUTPUT_BUF_SIZE) !=
+     86                (size_t) OUTPUT_BUF_SIZE)
+   \   00000004   0030A0E3           MOV      R3,#+0
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   185094E5           LDR      R5,[R4, #+24]
+   \   00000010   402DA0E3           MOV      R2,#+4096
+   \   00000014   140095E5           LDR      R0,[R5, #+20]
+   \   00000018   181095E5           LDR      R1,[R5, #+24]
+   \   0000001C   0C0000EF           SWI      +12
+   \   00000020   400D50E3           CMP      R0,#+4096
+   \   00000024   0600000A           BEQ      ??empty_output_buffer_0
+     87              ERREXIT(cinfo, JERR_FILE_WRITE);
+   \   00000028   000094E5           LDR      R0,[R4, #+0]
+   \   0000002C   2610A0E3           MOV      R1,#+38
+   \   00000030   141080E5           STR      R1,[R0, #+20]
+   \   00000034   001094E5           LDR      R1,[R4, #+0]
+   \   00000038   0400A0E1           MOV      R0,R4
+   \   0000003C   001091E5           LDR      R1,[R1, #+0]
+   \   00000040   31FF2FE1           BLX      R1
+     88          
+     89            dest->pub.next_output_byte = dest->buffer;
+   \                     ??empty_output_buffer_0:
+   \   00000044   180095E5           LDR      R0,[R5, #+24]
+   \   00000048   000085E5           STR      R0,[R5, #+0]
+     90            dest->pub.free_in_buffer = OUTPUT_BUF_SIZE;
+   \   0000004C   400DA0E3           MOV      R0,#+4096
+   \   00000050   040085E5           STR      R0,[R5, #+4]
+     91          
+     92            return TRUE;
+   \   00000054   0100A0E3           MOV      R0,#+1
+   \   00000058   3080BDE8           POP      {R4,R5,PC}       ;; return
+     93          }
+     94          
+     95          
+     96          /*
+     97           * Terminate destination --- called by jpeg_finish_compress
+     98           * after all data has been written.  Usually needs to flush buffer.
+     99           *
+    100           * NB: *not* called by jpeg_abort or jpeg_destroy; surrounding
+    101           * application must deal with any cleanup that should happen even
+    102           * for error exit.
+    103           */
+    104          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    105          METHODDEF(void) term_destination (j_compress_ptr cinfo)
+    106          {
+   \                     term_destination:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    107            my_dest_ptr dest = (my_dest_ptr) cinfo->dest;
+   \   00000008   186094E5           LDR      R6,[R4, #+24]
+    108            size_t datacount = OUTPUT_BUF_SIZE - dest->pub.free_in_buffer;
+    109          
+    110            /* Write any data remaining in the buffer */
+    111            if (datacount > 0) 
+   \   0000000C   2650A0E3           MOV      R5,#+38
+   \   00000010   040096E5           LDR      R0,[R6, #+4]
+   \   00000014   407D70E2           RSBS     R7,R0,#+4096
+   \   00000018   0C00000A           BEQ      ??term_destination_0
+    112            {
+    113              if (JFWRITE(dest->outfile, dest->buffer, datacount) != datacount) ERREXIT(cinfo, JERR_FILE_WRITE);
+   \   0000001C   140096E5           LDR      R0,[R6, #+20]
+   \   00000020   181096E5           LDR      R1,[R6, #+24]
+   \   00000024   0030A0E3           MOV      R3,#+0
+   \   00000028   0720A0E1           MOV      R2,R7
+   \   0000002C   0C0000EF           SWI      +12
+   \   00000030   070050E1           CMP      R0,R7
+   \   00000034   0500000A           BEQ      ??term_destination_0
+   \   00000038   000094E5           LDR      R0,[R4, #+0]
+   \   0000003C   145080E5           STR      R5,[R0, #+20]
+   \   00000040   001094E5           LDR      R1,[R4, #+0]
+   \   00000044   0400A0E1           MOV      R0,R4
+   \   00000048   001091E5           LDR      R1,[R1, #+0]
+   \   0000004C   31FF2FE1           BLX      R1
+    114            }
+    115            //fflush(dest->outfile); //?????
+    116            /* Make sure we wrote the output file OK */
+    117            if (dest->outfile==-1) ERREXIT(cinfo, JERR_FILE_WRITE);
+   \                     ??term_destination_0:
+   \   00000050   140096E5           LDR      R0,[R6, #+20]
+   \   00000054   010070E3           CMN      R0,#+1
+   \   00000058   F080BD18           POPNE    {R4-R7,PC}
+   \   0000005C   000094E5           LDR      R0,[R4, #+0]
+   \   00000060   145080E5           STR      R5,[R0, #+20]
+   \   00000064   001094E5           LDR      R1,[R4, #+0]
+   \   00000068   0400A0E1           MOV      R0,R4
+   \   0000006C   001091E5           LDR      R1,[R1, #+0]
+   \   00000070   31FF2FE1           BLX      R1
+    118          }
+   \   00000074   F080BDE8           POP      {R4-R7,PC}       ;; return
+    119          
+    120          
+    121          /*
+    122           * Prepare for output to a stdio stream.
+    123           * The caller must have already opened the stream, and is responsible
+    124           * for closing it after finishing compression.
+    125           */
+    126          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    127          GLOBAL(void)
+    128          jpeg_stdio_dest (j_compress_ptr cinfo, int outfile)
+    129          {
+   \                     jpeg_stdio_dest:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0050A0E1           MOV      R5,R0
+    130            my_dest_ptr dest;
+    131          
+    132            /* The destination object is made permanent so that multiple JPEG images
+    133             * can be written to the same file without re-executing jpeg_stdio_dest.
+    134             * This makes it dangerous to use this manager and a different destination
+    135             * manager serially with the same JPEG object, because their private object
+    136             * sizes may be different.  Caveat programmer.
+    137             */
+    138            if (cinfo->dest == NULL) {	/* first time for this JPEG object? */
+   \   00000008   180095E5           LDR      R0,[R5, #+24]
+   \   0000000C   0140A0E1           MOV      R4,R1
+   \   00000010   000050E3           CMP      R0,#+0
+   \   00000014   0600001A           BNE      ??jpeg_stdio_dest_0
+    139              cinfo->dest = (struct jpeg_destination_mgr *)
+    140                (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_PERMANENT,
+    141          				  SIZEOF(my_destination_mgr));
+   \   00000018   043095E5           LDR      R3,[R5, #+4]
+   \   0000001C   1C20A0E3           MOV      R2,#+28
+   \   00000020   003093E5           LDR      R3,[R3, #+0]
+   \   00000024   0010A0E3           MOV      R1,#+0
+   \   00000028   0500A0E1           MOV      R0,R5
+   \   0000002C   33FF2FE1           BLX      R3
+   \   00000030   180085E5           STR      R0,[R5, #+24]
+    142            }
+    143          
+    144            dest = (my_dest_ptr) cinfo->dest;
+   \                     ??jpeg_stdio_dest_0:
+   \   00000034   180095E5           LDR      R0,[R5, #+24]
+    145            dest->pub.init_destination = init_destination;
+   \   00000038   18109FE5           LDR      R1,??jpeg_stdio_dest_1  ;; init_destination
+   \   0000003C   081080E5           STR      R1,[R0, #+8]
+    146            dest->pub.empty_output_buffer = empty_output_buffer;
+   \   00000040   14109FE5           LDR      R1,??jpeg_stdio_dest_1+0x4  ;; empty_output_buffer
+   \   00000044   0C1080E5           STR      R1,[R0, #+12]
+    147            dest->pub.term_destination = term_destination;
+   \   00000048   10109FE5           LDR      R1,??jpeg_stdio_dest_1+0x8  ;; term_destination
+   \   0000004C   101080E5           STR      R1,[R0, #+16]
+    148            dest->outfile = outfile;
+   \   00000050   144080E5           STR      R4,[R0, #+20]
+    149          }
+   \   00000054   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??jpeg_stdio_dest_1:
+   \   00000058   ........           DC32     init_destination
+   \   0000005C   ........           DC32     empty_output_buffer
+   \   00000060   ........           DC32     term_destination
+
+   Maximum stack usage in bytes:
+
+     Function            CSTACK
+     --------            ------
+     empty_output_buffer    12
+     init_destination        8
+     jpeg_stdio_dest        12
+     term_destination       20
+
+
+   Segment part sizes:
+
+     Function/Label      Bytes
+     --------------      -----
+     init_destination      48
+     empty_output_buffer   92
+     term_destination     120
+     jpeg_stdio_dest      100
+      Others               16
+
+ 
+ 376 bytes in segment CODE
+ 
+ 360 bytes of CODE memory (+ 16 bytes shared)
+
+Errors: none
+Warnings: none

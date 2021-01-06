@@ -1,0 +1,398 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    05/Mar/2009  13:12:06 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\OthersMenu.cpp      #
+#    Command line    =  D:\pasha\elf\SieELF\MySMSYS\Mss3\OthersMenu.cpp -D   #
+#                       NEWSGOLD -D ELKA -D LANG_EN -lcN                     #
+#                       D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_EN\Lis #
+#                       t\ -o D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_ #
+#                       EN\Obj\ -s9 --no_unroll --cpu_mode arm --endian      #
+#                       little --cpu ARM926EJ-S --stack_align 4 --interwork  #
+#                       -e --fpu None --eec++ --dlib_config                  #
+#                       "D:\pasha\Embedded Workbench 4.0                     #
+#                       Evaluation2\ARM\LIB\dl5tpainl8n.h" -I                #
+#                       "D:\pasha\Embedded Workbench 4.0                     #
+#                       Evaluation2\ARM\INC\" --inline_threshold=2           #
+#    List file       =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_EN\Lis #
+#                       t\OthersMenu.lst                                     #
+#    Object file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_EN\Obj #
+#                       \OthersMenu.r79                                      #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\pasha\elf\SieELF\MySMSYS\Mss3\OthersMenu.cpp
+      1          #include "include.h"
+      2          #include "SiemensPDU.h"
+      3          #include "MyIpcMessage.h"
+      4          #include "File.h"
+      5          #include "SmsData.h"
+      6          #include "CreateMenu.h"
+      7          #include "AdrList.h"
+      8          #include "NumList.h"
+      9          #include "EditGUI.h"
+     10          #include "PopupGUI.h"
+     11          #include "OthersMenu.h"
+     12          
+     13          #include "TViewGUI.h"
+     14          #include "AFile.h"
+     15          
+     16          #define OTH_MENU_ITEM_N 7
+     17          
+     18          const HEADER_DESC oth_menuhdr={0,0,0,0,NULL,LGP_NULL,LGP_NULL};
+     19          
+     20          
+     21          void OpenArchive(void)
+     22          {
+     23            //int len, c;
+     24            char folder[128];
+     25            unsigned int err;
+     26            NativeExplorerData data;
+     27            WSHDR *ws, wsn;
+     28            unsigned short wsb[128];
+     29            ws=CreateLocalWS(&wsn, wsb, 128);
+     30            strcpy(folder, main_folder);
+     31            //len=strlen(folder);
+     32            //c=folder[len-1];
+     33            //if(c!='\\' && c!='/')
+     34            //{
+     35            //  folder[len]='\\';
+     36            //  folder[len+1]=0;
+     37            //}
+     38            if(!isdir(folder, &err))
+     39              mkdir(folder, &err);
+     40            strcat(folder, FLDR_ARCHIVE);
+     41            if(!isdir(folder, &err))
+     42              mkdir(folder, &err);
+     43            if(!isdir(folder, &err))
+     44              return;
+     45            str_2ws(ws, folder, 128);
+     46            zeromem(&data,sizeof(NativeExplorerData));
+     47            data.mode=0;
+     48            data.dir_enum=0x26;
+     49            data.path_to_file=ws;
+     50            data.is_exact_dir=1;
+     51            data.full_filename=ws;
+     52            data.unk9=1;
+     53            StartNativeExplorer(&data);
+     54          }
+     55          
+     56          OthMenu::OthMenu()
+     57          {
+     58            this->menu.flag=8;
+     59            this->menu.flags2=0x10;
+     60            this->menu.ghook=this->GHook;
+     61            this->menu.itemproc=this->ItemProc;
+     62            this->menu.items=NULL;
+     63            this->menu.n_items=0;
+     64            this->menu.onkey=this->OnKey;
+     65            this->menu.proc3=NULL;
+     66            this->menu.procs=NULL;
+     67            this->menu.softkeys=softkeys;
+     68            this->menu.softkeystab=&sel_menu_skt;
+     69          }
+     70          
+     71          OthMenu::~OthMenu()
+     72          {
+     73          }
+     74          
+     75          int OthMenu::OnKey(void *data, GUI_MSG *msg)
+     76          {
+     77            OthMenu *oth=(OthMenu *)MenuGetUserPointer(data);
+     78            int cur=GetCurMenuItem(data);
+     79            if(msg->keys==1)
+     80              return 1;
+     81            if(msg->keys==0x3D || msg->keys==0x18)
+     82            {
+     83          DO_OTH:
+     84              switch(cur)
+     85              {
+     86              case 0:
+     87                oth->OpenCfgFile();
+     88                break;
+     89              case 1:
+     90                oth->OpenArchiveOTH();
+     91                break;
+     92              case 2:
+     93                oth->MoveAllMss();
+     94                break;
+     95              case 3:
+     96                oth->ExportTxtAll();
+     97                break;
+     98              case 4:
+     99                oth->DelAllMss();
+    100                break;
+    101              case 5:
+    102                oth->ShowHelp();
+    103                break;
+    104              case 6:
+    105                oth->ShowAbout();
+    106                break;
+    107              }
+    108              return 1;
+    109            }
+    110            if(msg->gbsmsg->msg==KEY_DOWN)
+    111            {
+    112              cur=msg->gbsmsg->submess;
+    113              if(cur>='1' && cur<='9')
+    114              {
+    115                cur-='1';
+    116                if(cur<OTH_MENU_ITEM_N) goto DO_OTH;
+    117              }
+    118            }
+    119            return 0;
+    120          }
+    121          
+    122          void OthMenu::GHook(void *data, int cmd)
+    123          {
+    124            OthMenu *oth=(OthMenu *)MenuGetUserPointer(data);
+    125            if(cmd==0x3)
+    126            {
+    127              delete oth;
+    128            }
+    129            else if(cmd==0xA)
+    130            {
+    131              DisableIDLETMR();
+    132            }
+    133            else if (cmd==0x2)
+    134            {
+    135              WSHDR *hdr_t=AllocWS(32);
+    136              wsprintf(hdr_t, PERCENT_T, LGP->lgp.LGP_OTHERS);
+    137              SetHeaderText(GetHeaderPointer(data), hdr_t, malloc_adr(), mfree_adr());
+    138            }
+    139          }
+    140          
+    141          int OTH_ITEM_LGPS[OTH_MENU_ITEM_N]=
+    142          {
+    143            LGP_NULL, //config
+    144              LGP_NULL, //open archive
+    145              LGP_NULL, //move all mss to archive
+    146              LGP_NULL, //export all
+    147              LGP_NULL, //del all mss
+    148              LGP_NULL, //help
+    149              LGP_NULL, //about
+    150          };
+    151          
+    152          void OthMenu::ItemProc(void *data, int curitem, void *user_pointer)
+    153          {
+    154            void *item=AllocMenuItem(data);
+    155            WSHDR *ws=AllocMenuWS(data, 150);
+    156            wsprintf(ws, PERCENT_T, OTH_ITEM_LGPS[curitem]);
+    157            SetMenuItemText(data, item, ws, curitem);
+    158          }
+    159          
+    160          int OthMenu::CreateOthMenu(DLG_CSM *dlg_csm)
+    161          {
+    162            this->dlg_csm=dlg_csm;
+    163            //patch_header(&oth_menuhdr);
+    164            return CreateMenu(&this->menu, &oth_menuhdr, 0, OTH_MENU_ITEM_N, this);
+    165          }
+    166          
+    167          void OthMenu::OpenCfgFile(void)
+    168          {
+    169            extern const char *successed_config_filename;
+    170            WSHDR *file=AllocWS(128);
+    171            str_2ws(file, successed_config_filename, 128);
+    172            ExecuteFile(file, 0, 0);
+    173            FreeWS(file);
+    174          }
+    175          
+    176          
+    177          void OthMenu::OpenArchiveOTH(void)
+    178          {
+    179            SUBPROC((void *)OpenArchive);
+    180          }
+    181          
+    182          void OthMenu::MoveAllMss(void)
+    183          {
+    184            SUBPROC((void *)SMSDATA->MoveAllToArchiveBG, SMSDATA);
+    185          }
+    186          
+    187          void OthMenu::ShowAbout()
+    188          {
+    189            char msg[128];
+    190            sprintf(msg, "%s\nCompile at\n%s %s", CP_RIGHT, __DATE__, __TIME__);
+    191            MyShowMsg::MyShow(0, msg);
+    192          }
+    193          
+    194          #define HLP_BUF_SIZE (16*1024)
+    195          char help_buf[HLP_BUF_SIZE];
+    196          
+    197          void OthMenu::ShowHelp()
+    198          {
+    199            char filepath[128];
+    200            AFile file;
+    201            int len;
+    202            WSHDR *ws;
+    203            strcpy(filepath, main_folder);
+    204            strcat(filepath, "help.txt");
+    205            if((file.FOpen(filepath, A_ReadOnly, P_READ))!=-1)
+    206            {
+    207              len=file.FRead(help_buf, HLP_BUF_SIZE);
+    208              file.FClose();
+    209              if(!len)
+    210                goto HLP_DEFAUT;
+    211              help_buf[len]='\0';
+    212              ws=AllocWS(len);
+    213          #ifdef LANG_CN
+    214              ascii_2ws(ws, help_buf, len);
+    215          #else
+    216              wsprintf(ws, PERCENT_T, help_buf);
+    217          #endif
+    218            }
+    219            else
+    220            {
+    221          HLP_DEFAUT:
+    222              ws=AllocWS(256);
+    223              wsprintf(ws, PERCENT_T, DEFAUT_HLP_STR);
+    224            }
+    225            WSHDR *hdr_t=AllocWS(32);
+    226            wsprintf(hdr_t, PERCENT_T, LGP->lgp.LGP_HELP);
+    227            TViewGUI *tv=new TViewGUI;
+    228            tv->CreateTViewGUI(ws, hdr_t);
+    229          }
+    230          /*
+    231          void OthMenu::ShowHelp()
+    232          {
+    233            char filepath[128];
+    234            CFile file;
+    235            int fin;
+    236            int len;
+    237            WSHDR *ws;
+    238            strcpy(filepath, main_folder);
+    239            strcat(filepath, "help.txt");
+    240            if((fin=file.FOpen(filepath, A_ReadOnly, P_READ))!=-1)
+    241            {
+    242              if((len=file.LSeek(fin, 0, S_END)))
+    243              {
+    244                char *buf=new char[len+4];
+    245                file.LSeek(fin, 0, S_SET);
+    246                if(file.FRead(fin, buf, len)!=len)
+    247                {
+    248          	delete buf;
+    249          	goto HLP_FERR;
+    250                }
+    251                file.FClose(fin);
+    252                buf[len]=0;
+    253                ws=AllocWS(len);
+    254                wsprintf(ws, PERCENT_T, buf);
+    255                delete buf;
+    256              }
+    257              else
+    258              {
+    259          HLP_FERR:
+    260                file.FClose(fin);
+    261                goto HLP_DEFAUT;
+    262              }
+    263            }
+    264            else
+    265            {
+    266          HLP_DEFAUT:
+    267              ws=AllocWS(256);
+    268              wsprintf(ws, PERCENT_T, DEFAUT_HLP_STR);
+    269            }
+    270            WSHDR *hdr_t=AllocWS(32);
+    271            wsprintf(hdr_t, PERCENT_T, LGP->lgp.LGP_HELP);
+    272            TViewGUI *tv=new TViewGUI;
+    273            tv->CreateTViewGUI(ws, hdr_t);
+    274          }
+    275          */
+    276          void OthMenu::ExportTxtAll()
+    277          {
+    278            SUBPROC((void *)SMSDATA->ExportAllToTextBG, SMSDATA);
+    279          }
+    280          
+    281          
+    282          
+    283          void OthMenu::DelAllMss()
+    284          {
+    285            SUBPROC((void*)SMSDATA->DeleteAllMssBG, SMSDATA);
+    286          }
+
+   Maximum stack usage in bytes:
+
+     Function                       CSTACK
+     --------                       ------
+     OpenArchive()                    520
+     OthMenu::CreateOthMenu(DLG_CSM *)
+                                        8
+     OthMenu::DelAllMss()               4
+     OthMenu::ExportTxtAll()            4
+     OthMenu::GHook(void *, int)       20
+     OthMenu::ItemProc(void *, int, void *)
+                                       20
+     OthMenu::MoveAllMss()              4
+     OthMenu::OnKey(void *, GUI_MSG *)
+                                       16
+     OthMenu::OpenArchiveOTH()          4
+     OthMenu::OpenCfgFile()             8
+     OthMenu::OthMenu()                 0
+     OthMenu::ShowAbout()             136
+     OthMenu::ShowHelp()              152
+     OthMenu::delete ~OthMenu(OthMenu *)
+                                        4
+     OthMenu::new OthMenu()             4
+     OthMenu::~OthMenu()                0
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     oth_menuhdr                       20
+     OpenArchive()                    220
+     OthMenu::OthMenu()               100
+     OthMenu::~OthMenu()                4
+     OthMenu::OnKey(void *, GUI_MSG *)
+                                      236
+     OthMenu::GHook(void *, int)      144
+     OTH_ITEM_LGPS                     28
+     OthMenu::ItemProc(void *, int, void *)
+                                       84
+     OthMenu::CreateOthMenu(DLG_CSM *)
+                                       44
+     OthMenu::OpenCfgFile()            68
+     OthMenu::OpenArchiveOTH()         16
+     OthMenu::MoveAllMss()             24
+     OthMenu::ShowAbout()              60
+     help_buf                       16384
+     OthMenu::ShowHelp()              244
+     OthMenu::ExportTxtAll()           24
+     OthMenu::DelAllMss()              24
+     ?<Initializer for OTH_ITEM_LGPS>
+                                       28
+     ?<Constant "help.txt">            12
+     ?<Constant "%s\nCompile at\n%s %s">
+                                       96
+     OthMenu::delete ~OthMenu(OthMenu *)
+                                       20
+     OthMenu::new OthMenu()            28
+     ??DataTable9                       4
+     ??DataTable11                      4
+     ??DataTable12                      4
+     ??DataTable13                      4
+     ??DataTable14                      4
+     ??DataTable16                      4
+     ??DataTable17                      4
+     ??DataTable18                      4
+      Others                          220
+
+ 
+  1 568 bytes in segment CODE
+    128 bytes in segment DATA_C
+     28 bytes in segment DATA_I
+     28 bytes in segment DATA_ID
+ 16 384 bytes in segment DATA_Z
+     24 bytes in segment INITTAB
+ 
+  1 372 bytes of CODE  memory (+ 220 bytes shared)
+    156 bytes of CONST memory
+ 16 412 bytes of DATA  memory
+
+Errors: none
+Warnings: none

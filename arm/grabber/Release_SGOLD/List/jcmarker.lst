@@ -1,0 +1,1574 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    19/Jan/2011  13:20:53 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\grabber\jpeg-7\jcmarker.c                     #
+#    Command line    =  C:\arm\grabber\jpeg-7\jcmarker.c -lC                 #
+#                       C:\arm\grabber\Release_SGOLD\List\ -o                #
+#                       C:\arm\grabber\Release_SGOLD\Obj\ -s9 --no_unroll    #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\grabber\Release_SGOLD\List\jcmarker.lst       #
+#    Object file     =  C:\arm\grabber\Release_SGOLD\Obj\jcmarker.r79        #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\grabber\jpeg-7\jcmarker.c
+      1          /*
+                  ^
+Warning[Pa050]: non-native end of line sequence detected (this diagnostic is
+          only issued once)
+      2           * jcmarker.c
+      3           *
+      4           * Copyright (C) 1991-1998, Thomas G. Lane.
+      5           * This file is part of the Independent JPEG Group's software.
+      6           * For conditions of distribution and use, see the accompanying README file.
+      7           *
+      8           * This file contains routines to write JPEG datastream markers.
+      9           */
+     10          
+     11          #define JPEG_INTERNALS
+     12          #include "jinclude.h"
+     13          #include "jpeglib.h"
+     14          
+     15          
+     16          typedef enum {			/* JPEG marker codes */
+     17            M_SOF0  = 0xc0,
+     18            M_SOF1  = 0xc1,
+     19            M_SOF2  = 0xc2,
+     20            M_SOF3  = 0xc3,
+     21            
+     22            M_SOF5  = 0xc5,
+     23            M_SOF6  = 0xc6,
+     24            M_SOF7  = 0xc7,
+     25            
+     26            M_JPG   = 0xc8,
+     27            M_SOF9  = 0xc9,
+     28            M_SOF10 = 0xca,
+     29            M_SOF11 = 0xcb,
+     30            
+     31            M_SOF13 = 0xcd,
+     32            M_SOF14 = 0xce,
+     33            M_SOF15 = 0xcf,
+     34            
+     35            M_DHT   = 0xc4,
+     36            
+     37            M_DAC   = 0xcc,
+     38            
+     39            M_RST0  = 0xd0,
+     40            M_RST1  = 0xd1,
+     41            M_RST2  = 0xd2,
+     42            M_RST3  = 0xd3,
+     43            M_RST4  = 0xd4,
+     44            M_RST5  = 0xd5,
+     45            M_RST6  = 0xd6,
+     46            M_RST7  = 0xd7,
+     47            
+     48            M_SOI   = 0xd8,
+     49            M_EOI   = 0xd9,
+     50            M_SOS   = 0xda,
+     51            M_DQT   = 0xdb,
+     52            M_DNL   = 0xdc,
+     53            M_DRI   = 0xdd,
+     54            M_DHP   = 0xde,
+     55            M_EXP   = 0xdf,
+     56            
+     57            M_APP0  = 0xe0,
+     58            M_APP1  = 0xe1,
+     59            M_APP2  = 0xe2,
+     60            M_APP3  = 0xe3,
+     61            M_APP4  = 0xe4,
+     62            M_APP5  = 0xe5,
+     63            M_APP6  = 0xe6,
+     64            M_APP7  = 0xe7,
+     65            M_APP8  = 0xe8,
+     66            M_APP9  = 0xe9,
+     67            M_APP10 = 0xea,
+     68            M_APP11 = 0xeb,
+     69            M_APP12 = 0xec,
+     70            M_APP13 = 0xed,
+     71            M_APP14 = 0xee,
+     72            M_APP15 = 0xef,
+     73            
+     74            M_JPG0  = 0xf0,
+     75            M_JPG13 = 0xfd,
+     76            M_COM   = 0xfe,
+     77            
+     78            M_TEM   = 0x01,
+     79            
+     80            M_ERROR = 0x100
+     81          } JPEG_MARKER;
+     82          
+     83          
+     84          /* Private state */
+     85          
+     86          typedef struct {
+     87            struct jpeg_marker_writer pub; /* public fields */
+     88          
+     89            unsigned int last_restart_interval; /* last DRI value emitted; 0 after SOI */
+     90          } my_marker_writer;
+     91          
+     92          typedef my_marker_writer * my_marker_ptr;
+     93          
+     94          
+     95          /*
+     96           * Basic output routines.
+     97           *
+     98           * Note that we do not support suspension while writing a marker.
+     99           * Therefore, an application using suspension must ensure that there is
+    100           * enough buffer space for the initial markers (typ. 600-700 bytes) before
+    101           * calling jpeg_start_compress, and enough space to write the trailing EOI
+    102           * (a few bytes) before calling jpeg_finish_compress.  Multipass compression
+    103           * modes are not supported at all with suspension, so those two are the only
+    104           * points where markers will be written.
+    105           */
+    106          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    107          LOCAL(void)
+    108          emit_byte (j_compress_ptr cinfo, int val)
+    109          /* Emit a byte */
+    110          {
+   \                     emit_byte:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    111            struct jpeg_destination_mgr * dest = cinfo->dest;
+   \   00000008   182094E5           LDR      R2,[R4, #+24]
+    112          
+    113            *(dest->next_output_byte)++ = (JOCTET) val;
+   \   0000000C   000092E5           LDR      R0,[R2, #+0]
+   \   00000010   013080E2           ADD      R3,R0,#+1
+   \   00000014   003082E5           STR      R3,[R2, #+0]
+   \   00000018   0010C0E5           STRB     R1,[R0, #+0]
+    114            if (--dest->free_in_buffer == 0) {
+   \   0000001C   040092E5           LDR      R0,[R2, #+4]
+   \   00000020   010050E2           SUBS     R0,R0,#+1
+   \   00000024   040082E5           STR      R0,[R2, #+4]
+   \   00000028   1080BD18           POPNE    {R4,PC}
+    115              if (! (*dest->empty_output_buffer) (cinfo))
+   \   0000002C   0C1092E5           LDR      R1,[R2, #+12]
+   \   00000030   0400A0E1           MOV      R0,R4
+   \   00000034   31FF2FE1           BLX      R1
+   \   00000038   000050E3           CMP      R0,#+0
+   \   0000003C   1080BD18           POPNE    {R4,PC}
+    116                ERREXIT(cinfo, JERR_CANT_SUSPEND);
+   \   00000040   000094E5           LDR      R0,[R4, #+0]
+   \   00000044   1910A0E3           MOV      R1,#+25
+   \   00000048   141080E5           STR      R1,[R0, #+20]
+   \   0000004C   001094E5           LDR      R1,[R4, #+0]
+   \   00000050   0400A0E1           MOV      R0,R4
+   \   00000054   001091E5           LDR      R1,[R1, #+0]
+   \   00000058   31FF2FE1           BLX      R1
+    117            }
+    118          }
+   \   0000005C   1080BDE8           POP      {R4,PC}          ;; return
+    119          
+    120          
+    121          LOCAL(void)
+    122          emit_marker (j_compress_ptr cinfo, JPEG_MARKER mark)
+    123          /* Emit a marker code */
+    124          {
+    125            emit_byte(cinfo, 0xFF);
+    126            emit_byte(cinfo, (int) mark);
+    127          }
+    128          
+    129          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    130          LOCAL(void)
+    131          emit_2bytes (j_compress_ptr cinfo, int value)
+    132          /* Emit a 2-byte integer; these are always MSB first in JPEG files */
+    133          {
+   \                     emit_2bytes:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    134            emit_byte(cinfo, (value >> 8) & 0xFF);
+   \   00000008   FF00A0E3           MOV      R0,#+255
+   \   0000000C   0150A0E1           MOV      R5,R1
+   \   00000010   451400E0           AND      R1,R0,R5, ASR #+8
+   \   00000014   0400A0E1           MOV      R0,R4
+   \   00000018   ........           BL       emit_byte
+    135            emit_byte(cinfo, value & 0xFF);
+   \   0000001C   FF1005E2           AND      R1,R5,#0xFF
+   \   00000020   0400A0E1           MOV      R0,R4
+   \   00000024   3040BDE8           POP      {R4,R5,LR}       ;; Pop
+   \   00000028   ........           B        emit_byte        ;; tailcall
+    136          }
+    137          
+    138          
+    139          /*
+    140           * Routines to write specific marker types.
+    141           */
+    142          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    143          LOCAL(int)
+    144          emit_dqt (j_compress_ptr cinfo, int index)
+    145          /* Emit a DQT marker */
+    146          /* Returns the precision used (0 = 8bits, 1 = 16bits) for baseline checking */
+    147          {
+   \                     emit_dqt:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+    148            JQUANT_TBL * qtbl = cinfo->quant_tbl_ptrs[index];
+   \   0000000C   050184E0           ADD      R0,R4,R5, LSL #+2
+   \   00000010   546090E5           LDR      R6,[R0, #+84]
+    149            int prec;
+    150            int i;
+    151          
+    152            if (qtbl == NULL)
+   \   00000014   000056E3           CMP      R6,#+0
+   \   00000018   0800001A           BNE      ??emit_dqt_0
+    153              ERREXIT1(cinfo, JERR_NO_QUANT_TABLE, index);
+   \   0000001C   000094E5           LDR      R0,[R4, #+0]
+   \   00000020   3610A0E3           MOV      R1,#+54
+   \   00000024   141080E5           STR      R1,[R0, #+20]
+   \   00000028   000094E5           LDR      R0,[R4, #+0]
+   \   0000002C   185080E5           STR      R5,[R0, #+24]
+   \   00000030   001094E5           LDR      R1,[R4, #+0]
+   \   00000034   0400A0E1           MOV      R0,R4
+   \   00000038   001091E5           LDR      R1,[R1, #+0]
+   \   0000003C   31FF2FE1           BLX      R1
+    154          
+    155            prec = 0;
+   \                     ??emit_dqt_0:
+   \   00000040   0070A0E3           MOV      R7,#+0
+    156            for (i = 0; i < DCTSIZE2; i++) {
+   \   00000044   0080A0E3           MOV      R8,#+0
+    157              if (qtbl->quantval[i] > 255)
+   \                     ??emit_dqt_1:
+   \   00000048   880086E0           ADD      R0,R6,R8, LSL #+1
+   \   0000004C   B000D0E1           LDRH     R0,[R0, #+0]
+    158                prec = 1;
+    159            }
+   \   00000050   018088E2           ADD      R8,R8,#+1
+   \   00000054   400F50E3           CMP      R0,#+256
+   \   00000058   0170A023           MOVCS    R7,#+1
+   \   0000005C   400058E3           CMP      R8,#+64
+   \   00000060   F8FFFFBA           BLT      ??emit_dqt_1
+    160          
+    161            if (! qtbl->sent_table) {
+   \   00000064   800096E5           LDR      R0,[R6, #+128]
+   \   00000068   000050E3           CMP      R0,#+0
+   \   0000006C   1F00001A           BNE      ??emit_dqt_2
+    162              emit_marker(cinfo, M_DQT);
+   \   00000070   FF10A0E3           MOV      R1,#+255
+   \   00000074   0400A0E1           MOV      R0,R4
+   \   00000078   ........           BL       emit_byte
+   \   0000007C   DB10A0E3           MOV      R1,#+219
+   \   00000080   0400A0E1           MOV      R0,R4
+   \   00000084   ........           BL       emit_byte
+    163          
+    164              emit_2bytes(cinfo, prec ? DCTSIZE2*2 + 1 + 2 : DCTSIZE2 + 1 + 2);
+   \   00000088   000057E3           CMP      R7,#+0
+   \   0000008C   8310A013           MOVNE    R1,#+131
+   \   00000090   4310A003           MOVEQ    R1,#+67
+   \   00000094   0400A0E1           MOV      R0,R4
+   \   00000098   ........           BL       emit_2bytes
+    165          
+    166              emit_byte(cinfo, index + (prec<<4));
+   \   0000009C   071285E0           ADD      R1,R5,R7, LSL #+4
+   \   000000A0   0400A0E1           MOV      R0,R4
+   \   000000A4   ........           BL       emit_byte
+    167          
+    168              for (i = 0; i < DCTSIZE2; i++) {
+   \   000000A8   0080A0E3           MOV      R8,#+0
+    169                /* The table entries must be emitted in zigzag order. */
+    170                unsigned int qval = qtbl->quantval[jpeg_natural_order[i]];
+   \                     ??emit_dqt_3:
+   \   000000AC   44009FE5           LDR      R0,??emit_dqt_4  ;; jpeg_natural_order
+    171                if (prec)
+   \   000000B0   000057E3           CMP      R7,#+0
+   \   000000B4   080190E7           LDR      R0,[R0, +R8, LSL #+2]
+   \   000000B8   800086E0           ADD      R0,R6,R0, LSL #+1
+   \   000000BC   B050D0E1           LDRH     R5,[R0, #+0]
+   \   000000C0   0200000A           BEQ      ??emit_dqt_5
+    172          	emit_byte(cinfo, (int) (qval >> 8));
+   \   000000C4   2514A0E1           LSR      R1,R5,#+8
+   \   000000C8   0400A0E1           MOV      R0,R4
+   \   000000CC   ........           BL       emit_byte
+    173                emit_byte(cinfo, (int) (qval & 0xFF));
+   \                     ??emit_dqt_5:
+   \   000000D0   0400A0E1           MOV      R0,R4
+   \   000000D4   FF1005E2           AND      R1,R5,#0xFF
+   \   000000D8   ........           BL       emit_byte
+    174              }
+   \   000000DC   018088E2           ADD      R8,R8,#+1
+   \   000000E0   400058E3           CMP      R8,#+64
+   \   000000E4   F0FFFFBA           BLT      ??emit_dqt_3
+    175          
+    176              qtbl->sent_table = TRUE;
+   \   000000E8   0100A0E3           MOV      R0,#+1
+   \   000000EC   800086E5           STR      R0,[R6, #+128]
+    177            }
+    178          
+    179            return prec;
+   \                     ??emit_dqt_2:
+   \   000000F0   0700A0E1           MOV      R0,R7
+   \   000000F4   F081BDE8           POP      {R4-R8,PC}       ;; return
+   \                     ??emit_dqt_4:
+   \   000000F8   ........           DC32     jpeg_natural_order
+    180          }
+    181          
+    182          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    183          LOCAL(void)
+    184          emit_dht (j_compress_ptr cinfo, int index, boolean is_ac)
+    185          /* Emit a DHT marker */
+    186          {
+   \                     emit_dht:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0160A0E1           MOV      R6,R1
+    187            JHUFF_TBL * htbl;
+    188            int length, i;
+    189            
+    190            if (is_ac) {
+   \   0000000C   060184E0           ADD      R0,R4,R6, LSL #+2
+   \   00000010   000052E3           CMP      R2,#+0
+    191              htbl = cinfo->ac_huff_tbl_ptrs[index];
+   \   00000014   84509015           LDRNE    R5,[R0, #+132]
+    192              index += 0x10;		/* output index has AC bit set */
+   \   00000018   10608612           ADDNE    R6,R6,#+16
+    193            } else {
+    194              htbl = cinfo->dc_huff_tbl_ptrs[index];
+   \   0000001C   74509005           LDREQ    R5,[R0, #+116]
+    195            }
+    196          
+    197            if (htbl == NULL)
+   \   00000020   000055E3           CMP      R5,#+0
+   \   00000024   0800001A           BNE      ??emit_dht_0
+    198              ERREXIT1(cinfo, JERR_NO_HUFF_TABLE, index);
+   \   00000028   000094E5           LDR      R0,[R4, #+0]
+   \   0000002C   3410A0E3           MOV      R1,#+52
+   \   00000030   141080E5           STR      R1,[R0, #+20]
+   \   00000034   000094E5           LDR      R0,[R4, #+0]
+   \   00000038   186080E5           STR      R6,[R0, #+24]
+   \   0000003C   001094E5           LDR      R1,[R4, #+0]
+   \   00000040   0400A0E1           MOV      R0,R4
+   \   00000044   001091E5           LDR      R1,[R1, #+0]
+   \   00000048   31FF2FE1           BLX      R1
+    199            
+    200            if (! htbl->sent_table) {
+   \                     ??emit_dht_0:
+   \   0000004C   140195E5           LDR      R0,[R5, #+276]
+   \   00000050   000050E3           CMP      R0,#+0
+   \   00000054   F080BD18           POPNE    {R4-R7,PC}
+    201              emit_marker(cinfo, M_DHT);
+   \   00000058   FF10A0E3           MOV      R1,#+255
+   \   0000005C   0400A0E1           MOV      R0,R4
+   \   00000060   ........           BL       emit_byte
+   \   00000064   C410A0E3           MOV      R1,#+196
+   \   00000068   0400A0E1           MOV      R0,R4
+   \   0000006C   ........           BL       emit_byte
+    202              
+    203              length = 0;
+   \   00000070   0070A0E3           MOV      R7,#+0
+    204              for (i = 1; i <= 16; i++)
+   \   00000074   0100A0E3           MOV      R0,#+1
+    205                length += htbl->bits[i];
+   \                     ??emit_dht_1:
+   \   00000078   0510D0E7           LDRB     R1,[R0, +R5]
+   \   0000007C   010080E2           ADD      R0,R0,#+1
+   \   00000080   110050E3           CMP      R0,#+17
+   \   00000084   077081E0           ADD      R7,R1,R7
+   \   00000088   FAFFFFBA           BLT      ??emit_dht_1
+    206              
+    207              emit_2bytes(cinfo, length + 2 + 1 + 16);
+   \   0000008C   131087E2           ADD      R1,R7,#+19
+   \   00000090   0400A0E1           MOV      R0,R4
+   \   00000094   ........           BL       emit_2bytes
+    208              emit_byte(cinfo, index);
+   \   00000098   0610A0E1           MOV      R1,R6
+   \   0000009C   0400A0E1           MOV      R0,R4
+   \   000000A0   ........           BL       emit_byte
+    209              
+    210              for (i = 1; i <= 16; i++)
+   \   000000A4   0160A0E3           MOV      R6,#+1
+    211                emit_byte(cinfo, htbl->bits[i]);
+   \                     ??emit_dht_2:
+   \   000000A8   0510D6E7           LDRB     R1,[R6, +R5]
+   \   000000AC   0400A0E1           MOV      R0,R4
+   \   000000B0   016086E2           ADD      R6,R6,#+1
+   \   000000B4   ........           BL       emit_byte
+   \   000000B8   110056E3           CMP      R6,#+17
+   \   000000BC   F9FFFFBA           BLT      ??emit_dht_2
+    212              
+    213              for (i = 0; i < length; i++)
+   \   000000C0   0060A0E3           MOV      R6,#+0
+   \   000000C4   010057E3           CMP      R7,#+1
+   \   000000C8   070000AA           BGE      ??emit_dht_3
+   \   000000CC   0100A0E3           MOV      R0,#+1
+   \   000000D0   140185E5           STR      R0,[R5, #+276]
+   \   000000D4   F080BDE8           POP      {R4-R7,PC}
+    214                emit_byte(cinfo, htbl->huffval[i]);
+   \                     ??emit_dht_4:
+   \   000000D8   050086E0           ADD      R0,R6,R5
+   \   000000DC   1110D0E5           LDRB     R1,[R0, #+17]
+   \   000000E0   0400A0E1           MOV      R0,R4
+   \   000000E4   016086E2           ADD      R6,R6,#+1
+   \   000000E8   ........           BL       emit_byte
+   \                     ??emit_dht_3:
+   \   000000EC   070056E1           CMP      R6,R7
+   \   000000F0   F8FFFFBA           BLT      ??emit_dht_4
+    215              
+    216              htbl->sent_table = TRUE;
+   \   000000F4   0100A0E3           MOV      R0,#+1
+   \   000000F8   140185E5           STR      R0,[R5, #+276]
+    217            }
+    218          }
+   \   000000FC   F080BDE8           POP      {R4-R7,PC}       ;; return
+    219          
+    220          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    221          LOCAL(void)
+    222          emit_dac (j_compress_ptr cinfo)
+    223          /* Emit a DAC marker */
+    224          /* Since the useful info is so small, we want to emit all the tables in */
+    225          /* one DAC marker.  Therefore this routine does its own scan of the table. */
+    226          {
+   \                     emit_dac:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   20D04DE2           SUB      SP,SP,#+32
+   \   00000008   0040A0E1           MOV      R4,R0
+    227          #ifdef C_ARITH_CODING_SUPPORTED
+    228            char dc_in_use[NUM_ARITH_TBLS];
+    229            char ac_in_use[NUM_ARITH_TBLS];
+    230            int length, i;
+    231            jpeg_component_info *compptr;
+    232            
+    233            for (i = 0; i < NUM_ARITH_TBLS; i++)
+   \   0000000C   0000A0E3           MOV      R0,#+0
+   \   00000010   0010A0E3           MOV      R1,#+0
+    234              dc_in_use[i] = ac_in_use[i] = 0;
+   \                     ??emit_dac_0:
+   \   00000014   10208DE2           ADD      R2,SP,#+16
+   \   00000018   0210C0E7           STRB     R1,[R0, +R2]
+   \   0000001C   0D20A0E1           MOV      R2,SP
+   \   00000020   0210C0E7           STRB     R1,[R0, +R2]
+   \   00000024   010080E2           ADD      R0,R0,#+1
+   \   00000028   100050E3           CMP      R0,#+16
+   \   0000002C   F8FFFFBA           BLT      ??emit_dac_0
+    235            
+    236            for (i = 0; i < cinfo->comps_in_scan; i++) {
+   \   00000030   1C1194E5           LDR      R1,[R4, #+284]
+   \   00000034   0000A0E3           MOV      R0,#+0
+   \   00000038   010051E3           CMP      R1,#+1
+   \   0000003C   0120A0E3           MOV      R2,#+1
+   \   00000040   090000AA           BGE      ??emit_dac_1
+   \   00000044   0B0000EA           B        ??emit_dac_2
+    237              compptr = cinfo->cur_comp_info[i];
+   \                     ??emit_dac_3:
+   \   00000048   001184E0           ADD      R1,R4,R0, LSL #+2
+   \   0000004C   201191E5           LDR      R1,[R1, #+288]
+    238              dc_in_use[compptr->dc_tbl_no] = 1;
+   \   00000050   0D50A0E1           MOV      R5,SP
+   \   00000054   143091E5           LDR      R3,[R1, #+20]
+    239              ac_in_use[compptr->ac_tbl_no] = 1;
+    240            }
+   \   00000058   010080E2           ADD      R0,R0,#+1
+   \   0000005C   0520C3E7           STRB     R2,[R3, +R5]
+   \   00000060   181091E5           LDR      R1,[R1, #+24]
+   \   00000064   10308DE2           ADD      R3,SP,#+16
+   \   00000068   0320C1E7           STRB     R2,[R1, +R3]
+   \                     ??emit_dac_1:
+   \   0000006C   1C1194E5           LDR      R1,[R4, #+284]
+   \   00000070   010050E1           CMP      R0,R1
+   \   00000074   F3FFFFBA           BLT      ??emit_dac_3
+    241            
+    242            length = 0;
+   \                     ??emit_dac_2:
+   \   00000078   0050A0E3           MOV      R5,#+0
+    243            for (i = 0; i < NUM_ARITH_TBLS; i++)
+   \   0000007C   0000A0E3           MOV      R0,#+0
+    244              length += dc_in_use[i] + ac_in_use[i];
+   \                     ??emit_dac_4:
+   \   00000080   0D10A0E1           MOV      R1,SP
+   \   00000084   0110D0E7           LDRB     R1,[R0, +R1]
+   \   00000088   10208DE2           ADD      R2,SP,#+16
+   \   0000008C   0220D0E7           LDRB     R2,[R0, +R2]
+   \   00000090   010080E2           ADD      R0,R0,#+1
+   \   00000094   100050E3           CMP      R0,#+16
+   \   00000098   011082E0           ADD      R1,R2,R1
+   \   0000009C   055081E0           ADD      R5,R1,R5
+   \   000000A0   F6FFFFBA           BLT      ??emit_dac_4
+    245            
+    246            emit_marker(cinfo, M_DAC);
+   \   000000A4   FF10A0E3           MOV      R1,#+255
+   \   000000A8   0400A0E1           MOV      R0,R4
+   \   000000AC   ........           BL       emit_byte
+   \   000000B0   CC10A0E3           MOV      R1,#+204
+   \   000000B4   0400A0E1           MOV      R0,R4
+   \   000000B8   ........           BL       emit_byte
+    247            
+    248            emit_2bytes(cinfo, length*2 + 2);
+   \   000000BC   0200A0E3           MOV      R0,#+2
+   \   000000C0   851080E0           ADD      R1,R0,R5, LSL #+1
+   \   000000C4   0400A0E1           MOV      R0,R4
+   \   000000C8   ........           BL       emit_2bytes
+    249            
+    250            for (i = 0; i < NUM_ARITH_TBLS; i++) {
+   \   000000CC   0050A0E3           MOV      R5,#+0
+    251              if (dc_in_use[i]) {
+   \                     ??emit_dac_5:
+   \   000000D0   0D00A0E1           MOV      R0,SP
+   \   000000D4   0000D5E7           LDRB     R0,[R5, +R0]
+   \   000000D8   000050E3           CMP      R0,#+0
+   \   000000DC   0900000A           BEQ      ??emit_dac_6
+    252                emit_byte(cinfo, i);
+   \   000000E0   0510A0E1           MOV      R1,R5
+   \   000000E4   0400A0E1           MOV      R0,R4
+   \   000000E8   ........           BL       emit_byte
+    253                emit_byte(cinfo, cinfo->arith_dc_L[i] + (cinfo->arith_dc_U[i]<<4));
+   \   000000EC   040085E0           ADD      R0,R5,R4
+   \   000000F0   9400D0E5           LDRB     R0,[R0, #+148]
+   \   000000F4   041085E0           ADD      R1,R5,R4
+   \   000000F8   A410D1E5           LDRB     R1,[R1, #+164]
+   \   000000FC   011280E0           ADD      R1,R0,R1, LSL #+4
+   \   00000100   0400A0E1           MOV      R0,R4
+   \   00000104   ........           BL       emit_byte
+    254              }
+    255              if (ac_in_use[i]) {
+   \                     ??emit_dac_6:
+   \   00000108   10008DE2           ADD      R0,SP,#+16
+   \   0000010C   0000D5E7           LDRB     R0,[R5, +R0]
+   \   00000110   000050E3           CMP      R0,#+0
+   \   00000114   0600000A           BEQ      ??emit_dac_7
+    256                emit_byte(cinfo, i + 0x10);
+   \   00000118   101085E2           ADD      R1,R5,#+16
+   \   0000011C   0400A0E1           MOV      R0,R4
+   \   00000120   ........           BL       emit_byte
+    257                emit_byte(cinfo, cinfo->arith_ac_K[i]);
+   \   00000124   040085E0           ADD      R0,R5,R4
+   \   00000128   B410D0E5           LDRB     R1,[R0, #+180]
+   \   0000012C   0400A0E1           MOV      R0,R4
+   \   00000130   ........           BL       emit_byte
+    258              }
+    259            }
+   \                     ??emit_dac_7:
+   \   00000134   015085E2           ADD      R5,R5,#+1
+   \   00000138   100055E3           CMP      R5,#+16
+   \   0000013C   E3FFFFBA           BLT      ??emit_dac_5
+    260          #endif /* C_ARITH_CODING_SUPPORTED */
+    261          }
+   \   00000140   20D08DE2           ADD      SP,SP,#+32       ;; stack cleaning
+   \   00000144   3080BDE8           POP      {R4,R5,PC}       ;; return
+    262          
+    263          
+    264          LOCAL(void)
+    265          emit_dri (j_compress_ptr cinfo)
+    266          /* Emit a DRI marker */
+    267          {
+    268            emit_marker(cinfo, M_DRI);
+    269            
+    270            emit_2bytes(cinfo, 4);	/* fixed length */
+    271          
+    272            emit_2bytes(cinfo, (int) cinfo->restart_interval);
+    273          }
+    274          
+    275          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    276          LOCAL(void)
+    277          emit_sof (j_compress_ptr cinfo, JPEG_MARKER code)
+    278          /* Emit a SOF marker */
+    279          {
+   \                     emit_sof:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+    280            int ci;
+    281            jpeg_component_info *compptr;
+    282            
+    283            emit_marker(cinfo, code);
+   \   0000000C   FF10A0E3           MOV      R1,#+255
+   \   00000010   ........           BL       emit_byte
+   \   00000014   0510A0E1           MOV      R1,R5
+   \   00000018   0400A0E1           MOV      R0,R4
+   \   0000001C   ........           BL       emit_byte
+    284            
+    285            emit_2bytes(cinfo, 3 * cinfo->num_components + 2 + 5 + 1); /* length */
+   \   00000020   480094E5           LDR      R0,[R4, #+72]
+   \   00000024   800080E0           ADD      R0,R0,R0, LSL #+1
+   \   00000028   081080E2           ADD      R1,R0,#+8
+   \   0000002C   0400A0E1           MOV      R0,R4
+   \   00000030   ........           BL       emit_2bytes
+    286          
+    287            /* Make sure image isn't bigger than SOF field can handle */
+    288            if ((long) cinfo->jpeg_height > 65535L ||
+    289                (long) cinfo->jpeg_width > 65535L)
+   \   00000034   400094E5           LDR      R0,[R4, #+64]
+   \   00000038   400B50E3           CMP      R0,#+65536
+   \   0000003C   3C0094B5           LDRLT    R0,[R4, #+60]
+   \   00000040   400B50B3           CMPLT    R0,#+65536
+   \   00000044   0A0000BA           BLT      ??emit_sof_0
+    290              ERREXIT1(cinfo, JERR_IMAGE_TOO_BIG, (unsigned int) 65535);
+   \   00000048   000094E5           LDR      R0,[R4, #+0]
+   \   0000004C   2A10A0E3           MOV      R1,#+42
+   \   00000050   141080E5           STR      R1,[R0, #+20]
+   \   00000054   000094E5           LDR      R0,[R4, #+0]
+   \   00000058   FF10A0E3           MOV      R1,#+255
+   \   0000005C   FF1C81E3           ORR      R1,R1,#0xFF00
+   \   00000060   181080E5           STR      R1,[R0, #+24]
+   \   00000064   001094E5           LDR      R1,[R4, #+0]
+   \   00000068   0400A0E1           MOV      R0,R4
+   \   0000006C   001091E5           LDR      R1,[R1, #+0]
+   \   00000070   31FF2FE1           BLX      R1
+    291          
+    292            emit_byte(cinfo, cinfo->data_precision);
+   \                     ??emit_sof_0:
+   \   00000074   441094E5           LDR      R1,[R4, #+68]
+   \   00000078   0400A0E1           MOV      R0,R4
+   \   0000007C   ........           BL       emit_byte
+    293            emit_2bytes(cinfo, (int) cinfo->jpeg_height);
+   \   00000080   401094E5           LDR      R1,[R4, #+64]
+   \   00000084   0400A0E1           MOV      R0,R4
+   \   00000088   ........           BL       emit_2bytes
+    294            emit_2bytes(cinfo, (int) cinfo->jpeg_width);
+   \   0000008C   3C1094E5           LDR      R1,[R4, #+60]
+   \   00000090   0400A0E1           MOV      R0,R4
+   \   00000094   ........           BL       emit_2bytes
+    295          
+    296            emit_byte(cinfo, cinfo->num_components);
+   \   00000098   481094E5           LDR      R1,[R4, #+72]
+   \   0000009C   0400A0E1           MOV      R0,R4
+   \   000000A0   ........           BL       emit_byte
+    297          
+    298            for (ci = 0, compptr = cinfo->comp_info; ci < cinfo->num_components;
+   \   000000A4   480094E5           LDR      R0,[R4, #+72]
+   \   000000A8   506094E5           LDR      R6,[R4, #+80]
+   \   000000AC   0050A0E3           MOV      R5,#+0
+   \   000000B0   010050E3           CMP      R0,#+1
+   \   000000B4   0D0000AA           BGE      ??emit_sof_1
+   \   000000B8   7080BDE8           POP      {R4-R6,PC}
+    299                 ci++, compptr++) {
+    300              emit_byte(cinfo, compptr->component_id);
+   \                     ??emit_sof_2:
+   \   000000BC   001096E5           LDR      R1,[R6, #+0]
+   \   000000C0   0400A0E1           MOV      R0,R4
+   \   000000C4   ........           BL       emit_byte
+    301              emit_byte(cinfo, (compptr->h_samp_factor << 4) + compptr->v_samp_factor);
+   \   000000C8   080096E5           LDR      R0,[R6, #+8]
+   \   000000CC   0C1096E5           LDR      R1,[R6, #+12]
+    302              emit_byte(cinfo, compptr->quant_tbl_no);
+    303            }
+   \   000000D0   015085E2           ADD      R5,R5,#+1
+   \   000000D4   001281E0           ADD      R1,R1,R0, LSL #+4
+   \   000000D8   0400A0E1           MOV      R0,R4
+   \   000000DC   ........           BL       emit_byte
+   \   000000E0   101096E5           LDR      R1,[R6, #+16]
+   \   000000E4   0400A0E1           MOV      R0,R4
+   \   000000E8   ........           BL       emit_byte
+   \   000000EC   586086E2           ADD      R6,R6,#+88
+   \                     ??emit_sof_1:
+   \   000000F0   480094E5           LDR      R0,[R4, #+72]
+   \   000000F4   000055E1           CMP      R5,R0
+   \   000000F8   EFFFFFBA           BLT      ??emit_sof_2
+    304          }
+   \   000000FC   7080BDE8           POP      {R4-R6,PC}       ;; return
+    305          
+    306          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    307          LOCAL(void)
+    308          emit_sos (j_compress_ptr cinfo)
+    309          /* Emit a SOS marker */
+    310          {
+   \                     emit_sos:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    311            int i, td, ta;
+    312            jpeg_component_info *compptr;
+    313            
+    314            emit_marker(cinfo, M_SOS);
+   \   00000008   FF10A0E3           MOV      R1,#+255
+    315            
+    316            emit_2bytes(cinfo, 2 * cinfo->comps_in_scan + 2 + 1 + 3); /* length */
+    317            
+    318            emit_byte(cinfo, cinfo->comps_in_scan);
+    319            
+    320            for (i = 0; i < cinfo->comps_in_scan; i++) {
+   \   0000000C   0050A0E3           MOV      R5,#+0
+   \   00000010   ........           BL       emit_byte
+   \   00000014   DA10A0E3           MOV      R1,#+218
+   \   00000018   0400A0E1           MOV      R0,R4
+   \   0000001C   ........           BL       emit_byte
+   \   00000020   1C0194E5           LDR      R0,[R4, #+284]
+   \   00000024   0610A0E3           MOV      R1,#+6
+   \   00000028   801081E0           ADD      R1,R1,R0, LSL #+1
+   \   0000002C   0400A0E1           MOV      R0,R4
+   \   00000030   ........           BL       emit_2bytes
+   \   00000034   1C1194E5           LDR      R1,[R4, #+284]
+   \   00000038   0400A0E1           MOV      R0,R4
+   \   0000003C   ........           BL       emit_byte
+   \   00000040   1C0194E5           LDR      R0,[R4, #+284]
+   \   00000044   010050E3           CMP      R0,#+1
+   \   00000048   100000AA           BGE      ??emit_sos_0
+    321              compptr = cinfo->cur_comp_info[i];
+    322              emit_byte(cinfo, compptr->component_id);
+    323              td = compptr->dc_tbl_no;
+    324              ta = compptr->ac_tbl_no;
+    325              if (cinfo->progressive_mode) {
+    326                /* Progressive mode: only DC or only AC tables are used in one scan;
+    327                 * furthermore, Huffman coding of DC refinement uses no table at all.
+    328                 * We emit 0 for unused field(s); this is recommended by the P&M text
+    329                 * but does not seem to be specified in the standard.
+    330                 */
+    331                if (cinfo->Ss == 0) {
+    332          	ta = 0;			/* DC scan */
+    333          	if (cinfo->Ah != 0 && !cinfo->arith_code)
+    334          	  td = 0;		/* no DC table either */
+    335                } else {
+    336          	td = 0;			/* AC scan */
+    337                }
+    338              }
+    339              emit_byte(cinfo, (td << 4) + ta);
+    340            }
+    341          
+    342            emit_byte(cinfo, cinfo->Ss);
+   \                     ??emit_sos_1:
+   \   0000004C   641194E5           LDR      R1,[R4, #+356]
+   \   00000050   0400A0E1           MOV      R0,R4
+   \   00000054   ........           BL       emit_byte
+    343            emit_byte(cinfo, cinfo->Se);
+   \   00000058   681194E5           LDR      R1,[R4, #+360]
+   \   0000005C   0400A0E1           MOV      R0,R4
+   \   00000060   ........           BL       emit_byte
+    344            emit_byte(cinfo, (cinfo->Ah << 4) + cinfo->Al);
+   \   00000064   6C0194E5           LDR      R0,[R4, #+364]
+   \   00000068   701194E5           LDR      R1,[R4, #+368]
+   \   0000006C   001281E0           ADD      R1,R1,R0, LSL #+4
+   \   00000070   0400A0E1           MOV      R0,R4
+   \   00000074   ........           BL       emit_byte
+    345          }
+   \   00000078   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??emit_sos_2:
+   \   0000007C   0000A0E3           MOV      R0,#+0
+   \                     ??emit_sos_3:
+   \   00000080   001281E0           ADD      R1,R1,R0, LSL #+4
+   \   00000084   0400A0E1           MOV      R0,R4
+   \   00000088   ........           BL       emit_byte
+   \   0000008C   015085E2           ADD      R5,R5,#+1
+   \                     ??emit_sos_0:
+   \   00000090   1C0194E5           LDR      R0,[R4, #+284]
+   \   00000094   000055E1           CMP      R5,R0
+   \   00000098   EBFFFFAA           BGE      ??emit_sos_1
+   \   0000009C   050184E0           ADD      R0,R4,R5, LSL #+2
+   \   000000A0   206190E5           LDR      R6,[R0, #+288]
+   \   000000A4   0400A0E1           MOV      R0,R4
+   \   000000A8   001096E5           LDR      R1,[R6, #+0]
+   \   000000AC   ........           BL       emit_byte
+   \   000000B0   042194E5           LDR      R2,[R4, #+260]
+   \   000000B4   140096E5           LDR      R0,[R6, #+20]
+   \   000000B8   181096E5           LDR      R1,[R6, #+24]
+   \   000000BC   000052E3           CMP      R2,#+0
+   \   000000C0   EEFFFF0A           BEQ      ??emit_sos_3
+   \   000000C4   642194E5           LDR      R2,[R4, #+356]
+   \   000000C8   000052E3           CMP      R2,#+0
+   \   000000CC   EAFFFF1A           BNE      ??emit_sos_2
+   \   000000D0   6C2194E5           LDR      R2,[R4, #+364]
+   \   000000D4   0010A0E3           MOV      R1,#+0
+   \   000000D8   000052E3           CMP      R2,#+0
+   \   000000DC   E7FFFF0A           BEQ      ??emit_sos_3
+   \   000000E0   D02094E5           LDR      R2,[R4, #+208]
+   \   000000E4   000052E3           CMP      R2,#+0
+   \   000000E8   E4FFFF1A           BNE      ??emit_sos_3
+   \   000000EC   E2FFFFEA           B        ??emit_sos_2
+    346          
+    347          
+    348          LOCAL(void)
+    349          emit_jfif_app0 (j_compress_ptr cinfo)
+    350          /* Emit a JFIF-compliant APP0 marker */
+    351          {
+    352            /*
+    353             * Length of APP0 block	(2 bytes)
+    354             * Block ID			(4 bytes - ASCII "JFIF")
+    355             * Zero byte			(1 byte to terminate the ID string)
+    356             * Version Major, Minor	(2 bytes - major first)
+    357             * Units			(1 byte - 0x00 = none, 0x01 = inch, 0x02 = cm)
+    358             * Xdpu			(2 bytes - dots per unit horizontal)
+    359             * Ydpu			(2 bytes - dots per unit vertical)
+    360             * Thumbnail X size		(1 byte)
+    361             * Thumbnail Y size		(1 byte)
+    362             */
+    363            
+    364            emit_marker(cinfo, M_APP0);
+    365            
+    366            emit_2bytes(cinfo, 2 + 4 + 1 + 2 + 1 + 2 + 2 + 1 + 1); /* length */
+    367          
+    368            emit_byte(cinfo, 0x4A);	/* Identifier: ASCII "JFIF" */
+    369            emit_byte(cinfo, 0x46);
+    370            emit_byte(cinfo, 0x49);
+    371            emit_byte(cinfo, 0x46);
+    372            emit_byte(cinfo, 0);
+    373            emit_byte(cinfo, cinfo->JFIF_major_version); /* Version fields */
+    374            emit_byte(cinfo, cinfo->JFIF_minor_version);
+    375            emit_byte(cinfo, cinfo->density_unit); /* Pixel size information */
+    376            emit_2bytes(cinfo, (int) cinfo->X_density);
+    377            emit_2bytes(cinfo, (int) cinfo->Y_density);
+    378            emit_byte(cinfo, 0);		/* No thumbnail image */
+    379            emit_byte(cinfo, 0);
+    380          }
+    381          
+    382          
+    383          LOCAL(void)
+    384          emit_adobe_app14 (j_compress_ptr cinfo)
+    385          /* Emit an Adobe APP14 marker */
+    386          {
+    387            /*
+    388             * Length of APP14 block	(2 bytes)
+    389             * Block ID			(5 bytes - ASCII "Adobe")
+    390             * Version Number		(2 bytes - currently 100)
+    391             * Flags0			(2 bytes - currently 0)
+    392             * Flags1			(2 bytes - currently 0)
+    393             * Color transform		(1 byte)
+    394             *
+    395             * Although Adobe TN 5116 mentions Version = 101, all the Adobe files
+    396             * now in circulation seem to use Version = 100, so that's what we write.
+    397             *
+    398             * We write the color transform byte as 1 if the JPEG color space is
+    399             * YCbCr, 2 if it's YCCK, 0 otherwise.  Adobe's definition has to do with
+    400             * whether the encoder performed a transformation, which is pretty useless.
+    401             */
+    402            
+    403            emit_marker(cinfo, M_APP14);
+    404            
+    405            emit_2bytes(cinfo, 2 + 5 + 2 + 2 + 2 + 1); /* length */
+    406          
+    407            emit_byte(cinfo, 0x41);	/* Identifier: ASCII "Adobe" */
+    408            emit_byte(cinfo, 0x64);
+    409            emit_byte(cinfo, 0x6F);
+    410            emit_byte(cinfo, 0x62);
+    411            emit_byte(cinfo, 0x65);
+    412            emit_2bytes(cinfo, 100);	/* Version */
+    413            emit_2bytes(cinfo, 0);	/* Flags0 */
+    414            emit_2bytes(cinfo, 0);	/* Flags1 */
+    415            switch (cinfo->jpeg_color_space) {
+    416            case JCS_YCbCr:
+    417              emit_byte(cinfo, 1);	/* Color transform = 1 */
+    418              break;
+    419            case JCS_YCCK:
+    420              emit_byte(cinfo, 2);	/* Color transform = 2 */
+    421              break;
+    422            default:
+    423              emit_byte(cinfo, 0);	/* Color transform = 0 */
+    424              break;
+    425            }
+    426          }
+    427          
+    428          
+    429          /*
+    430           * These routines allow writing an arbitrary marker with parameters.
+    431           * The only intended use is to emit COM or APPn markers after calling
+    432           * write_file_header and before calling write_frame_header.
+    433           * Other uses are not guaranteed to produce desirable results.
+    434           * Counting the parameter bytes properly is the caller's responsibility.
+    435           */
+    436          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    437          METHODDEF(void)
+    438          write_marker_header (j_compress_ptr cinfo, int marker, unsigned int datalen)
+    439          /* Emit an arbitrary marker header */
+    440          {
+   \                     write_marker_header:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+   \   0000000C   0260A0E1           MOV      R6,R2
+    441            if (datalen > (unsigned int) 65533)		/* safety check */
+   \   00000010   FE00A0E3           MOV      R0,#+254
+   \   00000014   FF0C80E3           ORR      R0,R0,#0xFF00
+   \   00000018   000056E1           CMP      R6,R0
+   \   0000001C   0600003A           BCC      ??write_marker_header_0
+    442              ERREXIT(cinfo, JERR_BAD_LENGTH);
+   \   00000020   000094E5           LDR      R0,[R4, #+0]
+   \   00000024   0C10A0E3           MOV      R1,#+12
+   \   00000028   141080E5           STR      R1,[R0, #+20]
+   \   0000002C   001094E5           LDR      R1,[R4, #+0]
+   \   00000030   0400A0E1           MOV      R0,R4
+   \   00000034   001091E5           LDR      R1,[R1, #+0]
+   \   00000038   31FF2FE1           BLX      R1
+    443          
+    444            emit_marker(cinfo, (JPEG_MARKER) marker);
+   \                     ??write_marker_header_0:
+   \   0000003C   FF10A0E3           MOV      R1,#+255
+   \   00000040   0400A0E1           MOV      R0,R4
+   \   00000044   ........           BL       emit_byte
+   \   00000048   0518A0E1           MOV      R1,R5, LSL #+16
+   \   0000004C   4118A0E1           MOV      R1,R1, ASR #+16
+   \   00000050   0400A0E1           MOV      R0,R4
+   \   00000054   ........           BL       emit_byte
+    445          
+    446            emit_2bytes(cinfo, (int) (datalen + 2));	/* total length */
+   \   00000058   021086E2           ADD      R1,R6,#+2
+   \   0000005C   0400A0E1           MOV      R0,R4
+   \   00000060   ........           BL       emit_2bytes
+    447          }
+   \   00000064   7080BDE8           POP      {R4-R6,PC}       ;; return
+    448          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    449          METHODDEF(void)
+    450          write_marker_byte (j_compress_ptr cinfo, int val)
+    451          /* Emit one byte of marker parameters following write_marker_header */
+    452          {
+    453            emit_byte(cinfo, val);
+   \                     write_marker_byte:
+   \   00000000   ........           B        emit_byte        ;; tailcall
+    454          }
+    455          
+    456          
+    457          /*
+    458           * Write datastream header.
+    459           * This consists of an SOI and optional APPn markers.
+    460           * We recommend use of the JFIF marker, but not the Adobe marker,
+    461           * when using YCbCr or grayscale data.  The JFIF marker should NOT
+    462           * be used for any other JPEG colorspace.  The Adobe marker is helpful
+    463           * to distinguish RGB, CMYK, and YCCK colorspaces.
+    464           * Note that an application can write additional header markers after
+    465           * jpeg_start_compress returns.
+    466           */
+    467          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    468          METHODDEF(void)
+    469          write_file_header (j_compress_ptr cinfo)
+    470          {
+   \                     write_file_header:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+    471            my_marker_ptr marker = (my_marker_ptr) cinfo->marker;
+    472          
+    473            emit_marker(cinfo, M_SOI);	/* first the SOI */
+   \   00000004   FF10A0E3           MOV      R1,#+255
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   845194E5           LDR      R5,[R4, #+388]
+   \   00000010   ........           BL       emit_byte
+   \   00000014   D810A0E3           MOV      R1,#+216
+   \   00000018   0400A0E1           MOV      R0,R4
+   \   0000001C   ........           BL       emit_byte
+    474          
+    475            /* SOI is defined to reset restart interval to 0 */
+    476            marker->last_restart_interval = 0;
+   \   00000020   0000A0E3           MOV      R0,#+0
+   \   00000024   1C0085E5           STR      R0,[R5, #+28]
+    477          
+    478            if (cinfo->write_JFIF_header)	/* next an optional JFIF APP0 */
+   \   00000028   F00094E5           LDR      R0,[R4, #+240]
+   \   0000002C   000050E3           CMP      R0,#+0
+   \   00000030   2C00000A           BEQ      ??write_file_header_0
+    479              emit_jfif_app0(cinfo);
+   \   00000034   FF10A0E3           MOV      R1,#+255
+   \   00000038   0400A0E1           MOV      R0,R4
+   \   0000003C   ........           BL       emit_byte
+   \   00000040   E010A0E3           MOV      R1,#+224
+   \   00000044   0400A0E1           MOV      R0,R4
+   \   00000048   ........           BL       emit_byte
+   \   0000004C   1010A0E3           MOV      R1,#+16
+   \   00000050   0400A0E1           MOV      R0,R4
+   \   00000054   ........           BL       emit_2bytes
+   \   00000058   4A10A0E3           MOV      R1,#+74
+   \   0000005C   0400A0E1           MOV      R0,R4
+   \   00000060   ........           BL       emit_byte
+   \   00000064   4610A0E3           MOV      R1,#+70
+   \   00000068   0400A0E1           MOV      R0,R4
+   \   0000006C   ........           BL       emit_byte
+   \   00000070   4910A0E3           MOV      R1,#+73
+   \   00000074   0400A0E1           MOV      R0,R4
+   \   00000078   ........           BL       emit_byte
+   \   0000007C   4610A0E3           MOV      R1,#+70
+   \   00000080   0400A0E1           MOV      R0,R4
+   \   00000084   ........           BL       emit_byte
+   \   00000088   0010A0E3           MOV      R1,#+0
+   \   0000008C   0400A0E1           MOV      R0,R4
+   \   00000090   ........           BL       emit_byte
+   \   00000094   F410D4E5           LDRB     R1,[R4, #+244]
+   \   00000098   0400A0E1           MOV      R0,R4
+   \   0000009C   ........           BL       emit_byte
+   \   000000A0   F510D4E5           LDRB     R1,[R4, #+245]
+   \   000000A4   0400A0E1           MOV      R0,R4
+   \   000000A8   ........           BL       emit_byte
+   \   000000AC   F610D4E5           LDRB     R1,[R4, #+246]
+   \   000000B0   0400A0E1           MOV      R0,R4
+   \   000000B4   ........           BL       emit_byte
+   \   000000B8   B81FD4E1           LDRH     R1,[R4, #+248]
+   \   000000BC   0400A0E1           MOV      R0,R4
+   \   000000C0   ........           BL       emit_2bytes
+   \   000000C4   BA1FD4E1           LDRH     R1,[R4, #+250]
+   \   000000C8   0400A0E1           MOV      R0,R4
+   \   000000CC   ........           BL       emit_2bytes
+   \   000000D0   0010A0E3           MOV      R1,#+0
+   \   000000D4   0400A0E1           MOV      R0,R4
+   \   000000D8   ........           BL       emit_byte
+   \   000000DC   0010A0E3           MOV      R1,#+0
+   \   000000E0   0400A0E1           MOV      R0,R4
+   \   000000E4   ........           BL       emit_byte
+    480            if (cinfo->write_Adobe_marker) /* next an optional Adobe APP14 */
+   \                     ??write_file_header_0:
+   \   000000E8   FC0094E5           LDR      R0,[R4, #+252]
+   \   000000EC   000050E3           CMP      R0,#+0
+   \   000000F0   3080BD08           POPEQ    {R4,R5,PC}
+    481              emit_adobe_app14(cinfo);
+   \   000000F4   FF10A0E3           MOV      R1,#+255
+   \   000000F8   0400A0E1           MOV      R0,R4
+   \   000000FC   ........           BL       emit_byte
+   \   00000100   EE10A0E3           MOV      R1,#+238
+   \   00000104   0400A0E1           MOV      R0,R4
+   \   00000108   ........           BL       emit_byte
+   \   0000010C   0E10A0E3           MOV      R1,#+14
+   \   00000110   0400A0E1           MOV      R0,R4
+   \   00000114   ........           BL       emit_2bytes
+   \   00000118   4110A0E3           MOV      R1,#+65
+   \   0000011C   0400A0E1           MOV      R0,R4
+   \   00000120   ........           BL       emit_byte
+   \   00000124   6410A0E3           MOV      R1,#+100
+   \   00000128   0400A0E1           MOV      R0,R4
+   \   0000012C   ........           BL       emit_byte
+   \   00000130   6F10A0E3           MOV      R1,#+111
+   \   00000134   0400A0E1           MOV      R0,R4
+   \   00000138   ........           BL       emit_byte
+   \   0000013C   6210A0E3           MOV      R1,#+98
+   \   00000140   0400A0E1           MOV      R0,R4
+   \   00000144   ........           BL       emit_byte
+   \   00000148   6510A0E3           MOV      R1,#+101
+   \   0000014C   0400A0E1           MOV      R0,R4
+   \   00000150   ........           BL       emit_byte
+   \   00000154   6410A0E3           MOV      R1,#+100
+   \   00000158   0400A0E1           MOV      R0,R4
+   \   0000015C   ........           BL       emit_2bytes
+   \   00000160   0010A0E3           MOV      R1,#+0
+   \   00000164   0400A0E1           MOV      R0,R4
+   \   00000168   ........           BL       emit_2bytes
+   \   0000016C   0010A0E3           MOV      R1,#+0
+   \   00000170   0400A0E1           MOV      R0,R4
+   \   00000174   ........           BL       emit_2bytes
+   \   00000178   4C00D4E5           LDRB     R0,[R4, #+76]
+   \   0000017C   030050E2           SUBS     R0,R0,#+3
+   \   00000180   0200000A           BEQ      ??write_file_header_1
+   \   00000184   020050E2           SUBS     R0,R0,#+2
+   \   00000188   0400000A           BEQ      ??write_file_header_2
+   \   0000018C   050000EA           B        ??write_file_header_3
+   \                     ??write_file_header_1:
+   \   00000190   0110A0E3           MOV      R1,#+1
+   \   00000194   0400A0E1           MOV      R0,R4
+   \   00000198   ........           BL       emit_byte
+   \   0000019C   3080BDE8           POP      {R4,R5,PC}
+   \                     ??write_file_header_2:
+   \   000001A0   0210A0E3           MOV      R1,#+2
+   \   000001A4   000000EA           B        ??write_file_header_4
+   \                     ??write_file_header_3:
+   \   000001A8   0010A0E3           MOV      R1,#+0
+   \                     ??write_file_header_4:
+   \   000001AC   0400A0E1           MOV      R0,R4
+   \   000001B0   ........           BL       emit_byte
+    482          }
+   \   000001B4   3080BDE8           POP      {R4,R5,PC}       ;; return
+    483          
+    484          
+    485          /*
+    486           * Write frame header.
+    487           * This consists of DQT and SOFn markers.
+    488           * Note that we do not emit the SOF until we have emitted the DQT(s).
+    489           * This avoids compatibility problems with incorrect implementations that
+    490           * try to error-check the quant table numbers as soon as they see the SOF.
+    491           */
+    492          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    493          METHODDEF(void)
+    494          write_frame_header (j_compress_ptr cinfo)
+    495          {
+   \                     write_frame_header:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    496            int ci, prec;
+    497            boolean is_baseline;
+    498            jpeg_component_info *compptr;
+    499            
+    500            /* Emit DQT for each quantization table.
+    501             * Note that emit_dqt() suppresses any duplicate tables.
+    502             */
+    503            prec = 0;
+    504            for (ci = 0, compptr = cinfo->comp_info; ci < cinfo->num_components;
+   \   00000008   480094E5           LDR      R0,[R4, #+72]
+   \   0000000C   507094E5           LDR      R7,[R4, #+80]
+   \   00000010   0050A0E3           MOV      R5,#+0
+   \   00000014   0060A0E3           MOV      R6,#+0
+   \   00000018   010050E3           CMP      R0,#+1
+   \   0000001C   060000AA           BGE      ??write_frame_header_0
+   \   00000020   080000EA           B        ??write_frame_header_1
+    505                 ci++, compptr++) {
+    506              prec += emit_dqt(cinfo, compptr->quant_tbl_no);
+   \                     ??write_frame_header_2:
+   \   00000024   101097E5           LDR      R1,[R7, #+16]
+   \   00000028   0400A0E1           MOV      R0,R4
+   \   0000002C   ........           BL       emit_dqt
+   \   00000030   055080E0           ADD      R5,R0,R5
+    507            }
+   \   00000034   016086E2           ADD      R6,R6,#+1
+   \   00000038   587087E2           ADD      R7,R7,#+88
+   \                     ??write_frame_header_0:
+   \   0000003C   480094E5           LDR      R0,[R4, #+72]
+   \   00000040   000056E1           CMP      R6,R0
+   \   00000044   F6FFFFBA           BLT      ??write_frame_header_2
+    508            /* now prec is nonzero iff there are any 16-bit quant tables. */
+    509          
+    510            /* Check for a non-baseline specification.
+    511             * Note we assume that Huffman table numbers won't be changed later.
+    512             */
+    513            if (cinfo->arith_code || cinfo->progressive_mode ||
+    514                cinfo->data_precision != 8) {
+   \                     ??write_frame_header_1:
+   \   00000048   D00094E5           LDR      R0,[R4, #+208]
+   \   0000004C   000050E3           CMP      R0,#+0
+   \   00000050   04019405           LDREQ    R0,[R4, #+260]
+   \   00000054   00005003           CMPEQ    R0,#+0
+   \   00000058   44009405           LDREQ    R0,[R4, #+68]
+   \   0000005C   08005003           CMPEQ    R0,#+8
+   \   00000060   1A00001A           BNE      ??write_frame_header_3
+    515              is_baseline = FALSE;
+    516            } else {
+    517              is_baseline = TRUE;
+    518              for (ci = 0, compptr = cinfo->comp_info; ci < cinfo->num_components;
+   \   00000064   481094E5           LDR      R1,[R4, #+72]
+   \   00000068   507094E5           LDR      R7,[R4, #+80]
+   \   0000006C   0100A0E3           MOV      R0,#+1
+   \   00000070   0060A0E3           MOV      R6,#+0
+   \   00000074   010051E3           CMP      R1,#+1
+   \   00000078   070000AA           BGE      ??write_frame_header_4
+   \   0000007C   080000EA           B        ??write_frame_header_5
+    519          	 ci++, compptr++) {
+    520                if (compptr->dc_tbl_no > 1 || compptr->ac_tbl_no > 1)
+   \                     ??write_frame_header_6:
+   \   00000080   142097E5           LDR      R2,[R7, #+20]
+    521          	is_baseline = FALSE;
+    522              }
+   \   00000084   016086E2           ADD      R6,R6,#+1
+   \   00000088   020052E3           CMP      R2,#+2
+   \   0000008C   182097B5           LDRLT    R2,[R7, #+24]
+   \   00000090   587087E2           ADD      R7,R7,#+88
+   \   00000094   020052B3           CMPLT    R2,#+2
+   \   00000098   0000A0A3           MOVGE    R0,#+0
+   \                     ??write_frame_header_4:
+   \   0000009C   010056E1           CMP      R6,R1
+   \   000000A0   F6FFFFBA           BLT      ??write_frame_header_6
+    523              if (prec && is_baseline) {
+   \                     ??write_frame_header_5:
+   \   000000A4   000055E3           CMP      R5,#+0
+   \   000000A8   00005013           CMPNE    R0,#+0
+   \   000000AC   1500000A           BEQ      ??write_frame_header_7
+    524                is_baseline = FALSE;
+    525                /* If it's baseline except for quantizer size, warn the user */
+    526                TRACEMS(cinfo, 0, JTRC_16BIT_TABLES);
+   \   000000B0   000094E5           LDR      R0,[R4, #+0]
+   \   000000B4   4D10A0E3           MOV      R1,#+77
+   \   000000B8   141080E5           STR      R1,[R0, #+20]
+   \   000000BC   002094E5           LDR      R2,[R4, #+0]
+   \   000000C0   0010A0E3           MOV      R1,#+0
+   \   000000C4   042092E5           LDR      R2,[R2, #+4]
+   \   000000C8   0400A0E1           MOV      R0,R4
+   \   000000CC   32FF2FE1           BLX      R2
+    527              }
+    528            }
+    529          
+    530            /* Emit the proper SOF marker */
+    531            if (cinfo->arith_code) {
+   \                     ??write_frame_header_3:
+   \   000000D0   D01094E5           LDR      R1,[R4, #+208]
+   \   000000D4   040194E5           LDR      R0,[R4, #+260]
+   \   000000D8   000051E3           CMP      R1,#+0
+   \   000000DC   0500000A           BEQ      ??write_frame_header_8
+    532              if (cinfo->progressive_mode)
+   \   000000E0   000050E3           CMP      R0,#+0
+    533                emit_sof(cinfo, M_SOF10); /* SOF code for progressive arithmetic */
+   \   000000E4   CA10A013           MOVNE    R1,#+202
+    534              else
+    535                emit_sof(cinfo, M_SOF9);  /* SOF code for sequential arithmetic */
+   \   000000E8   C910A003           MOVEQ    R1,#+201
+   \                     ??write_frame_header_9:
+   \   000000EC   0400A0E1           MOV      R0,R4
+   \   000000F0   ........           BL       emit_sof
+   \   000000F4   F080BDE8           POP      {R4-R7,PC}
+    536            } else {
+    537              if (cinfo->progressive_mode)
+   \                     ??write_frame_header_8:
+   \   000000F8   000050E3           CMP      R0,#+0
+   \   000000FC   0400000A           BEQ      ??write_frame_header_10
+    538                emit_sof(cinfo, M_SOF2);	/* SOF code for progressive Huffman */
+   \   00000100   C210A0E3           MOV      R1,#+194
+   \   00000104   030000EA           B        ??write_frame_header_11
+    539              else if (is_baseline)
+   \                     ??write_frame_header_7:
+   \   00000108   000050E3           CMP      R0,#+0
+    540                emit_sof(cinfo, M_SOF0);	/* SOF code for baseline implementation */
+   \   0000010C   C010A013           MOVNE    R1,#+192
+   \   00000110   F5FFFF1A           BNE      ??write_frame_header_9
+    541              else
+    542                emit_sof(cinfo, M_SOF1);	/* SOF code for non-baseline Huffman file */
+   \                     ??write_frame_header_10:
+   \   00000114   C110A0E3           MOV      R1,#+193
+   \                     ??write_frame_header_11:
+   \   00000118   0400A0E1           MOV      R0,R4
+   \   0000011C   ........           BL       emit_sof
+   \   00000120   F080BDE8           POP      {R4-R7,PC}
+    543            }
+    544          }
+    545          
+    546          
+    547          /*
+    548           * Write scan header.
+    549           * This consists of DHT or DAC markers, optional DRI, and SOS.
+    550           * Compressed data will be written following the SOS.
+    551           */
+    552          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    553          METHODDEF(void)
+    554          write_scan_header (j_compress_ptr cinfo)
+    555          {
+   \                     write_scan_header:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    556            my_marker_ptr marker = (my_marker_ptr) cinfo->marker;
+    557            int i;
+    558            jpeg_component_info *compptr;
+    559          
+    560            if (cinfo->arith_code) {
+   \   00000008   D00094E5           LDR      R0,[R4, #+208]
+   \   0000000C   845194E5           LDR      R5,[R4, #+388]
+   \   00000010   000050E3           CMP      R0,#+0
+   \   00000014   1600000A           BEQ      ??write_scan_header_0
+    561              /* Emit arith conditioning info.  We may have some duplication
+    562               * if the file has multiple scans, but it's so small it's hardly
+    563               * worth worrying about.
+    564               */
+    565              emit_dac(cinfo);
+   \   00000018   0400A0E1           MOV      R0,R4
+   \   0000001C   ........           BL       emit_dac
+    566            } else {
+    567              /* Emit Huffman tables.
+    568               * Note that emit_dht() suppresses any duplicate tables.
+    569               */
+    570              for (i = 0; i < cinfo->comps_in_scan; i++) {
+    571                compptr = cinfo->cur_comp_info[i];
+    572                if (cinfo->progressive_mode) {
+    573          	/* Progressive mode: only DC or only AC tables are used in one scan */
+    574          	if (cinfo->Ss == 0) {
+    575          	  if (cinfo->Ah == 0)	/* DC needs no table for refinement scan */
+    576          	    emit_dht(cinfo, compptr->dc_tbl_no, FALSE);
+    577          	} else {
+    578          	  emit_dht(cinfo, compptr->ac_tbl_no, TRUE);
+    579          	}
+    580                } else {
+    581          	/* Sequential mode: need both DC and AC tables */
+    582          	emit_dht(cinfo, compptr->dc_tbl_no, FALSE);
+    583          	emit_dht(cinfo, compptr->ac_tbl_no, TRUE);
+    584                }
+    585              }
+    586            }
+    587          
+    588            /* Emit DRI if required --- note that DRI value could change for each scan.
+    589             * We avoid wasting space with unnecessary DRIs, however.
+    590             */
+    591            if (cinfo->restart_interval != marker->last_restart_interval) {
+   \                     ??write_scan_header_1:
+   \   00000020   E80094E5           LDR      R0,[R4, #+232]
+   \   00000024   1C1095E5           LDR      R1,[R5, #+28]
+   \   00000028   010050E1           CMP      R0,R1
+   \   0000002C   0D00000A           BEQ      ??write_scan_header_2
+    592              emit_dri(cinfo);
+   \   00000030   FF10A0E3           MOV      R1,#+255
+   \   00000034   0400A0E1           MOV      R0,R4
+   \   00000038   ........           BL       emit_byte
+   \   0000003C   DD10A0E3           MOV      R1,#+221
+   \   00000040   0400A0E1           MOV      R0,R4
+   \   00000044   ........           BL       emit_byte
+   \   00000048   0410A0E3           MOV      R1,#+4
+   \   0000004C   0400A0E1           MOV      R0,R4
+   \   00000050   ........           BL       emit_2bytes
+   \   00000054   E81094E5           LDR      R1,[R4, #+232]
+   \   00000058   0400A0E1           MOV      R0,R4
+   \   0000005C   ........           BL       emit_2bytes
+    593              marker->last_restart_interval = cinfo->restart_interval;
+   \   00000060   E80094E5           LDR      R0,[R4, #+232]
+   \   00000064   1C0085E5           STR      R0,[R5, #+28]
+    594            }
+    595          
+    596            emit_sos(cinfo);
+   \                     ??write_scan_header_2:
+   \   00000068   0400A0E1           MOV      R0,R4
+   \   0000006C   ........           BL       emit_sos
+    597          }
+   \   00000070   F080BDE8           POP      {R4-R7,PC}       ;; return
+   \                     ??write_scan_header_0:
+   \   00000074   1C0194E5           LDR      R0,[R4, #+284]
+   \   00000078   0060A0E3           MOV      R6,#+0
+   \   0000007C   010050E3           CMP      R0,#+1
+   \   00000080   090000AA           BGE      ??write_scan_header_3
+   \   00000084   E5FFFFEA           B        ??write_scan_header_1
+   \                     ??write_scan_header_4:
+   \   00000088   141097E5           LDR      R1,[R7, #+20]
+   \   0000008C   0020A0E3           MOV      R2,#+0
+   \   00000090   0400A0E1           MOV      R0,R4
+   \   00000094   ........           BL       emit_dht
+   \                     ??write_scan_header_5:
+   \   00000098   181097E5           LDR      R1,[R7, #+24]
+   \   0000009C   0120A0E3           MOV      R2,#+1
+   \                     ??write_scan_header_6:
+   \   000000A0   0400A0E1           MOV      R0,R4
+   \   000000A4   ........           BL       emit_dht
+   \                     ??write_scan_header_7:
+   \   000000A8   016086E2           ADD      R6,R6,#+1
+   \                     ??write_scan_header_3:
+   \   000000AC   1C0194E5           LDR      R0,[R4, #+284]
+   \   000000B0   000056E1           CMP      R6,R0
+   \   000000B4   D9FFFFAA           BGE      ??write_scan_header_1
+   \   000000B8   060184E0           ADD      R0,R4,R6, LSL #+2
+   \   000000BC   207190E5           LDR      R7,[R0, #+288]
+   \   000000C0   040194E5           LDR      R0,[R4, #+260]
+   \   000000C4   000050E3           CMP      R0,#+0
+   \   000000C8   EEFFFF0A           BEQ      ??write_scan_header_4
+   \   000000CC   640194E5           LDR      R0,[R4, #+356]
+   \   000000D0   000050E3           CMP      R0,#+0
+   \   000000D4   EFFFFF1A           BNE      ??write_scan_header_5
+   \   000000D8   6C0194E5           LDR      R0,[R4, #+364]
+   \   000000DC   000050E3           CMP      R0,#+0
+   \   000000E0   F0FFFF1A           BNE      ??write_scan_header_7
+   \   000000E4   141097E5           LDR      R1,[R7, #+20]
+   \   000000E8   0020A0E3           MOV      R2,#+0
+   \   000000EC   EBFFFFEA           B        ??write_scan_header_6
+    598          
+    599          
+    600          /*
+    601           * Write datastream trailer.
+    602           */
+    603          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    604          METHODDEF(void)
+    605          write_file_trailer (j_compress_ptr cinfo)
+    606          {
+   \                     write_file_trailer:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    607            emit_marker(cinfo, M_EOI);
+   \   00000004   FF10A0E3           MOV      R1,#+255
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   ........           BL       emit_byte
+   \   00000010   D910A0E3           MOV      R1,#+217
+   \   00000014   0400A0E1           MOV      R0,R4
+   \   00000018   1040BDE8           POP      {R4,LR}          ;; Pop
+   \   0000001C   ........           B        emit_byte        ;; tailcall
+    608          }
+    609          
+    610          
+    611          /*
+    612           * Write an abbreviated table-specification datastream.
+    613           * This consists of SOI, DQT and DHT tables, and EOI.
+    614           * Any table that is defined and not marked sent_table = TRUE will be
+    615           * emitted.  Note that all tables will be marked sent_table = TRUE at exit.
+    616           */
+    617          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    618          METHODDEF(void)
+    619          write_tables_only (j_compress_ptr cinfo)
+    620          {
+   \                     write_tables_only:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    621            int i;
+    622          
+    623            emit_marker(cinfo, M_SOI);
+   \   00000008   FF10A0E3           MOV      R1,#+255
+    624          
+    625            for (i = 0; i < NUM_QUANT_TBLS; i++) {
+   \   0000000C   0050A0E3           MOV      R5,#+0
+   \   00000010   ........           BL       emit_byte
+   \   00000014   D810A0E3           MOV      R1,#+216
+   \   00000018   0400A0E1           MOV      R0,R4
+   \   0000001C   ........           BL       emit_byte
+    626              if (cinfo->quant_tbl_ptrs[i] != NULL)
+   \                     ??write_tables_only_0:
+   \   00000020   050184E0           ADD      R0,R4,R5, LSL #+2
+   \   00000024   540090E5           LDR      R0,[R0, #+84]
+   \   00000028   000050E3           CMP      R0,#+0
+   \   0000002C   0200000A           BEQ      ??write_tables_only_1
+    627                (void) emit_dqt(cinfo, i);
+   \   00000030   0510A0E1           MOV      R1,R5
+   \   00000034   0400A0E1           MOV      R0,R4
+   \   00000038   ........           BL       emit_dqt
+    628            }
+   \                     ??write_tables_only_1:
+   \   0000003C   015085E2           ADD      R5,R5,#+1
+   \   00000040   040055E3           CMP      R5,#+4
+   \   00000044   F5FFFFBA           BLT      ??write_tables_only_0
+    629          
+    630            if (! cinfo->arith_code) {
+   \   00000048   D00094E5           LDR      R0,[R4, #+208]
+   \   0000004C   000050E3           CMP      R0,#+0
+   \   00000050   1200001A           BNE      ??write_tables_only_2
+    631              for (i = 0; i < NUM_HUFF_TBLS; i++) {
+   \   00000054   0050A0E3           MOV      R5,#+0
+    632                if (cinfo->dc_huff_tbl_ptrs[i] != NULL)
+   \                     ??write_tables_only_3:
+   \   00000058   056184E0           ADD      R6,R4,R5, LSL #+2
+   \   0000005C   740096E5           LDR      R0,[R6, #+116]
+   \   00000060   000050E3           CMP      R0,#+0
+   \   00000064   0300000A           BEQ      ??write_tables_only_4
+    633          	emit_dht(cinfo, i, FALSE);
+   \   00000068   0020A0E3           MOV      R2,#+0
+   \   0000006C   0510A0E1           MOV      R1,R5
+   \   00000070   0400A0E1           MOV      R0,R4
+   \   00000074   ........           BL       emit_dht
+    634                if (cinfo->ac_huff_tbl_ptrs[i] != NULL)
+   \                     ??write_tables_only_4:
+   \   00000078   840096E5           LDR      R0,[R6, #+132]
+   \   0000007C   000050E3           CMP      R0,#+0
+   \   00000080   0300000A           BEQ      ??write_tables_only_5
+    635          	emit_dht(cinfo, i, TRUE);
+   \   00000084   0120A0E3           MOV      R2,#+1
+   \   00000088   0510A0E1           MOV      R1,R5
+   \   0000008C   0400A0E1           MOV      R0,R4
+   \   00000090   ........           BL       emit_dht
+    636              }
+   \                     ??write_tables_only_5:
+   \   00000094   015085E2           ADD      R5,R5,#+1
+   \   00000098   040055E3           CMP      R5,#+4
+   \   0000009C   EDFFFFBA           BLT      ??write_tables_only_3
+    637            }
+    638          
+    639            emit_marker(cinfo, M_EOI);
+   \                     ??write_tables_only_2:
+   \   000000A0   FF10A0E3           MOV      R1,#+255
+   \   000000A4   0400A0E1           MOV      R0,R4
+   \   000000A8   ........           BL       emit_byte
+   \   000000AC   D910A0E3           MOV      R1,#+217
+   \   000000B0   0400A0E1           MOV      R0,R4
+   \   000000B4   ........           BL       emit_byte
+    640          }
+   \   000000B8   7080BDE8           POP      {R4-R6,PC}       ;; return
+    641          
+    642          
+    643          /*
+    644           * Initialize the marker writer module.
+    645           */
+    646          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    647          GLOBAL(void)
+    648          jinit_marker_writer (j_compress_ptr cinfo)
+    649          {
+   \                     jinit_marker_writer:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    650            my_marker_ptr marker;
+    651          
+    652            /* Create the subobject */
+    653            marker = (my_marker_ptr)
+    654              (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_IMAGE,
+    655          				SIZEOF(my_marker_writer));
+   \   00000004   2020A0E3           MOV      R2,#+32
+   \   00000008   0110A0E3           MOV      R1,#+1
+   \   0000000C   0040A0E1           MOV      R4,R0
+   \   00000010   043094E5           LDR      R3,[R4, #+4]
+   \   00000014   003093E5           LDR      R3,[R3, #+0]
+   \   00000018   33FF2FE1           BLX      R3
+    656            cinfo->marker = (struct jpeg_marker_writer *) marker;
+    657            /* Initialize method pointers */
+    658            marker->pub.write_file_header = write_file_header;
+   \   0000001C   40109FE5           LDR      R1,??jinit_marker_writer_0  ;; write_file_header
+   \   00000020   840184E5           STR      R0,[R4, #+388]
+   \   00000024   001080E5           STR      R1,[R0, #+0]
+    659            marker->pub.write_frame_header = write_frame_header;
+   \   00000028   38109FE5           LDR      R1,??jinit_marker_writer_0+0x4  ;; write_frame_header
+   \   0000002C   041080E5           STR      R1,[R0, #+4]
+    660            marker->pub.write_scan_header = write_scan_header;
+   \   00000030   34109FE5           LDR      R1,??jinit_marker_writer_0+0x8  ;; write_scan_header
+   \   00000034   081080E5           STR      R1,[R0, #+8]
+    661            marker->pub.write_file_trailer = write_file_trailer;
+   \   00000038   30109FE5           LDR      R1,??jinit_marker_writer_0+0xC  ;; write_file_trailer
+   \   0000003C   0C1080E5           STR      R1,[R0, #+12]
+    662            marker->pub.write_tables_only = write_tables_only;
+   \   00000040   2C109FE5           LDR      R1,??jinit_marker_writer_0+0x10  ;; write_tables_only
+   \   00000044   101080E5           STR      R1,[R0, #+16]
+    663            marker->pub.write_marker_header = write_marker_header;
+   \   00000048   28109FE5           LDR      R1,??jinit_marker_writer_0+0x14  ;; write_marker_header
+   \   0000004C   141080E5           STR      R1,[R0, #+20]
+    664            marker->pub.write_marker_byte = write_marker_byte;
+   \   00000050   24109FE5           LDR      R1,??jinit_marker_writer_0+0x18  ;; write_marker_byte
+   \   00000054   181080E5           STR      R1,[R0, #+24]
+    665            /* Initialize private state */
+    666            marker->last_restart_interval = 0;
+   \   00000058   0010A0E3           MOV      R1,#+0
+   \   0000005C   1C1080E5           STR      R1,[R0, #+28]
+    667          }
+   \   00000060   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??jinit_marker_writer_0:
+   \   00000064   ........           DC32     write_file_header
+   \   00000068   ........           DC32     write_frame_header
+   \   0000006C   ........           DC32     write_scan_header
+   \   00000070   ........           DC32     write_file_trailer
+   \   00000074   ........           DC32     write_tables_only
+   \   00000078   ........           DC32     write_marker_header
+   \   0000007C   ........           DC32     write_marker_byte
+
+   Maximum stack usage in bytes:
+
+     Function            CSTACK
+     --------            ------
+     emit_2bytes            12
+     emit_byte               8
+     emit_dac               44
+     emit_dht               20
+     emit_dqt               24
+     emit_sof               16
+     emit_sos               16
+     jinit_marker_writer     8
+     write_file_header      12
+     write_file_trailer      8
+     write_frame_header     20
+     write_marker_byte       4
+     write_marker_header    16
+     write_scan_header      20
+     write_tables_only      16
+
+
+   Segment part sizes:
+
+     Function/Label      Bytes
+     --------------      -----
+     emit_byte             96
+     emit_2bytes           44
+     emit_dqt             252
+     emit_dht             256
+     emit_dac             328
+     emit_sof             256
+     emit_sos             240
+     write_marker_header  104
+     write_marker_byte      4
+     write_file_header    440
+     write_frame_header   292
+     write_scan_header    240
+     write_file_trailer    32
+     write_tables_only    188
+     jinit_marker_writer  128
+      Others               60
+
+ 
+ 2 960 bytes in segment CODE
+ 
+ 2 900 bytes of CODE memory (+ 60 bytes shared)
+
+Errors: none
+Warnings: 1

@@ -1,0 +1,819 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.40A/W32 EVALUATION    02/Nov/2007  20:30:02 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\ARM\ivoplay\player_controler.c                    #
+#    Command line    =  C:\ARM\ivoplay\player_controler.c -D X75 -lC         #
+#                       C:\ARM\ivoplay\ReleaseX75\List\ -lA                  #
+#                       C:\ARM\ivoplay\ReleaseX75\List\ -o                   #
+#                       C:\ARM\ivoplay\ReleaseX75\Obj\ -s9 --no_cse          #
+#                       --no_unroll --no_inline --no_code_motion --no_tbaa   #
+#                       --no_clustering --no_scheduling --cpu_mode arm       #
+#                       --endian little --cpu ARM926EJ-S --stack_align 4     #
+#                       --interwork -e --fpu None -I D:\arm\ARM\INC\         #
+#    List file       =  C:\ARM\ivoplay\ReleaseX75\List\player_controler.lst  #
+#    Object file     =  C:\ARM\ivoplay\ReleaseX75\Obj\player_controler.r79   #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\ARM\ivoplay\player_controler.c
+      1          #include "..\inc\swilib.h"
+      2          
+      3          extern int mode;
+      4          extern CSM_RAM *under_idle;
+      5          
+
+   \                                 In segment DATA_C, align 4, align-sorted
+      6          const CSM_DESC maincsm;
+   \                     maincsm:
+   \   00000000   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000010   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0
+   \              0000        
+      7          
+      8          typedef struct
+      9          {
+     10            CSM_RAM csm;
+     11            int gui_id;
+     12          }MAIN_CSM;
+     13          
+     14          typedef struct
+     15          {
+     16            GUI gui;
+     17            WSHDR *ws1;
+     18            WSHDR *ws2;
+     19            //  int i1;
+     20          }MAIN_GUI;
+     21          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     22          int my_csm_id;
+   \                     my_csm_id:
+   \   00000000                      DS8 4
+     23          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     24          int cursor;
+   \                     cursor:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     25          void * volatile selcsm;
+   \                     selcsm:
+   \   00000000                      DS8 4
+     26          
+     27          typedef struct
+     28          {
+     29            void *next;
+     30            WSHDR *name;
+     31            void *p;
+     32          } NAMELIST;
+     33          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     34          NAMELIST * volatile nltop;
+   \                     nltop:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     35          NAMELIST * volatile nlbot;
+   \                     nlbot:
+   \   00000000                      DS8 4
+     36          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     37          char csm_text[32768];
+   \                     csm_text:
+   \   00000000                      DS8 32768
+     38          
+
+   \                                 In segment DATA_C, align 1, align-sorted
+     39          const char percent_t[]="%t";
+   \                     percent_t:
+   \   00000000   257400             DC8 "%t"
+     40          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     41          void ClearNL(void)
+     42          {
+   \                     ClearNL:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+     43            LockSched();
+   \   00000004   460100EF           SWI      +326
+     44            NAMELIST *nl=nltop;
+   \   00000008   ........           LDR      R0,??DataTable7  ;; nltop
+   \   0000000C   004090E5           LDR      R4,[R0, #+0]
+     45            nltop=0;
+   \   00000010   0010A0E3           MOV      R1,#+0
+   \   00000014   001080E5           STR      R1,[R0, #+0]
+     46            nlbot=0;
+   \   00000018   ........           LDR      R0,??DataTable4  ;; nlbot
+   \   0000001C   001080E5           STR      R1,[R0, #+0]
+     47            UnlockSched();
+   \   00000020   470100EF           SWI      +327
+   \   00000024   000054E3           CMP      R4,#+0
+   \   00000028   3080BD08           POPEQ    {R4,R5,PC}
+     48            while(nl)
+     49            {
+     50              NAMELIST *p=nl;
+   \                     ??ClearNL_0:
+   \   0000002C   0450A0E1           MOV      R5,R4
+     51              FreeWS(nl->name);
+   \   00000030   040094E5           LDR      R0,[R4, #+4]
+   \   00000034   290100EF           SWI      +297
+     52              nl=p->next;
+   \   00000038   004095E5           LDR      R4,[R5, #+0]
+     53              mfree(p);
+   \   0000003C   0500A0E1           MOV      R0,R5
+   \   00000040   150000EF           SWI      +21
+     54            }
+   \   00000044   000054E3           CMP      R4,#+0
+   \   00000048   F7FFFF1A           BNE      ??ClearNL_0
+     55          }
+   \   0000004C   3080BDE8           POP      {R4,R5,PC}       ;; return
+     56          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     57          void AddNL(WSHDR *ws)
+     58          {
+   \                     AddNL:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0050A0E1           MOV      R5,R0
+     59            NAMELIST *nnl=malloc(sizeof(NAMELIST));
+   \   00000008   0C00A0E3           MOV      R0,#+12
+   \   0000000C   140000EF           SWI      +20
+   \   00000010   0040A0E1           MOV      R4,R0
+     60            nnl->name=ws;
+   \   00000014   045084E5           STR      R5,[R4, #+4]
+     61            nnl->next=0;
+   \   00000018   0000A0E3           MOV      R0,#+0
+   \   0000001C   000084E5           STR      R0,[R4, #+0]
+     62            LockSched();
+   \   00000020   460100EF           SWI      +326
+     63            if (!nltop)
+   \   00000024   ........           LDR      R0,??DataTable7  ;; nltop
+   \   00000028   000090E5           LDR      R0,[R0, #+0]
+   \   0000002C   000050E3           CMP      R0,#+0
+   \   00000030   ........           LDR      R0,??DataTable7  ;; nltop
+     64            {
+     65              nlbot=nltop=nnl;
+   \   00000034   00408005           STREQ    R4,[R0, #+0]
+   \   00000038   ........           LDREQ    R0,??DataTable4  ;; nlbot
+     66            }
+     67            else
+     68            {
+     69              nnl->next=nltop;
+   \   0000003C   00009015           LDRNE    R0,[R0, #+0]
+   \   00000040   00008415           STRNE    R0,[R4, #+0]
+     70              nltop=nnl;
+   \   00000044   ........           LDRNE    R0,??DataTable7  ;; nltop
+   \   00000048   004080E5           STR      R4,[R0, #+0]
+     71            }
+     72            UnlockSched();
+   \   0000004C   470100EF           SWI      +327
+     73          }
+   \   00000050   3080BDE8           POP      {R4,R5,PC}       ;; return
+     74          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     75          char *find_name(CSM_RAM *csm)
+     76          {
+   \                     find_name:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   28D04DE2           SUB      SP,SP,#+40
+     77            char s[40];
+     78            char *p;
+     79            static char u[40];
+     80          
+     81            CSM_DESC *desc=csm->constr;
+   \   00000008   084090E5           LDR      R4,[R0, #+8]
+     82          
+     83            sprintf(s,"%08X ",desc);
+   \   0000000C   0420A0E1           MOV      R2,R4
+   \   00000010   38109FE5           LDR      R1,??find_name_0  ;; `?<Constant "%08X ">`
+   \   00000014   0D00A0E1           MOV      R0,SP
+   \   00000018   160000EF           SWI      +22
+     84            p=strstr(csm_text,s);
+   \   0000001C   0D10A0E1           MOV      R1,SP
+   \   00000020   2C009FE5           LDR      R0,??find_name_0+0x4  ;; csm_text
+   \   00000024   180100EF           SWI      +280
+     85            if (p)
+   \   00000028   000050E3           CMP      R0,#+0
+     86            {
+     87              return(p+9);
+   \   0000002C   09008012           ADDNE    R0,R0,#+9
+   \   00000030   0400001A           BNE      ??find_name_1
+     88            }
+     89            else
+     90            {
+     91              sprintf(u,"Unknown %08X!",desc);
+   \   00000034   0420A0E1           MOV      R2,R4
+   \   00000038   18109FE5           LDR      R1,??find_name_0+0x8  ;; `?<Constant "Unknown %08X!">`
+   \   0000003C   18009FE5           LDR      R0,??find_name_0+0xC  ;; ??u
+   \   00000040   160000EF           SWI      +22
+     92              return(u);
+   \   00000044   10009FE5           LDR      R0,??find_name_0+0xC  ;; ??u
+   \                     ??find_name_1:
+   \   00000048   28D08DE2           ADD      SP,SP,#+40       ;; stack cleaning
+   \   0000004C   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??find_name_0:
+   \   00000050   ........           DC32     `?<Constant "%08X ">`
+   \   00000054   ........           DC32     csm_text
+   \   00000058   ........           DC32     `?<Constant "Unknown %08X!">`
+   \   0000005C   ........           DC32     ??u
+     93            }
+     94          }
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+   \                     ??u:
+   \   00000000                      DS8 40
+     95          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     96          int GetNumberOfDialogs(void)
+     97          {
+   \                     GetNumberOfDialogs:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+     98            int count=0;
+   \   00000004   0040A0E3           MOV      R4,#+0
+     99            CSM_RAM *icsm=under_idle->next; //?????? ????????
+   \   00000008   ........           LDR      R0,??DataTable8  ;; under_idle
+   \   0000000C   000090E5           LDR      R0,[R0, #+0]
+   \   00000010   005090E5           LDR      R5,[R0, #+0]
+    100            ClearNL();
+   \   00000014   ........           BL       ClearNL
+    101            WSHDR *ws;
+    102          
+    103            void *ircsm=FindCSMbyID(CSM_root()->idle_id);
+   \   00000018   068100EF           SWI      +33030
+   \   0000001C   040090E5           LDR      R0,[R0, #+4]
+   \   00000020   080100EF           SWI      +264
+   \   00000024   0060A0E1           MOV      R6,R0
+    104          
+    105            do
+    106            {
+    107              if (icsm==ircsm)
+   \                     ??GetNumberOfDialogs_0:
+   \   00000028   060055E1           CMP      R5,R6
+   \   0000002C   0500001A           BNE      ??GetNumberOfDialogs_1
+    108              {
+    109                ws=AllocWS(40);
+   \   00000030   2800A0E3           MOV      R0,#+40
+   \   00000034   250100EF           SWI      +293
+   \   00000038   0080A0E1           MOV      R8,R0
+    110                wsprintf(ws,"IDLE Screen");
+   \   0000003C   B4109FE5           LDR      R1,??GetNumberOfDialogs_2  ;; `?<Constant "IDLE Screen">`
+   \   00000040   240100EF           SWI      +292
+    111                AddNL(ws);
+   \   00000044   200000EA           B        ??GetNumberOfDialogs_3
+    112                nltop->p=icsm;
+    113                count++;
+    114              }
+    115              else
+    116              {
+    117                if (icsm->constr!=&maincsm)
+   \                     ??GetNumberOfDialogs_1:
+   \   00000048   080095E5           LDR      R0,[R5, #+8]
+   \   0000004C   A8109FE5           LDR      R1,??GetNumberOfDialogs_2+0x4  ;; maincsm
+   \   00000050   010050E1           CMP      R0,R1
+   \   00000054   2200000A           BEQ      ??GetNumberOfDialogs_4
+    118                {
+    119          	WSHDR *tws=(WSHDR *)(((char *)icsm->constr)+sizeof(CSM_DESC));
+   \   00000058   187080E2           ADD      R7,R0,#+24
+    120          	char *s;
+    121          	if((tws->ws_malloc==NAMECSM_MAGIC1)&&(tws->ws_mfree==NAMECSM_MAGIC2))
+   \   0000005C   040097E5           LDR      R0,[R7, #+4]
+   \   00000060   98109FE5           LDR      R1,??GetNumberOfDialogs_2+0x8  ;; 0x55aacccc
+   \   00000064   010050E1           CMP      R0,R1
+   \   00000068   0900001A           BNE      ??GetNumberOfDialogs_5
+   \   0000006C   080097E5           LDR      R0,[R7, #+8]
+   \   00000070   8C109FE5           LDR      R1,??GetNumberOfDialogs_2+0xC  ;; 0x3333aa55
+   \   00000074   010050E1           CMP      R0,R1
+   \   00000078   0500001A           BNE      ??GetNumberOfDialogs_5
+    122          	{
+    123          	  ws=AllocWS(40);
+   \   0000007C   2800A0E3           MOV      R0,#+40
+   \   00000080   250100EF           SWI      +293
+   \   00000084   0080A0E1           MOV      R8,R0
+    124          	  wstrcpy(ws,tws);
+   \   00000088   0710A0E1           MOV      R1,R7
+   \   0000008C   1F0100EF           SWI      +287
+    125          	  AddNL(ws);
+   \   00000090   0D0000EA           B        ??GetNumberOfDialogs_3
+    126          	  nltop->p=icsm;
+    127          	  count++;
+    128          	}
+    129          	else
+    130          	{
+    131          	  s=find_name(icsm);
+   \                     ??GetNumberOfDialogs_5:
+   \   00000094   0500A0E1           MOV      R0,R5
+   \   00000098   ........           BL       find_name
+   \   0000009C   0070A0E1           MOV      R7,R0
+    132          	  if (strncmp(s,"!SKIP!",6))
+   \   000000A0   0620A0E3           MOV      R2,#+6
+   \   000000A4   5C109FE5           LDR      R1,??GetNumberOfDialogs_2+0x10  ;; `?<Constant "!SKIP!">`
+   \   000000A8   150100EF           SWI      +277
+   \   000000AC   000050E3           CMP      R0,#+0
+   \   000000B0   0B00000A           BEQ      ??GetNumberOfDialogs_4
+    133          	  {
+    134          	    ws=AllocWS(40);
+   \   000000B4   2800A0E3           MOV      R0,#+40
+   \   000000B8   250100EF           SWI      +293
+   \   000000BC   0080A0E1           MOV      R8,R0
+    135          	    wsprintf(ws,percent_t,s);
+   \   000000C0   0720A0E1           MOV      R2,R7
+   \   000000C4   40109FE5           LDR      R1,??GetNumberOfDialogs_2+0x14  ;; percent_t
+   \   000000C8   240100EF           SWI      +292
+    136          	    AddNL(ws);
+   \                     ??GetNumberOfDialogs_3:
+   \   000000CC   0800A0E1           MOV      R0,R8
+   \   000000D0   ........           BL       AddNL
+    137          	    nltop->p=icsm;
+   \   000000D4   ........           LDR      R0,??DataTable7  ;; nltop
+   \   000000D8   000090E5           LDR      R0,[R0, #+0]
+   \   000000DC   085080E5           STR      R5,[R0, #+8]
+    138          	    count++;
+   \   000000E0   014084E2           ADD      R4,R4,#+1
+    139          	  }
+    140          	}
+    141                }
+    142              }
+    143            }
+    144            while((icsm=icsm->next));
+   \                     ??GetNumberOfDialogs_4:
+   \   000000E4   005095E5           LDR      R5,[R5, #+0]
+   \   000000E8   000055E3           CMP      R5,#+0
+   \   000000EC   CDFFFF1A           BNE      ??GetNumberOfDialogs_0
+    145            return(count);
+   \   000000F0   0400A0E1           MOV      R0,R4
+   \   000000F4   F081BDE8           POP      {R4-R8,PC}       ;; return
+   \                     ??GetNumberOfDialogs_2:
+   \   000000F8   ........           DC32     `?<Constant "IDLE Screen">`
+   \   000000FC   ........           DC32     maincsm
+   \   00000100   CCCCAA55           DC32     0x55aacccc
+   \   00000104   55AA3333           DC32     0x3333aa55
+   \   00000108   ........           DC32     `?<Constant "!SKIP!">`
+   \   0000010C   ........           DC32     percent_t
+    146          }
+    147          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    148          void SwapCSMS(void)
+    149          {
+   \                     SwapCSMS:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    150            CSM_RAM *icsm; //?????? CSM
+    151            CSM_RAM *ucsm; //??????? CSM
+    152            CSM_RAM *wcsm; //???????????? CSM
+    153            extern WSHDR *ws_nogui;
+    154          
+    155            if (GetNumberOfDialogs()<2) return; //?????? ???????????
+   \   00000004   ........           BL       GetNumberOfDialogs
+   \   00000008   020050E3           CMP      R0,#+2
+   \   0000000C   1080BDB8           POPLT    {R4,PC}
+    156            if (!selcsm) return;
+   \   00000010   E8009FE5           LDR      R0,??SwapCSMS_0  ;; selcsm
+   \   00000014   000090E5           LDR      R0,[R0, #+0]
+   \   00000018   000050E3           CMP      R0,#+0
+   \   0000001C   1080BD08           POPEQ    {R4,PC}
+    157            do
+    158            {
+    159              icsm=under_idle;
+   \                     ??SwapCSMS_1:
+   \   00000020   ........           LDR      R0,??DataTable8  ;; under_idle
+   \   00000024   004090E5           LDR      R4,[R0, #+0]
+    160              ucsm=FindCSMbyID(my_csm_id);
+   \   00000028   ........           LDR      R0,??DataTable10  ;; my_csm_id
+   \   0000002C   000090E5           LDR      R0,[R0, #+0]
+   \   00000030   080100EF           SWI      +264
+    161              wcsm=(CSM_RAM *)ucsm->prev; //???????? ???????????? CSM
+   \   00000034   041090E5           LDR      R1,[R0, #+4]
+    162              ((CSM_RAM *)(wcsm->prev))->next=ucsm; //CSM ????? ???????????? ?????? ????????? ?? ??????? CSM
+   \   00000038   042091E5           LDR      R2,[R1, #+4]
+   \   0000003C   000082E5           STR      R0,[R2, #+0]
+    163              ucsm->prev=wcsm->prev; //prev ???????? CSM ????????? ?? CSM ????? ????????????
+   \   00000040   042091E5           LDR      R2,[R1, #+4]
+   \   00000044   042080E5           STR      R2,[R0, #+4]
+    164              //?????? ????????? ? ?????? ????? ???????????? CSM
+    165              ((CSM_RAM *)(wcsm->next=icsm->next))->prev=wcsm;
+   \   00000048   002094E5           LDR      R2,[R4, #+0]
+   \   0000004C   002081E5           STR      R2,[R1, #+0]
+   \   00000050   041082E5           STR      R1,[R2, #+4]
+    166              icsm->next=wcsm;
+   \   00000054   001084E5           STR      R1,[R4, #+0]
+    167              wcsm->prev=icsm;
+   \   00000058   044081E5           STR      R4,[R1, #+4]
+    168            }
+    169            while(ucsm->prev!=selcsm);
+   \   0000005C   040090E5           LDR      R0,[R0, #+4]
+   \   00000060   98109FE5           LDR      R1,??SwapCSMS_0  ;; selcsm
+   \   00000064   001091E5           LDR      R1,[R1, #+0]
+   \   00000068   010050E1           CMP      R0,R1
+   \   0000006C   EBFFFF1A           BNE      ??SwapCSMS_1
+    170            //?????? ?????? "??? GUI" ?? ?????? ??????
+    171            DrawRoundedFrame(0,0,131,175,0,0,0,
+    172          			GetPaletteAdrByColorIndex(0),
+    173          			GetPaletteAdrByColorIndex(20));
+   \   00000070   1400A0E3           MOV      R0,#+20
+   \   00000074   2E0100EF           SWI      +302
+   \   00000078   0040A0E1           MOV      R4,R0
+   \   0000007C   0000A0E3           MOV      R0,#+0
+   \   00000080   2E0100EF           SWI      +302
+   \   00000084   10002DE9           PUSH     {R4}
+   \   00000088   01002DE9           PUSH     {R0}
+   \   0000008C   0000A0E3           MOV      R0,#+0
+   \   00000090   01002DE9           PUSH     {R0}
+   \   00000094   01002DE9           PUSH     {R0}
+   \   00000098   01002DE9           PUSH     {R0}
+   \   0000009C   AF30A0E3           MOV      R3,#+175
+   \   000000A0   8320A0E3           MOV      R2,#+131
+   \   000000A4   0010A0E3           MOV      R1,#+0
+   \   000000A8   500100EF           SWI      +336
+    174            DrawString(ws_nogui,3,70,128,172,1,2,GetPaletteAdrByColorIndex(2),GetPaletteAdrByColorIndex(23));
+   \   000000AC   1700A0E3           MOV      R0,#+23
+   \   000000B0   2E0100EF           SWI      +302
+   \   000000B4   0040A0E1           MOV      R4,R0
+   \   000000B8   0200A0E3           MOV      R0,#+2
+   \   000000BC   2E0100EF           SWI      +302
+   \   000000C0   10002DE9           PUSH     {R4}
+   \   000000C4   01002DE9           PUSH     {R0}
+   \   000000C8   0200A0E3           MOV      R0,#+2
+   \   000000CC   01002DE9           PUSH     {R0}
+   \   000000D0   0100A0E3           MOV      R0,#+1
+   \   000000D4   01002DE9           PUSH     {R0}
+   \   000000D8   AC00A0E3           MOV      R0,#+172
+   \   000000DC   01002DE9           PUSH     {R0}
+   \   000000E0   8030A0E3           MOV      R3,#+128
+   \   000000E4   4620A0E3           MOV      R2,#+70
+   \   000000E8   0310A0E3           MOV      R1,#+3
+   \   000000EC   10009FE5           LDR      R0,??SwapCSMS_0+0x4  ;; ws_nogui
+   \   000000F0   000090E5           LDR      R0,[R0, #+0]
+   \   000000F4   4C0100EF           SWI      +332
+   \   000000F8   28D08DE2           ADD      SP,SP,#+40       ;; stack cleaning
+    175          }
+   \   000000FC   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??SwapCSMS_0:
+   \   00000100   ........           DC32     selcsm
+   \   00000104   ........           DC32     ws_nogui
+    176          
+    177          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    178          void method0(MAIN_GUI *data)
+    179          {
+   \                     method0:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    180            /*int i;
+    181            int pos;
+    182            int vcur;
+    183            NAMELIST *nl;
+    184          */
+    185            DrawRoundedFrame(0,0,131,175,0,0,0,
+    186          			GetPaletteAdrByColorIndex(0),
+    187          			GetPaletteAdrByColorIndex(20));
+   \   00000004   1400A0E3           MOV      R0,#+20
+   \   00000008   2E0100EF           SWI      +302
+   \   0000000C   0040A0E1           MOV      R4,R0
+   \   00000010   0000A0E3           MOV      R0,#+0
+   \   00000014   2E0100EF           SWI      +302
+   \   00000018   10002DE9           PUSH     {R4}
+   \   0000001C   01002DE9           PUSH     {R0}
+   \   00000020   0000A0E3           MOV      R0,#+0
+   \   00000024   01002DE9           PUSH     {R0}
+   \   00000028   01002DE9           PUSH     {R0}
+   \   0000002C   01002DE9           PUSH     {R0}
+   \   00000030   AF30A0E3           MOV      R3,#+175
+   \   00000034   8320A0E3           MOV      R2,#+131
+   \   00000038   0010A0E3           MOV      R1,#+0
+   \   0000003C   500100EF           SWI      +336
+    188            /*wsprintf(data->ws1,"XTask v1.1\n(C)2006 by Rst7/CBSIE\n\n%t%d",
+    189          	   "?????? ????????: ",
+    190          	   GetNumberOfDialogs());
+    191            DrawString(data->ws1,3,3,128,51,11,0,GetPaletteAdrByColorIndex(0),GetPaletteAdrByColorIndex(23));
+    192          
+    193            nl=nltop;
+    194            i=0;
+    195            while(nl)
+    196            {
+    197              i++;
+    198              nl=nl->next;
+    199            }
+    200            if (i)
+    201            {
+    202              if (cursor>=i) cursor=i-1;
+    203            }
+    204            else cursor=0;
+    205            nl=nltop;
+    206            if (cursor<2)
+    207            {
+    208              pos=0;
+    209              vcur=cursor;
+    210            }
+    211            else
+    212            {
+    213              pos=cursor-2;
+    214              vcur=2;
+    215            }
+    216            while(pos)
+    217            {
+    218              if (nl)
+    219              {
+    220                nl=nl->next;
+    221              }
+    222              pos--;
+    223            }
+    224            i=0;
+    225            do
+    226            {
+    227              if (nl)
+    228              {
+    229                if (nl->name)
+    230                {
+    231          	if (i==vcur)
+    232          	{
+    233          	  selcsm=nl->p;
+    234          	  DrawRoundedFrame(3,55+14*i,128,58+11+14*i,0,0,0,
+    235          			GetPaletteAdrByColorIndex(0),
+    236          			GetPaletteAdrByColorIndex(3));
+    237          	}
+    238          	DrawString(nl->name,5,57+14*i,126,57+11+14*i,11,0x80,GetPaletteAdrByColorIndex(0),GetPaletteAdrByColorIndex(23));
+    239                }
+    240                nl=nl->next;
+    241              }
+    242              i++;
+    243            }
+    244            while(i<5);
+    245          
+    246            wsprintf(data->ws2,percent_t," Idle           ?????");
+    247            DrawString(data->ws2,3,157,128,172,5,2,GetPaletteAdrByColorIndex(0),GetPaletteAdrByColorIndex(23));*/
+    248          }
+   \   00000040   14D08DE2           ADD      SP,SP,#+20       ;; stack cleaning
+   \   00000044   1080BDE8           POP      {R4,PC}          ;; return
+    249          /*
+    250          void method1(MAIN_GUI *data, void *(*malloc_adr)(int))
+    251          {
+    252            int f;
+    253            int sz=0;
+    254            unsigned int ul;
+    255            data->ws1=AllocWS(256);
+    256            data->ws2=AllocWS(256);
+    257            if ((f=fopen("4:\\ZBin\\etc\\CSMlist.txt",A_ReadOnly+A_BIN,0,&ul))!=-1)
+    258            {
+    259              sz=fread(f,csm_text,32767,&ul);
+    260              fclose(f,&ul);
+    261            }
+    262            if (sz>0) csm_text[sz]=0;
+    263            cursor=1; //?? ?????????
+    264            selcsm=0;
+    265            data->gui.state=1;
+    266          }
+    267          
+    268          void method2(MAIN_GUI *data, void (*mfree_adr)(void *))
+    269          {
+    270            ClearNL();
+    271            FreeWS(data->ws1);
+    272            FreeWS(data->ws2);
+    273            data->gui.state=0;
+    274          }
+    275          
+    276          void method3(MAIN_GUI *data, void *(*malloc_adr)(int), void (*mfree_adr)(void *))
+    277          {
+    278            data->gui.state=2;
+    279          }
+    280          
+    281          void method4(MAIN_GUI *data, void (*mfree_adr)(void *))
+    282          {
+    283            if (data->gui.state!=2) return;
+    284            data->gui.state=1;
+    285          }
+    286          
+    287          int method5(MAIN_GUI *data, GUI_MSG *msg)
+    288          {
+    289            if (msg->gbsmsg->msg==KEY_DOWN)
+    290            {
+    291              switch(msg->gbsmsg->submess)
+    292              {
+    293              case LEFT_SOFT:
+    294                selcsm=FindCSMbyID(CSM_root()->idle_id);
+    295              case ENTER_BUTTON:
+    296                SwapCSMS();
+    297              case RIGHT_SOFT:
+    298                return(1); //?????????? ????? GeneralFunc ??? ???. GUI -> ???????? GUI
+    299              case UP_BUTTON:
+    300                if (cursor) cursor--;
+    301                break;
+    302              case DOWN_BUTTON:
+    303                cursor++;
+    304                break;
+    305              }
+    306            }
+    307            DirectRedrawGUI();
+    308            return(0);
+    309          }*/
+    310          /*
+    311          void method7(MAIN_GUI *data, void (*mfree_adr)(void *))
+    312          {
+    313            mfree_adr(data);
+    314          }
+    315          
+    316          int method8(void){return(0);}
+    317          
+    318          int method9(void){return(0);}
+    319          
+    320          const void * const control_gui_methods[11]={
+    321            (void *)method0,	//Redraw
+    322            (void *)method1,	//Create
+    323            (void *)method2,	//Close
+    324            (void *)method3,	//Focus
+    325            (void *)method4,	//Unfocus
+    326            (void *)method5,	//OnKey
+    327            0,
+    328            (void *)method7,	//Destroy
+    329            (void *)method8,
+    330            (void *)method9,
+    331            0
+    332          };*/
+    333          
+
+   \                                 In segment DATA_C, align 4, align-sorted
+    334          const RECT Controler_Canvas={0,0,131,175};
+   \                     Controler_Canvas:
+   \   00000000   000000008300       DC16 0, 0, 131, 175
+   \              AF00        
+    335          
+    336          /*void maincsm_oncreate(CSM_RAM *data)
+    337          {
+    338            MAIN_GUI *main_gui=malloc(sizeof(MAIN_GUI));
+    339            MAIN_CSM *csm=(MAIN_CSM*)data;
+    340            zeromem(main_gui,sizeof(MAIN_GUI));
+    341            main_gui->gui.canvas=(void *)(&Controler_Canvas);
+    342            main_gui->gui.flag30=2;
+    343            main_gui->gui.methods=(void *)gui_methods;
+    344            main_gui->gui.item_ll.data_mfree=(void (*)(void *))mfree_adr();
+    345            csm->csm.state=0;
+    346            csm->csm.unk1=0;
+    347            csm->gui_id=CreateGUI(main_gui);
+    348          }*/
+    349          
+    350          /*void maincsm_onclose(CSM_RAM *csm)
+    351          {
+    352            //  extern void *ELF_BEGIN;
+    353            //  ((void (*)(void *))(mfree_adr()))(&ELF_BEGIN);
+    354            mode=0;
+    355          }*/
+    356          
+    357          /*int maincsm_onmessage(CSM_RAM *data, GBS_MSG *msg)
+    358          {
+    359            MAIN_CSM *csm=(MAIN_CSM*)data;
+    360            if ((msg->msg==MSG_GUI_DESTROYED)&&((int)msg->data0==csm->gui_id))
+    361            {
+    362              csm->csm.state=-3;
+    363            }
+    364            return(1);
+    365          }*/
+    366          
+    367          //const int minus11=-11;
+    368          
+    369          /*const CSM_DESC maincsm=
+    370          {
+    371            maincsm_onmessage,
+    372            maincsm_oncreate,
+    373            maincsm_onclose,
+    374            sizeof(MAIN_CSM),
+    375            1,
+    376            &minus11
+    377          };*/
+    378          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    379          void CreateRemotePlayerControler()
+    380          {
+   \                     CreateRemotePlayerControler:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    381            //char dummy[sizeof(MAIN_CSM)];
+    382            CSM_RAM *data;
+    383            zeromem(data,sizeof(data));
+                           ^
+Warning[Pe549]: variable "data" is used before its value is set
+   \   00000004   0410A0E3           MOV      R1,#+4
+   \   00000008   1D0100EF           SWI      +285
+    384            MAIN_GUI *main_gui=malloc(sizeof(MAIN_GUI));
+   \   0000000C   3800A0E3           MOV      R0,#+56
+   \   00000010   140000EF           SWI      +20
+   \   00000014   0040A0E1           MOV      R4,R0
+    385            MAIN_CSM *csm=(MAIN_CSM*)data;
+                             ^
+Warning[Pe177]: variable "csm" was declared but never referenced
+    386            zeromem(main_gui,sizeof(MAIN_GUI));
+   \   00000018   3810A0E3           MOV      R1,#+56
+   \   0000001C   1D0100EF           SWI      +285
+    387            my_csm_id=CreateGUI(main_gui);
+   \   00000020   0400A0E1           MOV      R0,R4
+   \   00000024   370100EF           SWI      +311
+   \   00000028   ........           LDR      R1,??DataTable10  ;; my_csm_id
+   \   0000002C   000081E5           STR      R0,[R1, #+0]
+    388          }
+   \   00000030   1080BDE8           POP      {R4,PC}          ;; return
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable4:
+   \   00000000   ........           DC32     nlbot
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable7:
+   \   00000000   ........           DC32     nltop
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable8:
+   \   00000000   ........           DC32     under_idle
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable10:
+   \   00000000   ........           DC32     my_csm_id
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "%08X ">`:
+   \   00000000   253038582000       DC8 "%08X "
+   \   00000006   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Unknown %08X!">`:
+   \   00000000   556E6B6E6F77       DC8 "Unknown %08X!"
+   \              6E2025303858
+   \              2100        
+   \   0000000E   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "IDLE Screen">`:
+   \   00000000   49444C452053       DC8 "IDLE Screen"
+   \              637265656E00
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "!SKIP!">`:
+   \   00000000   21534B495021       DC8 "!SKIP!"
+   \              00          
+   \   00000007   00                 DC8 0
+
+   Maximum stack usage in bytes:
+
+     Function                    CSTACK
+     --------                    ------
+     AddNL                          12
+     ClearNL                        12
+     CreateRemotePlayerControler     8
+     GetNumberOfDialogs             24
+     SwapCSMS                       48
+     find_name                      48
+     method0                        28
+
+
+   Segment part sizes:
+
+     Function/Label              Bytes
+     --------------              -----
+     maincsm                        24
+     my_csm_id                       4
+     cursor                          4
+     selcsm                          4
+     nltop                           4
+     nlbot                           4
+     csm_text                    32768
+     percent_t                       3
+     ClearNL                        80
+     AddNL                          84
+     find_name                      96
+     u                              40
+     GetNumberOfDialogs            272
+     SwapCSMS                      264
+     method0                        72
+     Controler_Canvas                8
+     CreateRemotePlayerControler    52
+     ??DataTable4                    4
+     ??DataTable7                    4
+     ??DataTable8                    4
+     ??DataTable10                   4
+     ?<Constant "%08X ">             8
+     ?<Constant "Unknown %08X!">    16
+     ?<Constant "IDLE Screen">      12
+     ?<Constant "!SKIP!">            8
+      Others                        40
+
+ 
+    964 bytes in segment CODE
+     79 bytes in segment DATA_C
+ 32 828 bytes in segment DATA_Z
+     12 bytes in segment INITTAB
+ 
+    936 bytes of CODE  memory (+ 40 bytes shared)
+     79 bytes of CONST memory
+ 32 828 bytes of DATA  memory
+
+Errors: none
+Warnings: 2

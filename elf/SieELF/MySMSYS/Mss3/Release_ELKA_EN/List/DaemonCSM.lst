@@ -1,0 +1,556 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    05/Mar/2009  13:12:04 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\DaemonCSM.cpp       #
+#    Command line    =  D:\pasha\elf\SieELF\MySMSYS\Mss3\DaemonCSM.cpp -D    #
+#                       NEWSGOLD -D ELKA -D LANG_EN -lcN                     #
+#                       D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_EN\Lis #
+#                       t\ -o D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_ #
+#                       EN\Obj\ -s9 --no_unroll --cpu_mode arm --endian      #
+#                       little --cpu ARM926EJ-S --stack_align 4 --interwork  #
+#                       -e --fpu None --eec++ --dlib_config                  #
+#                       "D:\pasha\Embedded Workbench 4.0                     #
+#                       Evaluation2\ARM\LIB\dl5tpainl8n.h" -I                #
+#                       "D:\pasha\Embedded Workbench 4.0                     #
+#                       Evaluation2\ARM\INC\" --inline_threshold=2           #
+#    List file       =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_EN\Lis #
+#                       t\DaemonCSM.lst                                      #
+#    Object file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_EN\Obj #
+#                       \DaemonCSM.r79                                       #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\pasha\elf\SieELF\MySMSYS\Mss3\DaemonCSM.cpp
+      1          #include "include.h"
+      2          
+      3          #include "SiemensPDU.h"
+      4          #include "MyIpcMessage.h"
+      5          #include "File.h"
+      6          #include "SmsData.h"
+      7          #include "CreateMenu.h"
+      8          #include "SmsListMenu.h"
+      9          #include "DialogCSM.h"
+     10          #include "Vibra.h"
+     11          
+     12          #include "SendList.h"
+     13          #include "CSMswaper.h"
+     14          #include "DaemonCSM.h"
+     15          
+     16          #include "AdrList.h"
+     17          #include "..\..\inc\playsound.h"
+     18          #include "..\..\inc\mplayer.h"
+     19          
+     20          DaemonCSM::DaemonCSM()
+     21          {
+     22            daemon_csm_desc.csm_desc.onMessage=OnMessage;
+     23            daemon_csm_desc.csm_desc.onCreate=OnCreate;
+     24            daemon_csm_desc.csm_desc.onClose=OnClose;
+     25          #ifdef NEWSGOLD
+     26            daemon_csm_desc.csm_desc.zero1=0;
+     27            daemon_csm_desc.csm_desc.zero2=0;
+     28            daemon_csm_desc.csm_desc.zero3=0;
+     29            daemon_csm_desc.csm_desc.zero4=0;
+     30          #endif
+     31            daemon_csm_desc.csm_desc.datasize=sizeof(DAEMON_CSM);
+     32            daemon_csm_desc.csm_desc.statesize=1;
+     33            daemon_csm_desc.csm_desc.states=&minus11;
+     34            daemon_csm_desc.csm_name.wsbody=this->csm_name_body;
+     35            daemon_csm_desc.csm_name.ws_malloc=NAMECSM_MAGIC1;
+     36            daemon_csm_desc.csm_name.ws_mfree=NAMECSM_MAGIC2;
+     37            daemon_csm_desc.csm_name.isbody_allocated=0;
+     38            daemon_csm_desc.csm_name.maxlen=DAEMON_NAME_LEN;
+     39            zeromem(this->DLGCSM_IDS, sizeof(this->DLGCSM_IDS));
+     40            this->is_new_proc=0;
+     41            this->temp_tmr_index=0;
+     42          #ifdef ICONBAR
+     43            strcpy(this->daemon_csm_desc.iconbar_handler.check_name, "IconBar");
+     44            this->daemon_csm_desc.iconbar_handler.addr=(int)this->AddIconBar;
+     45          #endif
+     46            this->vibra=new Vibra;
+     47            this->sndlst=new SendList;
+     48          }
+     49          
+     50          DaemonCSM::~DaemonCSM()
+     51          {
+     52            delete this->vibra;
+     53            delete this->sndlst;
+     54          }
+     55          
+     56          void DaemonCSM::CreateDaemonCSM(void)
+     57          {
+     58            CSM_RAM *save_cmpc;
+     59            CSMROOT *csmr;
+     60            DAEMON_CSM daemon_csm;
+     61            zeromem(&daemon_csm, sizeof(DAEMON_CSM));
+     62            daemon_csm.daemon=this;
+     63            //csm name
+     64            wsprintf(&daemon_csm_desc.csm_name, "%t", ELFFNAMED);
+     65            LockSched();
+     66            csmr=CSM_root();
+     67            save_cmpc=csmr->csm_q->current_msg_processing_csm;
+     68            csmr->csm_q->current_msg_processing_csm=(CSM_RAM *)csmr->csm_q->csm.first;
+     69            CreateCSM(&daemon_csm_desc.csm_desc,&daemon_csm,0);
+     70            csmr->csm_q->current_msg_processing_csm=save_cmpc;
+     71            UnlockSched();
+     72          }
+     73          
+     74          void DaemonCSM::OnCreate(CSM_RAM *data)
+     75          {
+     76            LGP=new LangPack;
+     77            IP=new IconPack;
+     78            ADRLST=new AdrList;
+     79            SMSDATA=new SmsData;
+     80          }
+     81          
+     82          #pragma inline=forced
+     83          int toupper(int c)
+     84          {
+     85            if ((c>='a')&&(c<='z')) c+='A'-'a';
+     86            return(c);
+     87          }
+     88          #pragma inline
+     89          int strcmp_nocase(const char *s1,const char *s2)
+     90          {
+     91            int i;
+     92            int c;
+     93            while(!(i=(c=toupper(*s1++))-toupper(*s2++))) if (!c) break;
+     94            return(i);
+     95          }
+     96          
+     97          
+     98          int DaemonCSM::OnMessage(CSM_RAM *data, GBS_MSG *msg)
+     99          {
+    100          #ifdef NEWSGOLD
+    101          
+    102          #ifdef ELKA
+    103          #define MSG_EMS_FFS_WRITE 0x6105
+    104          #else
+    105          #define MSG_EMS_FFS_WRITE 0x61CB
+    106          #endif
+    107          
+    108          #ifdef ELKA
+    109          #define MSG_EMS_INCOMING 0x6106 //ELKA,À´×Ôsmsman
+    110          #else
+    111          #define MSG_EMS_INCOMING 0x61CC
+    112          #define MSG_EMS_INCOMING_2 0x61D6
+    113          #endif
+    114          
+    115          #endif
+    116          
+    117            DAEMON_CSM *daemon_csm=(DAEMON_CSM *)data;
+    118            DaemonCSM *daemon=daemon_csm->daemon;
+    119            if (msg->msg==MSG_EMS_FFS_WRITE)
+    120            {
+    121              if ((int)msg->data1==0x8 || (int)msg->data1==0x408)
+    122              {
+    123                if (SMSDATA->IsNewSMS((int)msg->data0))
+    124                {
+    125          	if(IsTimerProc(&daemon->chktmr)) GBS_DelTimer(&daemon->chktmr);
+    126          	daemon->is_new_proc=1;
+    127          	daemon->temp_tmr_index=(int)msg->data0;
+    128          	GBS_StartTimerProc(&daemon->chktmr, 216/2, daemon->DoNewProc);
+    129                }
+    130                else goto CHK_IT;
+    131              }
+    132              else
+    133              {
+    134              CHK_IT:
+    135                int chk_res;
+    136                chk_res=SMSDATA->CheckSMS((int)msg->data0);
+    137                if(chk_res==2)
+    138                {
+    139          	if(daemon->IsOnTopMyCSM())
+    140          	  RefreshGUI();
+    141                }
+    142                else if(chk_res==1)
+    143                {
+    144          	if(!daemon->is_new_proc)
+    145          	{
+    146          	  if(IsTimerProc(&daemon->chktmr)) GBS_DelTimer(&daemon->chktmr);
+    147          	  daemon->temp_tmr_index=(int)msg->data0;
+    148          	  GBS_StartTimerProc(&daemon->chktmr, 216/2, daemon->UpdateNProc);
+    149          	}
+    150                }
+    151              }
+    152              if((!(SMSDATA->n_new=SMSDATA->GetSMSCount(TYPE_IN_N)))&&(CFG_ENA_NOTIFY))
+    153              {
+    154                daemon->vibra->VibraStop();
+    155                if(daemon->PLAY_ID)
+    156                {
+    157          	PlayMelody_StopPlayback(daemon->PLAY_ID);
+    158          	daemon->PLAY_ID=0;
+    159                }
+    160              }
+    161            }
+    162            if(msg->msg==MSG_IPC)
+    163            {
+    164              IPC_REQ *ipc;
+    165              if((ipc=(IPC_REQ *)msg->data0))
+    166              {
+    167                if(!strcmp(ipc->name_to, IPC_NAME))
+    168                {
+    169          	switch(msg->submess)
+    170          	{
+    171          	case SMSYS_IPC_SMS_DATA_UPDATE:
+    172          	  if(daemon->IsOnTopMyCSM())
+    173          	    RefreshGUI();
+    174          	  break;
+    175          	case SMSYS_IPC_UPDATE_CLIST:
+    176          	  SUBPROC((void *)ADRLST->ConstructListFRC, ADRLST);
+    177          	  break;
+    178          	case SMSYS_IPC_READ_NEW:
+    179          	  if (daemon->temp_tmr_index)
+    180          	  {
+    181          	    if (SMSDATA->ReadMessageOne(daemon->temp_tmr_index))
+    182          	    {
+    183          	      if (CFG_ENA_NOTIFY) SendMyIpc(SMSYS_IPC_NEW_IN_ME, (void *)daemon->temp_tmr_index);//myipc.SendIpc(SMSYS_IPC_NEW_IN_WIN, (void *)daemon->temp_tmr_index);
+    184          	      else if (daemon->IsOnTopMyCSM()) RefreshGUI();
+    185          	    }
+    186          	    daemon->temp_tmr_index=0;
+    187          	  }
+    188          	  daemon->is_new_proc=0;
+    189          	  break;
+    190          	case SMSYS_IPC_READ_SMS:
+    191          	  if (daemon->temp_tmr_index)
+    192          	  {
+    193          	    if (SMSDATA->ReadMessageOne(daemon->temp_tmr_index))
+    194          	    {
+    195          	      if (daemon->IsOnTopMyCSM()) RefreshGUI();
+    196          	    }
+    197          	    daemon->temp_tmr_index=0;
+    198          	  }
+    199          	  break;
+    200          	case SMSYS_IPC_NAB_CREATE:
+    201          	  if(ipc->data)
+    202          	  {
+    203          	    if(!daemon->AddDlgCsmID((int)ipc->data))
+    204          	      daemon->AddDlgCsmID_Forced0((int)ipc->data);
+    205          	  }
+    206          	  break;
+    207          	case SMSYS_IPC_ARCHIVE:
+    208          	  extern void OpenArchive(void); //othmenu.cpp
+    209          	  SUBPROC((void *)OpenArchive);
+    210          	  break;
+    211          	case SMSYS_IPC_VIBRA_START:
+    212          	  daemon->vibra->VibraStart();
+    213          	  break;
+    214          	case SMSYS_IPC_VIBRA_STOP:
+    215          	  daemon->vibra->VibraStop();
+    216          	  break;
+    217          	case SMSYS_IPC_VIBRA_NEXT:
+    218          	  daemon->vibra->VibraNext();
+    219          	  break;
+    220          	case SMSYS_IPC_SOUND_PLAY:
+    221          	  if(ipc->data && CFG_ENA_SOUND && !(*(RamRingtoneStatus())) && CFG_NOTIFY_TIME && !IsCalling())
+    222          	  {
+    223          	    if(GetPlayStatus()) MPlayer_Stop();
+    224          	    if(daemon->PLAY_ID)
+    225          	    {
+    226          	      PlayMelody_StopPlayback(daemon->PLAY_ID);
+    227          	      daemon->PLAY_ID=0;
+    228          	    }
+    229          	    SUBPROC((void *)daemon->PlayNotifySound, daemon, (char *)ipc->data);
+    230          	  }
+    231          	  break;
+    232          	case SMSYS_IPC_SOUND_STOP:
+    233          	  {
+    234          	    if(daemon->PLAY_ID)
+    235          	    {
+    236          	      PlayMelody_StopPlayback(daemon->PLAY_ID);
+    237          	      daemon->PLAY_ID=0;
+    238          	    }
+    239          	    if(CFG_ENA_SOUND && IsPlayerOn() && !GetPlayStatus()) MPlayer_Start();
+    240          	  }
+    241          	  break;
+    242          	case SMSYS_IPC_SEND_LIST:
+    243          	  {
+    244          	    if(ipc->data)
+    245          	    {
+    246          	      daemon->sndlst->CatList((SNDLST *)ipc->data);
+    247          	    }
+    248          	    SUBPROC((void *)SendList::Send, daemon->sndlst);
+    249                      //if(CFG_ENA_SNED_ON_BG)
+    250                      //  daemon->sndlst->SendStart();
+    251                      //else
+    252                      //  SUBPROC((void *)daemon->sndlst->SendOnTop, daemon->sndlst);
+    253          	  }
+    254          	  break;
+    255          	default:
+    256          	  {
+    257          	    int id;
+    258          	    DialogCSM *dlg=new DialogCSM;
+    259          	    id=dlg->CreateDialogCSM(msg->submess, ipc->data);
+    260          	    if(!daemon->AddDlgCsmID(id))
+    261          	      daemon->AddDlgCsmID_Forced0(id);
+    262          	  }
+    263          	  break;
+    264          	}
+    265                }
+    266              }
+    267            }
+    268            if(msg->msg==MSG_RECONFIGURE_REQ)
+    269            {
+    270              extern const char *successed_config_filename;
+    271              extern void InitSetting(void); //main.cpp
+    272              if(!strcmp_nocase(successed_config_filename,(char *)msg->data0))
+    273              {
+    274                InitSetting();
+    275                ShowMSG(1,(int)LGP->lgp.LGP_CONFIG_UPDATE);
+    276                ADRLST->ConstructListCFGUPD();
+    277                daemon->vibra->ReInitThythm();
+    278              }
+    279            }
+    280            if(msg->msg==MSG_CSM_DESTROYED)
+    281            {
+    282              daemon->sndlst->SendEnd((int)msg->data0);
+    283              SUBPROC((void *)SendList::Send, daemon->sndlst);
+    284              //if(CFG_ENA_SNED_ON_BG)
+    285              //  daemon->sndlst->SendStart();
+    286              //else
+    287              //  SUBPROC((void *)daemon->sndlst->SendOnTop, daemon->sndlst);
+    288              daemon->DelDlgCsmID((int)msg->data0);
+    289            }
+    290            if(daemon->PLAY_ID && (msg->msg==MSG_INCOMMING_CALL || IsCalling()))
+    291            {
+    292              PlayMelody_StopPlayback(daemon->PLAY_ID);
+    293              daemon->PLAY_ID=0;
+    294            }
+    295            if(msg->msg==MSG_PLAYFILE_REPORT && daemon->PLAY_ID) 
+    296            {
+    297              GBS_PSOUND_MSG *pmsg=(GBS_PSOUND_MSG *)msg;
+    298              if(pmsg->handler==daemon->PLAY_ID)
+    299              {
+    300                if(pmsg->cmd==M_SAE_PLAYBACK_ERROR || pmsg->cmd==M_SAE_PLAYBACK_DONE)
+    301          	daemon->PLAY_ID=0;
+    302              }
+    303            }
+    304            return 1;
+    305          }
+    306          
+    307          void DaemonCSM::OnClose(CSM_RAM *data)
+    308          {
+    309            DAEMON_CSM *daemon_csm=(DAEMON_CSM *)data;
+    310            daemon_csm->daemon->CloseAllDlgCSM();
+    311            GBS_DelTimer(&daemon_csm->daemon->chktmr);
+    312            delete LGP;
+    313            delete IP;
+    314            delete ADRLST;
+    315            delete SMSDATA;
+    316            delete daemon_csm->daemon;
+    317            extern void ElfKiller(void); //main.cpp
+    318            SUBPROC((void *)ElfKiller);
+    319          }
+    320          
+    321          
+    322          int DaemonCSM::AddDlgCsmID(int id)
+    323          {
+    324            int i;
+    325            for(i=0;i<DLGCSM_ID_MAX;i++)
+    326            {
+    327              if(!this->DLGCSM_IDS[i])
+    328              {
+    329                this->DLGCSM_IDS[i]=id;
+    330                return 1;
+    331              }
+    332            }
+    333            return 0;
+    334          }
+    335          
+    336          void DaemonCSM::AddDlgCsmID_Forced0(int id)
+    337          {
+    338            CloseCSM(this->DLGCSM_IDS[0]);
+    339            this->DLGCSM_IDS[0]=id;
+    340          }
+    341          
+    342          void DaemonCSM::CloseAllDlgCSM(void)
+    343          {
+    344            int i;
+    345            for(i=0;i<DLGCSM_ID_MAX;i++)
+    346            {
+    347              if(this->DLGCSM_IDS[i])
+    348              {
+    349                CloseCSM(this->DLGCSM_IDS[i]);
+    350                this->DLGCSM_IDS[i]=0;
+    351              }
+    352            }
+    353          }
+    354          
+    355          void DaemonCSM::DelDlgCsmID(int id)
+    356          {
+    357            int i;
+    358            for(i=0;i<DLGCSM_ID_MAX;i++)
+    359            {
+    360              if(this->DLGCSM_IDS[i]==id)
+    361              {
+    362                this->DLGCSM_IDS[i]=0;
+    363                return;
+    364              }
+    365            }
+    366          }
+    367          
+    368          int DaemonCSM::IsOnTopMyCSM(void)
+    369          {
+    370            int i;
+    371            CSM_RAM *icsm;
+    372            if(!(icsm=this->GetTopCSM()) || !icsm->id)
+    373              return 0;
+    374            for(i=0;i<DLGCSM_ID_MAX;i++)
+    375            {
+    376              if(this->DLGCSM_IDS[i]==icsm->id)
+    377                return 1;
+    378            }
+    379            return 0;
+    380          }
+    381          
+    382          void DaemonCSM::DoNewProc(void)
+    383          {
+    384            SendMyIpc(SMSYS_IPC_READ_NEW);
+    385          }
+    386          
+    387          void DaemonCSM::UpdateNProc()
+    388          {
+    389            SendMyIpc(SMSYS_IPC_READ_SMS);
+    390          }
+    391          
+    392          #ifdef ICONBAR
+    393          void DaemonCSM::AddIconBar(short* num)
+    394          {
+    395            if(CFG_ENA_IB && SMSDATA->n_new) AddIconToIconBar(CFG_ICON_IB, num);
+    396          }
+    397          #endif
+    398          void DaemonCSM::PlayNotifySound(DaemonCSM *daemon, char *filepath)
+    399          {
+    400            PLAYFILE_OPT _sfo1;
+    401            WSHDR *sndPath,sndPathn;
+    402            WSHDR *sndFName,sndFNamen;
+    403            unsigned short sndPathb[128];
+    404            unsigned short sndFNameb[128];
+    405            char s[128];
+    406            const char *p;
+    407            CFile file;
+    408            int snd_vol;
+    409            if(
+    410              !daemon
+    411              || !filepath
+    412              || !file.IsFileExist(filepath)
+    413              || !CFG_ENA_SOUND
+    414              || !(snd_vol=GetProfileVolumeSetting(GetProfile(), VOLUME))
+    415              )
+    416              return;
+    417            sndPath=CreateLocalWS(&sndPathn, sndPathb, 128);
+    418            sndFName=CreateLocalWS(&sndFNamen, sndFNameb, 128);
+    419            p=strrchr(filepath,'\\')+1;
+    420            str_2ws(sndFName,p,128);
+    421            strncpy(s,filepath,p-filepath);
+    422            s[p-filepath]='\0';
+    423            str_2ws(sndPath,s,128);
+    424            zeromem(&_sfo1,sizeof(PLAYFILE_OPT));
+    425            _sfo1.repeat_num=1;
+    426            _sfo1.time_between_play=0;
+    427            _sfo1.play_first=0;
+    428            _sfo1.volume=snd_vol;//
+    429          #ifdef NEWSGOLD
+    430            _sfo1.unk6=1;
+    431            _sfo1.unk7=1;
+    432            _sfo1.unk9=2;
+    433            daemon->PLAY_ID=PlayFile(0x10, sndPath, sndFName, GBS_GetCurCepid(), MSG_PLAYFILE_REPORT, &_sfo1);
+    434          #else
+    435          #ifdef X75
+    436            _sfo1.unk4=0x80000000;
+    437            _sfo1.unk5=1;
+    438            daemon->PLAY_ID=PlayFile(0xC, sndPath, sndFName, 0,GBS_GetCurCepid(), MSG_PLAYFILE_REPORT, &_sfo1);
+    439          #else
+    440            _sfo1.unk5=1;
+    441            daemon->PLAY_ID=PlayFile(0xC, sndPath, sndFName, GBS_GetCurCepid(), MSG_PLAYFILE_REPORT, &_sfo1);
+    442          #endif
+    443          #endif
+    444          }
+    445          
+    446          
+    447          CSM_RAM * DaemonCSM::GetTopCSM()
+    448          {
+    449            CSM_RAM *icsm=FindCSMbyID(CSM_root()->idle_id);
+    450            if(!icsm) return 0;
+    451            while(icsm->next) icsm=(CSM_RAM *)icsm->next;
+    452            return icsm;
+    453          }
+
+   Maximum stack usage in bytes:
+
+     Function                       CSTACK
+     --------                       ------
+     DaemonCSM::AddDlgCsmID(int)        0
+     DaemonCSM::AddDlgCsmID_Forced0(int)
+                                       12
+     DaemonCSM::AddIconBar(short *)     4
+     DaemonCSM::CloseAllDlgCSM()       16
+     DaemonCSM::CreateDaemonCSM()      60
+     DaemonCSM::DaemonCSM()            12
+     DaemonCSM::DelDlgCsmID(int)        0
+     DaemonCSM::DoNewProc()             4
+     DaemonCSM::GetTopCSM()             4
+     DaemonCSM::IsOnTopMyCSM()          8
+     DaemonCSM::OnClose(CSM_RAM *)      8
+     DaemonCSM::OnCreate(CSM_RAM *)     4
+     DaemonCSM::OnMessage(CSM_RAM *, GBS_MSG *)
+                                       52
+     DaemonCSM::PlayNotifySound(DaemonCSM *, char *)
+                                      756
+     DaemonCSM::UpdateNProc()           4
+     DaemonCSM::delete ~DaemonCSM(DaemonCSM *)
+                                        8
+     DaemonCSM::new DaemonCSM()         4
+     DaemonCSM::~DaemonCSM()            8
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     DaemonCSM::DaemonCSM()          208
+     DaemonCSM::~DaemonCSM()          28
+     DaemonCSM::CreateDaemonCSM()    116
+     DaemonCSM::OnCreate(CSM_RAM *)   56
+     DaemonCSM::OnMessage(CSM_RAM *, GBS_MSG *)
+                                    1900
+     DaemonCSM::OnClose(CSM_RAM *)   100
+     DaemonCSM::AddDlgCsmID(int)      48
+     DaemonCSM::AddDlgCsmID_Forced0(int)
+                                      28
+     DaemonCSM::CloseAllDlgCSM()      56
+     DaemonCSM::DelDlgCsmID(int)      44
+     DaemonCSM::IsOnTopMyCSM()        84
+     DaemonCSM::DoNewProc()            8
+     DaemonCSM::UpdateNProc()          8
+     DaemonCSM::AddIconBar(short *)   68
+     DaemonCSM::PlayNotifySound(DaemonCSM *, char *)
+                                     312
+     DaemonCSM::GetTopCSM()           48
+     ?<Constant "IconBar">             8
+     ?<Constant "%t">                  3
+     ?<Constant "Mss3D">               8
+     DaemonCSM::delete ~DaemonCSM(DaemonCSM *)
+                                      28
+     DaemonCSM::new DaemonCSM()       28
+     ??DataTable9                      4
+     ??DataTable10                     4
+     ??DataTable11                     4
+     ??DataTable13                     4
+     ??DataTable14                     4
+      Others                         444
+
+ 
+ 3 632 bytes in segment CODE
+    19 bytes in segment DATA_C
+ 
+ 3 188 bytes of CODE  memory (+ 444 bytes shared)
+    19 bytes of CONST memory
+
+Errors: none
+Warnings: none

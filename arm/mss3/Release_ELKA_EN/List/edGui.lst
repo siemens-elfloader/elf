@@ -1,0 +1,1958 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    13/Jan/2011  22:52:14 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\mss3\edGui.c                                  #
+#    Command line    =  C:\arm\mss3\edGui.c -D NEWSGOLD -D ELKA -D LANG_EN   #
+#                       -D NO_CS -lC C:\arm\mss3\Release_ELKA_EN\List\ -o    #
+#                       C:\arm\mss3\Release_ELKA_EN\Obj\ -s9 --no_unroll     #
+#                       --cpu_mode arm --endian little --cpu ARM926EJ-S      #
+#                       --stack_align 4 --interwork -e --fpu None            #
+#                       --dlib_config "C:\arm2\Embedded Workbench 4.0        #
+#                       Evaluation\ARM\LIB\dl5tpainl8n.h" -I                 #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\mss3\Release_ELKA_EN\List\edGui.lst           #
+#    Object file     =  C:\arm\mss3\Release_ELKA_EN\Obj\edGui.r79            #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\mss3\edGui.c
+      1          #include "..\inc\swilib.h"
+      2          #include "sms_dat.h"
+      3          #include "rect_patcher.h"
+      4          #include "language.h"
+      5          #include "adrList.h"
+      6          #include "guiIdMan.h"
+      7          #include "main.h"
+      8          #include "edGui.h"
+      9          #include "createMenu.h"
+     10          #include "numList.h"
+     11          #include "MySMSYS_ipc.h"
+     12          #include "lgp_pic.h"
+     13          #include "CodeShow.h"
+     14          #include "popGui.h"
+     15          #include "config_data.h"
+     16          #include "string_works.h"
+     17          #include "NewDatReader.h"
+     18          #include "template.h"
+     19          #include "NativeAddressbook.h"
+     20          #include "CSMswaper.h"
+     21          #ifdef	LANG_CN
+     22          #define TEXT_INPUT_OPTION	ECT_CURSOR_STAY
+     23          #else
+     24          #define	TEXT_INPUT_OPTION	ECT_NORMAL_TEXT
+     25          #endif
+     26          
+     27          HEADER_DESC ED_HDR={0,0,0,0,NULL,LGP_NULL,LGP_NULL};
+     28          const int ed_menusoftkeys[]={0,1,2};
+     29          SOFTKEY_DESC ed_menu_sk[]=
+     30          {
+     31          	{0x0018,0x0000,(int)LGP_NULL},
+     32          	{0x0001,0x0000,(int)LGP_NULL},
+     33          	{0x003D,0x0000,(int)LGP_DOIT_PIC}
+     34          };
+     35          const SOFTKEYSTAB ed_menu_skt=
+     36          {
+     37          	ed_menu_sk,0
+     38          };
+     39          
+     40          HEADER_DESC ed_menuhdr={0,0,0,0,NULL,LGP_NULL/*(int)ELFNAME*/,LGP_NULL};
+     41          
+     42          void ed_menu_reply(GUI *gui)
+     43          {
+     44          	int update=0;
+     45          	void *ed_gui=MenuGetUserPointer(gui);
+     46          	USER_OP *uo=EDIT_GetUserPointer(ed_gui);
+     47          	DLG_CSM *dlg_csm=(DLG_CSM *)uo->dlg_csm;
+     48          	SGUI_ID *gstop=(SGUI_ID *)dlg_csm->gstop;
+     49          	if(gstop->id==dlg_csm->gui_id)
+     50          		update=1;
+     51          	if(gstop)
+     52          	{
+     53          		GeneralFunc_flag1(gstop->id, 1);
+     54          		popGS(dlg_csm);
+     55          	}
+     56          	if(uo->sd)
+     57          	{
+     58          		if(uo->gui_type==ED_FVIEW)
+     59          		{
+     60          			SMS_DATA *sd=SdCopyOne(uo->sd);
+     61          			if(update)
+     62          				dlg_csm->gui_id=createEditGUI(dlg_csm, sd, ED_FREPLY, 0);
+     63          			else
+     64          				createEditGUI(dlg_csm, sd, ED_FREPLY, 0);
+     65          		}
+     66          		else
+     67          		{
+     68          			if(update)
+     69          				dlg_csm->gui_id=createEditGUI(dlg_csm, uo->sd, ED_REPLY, 0);
+     70          			else
+     71          				createEditGUI(dlg_csm, uo->sd, ED_REPLY, 0);
+     72          		}
+     73          	}
+     74          	GeneralFuncF1(1);
+     75          }
+     76          
+     77          void ed_menu_edit(GUI *gui)
+     78          {
+     79          	int update=0;
+     80          	void *ed_gui=MenuGetUserPointer(gui);
+     81          	USER_OP *uo=EDIT_GetUserPointer(ed_gui);
+     82          	DLG_CSM *dlg_csm=(DLG_CSM *)uo->dlg_csm;
+     83          	SGUI_ID *gstop=(SGUI_ID *)dlg_csm->gstop;
+     84          	if(gstop->id==dlg_csm->gui_id)
+     85          		update=1;
+     86          	if(gstop)
+     87          	{
+     88          		GeneralFunc_flag1(gstop->id, 1);
+     89          		popGS(dlg_csm);
+     90          	}
+     91          	if(uo->sd)
+     92          	{
+     93          		if(uo->gui_type==ED_FVIEW)
+     94          		{
+     95          			SMS_DATA *sd=SdCopyOne(uo->sd);
+     96          			if(update)
+     97          				dlg_csm->gui_id=createEditGUI(dlg_csm, sd, ED_FEDIT, 0);
+     98          			else
+     99          				createEditGUI(dlg_csm, sd, ED_FEDIT, 0);
+    100          		}
+    101          		else
+    102          		{
+    103          			if(update)
+    104          				dlg_csm->gui_id=createEditGUI(dlg_csm, uo->sd, ED_EDIT, 0);
+    105          			else
+    106          				createEditGUI(dlg_csm, uo->sd, ED_EDIT, 0);
+    107          		}
+    108          	}
+    109          	GeneralFuncF1(1);
+    110          }
+    111          
+    112          void ed_menu_exit(GUI *gui)
+    113          {
+    114          	void *ed_gui=MenuGetUserPointer(gui);
+    115          	USER_OP *uo=EDIT_GetUserPointer(ed_gui);
+    116          	DLG_CSM *dlg_csm=(DLG_CSM *)(uo->dlg_csm);
+    117          	SGUI_ID *gstop=(SGUI_ID *)(dlg_csm->gstop);
+    118          	if(gstop)
+    119          	{
+    120          		GeneralFunc_flag1(gstop->id, 1);
+    121          		popGS(dlg_csm);
+    122          	}
+    123          	GeneralFuncF1(1);
+    124          }
+    125          
+    126          void ed_menu_del(GUI *gui)
+    127          {
+    128          	void *ed_gui=MenuGetUserPointer(gui);
+    129          	USER_OP *uo=EDIT_GetUserPointer(ed_gui);
+    130          	DLG_CSM *dlg_csm=(DLG_CSM *)(uo->dlg_csm);
+    131          	SGUI_ID *gstop=(SGUI_ID *)(dlg_csm->gstop);	
+    132          	if(gstop)
+    133          	{
+    134          		GeneralFunc_flag1(gstop->id, 1);
+    135          		popGS(dlg_csm);
+    136          	}
+    137          	if(uo->sd)
+    138          	{
+    139          		if(uo->sd->isfile)
+    140          			deleteFile(uo->sd, 0);
+    141          		else
+    142          			deleteDat(uo->sd, 0);
+    143          		if(uo->gui_type!=ED_FVIEW) delSDList(uo->sd);
+    144          	}
+    145          	GeneralFuncF1(1);
+    146          }
+    147          
+    148          int IsFileInArchive(const char *fpath);
+    149          void ed_menu_save_as_file(GUI *gui)
+    150          {
+    151            void *ed_gui=MenuGetUserPointer(gui);
+    152            USER_OP *uo=EDIT_GetUserPointer(ed_gui);
+    153            DLG_CSM *dlg_csm=(DLG_CSM *)(uo->dlg_csm);
+    154            SGUI_ID *gstop=(SGUI_ID *)(dlg_csm->gstop);	
+    155            if((uo->sd!=0)&&(uo->sd->isfile==0)&&(uo->sd->SMS_TEXT))
+    156            {
+    157              char time[32];
+    158              char sdnum[32];
+    159              SMS_DATA *sdx;
+    160              WSHDR *ws=AllocWS(MAX_TEXT);
+    161              wstrcpy(ws, uo->sd->SMS_TEXT);
+    162              strcpy(time, uo->sd->Time);
+    163              strcpy(sdnum, uo->sd->Number);
+    164              if(saveFile(uo->sd->SMS_TEXT, uo->sd->Number, uo->sd, uo->sd->type, 2))
+    165              {
+    166                deleteDat(uo->sd, 0);
+    167                delSDList(uo->sd);
+    168                if(!(sdx=FindSdByTxtTimeNum(ws, time, sdnum))) //重新查找sd失败,直接返回列表
+    169                {
+    170          	if(gstop!=0)
+    171          	{
+    172          	  GeneralFunc_flag1(gstop->id, 1);
+    173          	  popGS(dlg_csm);
+    174          	}
+    175          	else
+    176          	{
+    177          	  //如果完全出错,直接退出
+    178          	  GeneralFunc_flag1(dlg_csm->gui_id, 1);
+    179          	}
+    180                }
+    181                else
+    182                {
+    183          	uo->sd=sdx;
+    184          	if(uo->sd->isfile)
+    185          	{
+    186          	  if(uo->sd->fname && IsFileInArchive(uo->sd->fname))
+    187          	    uo->dat_type=ARCHIVE_FILE;
+    188          	  else
+    189          	    uo->dat_type=NML_FILE;
+    190          	}
+    191          	else uo->dat_type=NML_DAT;
+    192                }
+    193              }
+    194              FreeWS(ws);
+    195            }
+    196            GeneralFuncF1(1);
+    197          } 
+    198          
+    199          void ed_menu_move_to_archive(GUI *gui)
+    200          {
+    201          	void *ed_gui=MenuGetUserPointer(gui);
+    202          	USER_OP *uo=EDIT_GetUserPointer(ed_gui);
+    203          	DLG_CSM *dlg_csm=(DLG_CSM *)(uo->dlg_csm);
+    204          	SGUI_ID *gstop=(SGUI_ID *)(dlg_csm->gstop);	
+    205          	if(gstop)
+    206          	{
+    207          		GeneralFunc_flag1(gstop->id, 1);
+    208          		popGS(dlg_csm);
+    209          	}
+    210          	if(uo->sd)
+    211          	{
+    212          		int k=MoveToArchive(uo->sd);
+    213          		if(k==1)
+    214          		{
+    215          			if(!uo->sd->isfile) deleteDat(uo->sd, 0);
+    216          			if(uo->gui_type!=ED_FVIEW) delSDList(uo->sd);
+    217          		}
+    218          		else
+    219          			ShowFileErrCode(k);
+    220          	}
+    221          	GeneralFuncF1(1);
+    222          }
+    223          
+    224          void ed_menu_export_txt(GUI *gui)
+    225          {
+    226          	void *ed_gui=MenuGetUserPointer(gui);
+    227          	USER_OP *uo=EDIT_GetUserPointer(ed_gui);
+    228          	if(uo->sd)
+    229          	{
+    230          		ShowFileErrCode(ExportOneToTxt(uo->sd));
+    231          	}
+    232          	GeneralFuncF1(1);
+    233          }
+    234          
+    235          #define LGP_SAVE_TO_AB 0xD50
+    236          
+    237          void ed_menu_save_ab(GUI *gui)
+    238          {
+    239          	void *ed_gui=MenuGetUserPointer(gui);
+    240          	USER_OP *uo=EDIT_GetUserPointer(ed_gui);
+    241          	CreateNAbCSM(uo->dlg_csm, ed_gui, TYPE_SAVE);
+    242          	GeneralFuncF1(1);
+    243          }
+    244          
+    245          int Ed_SendSMS(void *gui);
+    246          void ed_menu_send(GUI *gui)
+    247          {
+    248          	void *ed_gui=MenuGetUserPointer(gui);
+    249          	USER_OP *uo=EDIT_GetUserPointer(ed_gui);
+    250          	DLG_CSM *dlg_csm=(DLG_CSM *)(uo->dlg_csm);
+    251          	SGUI_ID *gstop=(SGUI_ID *)(dlg_csm->gstop);
+    252          	if(gstop)
+    253          	{
+    254          		GeneralFunc_flag1(gstop->id, 1);
+    255          		popGS(dlg_csm);
+    256          	}
+    257          	if(Ed_SendSMS(ed_gui)) DoSendBackGround(dlg_csm);
+    258          	GeneralFuncF1(1);
+    259          }
+    260          
+    261          #define MENU_N_NML_FILE 7
+    262          #define MENU_N_NML_DAT 8
+    263          #define MENU_N_ARCHIVE_FILE 6
+    264          
+    265          const MENUPROCS_DESC procs_nml_file[MENU_N_NML_FILE]=
+    266          {
+    267          	ed_menu_reply,
+    268          	ed_menu_edit,
+    269          	ed_menu_del,
+    270          	ed_menu_save_ab,
+    271          	ed_menu_export_txt,
+    272          	ed_menu_move_to_archive,
+    273          	ed_menu_exit,
+    274          };
+    275          
+    276          int items_lgp_nml_file[MENU_N_NML_FILE]=
+    277          {
+    278          	(int)LGP_NULL,
+    279          	(int)LGP_NULL,
+    280          	(int)LGP_NULL,
+    281          	(int)LGP_SAVE_TO_AB,
+    282          	(int)LGP_NULL,
+    283          	(int)LGP_NULL,
+    284          	(int)LGP_NULL,
+    285          };
+    286          
+    287          
+    288          const MENUPROCS_DESC procs_nml_dat[MENU_N_NML_DAT]=
+    289          {
+    290          	ed_menu_reply,
+    291          	ed_menu_edit,
+    292          	ed_menu_del,
+    293          	ed_menu_save_ab,
+    294          	ed_menu_save_as_file,
+    295          	ed_menu_export_txt,
+    296          	ed_menu_move_to_archive,
+    297          	ed_menu_exit,
+    298          };
+    299          
+    300          int items_lgp_nml_dat[MENU_N_NML_DAT]=
+    301          {
+    302          	(int)LGP_NULL,
+    303          	(int)LGP_NULL,
+    304          	(int)LGP_NULL,
+    305          	(int)LGP_SAVE_TO_AB,
+    306          	(int)LGP_NULL,
+    307          	(int)LGP_NULL,
+    308          	(int)LGP_NULL,
+    309          	(int)LGP_NULL,
+    310          };
+    311          
+    312          const MENUPROCS_DESC procs_archive_file[MENU_N_ARCHIVE_FILE]=
+    313          {
+    314          	ed_menu_reply,
+    315          	ed_menu_edit,
+    316          	ed_menu_del,
+    317          	ed_menu_save_ab,
+    318          	ed_menu_export_txt,
+    319          	ed_menu_exit,
+    320          };
+    321          
+    322          int items_lgp_archive_file[MENU_N_ARCHIVE_FILE]=
+    323          {
+    324          	(int)LGP_NULL,
+    325          	(int)LGP_NULL,
+    326          	(int)LGP_NULL,
+    327          	(int)LGP_SAVE_TO_AB,
+    328          	(int)LGP_NULL,
+    329          	(int)LGP_NULL,
+    330          };
+    331          
+    332          int IsFileInArchive(const char *fpath)
+    333          {
+    334            int len,c;
+    335            char folder[128];
+    336            strcpy(folder, CFG_MAIN_FOLDER);
+    337            len=strlen(folder);
+    338            c=folder[len-1];
+    339            if(c!='\\' && c!='/')
+    340            {
+    341              folder[len]='\\';
+    342              folder[len+1]=0;
+    343            }
+    344            strcat(folder, FLDR_ARCHIVE);
+    345            if(!strncmp(fpath, folder, strlen(folder)))
+    346              return 1;
+    347            return 0;
+    348          }
+    349          
+    350          #ifndef WITHOUT_OP_ICON
+    351          
+    352          #ifdef NEWSGOLD
+    353          #ifdef ELKA
+    354          int ed_menu_item_icons[]={0x538,0};
+    355          #else
+    356          #ifdef S68
+    357          int ed_menu_item_icons[]={0x576,0};
+    358          #else
+    359          int ed_menu_item_icons[]={0x564,0};
+    360          #endif
+    361          #endif
+    362          #endif
+    363          
+    364          #endif
+    365          
+    366          void ed_menu_itemhndl(void *data, int curitem, void *user_pointer)
+    367          {
+    368            void *ed_gui=MenuGetUserPointer(data);
+    369            USER_OP *uo=EDIT_GetUserPointer(ed_gui);
+    370            void *item=AllocMenuItem(data);
+    371            WSHDR *ws=AllocMenuWS(data, 150);
+    372            if(curitem==0 && uo->sd && uo->sd->type==TYPE_DRAFT)
+    373            {
+    374              wsprintf(ws, PERCENT_T, lgp.LGP_SEND);
+    375              goto GOGO;
+    376            }
+    377            switch(uo->dat_type)
+    378            {
+    379            case NML_FILE:
+    380              if(curitem>=MENU_N_NML_FILE)
+    381                goto ITEM_ERR;
+    382              wsprintf(ws, PERCENT_T, items_lgp_nml_file[curitem]);
+    383              break;
+    384            case ARCHIVE_FILE:
+    385              if(curitem>=MENU_N_ARCHIVE_FILE)
+    386                goto ITEM_ERR;
+    387              wsprintf(ws, PERCENT_T, items_lgp_archive_file[curitem]);
+    388              break;
+    389            case NML_DAT:
+    390              if(curitem>=MENU_N_NML_DAT)
+    391                goto ITEM_ERR;
+    392              wsprintf(ws, PERCENT_T, items_lgp_nml_dat[curitem]);
+    393              break;
+    394            default:
+    395          ITEM_ERR:
+    396            wsprintf(ws, PERCENT_T, lgp.LGP_ERR);
+    397            }
+    398          GOGO:
+    399          #ifndef WITHOUT_OP_ICON
+    400            SetMenuItemIconArray(data, item, ed_menu_item_icons);
+    401            SetMenuItemIcon(data, curitem, 0);
+    402          #endif
+    403            SetMenuItemText(data, item, ws, curitem);
+    404          }
+    405          
+    406          #pragma swi_number=0x44
+    407          __swi __arm void TempLightOn(int x, int y);
+    408          int ed_menu_onkey(void *data, GUI_MSG *msg)
+    409          {
+    410            int n;
+    411            void *ed_gui;
+    412            USER_OP *uo;
+    413            if(!IsUnlocked()) TempLightOn(3, 0x7FFF);
+    414            if(msg->keys==0x1)
+    415            {
+    416              return 1;
+    417            }
+    418            if((msg->keys==0x18)||(msg->keys==0x3D))
+    419            {
+    420              n=GetCurMenuItem(data);
+    421            DO_PROC:
+    422              ed_gui=MenuGetUserPointer(data);
+    423              uo=EDIT_GetUserPointer(ed_gui);
+    424              if(n==0 && uo->sd && uo->sd->type==TYPE_DRAFT)
+    425              {
+    426                ed_menu_send(data);
+    427                return 1;
+    428              }
+    429              switch(uo->dat_type)
+    430              {
+    431              case NML_FILE:
+    432                if(n>=MENU_N_NML_FILE)
+    433          	return 0;
+    434                procs_nml_file[n](data);
+    435                return 1;
+    436              case ARCHIVE_FILE:
+    437                if(n>=MENU_N_ARCHIVE_FILE)
+    438          	return 0;
+    439                procs_archive_file[n](data);
+    440                return 1;
+    441              case NML_DAT:
+    442                if(n>=MENU_N_NML_DAT)
+    443          	return 0;
+    444                procs_nml_dat[n](data);
+    445                return 1;
+    446              default :
+    447                return 0;
+    448              }
+    449            }
+    450            if(msg->gbsmsg->msg==KEY_DOWN)
+    451            {
+    452              n=msg->gbsmsg->submess;
+    453              if(n>='1' && n<='9')
+    454              {
+    455                n-='1';
+    456                goto DO_PROC;
+    457              }
+    458            }
+    459            return 0;
+    460          }
+    461          
+    462          void ed_menu_ghook(void *data, int cmd)
+    463          {
+    464            if(cmd==2) //create
+    465            {
+    466              WSHDR *hdr_t=AllocWS(32);
+    467              wsprintf(hdr_t, PERCENT_T, lgp.LGP_OPTIONS);
+    468              SetHeaderText(GetHeaderPointer(data), hdr_t, malloc_adr(), mfree_adr());
+    469            }
+    470          }
+    471          const MENU_DESC ed_menu=
+    472          {
+    473            8,ed_menu_onkey,ed_menu_ghook,NULL,
+    474            ed_menusoftkeys,
+    475            &ed_menu_skt,
+    476          #ifdef WITHOUT_OP_ICON
+    477            0x10,
+    478          #else
+    479            0x11,//Right align
+    480          #endif
+    481            ed_menu_itemhndl,
+    482            0,//menuitems,
+    483            0,//menuprocs,
+    484            0
+    485          };
+    486          
+    487          int createEditOpMenu(void *ed_gui)
+    488          {
+    489          	int item_n;
+    490          	USER_OP *uo=EDIT_GetUserPointer(ed_gui);
+    491          	patch_option_header(&ed_menuhdr);
+    492          	switch(uo->dat_type)
+    493          	{
+    494          	case NML_FILE:
+    495          		item_n=MENU_N_NML_FILE;
+    496          		break;
+    497          	case ARCHIVE_FILE:
+    498          		item_n=MENU_N_ARCHIVE_FILE;
+    499          		break;
+    500          	case NML_DAT:
+    501          		item_n=MENU_N_NML_DAT;
+    502          		break;
+    503          	default:
+    504          		item_n=0;
+    505          	}
+    506          	return (CreateSLMenu_30or2(&ed_menu, &ed_menuhdr, 0, item_n, ed_gui));
+    507          }
+    508          
+    509          #ifndef LANG_CN
+    510          
+    511          //translit from smsman (c)titron
+    512          typedef struct
+    513          {
+    514            char *r;
+    515            char *e;
+    516          }trstruct;
+    517          
+    518          const trstruct tr_r[]=
+    519          {
+    520           {"\xC0","A"}, {"\xE0","a"},
+    521           {"\xC1","B"}, {"\xE1","b"},
+    522           {"\xC2","V"}, {"\xE2","v"},
+    523           {"\xC3","G"}, {"\xE3","g"},
+    524           {"\xC4","D"}, {"\xE4","d"},
+    525           {"\xC5","E"}, {"\xE5","e"},
+    526           {"\xA8","Yo"}, {"\xB8","yo"},
+    527           {"\xC6","J"}, {"\xE6","j"},
+    528           {"\xC7","Z"}, {"\xE7","z"},
+    529           {"\xC8","I"}, {"\xE8","i"},
+    530           {"\xC9","Y"}, {"\xE9","y"},
+    531           {"\xCA","K"}, {"\xEA","k"},
+    532           {"\xCB","L"}, {"\xEB","l"},
+    533           {"\xCC","M"}, {"\xEC","m"},
+    534           {"\xCD","N"}, {"\xED","n"},
+    535           {"\xCE","O"}, {"\xEE","o"},
+    536           {"\xCF","P"}, {"\xEF","p"},
+    537           {"\xD0","R"}, {"\xF0","r"},
+    538           {"\xD1","S"}, {"\xF1","s"},
+    539           {"\xD2","T"}, {"\xF2","t"},
+    540           {"\xD3","U"}, {"\xF3","u"},
+    541           {"\xD4","F"}, {"\xF4","f"},
+    542           {"\xD5","H"}, {"\xF5","h"},
+    543           {"\xD6","C"}, {"\xF6","c"},
+    544           {"\xD7","Ch"}, {"\xF7","ch"},
+    545           {"\xD8","Sh"}, {"\xF8","sh"},
+    546           {"\xD9","Sch"}, {"\xF9","sch"},
+    547           {"\xDA","\""}, {"\xFA","\""},
+    548           {"\xDB","Y"}, {"\xFB","Y"},
+    549           {"\xDC","'"}, {"\xFC","'"},
+    550           {"\xDD","E"}, {"\xFD","e"},
+    551           {"\xDE","Yu"}, {"\xFE","yu"},
+    552           {"\xDF","Ya"}, {"\xFF","ya"},
+    553           "",""
+    554          };
+    555          /*
+    556          WSHDR *translit(WSHDR *ws0)
+    557          {
+    558            int wlen, i, c, c1;
+    559            const trstruct *p;
+    560            char *txt;
+    561            WSHDR *tws;
+    562            extern int char16to8(int c);
+    563            if(!ws0 || !(wlen=ws0->wsbody[0])) return 0;
+    564            txt=malloc(wlen*2);
+    565            zeromem(txt, wlen*2);
+    566            for(i=0; i<wlen; i++)
+    567            {
+    568              c=ws0->wsbody[i+1];
+    569              if(c<0x80)
+    570              {
+    571                txt[strlen(txt)]=c;
+    572                continue;
+    573              }
+    574              c=char16to8(c)&0xff;
+    575              p=tr_r;
+    576              while((p->r) && (p->e))
+    577              {
+    578                c1=*(p->r);
+    579                if(c1==c) strcat(txt, p->e);
+    580                p++;
+    581              }
+    582              if(p->r) continue;
+    583              else txt[strlen(txt)]=c;
+    584            }
+    585            tws=AllocWS(strlen(txt));
+    586            wsprintf(tws,txt);
+    587            mfree(txt);
+    588            return (tws);
+    589          }
+    590          
+    591          0x105, 'a'
+    592          0x107, 'c'
+    593          0x119, 'e'
+    594          0xF3, 'o'
+    595          0x142, 'l'
+    596          0x144, 'n'
+    597          0x15B, 's'
+    598          0x17C, 'z'
+    599          0x17A, 'z'*/
+    600          extern int char16to8(int c); //string_works.c
+    601          WSHDR *translit(WSHDR *ws0)
+    602          {
+    603            int c;
+    604            int wlen;
+    605            if(!(wlen=ws0->wsbody[0])) return ws0;
+    606            char *txt=malloc(wlen*2);
+    607            zeromem(txt, wlen*2);
+    608            for(int i=0; i<wlen; i++)
+    609            {
+    610              c=ws0->wsbody[i+1];
+    611              if(c<0x80) goto ADD;
+    612              switch(c) //PL
+    613              {
+    614              case 0x105:c='a';goto ADD;
+    615              case 0x107:c='c';goto ADD;
+    616              case 0x119:c='e';goto ADD;
+    617              case 0x0F3:c='o';goto ADD;
+    618              case 0x142:c='l';goto ADD;
+    619              case 0x144:c='n';goto ADD;
+    620              case 0x15B:c='s';goto ADD;
+    621              case 0x17C:
+    622              case 0x17A:c='z';goto ADD;
+    623              }
+    624              if(c<0x400) goto ADD;
+    625              c=char16to8(c);
+    626              for(int j=0; j<66; j++)
+    627              {
+    628                if(c==*tr_r[j].r)
+    629                {
+    630          	c=0;
+    631          	strcat(txt, tr_r[j].e);
+    632          	j=66;
+    633                }
+    634              }
+    635            ADD:
+    636              if(c) txt[strlen(txt)]=c;
+    637            }
+    638            WSHDR *tws=AllocWS(strlen(txt));
+    639            wsprintf(tws,PERCENT_T,txt);
+    640            mfree(txt);
+    641            return tws;
+    642          }
+    643          
+    644          int add_translit(void *edsms_gui)
+    645          {
+    646            EDITCONTROL ec;
+    647            EDIT_ExtractFocusedControl(edsms_gui,&ec);
+    648            WSHDR *ws0=translit(ec.pWS);
+    649            if(ws0!=ec.pWS)
+    650            {
+    651              EDIT_SetTextToFocused(edsms_gui,ws0);
+    652              FreeWS(ws0);
+    653            }
+    654            return 1;
+    655          }
+    656          
+    657          #endif
+    658          int Ed_SendSMS(void *gui)
+    659          {
+    660            EDITCONTROL ec;
+    661            USER_OP *uo=EDIT_GetUserPointer(gui);
+    662            NUM_LIST *nl=(NUM_LIST *)(uo->nltop);
+    663            if(!(IsHaveNumInList(uo)))
+    664            {
+    665              MsgBoxError(1, (int)lgp.LGP_ERR_0NUM);
+    666              return 0;
+    667            }
+    668            ExtractEditControl(gui,uo->focus_n,&ec);
+    669            if(!(ec.pWS->wsbody[0]))
+    670            {
+    671              MsgBoxError(1, (int)"Nothing For Sent!");
+    672              return 0;
+    673            }
+    674            while(nl)
+    675            {
+    676              if(strlen(nl->num))
+    677              {
+    678                WSHDR *ws=AllocWS(ec.pWS->wsbody[0]);
+    679                wstrcpy(ws,ec.pWS);
+    680                SNEDSMS_CSM_ID=SendSMS(ws,nl->num,MMI_CEPID,MSG_SMS_RX-1,6);
+                                     ^
+Error[Pe513]: a value of type "void" cannot be assigned to an entity of type
+          "unsigned int"
+    681                if(CFG_ENA_SAVE_SENT) saveFile(ec.pWS, nl->num, uo->sd, TYPE_OUT, 2);
+    682              }
+    683              nl=nl->next;
+    684            }
+    685            //草稿发送完成删除
+    686            if(uo->sd && uo->sd->type==TYPE_DRAFT)
+    687            {
+    688              if(!uo->sd->isfile) deleteDat(uo->sd, 0);
+    689              else deleteFile(uo->sd, 0);
+    690              delSDList(uo->sd);
+    691              uo->sd=0;
+    692            }
+    693            uo->nd_sfd=0;
+    694            return 1;
+    695          }
+    696          
+    697          void Ed_SaveFile(WSHDR *txt, USER_OP *uo, int type)
+    698          {
+    699            NUM_LIST *nl=(NUM_LIST *)(uo->nltop);
+    700            SMS_DATA *sdx=0;
+    701            while(nl)
+    702            {
+    703              sdx=(SMS_DATA *)saveFile(txt, nl->num, uo->sd, type, 2);
+    704              nl=nl->next;
+    705            }
+    706            if(type==TYPE_DRAFT && uo->sd && uo->sd->type==TYPE_DRAFT && (int)sdx!=1 && sdx!=0)
+    707            {
+    708              if(!uo->sd->isfile && uo->sd->id)
+    709                deleteDat(uo->sd, 0);
+    710              delSDList(uo->sd);
+    711              uo->sd=sdx;
+    712            }
+    713            uo->nd_sfd=0;
+    714            //readAllSMS();
+    715          }
+    716          
+    717          #ifdef LANG_CN
+    718          #define OPTION_N 5
+    719          #define OPTION_N_N (OPTION_N-1)
+    720          #else
+    721          #define OPTION_N 6
+    722          #define OPTION_N_N (OPTION_N-2)
+    723          #endif
+    724          void on_adr_ec(USR_MENU_ITEM *item) //MENU WOULD BE CLOSED FIRST
+    725          {
+    726            if(item->type==0)
+    727            {
+    728              USER_OP *uo=EDIT_GetUserPointer(item->user_pointer);
+    729              switch(item->cur_item)
+    730              {
+    731              case 0:
+    732                wsprintf(item->ws, PERCENT_T, lgp.LGP_SEND);
+    733                break;
+    734              case 1:
+    735                wsprintf(item->ws, PERCENT_T, lgp.LGP_ADRBK);
+    736                break;
+    737              case 2:
+    738                wsprintf(item->ws, PERCENT_T, lgp.LGP_CANCEL);
+    739                break;
+    740              case 3:
+    741                wsprintf(item->ws, PERCENT_T, (uo->sd->type==TYPE_DRAFT && uo->sd->isfile)?lgp.LGP_SAVE:lgp.LGP_SAVE_AS_DRAFT);
+    742                break;
+    743              case 4:
+    744                wsprintf(item->ws, PERCENT_T, lgp.LGP_TEMPLATE);
+    745                break;
+    746          #ifndef LANG_CN
+    747              case 5:
+    748                wsprintf(item->ws, PERCENT_T, lgp.LGP_TRANSLIT);
+    749                break;
+    750          #endif
+    751              }
+    752            }
+    753            else if(item->type==1)
+    754            {
+    755              USER_OP *uo=EDIT_GetUserPointer(item->user_pointer);
+    756              DLG_CSM *dlg_csm=(DLG_CSM *)uo->dlg_csm;
+    757              SGUI_ID *gstop=(SGUI_ID *)(dlg_csm->gstop);
+    758              switch(item->cur_item)
+    759              {
+    760              case 0:
+    761                if((Ed_SendSMS(item->user_pointer))&&(gstop))
+    762                {
+    763          	GeneralFunc_flag1(gstop->id, 1);
+    764          	popGS(dlg_csm);
+    765          	DoSendBackGround(dlg_csm);
+    766                }
+    767                break;
+    768              case 1:
+    769                CreateNAbCSM(dlg_csm, item->user_pointer, TYPE_SELECT);
+    770                break;
+    771              case 2:
+    772                if(gstop)
+    773                {
+    774          	GeneralFunc_flag1(gstop->id, 1);
+    775          	popGS(dlg_csm);
+    776                }
+    777                break;
+    778              case 3:
+    779                {
+    780          	EDITCONTROL ec;
+    781          	ExtractEditControl(item->user_pointer,uo->focus_n,&ec);
+    782          	Ed_SaveFile(ec.pWS, uo, TYPE_DRAFT);
+    783                }
+    784                if(!uo->sd || (CFG_ENA_EXIT_SAVE_DRAFT && gstop))
+    785                {
+    786          	GeneralFunc_flag1(gstop->id, 1);
+    787          	popGS(dlg_csm);
+    788                }
+    789                break;
+    790              case 4:
+    791                CreateTplMenu(item->user_pointer);
+    792                break;
+    793          #ifndef LANG_CN
+    794              case 5:
+    795                if(EDIT_GetFocus(item->user_pointer)==uo->focus_n)
+    796          	add_translit(item->user_pointer);
+    797                break;
+    798          #endif
+    799              }
+    800            }
+    801          }
+    802          
+    803          int edOnKey(GUI *data, GUI_MSG *msg)
+    804          {
+    805          //0x29 keys, ENTER,no op
+    806          //0x05 keys, Green
+    807          //0x03 keys, ENTER,op
+    808          //0x3D keys, ENTER,select char
+    809          //0x1A keys, LSK
+    810          //0x01 keys, RSK
+    811          	USER_OP *uo=EDIT_GetUserPointer(data);
+    812          	int n=EDIT_GetFocus(data);
+    813          	DLG_CSM *dlg_csm=(DLG_CSM *)(uo->dlg_csm);
+    814          	SGUI_ID *gstop=(SGUI_ID *)(dlg_csm->gstop);
+    815          	SMS_DATA *sdl=0;
+    816          	
+    817          	if(!IsUnlocked())
+    818          		TempLightOn(3, 0x7FFF);
+    819          		
+    820          	if(msg->keys==0x05)
+    821          	{
+    822          		if(uo->gui_type==ED_VIEW)
+    823          		{
+    824          			int update=0;
+    825          			if(gstop->id==dlg_csm->gui_id)
+    826          				update=1;
+    827          			popGS(uo->dlg_csm);
+    828          			if(update)
+    829          				dlg_csm->gui_id=createEditGUI(uo->dlg_csm, uo->sd, (uo->sd->type==TYPE_DRAFT)?ED_EDIT:ED_REPLY, 0);
+    830          			else
+    831          				createEditGUI(uo->dlg_csm, uo->sd, (uo->sd->type==TYPE_DRAFT)?ED_EDIT:ED_REPLY, 0);
+    832          			return 1;
+    833          		}
+    834          		else if((uo->gui_type==ED_FVIEW)&&(uo->sd))
+    835          		{
+    836          			SMS_DATA *sd=SdCopyOne(uo->sd);
+    837          			int update=0;
+    838          			if(gstop->id==dlg_csm->gui_id)
+    839          				update=1;
+    840          			popGS(uo->dlg_csm);
+    841          			if(update)
+    842          				dlg_csm->gui_id=createEditGUI(uo->dlg_csm, sd, (uo->sd->type==TYPE_DRAFT)?ED_FEDIT:ED_FREPLY, 0);
+    843          			else
+    844          				createEditGUI(uo->dlg_csm, sd, (uo->sd->type==TYPE_DRAFT)?ED_FEDIT:ED_FREPLY, 0);
+    845          			return 1;
+    846          		}
+    847          		else
+    848          		{
+    849          			if(!Ed_SendSMS(data))
+    850          				return 0;
+    851          			else
+    852          			{
+    853          			  popGS(uo->dlg_csm);
+    854          			  DoSendBackGround(uo->dlg_csm);
+    855          			  return 1;
+    856          			}
+    857          		}
+    858          		//popGS(uo->dlg_csm);
+    859          		//return 1;
+    860          	}
+    861          	else if((msg->keys==0x29)&&((uo->gui_type==ED_VIEW)||(uo->gui_type==ED_FVIEW)))
+    862          	{
+    863          		createEditOpMenu(data);
+    864          	}
+    865          	else if(msg->keys==0x18)
+    866          	{
+    867          		if((uo->gui_type==ED_VIEW)||(uo->gui_type==ED_FVIEW))
+    868          		{
+    869          			createEditOpMenu(data);
+    870          		}
+    871          		else
+    872          		{
+    873          			if(n==uo->focus_n)
+    874          			{
+    875          				uo->adr_type=TYPE_TXT;
+    876          				EDIT_OpenOptionMenuWithUserItems(data,on_adr_ec,data,OPTION_N);
+    877          			}
+    878          			else if(n<=(uo->focus_n-2)) //号码位置
+    879          			{
+    880          				uo->adr_type=TYPE_SET;
+    881          				EDIT_OpenOptionMenuWithUserItems(data,on_adr_ec,data,OPTION_N_N);
+    882          			}
+    883          			return (-1);
+    884          		}
+    885          	}
+    886          
+    887          	else if(msg->keys==0x1)
+    888          	{
+    889          		popGS(uo->dlg_csm);
+    890          		return 1;
+    891          	}
+    892          	else if(msg->keys==0x0F00)
+    893          	{
+    894          		uo->adr_type=TYPE_SET;
+    895          		CreateNAbCSM(dlg_csm, data, TYPE_SELECT);
+    896          	}
+    897          	if(((msg->gbsmsg->msg==KEY_DOWN)||(msg->gbsmsg->msg==LONG_PRESS))&&(!EDIT_IsBusy(data)))
+    898          	{
+    899          		int i=msg->gbsmsg->submess;
+    900          		EDITCONTROL ec;
+    901          		ExtractEditControl(data,n,&ec);
+    902          		//中键
+    903          		if((i==ENTER_BUTTON)&&(uo->gui_type!=ED_VIEW)&&(uo->gui_type!=ED_FVIEW))
+    904          		{
+    905          			if(n==uo->focus_n)
+    906          			{
+    907          				uo->adr_type=TYPE_TXT;
+    908          				EDIT_OpenOptionMenuWithUserItems(data,on_adr_ec,data,OPTION_N);
+    909          				//EDIT_OpenOptionMenuWithUserItems(data,on_ed_ec,data,3);
+    910          			}
+    911          			else if(n<=(uo->focus_n-2)) //号码位置
+    912          			{
+    913          				uo->adr_type=TYPE_SET;
+    914          				EDIT_OpenOptionMenuWithUserItems(data,on_adr_ec,data,OPTION_N_N);
+    915          			}
+    916          			return (-1);
+    917          		}
+    918          		//上方向, 侧上键
+    919          		if(((i==UP_BUTTON)||(i==VOL_UP_BUTTON)) //循环
+    920          				&&(n==1)
+    921          				&&(!(EDIT_IsMarkModeActive(data)))
+    922          				&&(EDIT_GetCursorPos(data)<=1)) //第一行第一个字符
+    923          		{
+    924          			EDIT_SetFocus(data, uo->focus_n);
+    925          			return (-1);
+    926          		}
+    927          		//下方向, 侧下键
+    928          		if(((i==DOWN_BUTTON)||(i==VOL_DOWN_BUTTON))
+    929          				&&(n==uo->focus_n)
+    930          				&&(!(EDIT_IsMarkModeActive(data)))
+    931          				&&(EDIT_GetCursorPos(data)>=(ec.pWS->wsbody[0]+1))) //最后一个字
+    932          		{
+    933          			EDIT_SetFocus(data, 1);
+    934          			return (-1);
+    935          		}
+    936          		//右方向键,下一条
+    937          		if((i==RIGHT_BUTTON)&&(uo->gui_type==ED_VIEW)&&(sdl=FindNextByType(uo->sd, uo->list_type)))
+    938          		{
+    939          			int update=0;
+    940          			if(gstop->id==dlg_csm->gui_id)
+    941          				update=1;
+    942          			popGS(uo->dlg_csm);
+    943          			if(update)
+    944          				dlg_csm->gui_id=createEditGUI(uo->dlg_csm, sdl, ED_VIEW, uo->list_type);
+    945          			else
+    946          				createEditGUI(uo->dlg_csm, sdl, ED_VIEW, uo->list_type);
+    947          			return 1;
+    948          		}
+    949          		if((i==RIGHT_BUTTON)&&(uo->gui_type==ED_FVIEW)&&(sdl=FindNextMss(uo->sd)))
+    950          		{
+    951          			int update=0;
+    952          			if(gstop->id==dlg_csm->gui_id)
+    953          				update=1;
+    954          			popGS(uo->dlg_csm);
+    955          			if(update)
+    956          				dlg_csm->gui_id=createEditGUI(uo->dlg_csm, sdl, ED_FVIEW, 0);
+    957          			else
+    958          				createEditGUI(uo->dlg_csm, sdl, ED_FVIEW, 0);
+    959          			return 1;
+    960          		}
+    961          		//左方向键,上一条
+    962          		if((i==LEFT_BUTTON)&&(uo->gui_type==ED_VIEW)&&(sdl=FindPrevByType(uo->sd, uo->list_type)))
+    963          		{
+    964          			int update=0;
+    965          			if(gstop->id==dlg_csm->gui_id)
+    966          				update=1;
+    967          			popGS(uo->dlg_csm);
+    968          			if(update)
+    969          				dlg_csm->gui_id=createEditGUI(uo->dlg_csm, sdl, ED_VIEW, uo->list_type);
+    970          			else
+    971          				createEditGUI(uo->dlg_csm, sdl, ED_VIEW, uo->list_type);
+    972          			return 1;
+    973          		}
+    974          		if((i==LEFT_BUTTON)&&(uo->gui_type==ED_FVIEW)&&(sdl=FindPrevMss(uo->sd)))
+    975          		{
+    976          			int update=0;
+    977          			if(gstop->id==dlg_csm->gui_id)
+    978          				update=1;
+    979          			popGS(uo->dlg_csm);
+    980          			if(update)
+    981          				dlg_csm->gui_id=createEditGUI(uo->dlg_csm, sdl, ED_FVIEW, 0);
+    982          			else
+    983          				createEditGUI(uo->dlg_csm, sdl, ED_FVIEW, 0);
+    984          			return 1;
+    985          		}
+    986          		//*键,查看号码信息
+    987          		if((i=='*')&&((uo->gui_type==ED_VIEW)||(uo->gui_type==ED_FVIEW))&&(uo->sd))
+    988          		{
+    989          			NUM_LIST *nl=(NUM_LIST *)(uo->nltop);
+    990          			WSHDR *msg=AllocWS(128);
+    991          		#ifdef NO_CS
+    992          			wsprintf(msg, "%t:\n%s", (uo->sd->type==TYPE_OUT||uo->sd->type==TYPE_DRAFT)?lgp.LGP_TO:lgp.LGP_FROM, nl->num);
+    993          		#else
+    994          			{
+    995          				char num[32];
+    996          				WSHDR csloc, *cs;
+    997          				unsigned short csb[30];
+    998          				cs=CreateLocalWS(&csloc,csb,30);
+    999          				strcpy(num, nl->num);
+   1000          				GetProvAndCity(cs->wsbody, num);
+   1001          				wsprintf(msg, "%t:\n%s\n%t:\n%w", (uo->sd->type==TYPE_OUT||uo->sd->type==TYPE_DRAFT)?lgp.LGP_TO:lgp.LGP_FROM, nl->num, lgp.LGP_CODESHOW, cs);
+   1002          			}
+   1003          		#endif
+   1004          			ShowMSG_ws(1, msg);
+   1005          		}
+   1006          	}
+   1007          	return 0;
+   1008          }
+   1009          
+   1010          
+   1011          SOFTKEY_DESC SK_OPTIONS={0x0018,0x0000,(int)LGP_NULL};
+   1012          SOFTKEY_DESC SK_ADRBK={0x0F00,0x0000,(int)LGP_NULL};
+   1013          SOFTKEY_DESC SK_CANCEL={0x0001,0x0000,(int)LGP_NULL};
+   1014          SOFTKEY_DESC SK_OP_PIC={0x0029,0x0000,(int)LGP_OPTION_PIC};
+   1015          
+   1016          #define TI_CMD_GOTOTOP 0x5
+   1017          
+   1018          //const int ed_hdr_icon[]={0x4BD,0};
+   1019          #ifdef NEWSGOLD
+   1020          #ifdef ELKA
+   1021          int EDHDRIC_VIEW[]={0x2A5,0};
+   1022          int EDHDRIC_EDIT[]={0x4DB,0};
+   1023          int EDHDRIC_ADRBK[]={0x28C,0};
+   1024          #else
+   1025          int EDHDRIC_VIEW[]={0x29A,0};
+   1026          int EDHDRIC_EDIT[]={0x505,0};
+   1027          int EDHDRIC_ADRBK[]={0x1A1,0};
+   1028          #endif
+   1029          #endif
+   1030          //extern void SetHeaderIcon(void *hdr_pointer, const int *icon, void *malloc_adr, void *mfree_adr);
+   1031          void edGHook(GUI *data, int cmd)
+   1032          {
+   1033            USER_OP *uo=EDIT_GetUserPointer(data);
+   1034            if(cmd==TI_CMD_CREATE)
+   1035            {
+   1036              if((uo->gui_type==ED_VIEW)||(uo->gui_type==ED_FVIEW))
+   1037                EDIT_SetFocus(data, 1); //从号码开始看
+   1038              else
+   1039                EDIT_SetFocus(data, uo->focus_n);//光标跳到文本位置
+   1040            }
+   1041            else if(cmd==TI_CMD_DESTROY)
+   1042            {
+   1043          	  //auto save at exit
+   1044          //	  if((uo->gui_type==ED_VIEW)
+   1045          //	     &&(CFG_ENA_AUTO_SAF)
+   1046          //	       &&(!uo->sd->isfile)
+   1047          //		 &&(uo->sd->id)
+   1048          //		   &&(uo->sd->msg_type!=ISREPORT || !CFG_ENA_AUTO_DEL_RP))
+   1049          //	  {
+   1050          //	    if(saveFile(uo->sd->SMS_TEXT, uo->sd->Number, uo->sd, uo->sd->type, 0))
+   1051          //	      deleteDat(uo->sd, 1);
+   1052          //	  }
+   1053              if(uo->nd_sfd && uo->gui_type!=ED_VIEW && uo->gui_type!=ED_FVIEW && (CFG_ENA_AUTO_SAVE_DRAFT))
+   1054              {
+   1055                EDITCONTROL ec;
+   1056                ExtractEditControl(data, uo->focus_n, &ec);
+   1057                if(ec.pWS->wsbody[0])
+   1058                {
+   1059          	Ed_SaveFile(ec.pWS, uo, TYPE_DRAFT);
+   1060                }
+   1061              }
+   1062              if((CFG_ENA_AUTO_DEL_RP)&&(uo->gui_type==ED_VIEW)&&(uo->sd)&&(uo->sd->msg_type&ISREPORT)&&(uo->sd->id > 0)&&(!uo->sd->isfile))
+   1063              {
+   1064                if(IsSdInList(uo->sd) && deleteDat(uo->sd, 0))
+   1065          	delSDList(uo->sd);
+   1066              }
+   1067              if(((uo->gui_type==ED_FREE)
+   1068          	||(uo->gui_type==ED_FVIEW)
+   1069          	  ||(uo->gui_type==ED_FEDIT)
+   1070          	    ||(uo->gui_type==ED_FREPLY)
+   1071          	      )&&(uo->sd))
+   1072              {
+   1073                FreeSdOne(uo->sd);
+   1074              }
+   1075              FreeNumList(uo);
+   1076              mfree(uo);
+   1077            }
+   1078            else if(cmd==TI_CMD_FOCUS)
+   1079            {
+   1080              DisableIDLETMR();
+   1081            }
+   1082            else if(cmd==TI_CMD_GOTOTOP)
+   1083            {
+   1084              const char *lgpN;
+   1085              switch(uo->gui_type)
+   1086              {
+   1087              case ED_VIEW:
+   1088              case ED_FVIEW:
+   1089                lgpN=lgp.LGP_VIEW;
+   1090                break;
+   1091              case ED_EDIT:
+   1092              case ED_FEDIT:
+   1093                lgpN=lgp.LGP_EDIT;
+   1094                break;
+   1095              case ED_NEW:
+   1096              case ED_FREE:
+   1097                lgpN=lgp.LGP_NEW;
+   1098                break;
+   1099              case ED_REPLY:
+   1100              case ED_FREPLY:
+   1101                lgpN=lgp.LGP_REPLY;
+   1102                break;
+   1103              default:
+   1104                lgpN=0;
+   1105                break;
+   1106              }
+   1107              if(lgpN) UpdateDlgCsmName(uo->dlg_csm, lgpN);
+   1108            }
+   1109            else if(cmd==TI_CMD_REDRAW)
+   1110            {
+   1111              NUM_LIST *nl;
+   1112              EDITCONTROL ec;
+   1113              char time[32];
+   1114              char num[32];
+   1115              WSHDR txtl, *text;
+   1116              unsigned short txtb[MAX_TEXT];
+   1117              SMS_DATA *sdx;
+   1118              DLG_CSM *dlg_csm=(DLG_CSM *)(uo->dlg_csm);
+   1119              SGUI_ID *gstop=(SGUI_ID *)(dlg_csm->gstop);	
+   1120              int n=EDIT_GetFocus(data);
+   1121              text=CreateLocalWS(&txtl, txtb, MAX_TEXT);
+   1122              
+   1123              //---
+   1124              if(!uo->sd)
+   1125              {
+   1126                GeneralFuncF1(1);
+   1127                return;
+   1128              }
+   1129          //check sd in list
+   1130              if((uo->gui_type==ED_VIEW)&&(!IsSdInList(uo->sd)))
+   1131              {
+   1132                ExtractEditControl(data, uo->focus_n, &ec);
+   1133                wstrcpy(text, ec.pWS);
+   1134                if(uo->focus_n>2) //简单判断时间是否存在
+   1135                {
+   1136          	ExtractEditControl(data, uo->focus_n-2, &ec);
+   1137          	ws_2str(ec.pWS, time, 31);
+   1138                }
+   1139                else
+   1140          	time[0]=0;
+   1141                nl=uo->nltop;
+   1142                if(nl) strcpy(num, nl->num);
+   1143                else num[0]=0;
+   1144                if(!(sdx=FindSdByTxtTimeNum(text, time, num)))
+   1145                {
+   1146          	if(gstop)
+   1147          	{
+   1148          	  GeneralFunc_flag1(gstop->id, 1);
+   1149          	  popGS(dlg_csm);
+   1150          	}
+   1151          	else
+   1152          	{
+   1153          	  //如果完全出错,直接退出
+   1154          	  GeneralFunc_flag1(dlg_csm->gui_id, 1);
+   1155          	}
+   1156                }
+   1157                else
+   1158          	uo->sd=sdx;
+   1159              }
+   1160              
+   1161              
+   1162              //set mid softkey
+   1163              if((uo->gui_type==ED_VIEW)||(uo->gui_type==ED_FVIEW))
+   1164                SetSoftKey(data,&SK_OP_PIC,SET_SOFT_KEY_M);
+                                                  ^
+Error[Pe020]: identifier "SET_SOFT_KEY_M" is undefined
+   1165              
+   1166              //num to name at unfocus
+   1167              if((uo->gui_type!=ED_VIEW)&&(uo->gui_type!=ED_FVIEW))
+   1168              {
+   1169                int u=EDIT_GetUnFocus(data);
+   1170                if(u<=(uo->focus_n-2) && (nl=GetNumListCur(uo, u)))
+   1171                {
+   1172          	if(isNum(nl->name))
+   1173          	{
+   1174          	  if(findNameByNum(text, nl->num))
+   1175          	  {
+   1176          	    wstrcpy(nl->name, text);
+   1177          	    EDIT_SetTextToEditControl(data, u, text);
+   1178          	  }
+   1179          	}
+   1180                }
+   1181              }
+   1182              
+   1183          //auto save as file
+   1184              if((uo->gui_type==ED_VIEW)
+   1185                 &&(CFG_ENA_AUTO_SAF)
+   1186          	 &&(!uo->sd->isfile)
+   1187          	   //&&(uo->sd->type!=TYPE_IN_N) //set status first
+   1188          	   &&(uo->sd->id)
+   1189          	     &&(!(uo->sd->msg_type&ISDES))
+   1190          	       &&(!(uo->sd->msg_type&ISUNKE))
+   1191          	       &&(!(uo->sd->msg_type&ISUNKT))
+   1192          	       &&(!(uo->sd->msg_type&ISREPORT) || !CFG_ENA_AUTO_DEL_RP))      
+   1193              {
+   1194                wstrcpy(text, uo->sd->SMS_TEXT);
+   1195                strcpy(time, uo->sd->Time);
+   1196                strcpy(num, uo->sd->Number);
+   1197                if(saveFile(uo->sd->SMS_TEXT, uo->sd->Number, uo->sd, uo->sd->type, 2))
+   1198                {
+   1199          	deleteDat(uo->sd, 0);
+   1200          	delSDList(uo->sd);
+   1201          	if(!(sdx=FindSdByTxtTimeNum(text, time, num))) //重新查找sd失败,直接返回列表
+   1202          	{
+   1203          	  if(gstop!=0)
+   1204          	  {
+   1205          	    GeneralFunc_flag1(gstop->id, 1);
+   1206          	    popGS(dlg_csm);
+   1207          	  }
+   1208          	  else
+   1209          	  {
+   1210          	    //如果完全出错,直接退出
+   1211          	    GeneralFunc_flag1(dlg_csm->gui_id, 1);
+   1212          	  }
+   1213          	}
+   1214          	else
+   1215          	{
+   1216          	  uo->sd=sdx;
+   1217          	  //update dat type
+   1218          	  if(uo->sd->isfile)
+   1219          	  {
+   1220          	    if(uo->sd->fname && IsFileInArchive(uo->sd->fname))
+   1221          	      uo->dat_type=ARCHIVE_FILE;
+   1222          	    else
+   1223          	      uo->dat_type=NML_FILE;
+   1224          	  }
+   1225          	  else uo->dat_type=NML_DAT;
+   1226          	}
+   1227                }
+   1228              }
+   1229              
+   1230              //set status
+   1231              if((uo->gui_type==ED_VIEW)
+   1232                 &&(uo->sd->type==TYPE_IN_N)
+   1233          	 &&(!(uo->sd->msg_type&ISDES)))
+   1234                newToRead(uo->sd);
+   1235          //-------------------
+   1236              {
+   1237                ExtractEditControl(data, uo->focus_n, &ec);
+   1238                WSHDR *hdr_t=AllocWS(64);
+   1239                void *hdr_p=GetHeaderPointer(data);
+   1240                void *ma=malloc_adr();
+   1241                void *mf=mfree_adr();
+   1242                int z=0;
+   1243                extern int IsWsSmall(WSHDR *ws);
+   1244                if(uo->gui_type==ED_VIEW || uo->gui_type==ED_FVIEW)
+   1245                {
+   1246          	if(uo->sd)
+   1247          	{
+   1248          	  if(!(z=uo->sd->cnt_r))
+   1249          	  {
+   1250          	    if(!ec.pWS->wsbody[0])
+   1251          	      z=1;
+   1252          	    else if((uo->sd->msg_type&IS7BIT)||(IsWsSmall(ec.pWS)))
+   1253          	      z=(ec.pWS->wsbody[0]-1)/SEG7_MAX+1;
+   1254          	    else
+   1255          	      z=(ec.pWS->wsbody[0]-1)/SEGN_MAX+1;
+   1256          	  }
+   1257          	}
+   1258                }
+   1259                else
+   1260                {
+   1261          	if(uo->chr_cnt!=ec.pWS->wsbody[0])
+   1262          	{
+   1263          	  uo->chr_cnt=ec.pWS->wsbody[0];
+   1264          	  uo->nd_sfd=1;
+   1265          	}
+   1266          	if(!ec.pWS->wsbody[0]) z=1;
+   1267          	else if(IsWsSmall(ec.pWS)) z=(ec.pWS->wsbody[0]-1)/SEG7_MAX+1;
+   1268          	else z=(ec.pWS->wsbody[0]-1)/SEGN_MAX+1;
+   1269                }
+   1270          #ifdef DEBUG
+   1271                wsprintf(hdr_t, "%t:%d,p:%d", lgp.LGP_CHAR_COUNT, ec.pWS->wsbody[0], EDIT_GetCursorPos(data));
+   1272          #else
+   1273                wsprintf(hdr_t, "%t: %d %d", lgp.LGP_CHAR_COUNT, ec.pWS->wsbody[0], z);
+   1274          #endif
+   1275                SetHeaderText(hdr_p, hdr_t, ma, mf);
+   1276                if((uo->gui_type==ED_VIEW)||(uo->gui_type==ED_FVIEW))
+   1277          	SetHeaderIcon(hdr_p, EDHDRIC_VIEW, ma, mf);
+                 	^
+Warning[Pe223]: function "SetHeaderIcon" declared implicitly
+   1278                else
+   1279                {
+   1280          	if(n<=(uo->focus_n-2))
+   1281          	  SetHeaderIcon(hdr_p, EDHDRIC_ADRBK, ma, mf);
+   1282          	else
+   1283          	  SetHeaderIcon(hdr_p, EDHDRIC_EDIT, ma, mf);
+   1284                }
+   1285              }
+   1286              
+   1287              //check number
+   1288              if((uo->gui_type!=ED_VIEW)&&(uo->gui_type!=ED_FVIEW)&&(n<=(uo->focus_n-2))&&(nl=GetNumListCur(uo, n)))
+   1289              {
+   1290                ExtractEditControl(data,n,&ec);
+   1291                if(isNum(ec.pWS))
+   1292                {
+   1293          	char num[50];
+   1294          	ws_2str(ec.pWS, num, 49);
+   1295          	if(strcmp(num, nl->num))
+   1296          	{
+   1297          	  strcpy(nl->num, num);
+   1298          	  str_2ws(nl->name, num, 50);
+   1299          	}
+   1300                }
+   1301                else
+   1302                {
+   1303          	if(wstrcmp_nocase(ec.pWS, nl->name))
+   1304          	{
+   1305          	  DelNumList(uo, nl);
+   1306          	  if((uo->focus_n-2)>1) //多于一个号码就直接删除这个
+   1307          	  {
+   1308          	    EDIT_RemoveEditControl(data, n);
+   1309          	    (uo->focus_n)--;
+   1310          	    if(n>(uo->focus_n-2))
+   1311          	      n=(uo->focus_n-2);
+   1312          	    if(n>0)
+   1313          	      EDIT_SetFocus(data, n);
+   1314          	  }
+   1315          	  else
+   1316          	  {
+   1317          	    EDIT_SetTextToEditControl(data, n, ((NUM_LIST *)(uo->nltop))->name);
+   1318          	    SetSoftKey(data,&SK_CANCEL,!SET_SOFT_KEY_N);
+   1319          	  }
+   1320          	}
+   1321                }
+   1322              }
+   1323              if(!EDIT_IsBusy(data))
+   1324              {
+   1325                ExtractEditControl(data,n,&ec);
+   1326                if((n<=(uo->focus_n-2))&&(ec.pWS->wsbody[0]==0)&&(uo->gui_type!=ED_VIEW))
+   1327          	SetSoftKey(data,&SK_ADRBK,SET_SOFT_KEY_N);
+   1328                else
+   1329          	SetSoftKey(data,&SK_OPTIONS,SET_SOFT_KEY_N);
+   1330              }
+   1331            }
+   1332          }
+   1333          
+   1334          void ed_locret(void)
+   1335          {
+   1336            ;
+   1337          }
+   1338          
+   1339          const INPUTDIA_DESC ED_DESC=
+   1340          {
+   1341          	1,
+   1342          	edOnKey,
+   1343          	edGHook,
+   1344          	(void *)ed_locret,
+   1345          	0,
+   1346          	&ed_menu_skt,
+   1347          	{0,0,0,0},
+   1348          	FONT_SMALL,
+   1349          	100,
+   1350          	101,
+   1351          	0,
+   1352          	0,
+   1353          	0x40000000
+   1354          };
+   1355          
+   1356          const INPUTDIA_DESC ED_DESC_RO=
+   1357          {
+   1358          	1,
+   1359          	edOnKey,
+   1360          	edGHook,
+   1361          	(void *)ed_locret,
+   1362          	0,
+   1363          	&ed_menu_skt,
+   1364          	{0,0,0,0},
+   1365          	FONT_SMALL,
+   1366          	100,
+   1367          	101,
+   1368          	0,
+   1369          	0,
+   1370          	0x40000002
+   1371          };
+   1372          
+   1373          #define EDIT_FONT_DEFAULT 0
+   1374          #define EDIT_FONT_SMALL 1
+   1375          #define EDIT_FONT_SMALL_BOLD 2
+   1376          #define EDIT_FONT_MEDIUM 3
+   1377          #define EDIT_FONT_MEDIUM_BOLD 4
+   1378          #define EDIT_FONT_LARGE 5
+   1379          #define EDIT_FONT_LARGE_BOLD 6
+   1380          
+   1381          int createEditGUI(void *dlg_csm, SMS_DATA *sd, int type, int list_type) //edit, view
+   1382          {
+   1383            int gui_id;
+   1384            void *ma=malloc_adr();
+   1385            void *eq;
+   1386            WSHDR *ews, ewsn;
+   1387            unsigned short ewsb[MAX_TEXT];
+   1388            const INPUTDIA_DESC *edd;
+   1389            EDITCONTROL ec;
+   1390            EDITC_OPTIONS ec_options;
+   1391            ews=CreateLocalWS(&ewsn, ewsb, MAX_TEXT);
+   1392          //----------- uo
+   1393            USER_OP *uo=malloc(sizeof(USER_OP));
+   1394            zeromem(uo, sizeof(USER_OP));
+   1395          
+   1396            AddToNumList(uo);
+   1397            uo->sd=sd; //?
+   1398            uo->dlg_csm=dlg_csm;
+   1399            strcpy(((NUM_LIST *)(uo->nltop))->num, sd->Number);
+   1400            uo->gui_type=type;
+   1401            uo->list_type=list_type;
+   1402            uo->focus_n=0;
+   1403            if(uo->sd->isfile)
+   1404            {
+   1405              if(uo->sd->fname && IsFileInArchive(uo->sd->fname))
+   1406                uo->dat_type=ARCHIVE_FILE;
+   1407              else
+   1408                uo->dat_type=NML_FILE;
+   1409            }
+   1410            else
+   1411              uo->dat_type=NML_DAT;
+   1412          //----------
+   1413            eq=AllocEQueue(ma,mfree_adr());
+   1414            PrepareEditControl(&ec);
+   1415            PrepareEditCOptions(&ec_options);
+   1416          //-----------
+   1417          
+   1418          //----------- header
+   1419          
+   1420          //------------
+   1421          
+   1422          //------------ num
+   1423            {
+   1424              char *pnn;
+   1425              WSHDR *wsname, wsnamen;
+                            ^
+Warning[Pe177]: variable "wsname" was declared but never referenced
+
+      WSHDR *wsname, wsnamen;
+                     ^
+"C:\arm\mss3\edGui.c",1425  Warning[Pe177]: variable "wsnamen" was declared
+          but never referenced
+   1426              unsigned short wsnameb[50];
+                                    ^
+Warning[Pe177]: variable "wsnameb" was declared but never referenced
+   1427              int is_fetion=0;
+                         ^
+Warning[Pe177]: variable "is_fetion" was declared but never referenced
+   1428              if(strlen(sd->Number))
+   1429              {
+   1430                pnn=sd->Number;
+   1431              DO_NUM:
+   1432          #ifdef LANG_CN
+   1433                wsname=CreateLocalWS(&wsnamen, wsnameb, 50);
+   1434                if(!strncmp(num_fetion, pnn, 5)) is_fetion=1;
+   1435                if(!findNameByNum(wsname, is_fetion?(pnn+5):pnn))
+   1436          	str_2ws(ews, pnn, 50);
+   1437                else
+   1438                {
+   1439          	if(is_fetion) wsprintf(ews, "%w(%t)", wsname, lgp.LGP_FETION);
+   1440          	else wstrcpy(ews, wsname);
+   1441                }
+   1442          #else
+   1443                if(!findNameByNum(ews, pnn))
+   1444          	str_2ws(ews, pnn, 50);
+   1445          #endif
+   1446              }
+   1447              else
+   1448              {
+   1449                if((type==ED_VIEW || type==ED_FVIEW))
+   1450          	wsprintf(ews, "%c", ' ');
+   1451                else
+   1452                {
+   1453          	if((type==ED_FREE || type==ED_NEW) && strlen((pnn=(char *)CFG_DEFAULT_SENT_NUM)))
+   1454          	{
+   1455          	  //is number
+   1456          	  for(int xl=0; xl<strlen(pnn); xl++)
+   1457          	  {
+   1458          	    if(pnn[xl]<'0' || pnn[xl]>'9')
+   1459          	      goto N_BLANK;
+   1460          	  }
+   1461          	  strcpy(((NUM_LIST *)(uo->nltop))->num, pnn);
+   1462          	  goto DO_NUM;
+   1463          	}
+   1464          	else
+   1465                N_BLANK:
+   1466          	  CutWSTR(ews, 0);
+   1467                }
+   1468              }
+   1469          #ifdef DEBUG
+   1470              {
+   1471                if(strlen(sd->Number))
+   1472                {
+   1473          	WSHDR *ws=AllocWS(50);
+   1474          	str_2ws(ws, sd->Number, 50);
+   1475          	wsAppendChar(ews, '|');
+   1476          	wstrcat(ews, ws);
+   1477          	FreeWS(ws);
+   1478                }
+   1479              }
+   1480          #endif
+   1481              wstrcpy(((NUM_LIST *)(uo->nltop))->name, ews);
+   1482              ConstructEditControl(&ec,(type==ED_VIEW||type==ED_FVIEW)?ECT_READ_ONLY:ECT_NORMAL_TEXT,ECF_DEFAULT_DIGIT+ECF_APPEND_EOL,ews,256);
+   1483              SetFontToEditCOptions(&ec_options,EDIT_FONT_SMALL);
+   1484              CopyOptionsToEditControl(&ec,&ec_options);
+   1485              AddEditControlToEditQend(eq,&ec,ma);
+   1486              uo->focus_n++;
+   1487            }
+   1488          //------------
+   1489          //------------ time
+   1490            if((type==ED_FVIEW)||(type==ED_VIEW)&&strlen(sd->Time)) //time
+   1491            {
+   1492              str_2ws(ews, sd->Time, 256);
+   1493              ConstructEditControl(&ec,ECT_HEADER,ECF_APPEND_EOL,ews,256);
+   1494              AddEditControlToEditQend(eq,&ec,ma);
+   1495              uo->focus_n++;
+   1496            }
+   1497          //------------
+   1498          //------------ line
+   1499            str_2ws(ews, STR_LINES,256);
+   1500            ConstructEditControl(&ec,ECT_HEADER,ECF_APPEND_EOL,ews,256);
+   1501            AddEditControlToEditQend(eq,&ec,ma);
+   1502            uo->focus_n++;
+   1503          //------------
+   1504          //------------ TXT
+   1505            if(sd->SMS_TEXT)
+   1506            {
+   1507              wstrcpy(ews, sd->SMS_TEXT);
+   1508              uo->chr_cnt=ews->wsbody[0];
+   1509            }
+   1510            else
+   1511              CutWSTR(ews, 0);
+   1512            switch(type)
+   1513            {
+   1514            case ED_VIEW:
+   1515            case ED_FVIEW:
+   1516              ConstructEditControl(&ec,ECT_NORMAL_TEXT,ECF_APPEND_EOL,ews,MAX_TEXT);
+   1517              break;
+   1518            case ED_FREE:
+   1519            case ED_EDIT:
+   1520            case ED_FEDIT:
+   1521              ConstructEditControl(&ec,TEXT_INPUT_OPTION,ECF_APPEND_EOL|ECF_DEFAULT_BIG_LETTER,ews,MAX_TEXT);
+   1522              break;
+   1523            case ED_NEW:
+   1524            case ED_REPLY:
+   1525            case ED_FREPLY:
+   1526              CutWSTR(ews, 0);
+   1527              ConstructEditControl(&ec,TEXT_INPUT_OPTION,ECF_APPEND_EOL|ECF_DEFAULT_BIG_LETTER,ews,MAX_TEXT);
+   1528              break;
+   1529            default:
+   1530              ConstructEditControl(&ec,ECT_READ_ONLY,ECF_APPEND_EOL,ews,MAX_TEXT);
+   1531              break;
+   1532            }
+   1533            //
+   1534            SetFontToEditCOptions(&ec_options,CFG_TEXT_FONT);
+   1535            CopyOptionsToEditControl(&ec,&ec_options);
+   1536            AddEditControlToEditQend(eq,&ec,ma);
+   1537            uo->focus_n++;
+   1538          //----------	
+   1539          	
+   1540            if (type==ED_VIEW || type==ED_FVIEW)
+   1541              edd=&ED_DESC_RO;
+   1542            else
+   1543              edd=&ED_DESC;
+   1544            patch_header(&ED_HDR);
+   1545            patch_input(edd);
+   1546            gui_id=CreateInputTextDialog(edd, &ED_HDR, eq, 1, uo);
+   1547            pushGS(dlg_csm, gui_id);
+   1548            return gui_id;
+   1549          }
+   1550          
+   1551          int newSMS(void *dlg_csm)
+   1552          {
+   1553          	SMS_DATA *sd=AllocSD();
+   1554          	return (createEditGUI(dlg_csm, sd, ED_FREE, 0));
+   1555          }
+   1556          int viewTheLastNew(void *dlg_csm)
+   1557          {
+   1558          	SMS_DATA *sd=GetTheLastNew(0);
+   1559          	if(!sd)
+   1560          		return 0;
+   1561          	return(createEditGUI(dlg_csm, sd, ED_VIEW, TYPE_IN_N));
+   1562          }
+   1563          
+   1564          int newSMSWithNum(void *dlg_csm, char *num)
+   1565          {
+   1566          	SMS_DATA *sd;
+   1567          	if(!num)
+   1568          		return 0;
+   1569          	sd=AllocSD();
+   1570          	strcpy(sd->Number, num);
+   1571          	mfree(num);
+   1572          	return (createEditGUI(dlg_csm, sd, ED_FREE, 0));
+   1573          }
+   1574          
+   1575          int newSMSWithUtf8Text(void *dlg_csm, char *text_utf8)
+   1576          {
+   1577          	SMS_DATA *sd;
+   1578          	WSHDR *ws;
+   1579          	if(!text_utf8)
+   1580          		return 0;
+   1581          	sd=malloc(sizeof(SMS_DATA));
+   1582          	zeromem(sd, sizeof(SMS_DATA));
+   1583          	ws=AllocWS(MAX_TEXT);
+   1584          	sd->SMS_TEXT=ws;
+   1585          	utf8_2ws(ws, text_utf8, MAX_TEXT);
+   1586          	mfree(text_utf8);
+   1587          	return (createEditGUI(dlg_csm, sd, ED_FREE, 0));
+   1588          }
+   1589          
+   1590          int DoByOpmsgId(void *dlg_csm, int msg, int opmsg_id)
+   1591          {
+   1592          	SMS_DATA *sd;
+   1593          	if((!opmsg_id)||(!(sd=FindSDByOpmsgId(opmsg_id))))
+   1594          		return 0;
+   1595          	switch(msg)
+   1596          	{
+   1597          	case SMSYS_IPC_VIEW_OPMSG:
+   1598          		return (createEditGUI(dlg_csm, sd, ED_VIEW, TYPE_IN_ALL));
+   1599          	case SMSYS_IPC_REPLY_OPMSG:
+   1600          		return (createEditGUI(dlg_csm, sd, ED_REPLY, 0));
+   1601          	case SMSYS_IPC_QR_OPMSG:
+   1602          		return (createEditGUI(dlg_csm, sd, ED_EDIT, 0));
+   1603          	case SMSYS_IPC_QN_OPMSG:
+   1604          		{
+   1605          			SMS_DATA *sdx=malloc(sizeof(SMS_DATA));
+   1606          			WSHDR *ws=AllocWS(MAX_TEXT);
+   1607          			zeromem(sdx, sizeof(SMS_DATA));
+   1608          			sdx->SMS_TEXT=ws;
+   1609          			wstrcpy(ws, sd->SMS_TEXT);
+   1610          			return (createEditGUI(dlg_csm, sdx, ED_FREE, 0));
+   1611          		}
+   1612          	}
+   1613          	return 0;
+   1614          }
+   1615          
+   1616          int CreateSmsWS(void *dlg_csm, WSHDR *text)
+   1617          {
+   1618            SMS_DATA *sd;
+   1619            WSHDR *ws;
+   1620            if(!text) return 0;
+   1621            sd=AllocSD();
+   1622            ws=AllocWS(text->wsbody[0]);
+   1623            wstrcpy(ws, text);
+   1624            FreeWS(text);
+   1625            sd->SMS_TEXT=ws;
+   1626            return (createEditGUI(dlg_csm, sd, ED_FREE, 0));
+   1627          }
+   1628          
+   1629          unsigned int ViewFile(void *dlg_csm, char *fname)
+   1630          {
+   1631          	SMS_DATA *sd;
+   1632          	if(!strlen(fname))
+   1633          		return 0;
+   1634          	sd=malloc(sizeof(SMS_DATA));
+   1635          	zeromem(sd, sizeof(SMS_DATA));
+   1636          	if(!ReadMSS(fname, sd))
+   1637          	{
+   1638          		FreeSdOne(sd);
+   1639          		return 0;
+   1640          	}
+   1641          	return (createEditGUI(dlg_csm, sd, ED_FVIEW, 0));
+   1642          }
+   1643          #define IDYES	0
+   1644          #define IDNO	1
+   1645          typedef struct
+   1646          {
+   1647            int type;
+   1648            char *path;
+   1649          }PI_UP;
+   1650          void DeleteAllMss_proc(int id)
+   1651          {
+   1652          	if(id==IDYES)
+   1653          		DeleteAllMss();
+   1654          }
+   1655          void delallproc(void)
+   1656          {
+   1657          	MsgBoxYesNo(1, (int)lgp.LGP_DEL_ALL_MSS, DeleteAllMss_proc);
+   1658          }
+   1659          int PathInputOnKey(GUI *data, GUI_MSG *msg)
+   1660          {
+   1661            EDITCONTROL ec;
+   1662            char path[128];
+   1663            PI_UP *iu=EDIT_GetUserPointer(data);
+   1664            if(msg->keys==0x1A)
+   1665            {
+   1666              int k;
+   1667              ExtractEditControl(data,2,&ec);
+   1668              ws_2str(ec.pWS, path, 128);
+   1669              if(iu->type==INPUT_EXP_TXT)
+   1670              {
+   1671                k=ExportAllToOneTxt(path);
+   1672                if(k>0)
+   1673                {
+   1674          	char msg[64];
+   1675              	sprintf(msg, lgp.LGP_EXPORT_N, k);
+   1676          	ShowMSG_offproc(1, msg, delallproc);
+   1677                }
+   1678                else
+   1679          	ShowFileErrCode(k);
+   1680              }
+   1681              else if(iu->type==INPUT_COV_DAT)
+   1682              {
+   1683                PathInputDlg(INPUT_COV_TXT, path);
+   1684              }
+   1685              else if(iu->type==INPUT_COV_TXT && iu->path)
+   1686              {
+   1687                k=CovDatToTxt(iu->path, path);
+   1688                if(k>0)
+   1689                {
+   1690          	char msg[64];
+   1691              	sprintf(msg, lgp.LGP_EXPORT_N, k);
+   1692          	ShowMSG(1, (int)msg);
+   1693                }
+   1694                else
+   1695          	ShowFileErrCode(k);
+   1696              }
+   1697              return 1;
+   1698            }
+   1699            return 0;
+   1700          }
+   1701          
+   1702          void PathInputGHook(GUI *data, int cmd)
+   1703          {
+   1704            if(cmd==0x0A)
+   1705              DisableIDLETMR();
+   1706            else if(cmd==TI_CMD_DESTROY)
+   1707            {
+   1708              PI_UP *iu=EDIT_GetUserPointer(data);
+   1709              if(iu->path)
+   1710                mfree(iu->path);
+   1711              mfree(iu);
+   1712            }
+   1713          }
+   1714          
+   1715          INPUTDIA_DESC PATH_INPUT_DESC=
+   1716          {
+   1717            1,
+   1718            PathInputOnKey,
+   1719            PathInputGHook,
+   1720            (void *)ed_locret,
+   1721            0,
+   1722            &ed_menu_skt,
+   1723            {0,0,0,0},
+   1724            FONT_SMALL,
+   1725            100,
+   1726            101,
+   1727            0,
+   1728            0,
+   1729            0x40000000
+   1730          };
+   1731          
+   1732          void PathInputDlg(int type, char *path)
+   1733          {
+   1734            void *ma=malloc_adr();
+   1735            void *eq;
+   1736            EDITCONTROL ec;
+   1737            WSHDR *ews;
+   1738            TDate date;
+   1739            TTime time;
+   1740            PI_UP *iu=malloc(sizeof(PI_UP));
+   1741            iu->type=type;
+   1742            if(path)
+   1743            {
+   1744              iu->path=malloc(128);
+   1745              strcpy(iu->path, path);
+   1746            }
+   1747            else
+   1748              iu->path=0;
+   1749            GetDateTime(&date, &time);
+   1750            PrepareEditControl(&ec);
+   1751            eq=AllocEQueue(ma,mfree_adr());
+   1752            ews=AllocWS(128);
+   1753            wsprintf(ews, PERCENT_T, lgp.LGP_PLS_INPUT_PATH);
+   1754            ConstructEditControl(&ec,ECT_HEADER,ECF_APPEND_EOL,ews,ews->wsbody[0]);
+   1755            AddEditControlToEditQend(eq,&ec,ma);
+   1756            if(type==INPUT_COV_DAT)
+   1757              wsprintf(ews, "%sSMS\\SMS.dat", CFG_SYSTEM_FOLDER);
+   1758            else
+   1759              wsprintf(ews, "%sText\\%d%02d%02d.txt", CFG_MAIN_FOLDER, date.year, date.month, date.day);
+   1760            ConstructEditControl(&ec,ECT_CURSOR_STAY,ECF_APPEND_EOL,ews,128);
+   1761            AddEditControlToEditQend(eq,&ec,ma);
+   1762            patch_header(&ED_HDR);
+   1763            patch_input(&PATH_INPUT_DESC);
+   1764            CreateInputTextDialog(&PATH_INPUT_DESC,&ED_HDR,eq,1,iu);
+   1765            FreeWS(ews);
+   1766          }
+   1767          
+   1768          int ED_ShowMsg_OnKey(GUI *gui, GUI_MSG *msg)
+   1769          {
+   1770            int c=msg->keys;
+   1771            if(c==0x29 || c==0x1A || c==0x1)
+   1772              return 1;
+   1773            return 0;
+   1774          }
+   1775          void ED_ShowMsg_GHook(GUI *gui, int cmd)
+   1776          {
+   1777            if(cmd==TI_CMD_CREATE)
+   1778            {
+   1779              WSHDR *hdr_t=EDIT_GetUserPointer(gui);
+   1780              if(hdr_t) SetHeaderText(GetHeaderPointer(gui), hdr_t, malloc_adr(), mfree_adr());
+   1781            }
+   1782            /*
+   1783            if(cmd==TI_CMD_REDRAW)
+   1784            {
+   1785              WSHDR *hdr_t=EDIT_GetUserPointer(gui);
+   1786              if(hdr_t)
+   1787              {
+   1788                WSHDR *hdr2=AllocWS(hdr_t->wsbody[0]);
+   1789                wstrcpy(hdr2, hdr_t);
+   1790                SetHeaderText(GetHeaderPointer(gui), hdr2, malloc_adr(), mfree_adr());
+   1791              }
+   1792            }
+   1793            else if(cmd==TI_CMD_DESTROY)
+   1794            {
+   1795              WSHDR *hdr_t=EDIT_GetUserPointer(gui);
+   1796              if(hdr_t) FreeWS(hdr_t);
+   1797            }*/
+   1798          }
+   1799          const INPUTDIA_DESC ED_ShowMsg=
+   1800          {
+   1801            1,
+   1802            ED_ShowMsg_OnKey,
+   1803            ED_ShowMsg_GHook,
+   1804            (void *)ed_locret,
+   1805            0,
+   1806            &ed_menu_skt,
+   1807            {0,0,0,0},
+   1808            FONT_SMALL,
+   1809            100,
+   1810            101,
+   1811            0,
+   1812            0,
+   1813            0x40000002
+   1814          };
+   1815          
+   1816          int CreateSimpleShowMsgGui(WSHDR *header, WSHDR *msgtxt)
+   1817          {
+   1818            void *ma=malloc_adr();
+   1819            void *eq;
+   1820            WSHDR *hdr_t;
+   1821          //  WSHDR *ews, ewsn, *hdr_t;
+   1822            int cc;
+   1823          //  unsigned short ewsb[MAX_TEXT];
+   1824            EDITCONTROL ec;
+   1825            EDITC_OPTIONS ec_options;
+   1826            if(!msgtxt)
+   1827              return 0;
+   1828            PrepareEditControl(&ec);
+   1829            PrepareEditCOptions(&ec_options);
+   1830            eq=AllocEQueue(ma,mfree_adr());
+   1831          //  ews=CreateLocalWS(&ewsn, ewsb, MAX_TEXT);
+   1832            if(header && (cc=header->wsbody[0]))
+   1833            {
+   1834              hdr_t=AllocWS(cc);
+   1835              wstrcpy(hdr_t, header);
+   1836            }
+   1837            else
+   1838              hdr_t=0;
+   1839            ConstructEditControl(&ec,ECT_READ_ONLY,ECF_APPEND_EOL,msgtxt,msgtxt->wsbody[0]);
+   1840            SetFontToEditCOptions(&ec_options,EDIT_FONT_SMALL);
+   1841            CopyOptionsToEditControl(&ec,&ec_options);
+   1842            AddEditControlToEditQend(eq,&ec,ma);
+   1843            patch_header(&ED_HDR);
+   1844            patch_input(&ED_ShowMsg);
+   1845            return (CreateInputTextDialog(&ED_ShowMsg,&ED_HDR,eq,1,hdr_t));
+   1846          }
+   1847          
+   1848          int ShowCount(void)
+   1849          {
+   1850            WSHDR *hdr, hdrn, *msg, msgn;
+   1851            unsigned short hdrb[128], msgb[512];
+   1852            unsigned int err;
+   1853            SMS_DATA_ROOT *sdr=SmsDataRoot();
+                   ^
+Error[Pe020]: identifier "SMS_DATA_ROOT" is undefined
+
+    SMS_DATA_ROOT *sdr=SmsDataRoot();
+                   ^
+"C:\arm\mss3\edGui.c",1853  Error[Pe020]: identifier "sdr" is undefined
+
+    SMS_DATA_ROOT *sdr=SmsDataRoot();
+                       ^
+"C:\arm\mss3\edGui.c",1853  Warning[Pe223]: function "SmsDataRoot" declared
+          implicitly
+   1854            hdr=CreateLocalWS(&hdrn, hdrb, 128);
+   1855            msg=CreateLocalWS(&msgn, msgb, 512);
+   1856            wsprintf(hdr, PERCENT_T, lgp.LGP_STATISTICS);
+   1857            wsprintf(msg, "%t: %c%d\n----------------\n%d%c %t\n%t: %c%d%c\n%t: %c%d%c\n%t: %c%d%c\n%t: %c%d\n----------------\n%d%c %t\n%t: %c%d%c\n%t: %c%d%c\n%t: %c%d\n----------------\n%dKb%c\n%t%c%c%c",
+   1858          	   lgp.LGP_ALL,
+   1859          	   0xE013,
+   1860          	   getCountByType(0),
+   1861          	   GetCountByIsFileType(0, 0),
+   1862          	   0xE012,
+   1863          	   lgp.LGP_IN_SMSDAT,
+   1864          	   lgp.LGP_IN_A,
+   1865          	   0xE013,
+   1866          	   GetCountByIsFileType(0, TYPE_IN_ALL),
+   1867          	   0xE012,
+   1868          	   lgp.LGP_OUT,
+   1869          	   0xE013,
+   1870          	   GetCountByIsFileType(0, TYPE_OUT),
+   1871          	   0xE012,
+   1872          	   lgp.LGP_DRAFT,
+   1873          	   0xE013,
+   1874          	   GetCountByIsFileType(0, TYPE_DRAFT),
+   1875          	   0xE012,
+   1876          	   lgp.LGP_DAT_FREE,
+   1877          	   0xE013,
+   1878          	   100 - sdr->cnt_in_data - sdr->cnt_new_in_data - sdr->cnt_sent_data - sdr->cnt_draft_data -sdr->unk_0_3,
+   1879          	   GetCountByIsFileType(1, 0),
+   1880          	   0xE012,
+   1881          	   lgp.LGP_IS_MSSFILE,
+   1882          	   lgp.LGP_IN_A,
+   1883          	   0xE013,
+   1884          	   GetCountByIsFileType(1, TYPE_IN_ALL),
+   1885          	   0xE012,
+   1886          	   lgp.LGP_OUT,
+   1887          	   0xE013,
+   1888          	   GetCountByIsFileType(1, TYPE_OUT),
+   1889          	   0xE012,
+   1890          	   lgp.LGP_DRAFT,
+   1891          	   0xE013,
+   1892          	   GetCountByIsFileType(1, TYPE_DRAFT),
+   1893          	   GetFreeFlexSpace(CFG_MAIN_FOLDER[0]-'0', &err)/1024,
+   1894          	   0xE012,
+   1895          	   lgp.LGP_DISK_FREE,
+   1896          	   0xE013,
+   1897          	   CFG_MAIN_FOLDER[0],
+   1898          	   0xE012
+   1899          	   );
+   1900            return (CreateSimpleShowMsgGui(hdr, msg));
+   1901          }
+
+Errors: 4
+Warnings: 6

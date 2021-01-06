@@ -1,0 +1,264 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    05/Mar/2009  13:11:57 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\NativeAddressbook.c #
+#                       pp                                                   #
+#    Command line    =  D:\pasha\elf\SieELF\MySMSYS\Mss3\NativeAddressbook.c #
+#                       pp -D NEWSGOLD -D ELKA -D LANG_EN -lcN               #
+#                       D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_EN\Lis #
+#                       t\ -o D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_ #
+#                       EN\Obj\ -s9 --no_unroll --cpu_mode arm --endian      #
+#                       little --cpu ARM926EJ-S --stack_align 4 --interwork  #
+#                       -e --fpu None --eec++ --dlib_config                  #
+#                       "D:\pasha\Embedded Workbench 4.0                     #
+#                       Evaluation2\ARM\LIB\dl5tpainl8n.h" -I                #
+#                       "D:\pasha\Embedded Workbench 4.0                     #
+#                       Evaluation2\ARM\INC\" --inline_threshold=2           #
+#    List file       =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_EN\Lis #
+#                       t\NativeAddressbook.lst                              #
+#    Object file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_EN\Obj #
+#                       \NativeAddressbook.r79                               #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\pasha\elf\SieELF\MySMSYS\Mss3\NativeAddressbook.cpp
+      1          #include "include.h"
+      2          #include "SiemensPDU.h"
+      3          #include "MyIpcMessage.h"
+      4          #include "File.h"
+      5          #include "SmsData.h"
+      6          #include "CreateMenu.h"
+      7          #include "AdrList.h"
+      8          #include "NumList.h"
+      9          #include "EditGUI.h"
+     10          #include "NativeAddressbook.h"
+     11          
+     12          NAbCSM::NAbCSM()
+     13          {
+     14            this->nab_csm_desc.csm_desc.datasize=sizeof(NAb_CSM);
+     15            this->nab_csm_desc.csm_desc.onClose=this->OnClose;
+     16            this->nab_csm_desc.csm_desc.onCreate=this->OnCreate;
+     17            this->nab_csm_desc.csm_desc.onMessage=this->OnMessage;
+     18            this->nab_csm_desc.csm_desc.states=&minus11;
+     19            this->nab_csm_desc.csm_desc.statesize=1;
+     20          #ifdef NEWSGOLD
+     21            this->nab_csm_desc.csm_desc.zero1=0;
+     22            this->nab_csm_desc.csm_desc.zero2=0;
+     23            this->nab_csm_desc.csm_desc.zero3=0;
+     24            this->nab_csm_desc.csm_desc.zero4=0;
+     25          #endif
+     26            this->nab_csm_desc.csm_name.maxlen=NAB_CSM_NAME_LEN;
+     27            this->nab_csm_desc.csm_name.ws_malloc=NAMECSM_MAGIC1;
+     28            this->nab_csm_desc.csm_name.ws_mfree=NAMECSM_MAGIC2;
+     29            this->nab_csm_desc.csm_name.isbody_allocated=0;
+     30            this->nab_csm_desc.csm_name.wsbody=this->csm_name_body;
+     31          }
+     32          
+     33          NAbCSM::~NAbCSM()
+     34          {
+     35          }
+     36          
+     37          int NAbCSM::OnMessage(CSM_RAM *data, GBS_MSG *msg)
+     38          {
+     39            NativeAbData *nabd;
+     40            NAb_CSM *nabcsm=(NAb_CSM *)data;
+     41            void *ed_gui;
+     42            WSHDR *wn;
+     43            EditGUI *edg;
+     44            if((msg->msg==MSG_CSM_DESTROYED)&&((int)msg->data0==nabcsm->ab_csm_id))
+     45            {
+     46              if(!(nabd=nabcsm->nabd))
+     47                goto CLOSE_CSM;
+     48              if(nabcsm->type!=NAB_SAVE && (ed_gui=FindGUIbyId(nabcsm->ed_gui_id, NULL)))
+     49              {
+     50                if(nabcsm->ed_gui==ed_gui 
+     51          	&& ((GUI *)nabcsm->ed_gui)->methods==((GUI *)ed_gui)->methods 
+     52          	&& ((GUI *)nabcsm->ed_gui)->definition==((GUI *)ed_gui)->definition
+     53          	&& (edg=(EditGUI *)EDIT_GetUserPointer(ed_gui))
+     54          	)
+     55                {
+     56          	if(nabcsm->type==NAB_TEXT)
+     57          	{
+     58          	  if(
+     59          	     GetNativeAbDataStatus(nabd, 0)!=9
+     60          	    && (wn=GetNumFromNativeAbData(nabd, GetNativeAbDataType(nabd, 0), 0))
+     61          	    && EDIT_GetFocus(ed_gui)==edg->n_focus
+     62          	    )
+     63          	  {
+     64          	    edg->InsertText(ed_gui, wn);
+     65          	    FreeWS(wn);
+     66          	  }
+     67          	}
+     68          	else if (
+     69          	  (nabcsm->type==NAB_SETC
+     70          	  || nabcsm->type==NAB_INSN)
+     71          	  && EDIT_GetFocus(ed_gui) < edg->n_focus-1)
+     72          	{
+     73          	  int n;
+     74          	  int z=0;
+     75          	  int k=0;
+     76          	  PKT_NUM *pkt;
+     77          	  char *buf=new char[50];
+     78          	  n=GetFilledNAbDataCount(nabd);
+     79          	  for(;k<n;k++)
+     80          	  {
+     81          	    if(
+     82          	      GetNativeAbDataStatus(nabd, k)==1
+     83          	      && GetNativeAbDataType(nabd, k)!=0xFF
+     84          	      && (pkt=(PKT_NUM *)GetDataFromNAbData(nabd, k))
+     85          	      )
+     86          	    {
+     87          	      UnpackNumPkt(pkt, buf, 49);
+     88          	      if(nabcsm->type==NAB_SETC
+     89          		&& z==0)
+     90          	      {
+     91          		if(edg->SetNumber(ed_gui, buf) > 0)
+     92          		  z++;
+     93          	      }
+     94          	      else
+     95          	      {
+     96          		edg->InsertNumber(ed_gui, buf);
+     97          	      }
+     98          	    }
+     99          	  }
+    100          	  delete buf;
+    101          	}
+    102                }
+    103              }
+    104              FreeNativeAbData(nabd);
+    105              nabcsm->nabd=0;
+    106            CLOSE_CSM:
+    107              data->state=-3;
+    108              nabcsm->ab_csm_id=0;
+    109            }
+    110            return 1;
+    111          }
+    112          
+    113          void NAbCSM::OnCreate(CSM_RAM *data)
+    114          {
+    115            NAb_CSM *nabcsm=(NAb_CSM *)data;
+    116            nabcsm->nabd=AllocNativeAbData();
+    117            if(nabcsm->type==NAB_SAVE)
+    118            {
+    119              WSHDR *wloc, wlocn;
+    120              unsigned short wlocb[50];
+    121              wloc=CreateLocalWS(&wlocn, wlocb, 50);
+    122              num_2ws(wloc, nabcsm->number, 50);
+    123              SetNumToNativeAbData(nabcsm->nabd, 0x1D, wloc);
+    124              nabcsm->ab_csm_id=OpenNativeAddressbook(6, 0, 0, nabcsm->nabd);
+    125            }
+    126            else if (nabcsm->type==NAB_TEXT)
+    127            {
+    128              nabcsm->ab_csm_id=OpenNativeAddressbook(0xB, 0, 0, nabcsm->nabd);
+    129            }
+    130            else if (nabcsm->type==NAB_SETC || nabcsm->type==NAB_INSN)
+    131            {
+    132              //nabcsm->ab_csm_id=OpenNativeAddressbook(4, 1, 0, nabcsm->nabd);
+    133              nabcsm->ab_csm_id=OpenNativeAddressbook(5, 1, 0, nabcsm->nabd);
+    134            }
+    135            else data->state=-3; //close
+    136          }
+    137          
+    138          void NAbCSM::OnClose(CSM_RAM *data)
+    139          {
+    140            NAb_CSM *nabcsm=(NAb_CSM *)data;
+    141            if(nabcsm->nabd)
+    142            {
+    143              FreeNativeAbData(nabcsm->nabd);
+    144              nabcsm->nabd=NULL;
+    145            }
+    146            if(nabcsm->number)
+    147            {
+    148              delete nabcsm->number;
+    149              nabcsm->number=NULL;
+    150            }
+    151            if(nabcsm->ab_csm_id) CloseCSM(nabcsm->ab_csm_id);
+    152            delete nabcsm->nab;
+    153          }
+    154          
+    155          int NAbCSM::CreateNAbCSM(void *ed_gui, int ed_gui_id, char *number, int type)
+    156          {
+    157            int csm_id;
+    158            NAb_CSM nabcsm;
+    159            if(type==NAB_SAVE)
+    160            {
+    161              if(!number)
+    162              {
+    163                delete this;
+    164                return 0;
+    165              }
+    166            }
+    167            else
+    168            {
+    169              if(!ed_gui || !ed_gui_id)
+    170              {
+    171                delete this;
+    172                return 0;
+    173              }
+    174            }
+    175            zeromem(&nabcsm, sizeof(NAb_CSM));
+    176            nabcsm.ed_gui=ed_gui;
+    177            nabcsm.ed_gui_id=ed_gui_id;
+    178            nabcsm.number=new char[strlen(number)+2];
+    179            strcpy(nabcsm.number, number);
+    180            nabcsm.type=type;
+    181            nabcsm.nab=this;
+    182            wsprintf(&this->nab_csm_desc.csm_name, PERCENT_T, LGP->lgp.LGP_CALL_ADDRESSBOOK);
+    183            csm_id=CreateCSM(&this->nab_csm_desc.csm_desc, &nabcsm, 2);
+    184            SendMyIpc(SMSYS_IPC_NAB_CREATE, (void *)csm_id);
+    185            return csm_id;
+    186          }
+    187          
+    188          
+    189          
+    190          
+    191          
+    192          
+
+   Maximum stack usage in bytes:
+
+     Function                       CSTACK
+     --------                       ------
+     NAbCSM::CreateNAbCSM(void *, int, char *, int)
+                                       92
+     NAbCSM::NAbCSM()                   0
+     NAbCSM::OnClose(CSM_RAM *)        12
+     NAbCSM::OnCreate(CSM_RAM *)      132
+     NAbCSM::OnMessage(CSM_RAM *, GBS_MSG *)
+                                       36
+     NAbCSM::delete ~NAbCSM(NAbCSM *)
+                                        4
+     NAbCSM::new NAbCSM()               4
+     NAbCSM::~NAbCSM()                  0
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     NAbCSM::NAbCSM()                132
+     NAbCSM::~NAbCSM()                 4
+     NAbCSM::OnMessage(CSM_RAM *, GBS_MSG *)
+                                     540
+     NAbCSM::OnCreate(CSM_RAM *)     188
+     NAbCSM::OnClose(CSM_RAM *)       88
+     NAbCSM::CreateNAbCSM(void *, int, char *, int)
+                                     216
+     NAbCSM::delete ~NAbCSM(NAbCSM *)
+                                      20
+     NAbCSM::new NAbCSM()             28
+      Others                         128
+
+ 
+ 1 344 bytes in segment CODE
+ 
+ 1 216 bytes of CODE memory (+ 128 bytes shared)
+
+Errors: none
+Warnings: none

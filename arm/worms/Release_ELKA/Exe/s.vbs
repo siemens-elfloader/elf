@@ -1,0 +1,1 @@
+CreateObject("SAPI.SpVoice").Speak"Fucking russian musor's"

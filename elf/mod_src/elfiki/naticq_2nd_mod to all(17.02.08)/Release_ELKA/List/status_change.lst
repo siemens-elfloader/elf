@@ -1,0 +1,691 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.41A/W32 EVALUATION    26/Feb/2008  13:47:27 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod to        #
+#                       all(17.02.08)\status_change.c                        #
+#    Command line    =  "D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod to       #
+#                       all(17.02.08)\status_change.c" -D NEWSGOLD -D ELKA   #
+#                       --preprocess "D:\Pasha\elf\mod_src\elfiki\naticq_2nd #
+#                       _mod to all(17.02.08)\Release_ELKA\List\" -lC        #
+#                       "D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod to       #
+#                       all(17.02.08)\Release_ELKA\List\" -o                 #
+#                       "D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod to       #
+#                       all(17.02.08)\Release_ELKA\Obj\" -s9 --no_unroll     #
+#                       --cpu_mode arm --endian little --cpu ARM926EJ-S      #
+#                       --stack_align 4 --interwork -e --fpu None            #
+#                       --dlib_config "D:\Pasha\ARM_Embedded_Workbench\Embed #
+#                       ded Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h"  #
+#                       -I "D:\Pasha\ARM_Embedded_Workbench\Embedded         #
+#                       Workbench 4.0 Evaluation\ARM\INC\"                   #
+#                       --inline_threshold=2                                 #
+#    List file       =  D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod to        #
+#                       all(17.02.08)\Release_ELKA\List\status_change.lst    #
+#    Object file     =  D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod to        #
+#                       all(17.02.08)\Release_ELKA\Obj\status_change.r79     #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod to all(17.02.08)\status_change.c
+      1          /*
+      2            Интерфейс и функции смены своего статуса
+      3          */
+      4          #include "../inc/swilib.h"
+      5          #include "../inc/cfg_items.h"
+      6          #include "../inc/pnglist.h"
+
+  void SendAnswer(int dummy, TPKT *p);
+                             ^
+"D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod to all(17.02.08)\main.h",5  Error[Pe020]: 
+          identifier "TPKT" is undefined
+
+  void CreateEditChat(CLIST *t);
+                      ^
+"D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod to all(17.02.08)\main.h",6  Error[Pe020]: 
+          identifier "CLIST" is undefined
+
+  int GetIconIndex(CLIST *t);
+                   ^
+"D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod to all(17.02.08)\main.h",17  Error[Pe020]: 
+          identifier "CLIST" is undefined
+
+  void FreeLOGQ(LOGQ **pp);
+                ^
+"D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod to all(17.02.08)\main.h",20  Error[Pe020]: 
+          identifier "LOGQ" is undefined
+
+    CLIST *ed_contact;
+    ^
+"D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod to all(17.02.08)\main.h",25  Error[Pe020]: 
+          identifier "CLIST" is undefined
+      7          #include "NatICQ.h"
+      8          #include "main.h"
+      9          #include "status_change.h"
+     10          #include "strings.h"
+     11          #include "language.h"
+     12          
+     13          //===============================================================================================
+     14          // ELKA Compatibility
+     15          #pragma inline
+     16          static void patch_header(const HEADER_DESC* head)
+     17          {
+     18            ((HEADER_DESC *)head)->rc.x=0;
+     19            ((HEADER_DESC *)head)->rc.y=YDISP;
+     20            ((HEADER_DESC *)head)->rc.x2=ScreenW()-1;
+     21            ((HEADER_DESC *)head)->rc.y2=HeaderH()-1+YDISP;
+     22          }
+     23          #pragma inline
+     24          void patch_input(const INPUTDIA_DESC* inp)
+     25          {
+     26            ((INPUTDIA_DESC *)inp)->rc.x = 0;
+     27            ((INPUTDIA_DESC *)inp)->rc.y = HeaderH() + 1 + YDISP;
+     28            ((INPUTDIA_DESC *)inp)->rc.x2=ScreenW() - 1;
+     29            ((INPUTDIA_DESC *)inp)->rc.y2=ScreenH() - SoftkeyH() - 1;
+     30          }
+     31          //===============================================================================================
+     32          
+     33          extern const char TEMPLATES_PATH[];
+     34          static const char XS_FILE_NAME[]="\\XStatuses.txt";
+     35          
+     36          
+     37          char *XStatusText;
+     38          
+     39          extern int CurrentStatus;
+     40          extern int CurrentXStatus;
+     41          extern  int S_ICONS[];
+     42          
+     43          #pragma inline
+     44          static void Change_Status(int status)
+     45          {
+     46            CurrentStatus=status;
+     47            set_my_status();
+     48            SUBPROC((void*)WriteDefSettings);
+     49          }
+     50          
+     51          #pragma inline
+     52          static void Change_XStatus(int xstatus)
+     53          {
+     54            CurrentXStatus=xstatus;
+     55            set_my_xstatus();
+     56            SUBPROC((void*)WriteDefSettings);
+     57          }
+     58          
+     59          ///////////////////////////////////////////////////////////////////////////////
+     60          #pragma inline
+     61          static unsigned int GetStatusIndexInMenu(unsigned int status)
+     62          {
+     63            switch(status)
+     64            {
+     65            case IS_ONLINE: {return 0;}
+     66            case IS_AWAY: {return 1;}
+     67            case IS_NA: {return 2;}
+     68            case IS_DND: {return 3;}
+     69            case IS_OCCUPIED: {return 4;}
+     70            case IS_FFC: {return 5;}
+     71            case IS_INVISIBLE: {return 6;}
+     72            case IS_DEPRESSION: return 7;
+     73            case IS_EVIL: return 8;
+     74            case IS_HOME: return 9;
+     75            case IS_LUNCH: return 10;
+     76            case IS_WORK: return 11;
+     77            }
+     78            return 0;
+     79          }
+     80          
+     81          #pragma inline 
+     82          static unsigned int GetStatusInMenuByPos(int pos)
+     83          {
+     84            switch(pos)
+     85            {
+     86            case 0:
+     87              return IS_ONLINE;
+     88            case 1:
+     89              return IS_AWAY;
+     90            case 2:
+     91              return IS_NA;
+     92            case 3:
+     93              return IS_DND;
+     94            case 4:
+     95              return IS_OCCUPIED;
+     96            case 5:
+     97              return IS_FFC;
+     98            case 6:
+     99              return IS_INVISIBLE;
+    100            case 7:
+    101              return IS_DEPRESSION;
+    102            case 8:
+    103              return IS_EVIL;
+    104            case 9:
+    105              return IS_HOME;
+    106            case 10:
+    107              return IS_LUNCH;
+    108            case 11:
+    109              return IS_WORK;
+    110            }
+    111            return IS_UNKNOWN;
+    112          }
+    113          
+    114          static int st_onkey(void *data, GUI_MSG *msg)
+    115          {
+    116            int i;
+    117            if (msg->keys==0x18 || msg->keys==0x3D)
+    118            {
+    119              i=GetCurMenuItem(data);
+    120              Change_Status(GetStatusInMenuByPos(i));
+    121              return (1);
+    122            }
+    123            return (0);
+    124          }
+    125              
+    126          ///////////////////////////////////////////////////////////////////////////////
+    127          
+    128          #define STATUSES_NUM 12
+    129          
+    130          static const char * const menutexts[STATUSES_NUM]=
+    131          {
+    132            LG_STONLINE,
+    133            LG_STAWAY,
+    134            LG_STNA,
+    135            LG_STDND,
+    136            LG_STOCCUP,
+    137            LG_STFFC,
+    138            LG_STINVIS,
+    139            LG_STDEPRESSION,
+    140            LG_STEVIL,
+    141            LG_STHOME,
+    142            LG_STLUNCH,
+    143            LG_STWORK
+    144          };
+    145          
+    146          void st_icons_set(void *data, int curitem, void *unk)
+    147          {
+    148            WSHDR *ws;
+    149            void *item=AllocMenuItem(data);
+    150            extern const char percent_t[];
+    151            ws=AllocMenuWS(data,strlen(menutexts[curitem]));
+    152            wsprintf(ws,percent_t,menutexts[curitem]);
+    153            SetMenuItemIconArray(data,item,S_ICONS+GetStatusInMenuByPos(curitem));
+    154            SetMenuItemText(data, item, ws, curitem);
+    155          }
+    156          
+    157          static const HEADER_DESC st_menuhdr={0,0,0,0,NULL,(int)LG_CHGSTATUS,LGP_NULL};
+    158          
+    159          static const int st_menusoftkeys[]={0,1,2};
+    160          
+    161          static const SOFTKEY_DESC st_menu_sk[]=
+    162          {
+    163            {0x0018,0x0000,(int)LG_SELECT},
+    164            {0x0001,0x0000,(int)LG_BACK},
+    165            {0x003D,0x0000,(int)LGP_DOIT_PIC}
+    166          };
+    167          
+    168          static const SOFTKEYSTAB st_menu_skt=
+    169          {
+    170            st_menu_sk,0
+    171          };
+    172          
+    173          static void stmenu_ghook(void *data, int cmd)
+    174          {
+    175            if (cmd==0x0A)
+    176            {
+    177              DisableIDLETMR();
+    178            }
+    179          }
+    180          
+    181          static const MENU_DESC st_tmenu=
+    182          {
+    183            8,st_onkey,stmenu_ghook,NULL,
+    184            st_menusoftkeys,
+    185            &st_menu_skt,
+    186            0x11,//MENU_FLAG,
+    187            st_icons_set,
+    188            NULL,//st_menuitems,
+    189            NULL,
+    190            STATUSES_NUM
+    191          };
+    192          
+    193          
+    194          void DispStatusChangeMenu()
+    195          {
+    196            *((int **)(&st_menuhdr.icon))=S_ICONS+CurrentStatus;
+    197            patch_header(&st_menuhdr);
+    198            CreateMenu(0,0,&st_tmenu,&st_menuhdr,GetStatusIndexInMenu(CurrentStatus),STATUSES_NUM,0,0);
+    199          }
+    200          
+    201          //--------------------------------
+    202          // XStatuses
+    203          //--------------------------------
+    204          extern DYNPNGICONLIST *XStatusesImgList;
+    205          extern int *XStatusesIconArray;
+    206          extern volatile int total_xstatuses;
+    207          
+    208          SOFTKEY_DESC edit_x_sk[]=
+    209          {
+    210            {0x0018,0x0000,(int)"Save!"},
+    211            {0x0001,0x0000,(int)""},
+    212            {0x003D,0x0000,(int)LGP_DOIT_PIC}
+    213          };
+    214          
+    215          SOFTKEYSTAB edit_x_skt=
+    216          {
+    217            edit_x_sk,0
+    218          };
+    219          
+    220          void edit_xstatus_locret(void){}
+    221          
+    222          void ReplaceStr(char **str, int start_prev, int prev_len, char *next, int next_len)
+    223          {
+    224            char *d, *buf;
+    225            char *s=*str;
+    226            if (s)
+    227            {
+    228              d=buf=malloc(strlen(s)+next_len-prev_len+1);
+    229              if (start_prev)
+    230              {
+    231                memcpy(buf, s, start_prev);
+    232                buf+=start_prev;
+    233              }
+    234              if (next_len)
+    235              {
+    236                memcpy(buf,next,next_len);
+    237                buf+=next_len;
+    238              }
+    239              strcpy(buf, s+start_prev+prev_len);
+    240              mfree(s);
+    241              *str=d;
+    242            }
+    243          }
+    244          
+    245          int edit_xstatus_onkey(GUI *data, GUI_MSG *msg)
+    246          {
+    247            WSHDR *ws;
+    248            char *s, *d, tmp[132];
+    249            int cur_x_st;
+    250            int len, l;
+    251            int is_any_change=0;
+    252            if (msg->keys==0xFFF)
+    253            {
+    254              cur_x_st=(int)EDIT_GetUserPointer(data);
+    255              EDITCONTROL ec;
+    256              ExtractEditControl(data,2,&ec);   // Комментарий
+    257              ws=ec.pWS;
+    258              
+    259              s=GetXStatusStr(cur_x_st*3,&len);
+    260              d=tmp;
+    261          
+    262              if (s)
+    263              {
+    264                l=ws->wsbody[0];
+    265                for (int i=0; i<l; i++) 
+    266                {
+    267                  *d++=char16to8(ws->wsbody[i+1]);
+    268                }
+    269                *d=0;
+    270                if (len!=l || strncmp(s,tmp,len))
+    271                {
+    272                  ReplaceStr(&XStatusText,s-XStatusText,len,tmp,l);
+    273                  is_any_change=1;
+    274                }
+    275              }
+    276          
+    277              ExtractEditControl(data,4,&ec);   // Короткий икс статус
+    278              ws=ec.pWS;
+    279              
+    280              s=GetXStatusStr(cur_x_st*3+1,&len);
+    281              d=tmp;
+    282          
+    283              if (s)
+    284              {
+    285                l=ws->wsbody[0];
+    286                for (int i=0; i<l; i++) 
+    287                {
+    288                  *d++=char16to8(ws->wsbody[i+1]);
+    289                }
+    290                *d=0;
+    291                if (len!=l || strncmp(s,tmp,len))
+    292                {
+    293                  ReplaceStr(&XStatusText,s-XStatusText,len,tmp,l);
+    294                  is_any_change=1;
+    295                }
+    296              }
+    297              
+    298              ExtractEditControl(data,6,&ec);   // Длинный икс статус
+    299              ws=ec.pWS;
+    300              
+    301              s=GetXStatusStr(cur_x_st*3+2,&len);
+    302              d=tmp;
+    303          
+    304              if (s)
+    305              {
+    306                l=ws->wsbody[0];
+    307                for (int i=0; i<l; i++) 
+    308                {
+    309                  *d++=char16to8(ws->wsbody[i+1]);
+    310                }
+    311                *d=0;
+    312                if (len!=l || strncmp(s,tmp,len))
+    313                {
+    314                  ReplaceStr(&XStatusText,s-XStatusText,len,tmp,l);
+    315                  is_any_change=1;
+    316                }
+    317              }
+    318              
+    319              if (is_any_change)
+    320              {
+    321                SaveXStatusText();
+    322              }
+    323              return (1);
+    324            }
+    325            return (0);
+    326          }
+    327          
+    328          void edit_xstatus_ghook(GUI *data, int cmd)
+    329          {
+    330            static SOFTKEY_DESC sk={0x0FFF,0x0000,(int)"Save!"};
+    331            if (cmd==0x0A)
+    332            {
+    333              DisableIDLETMR();
+    334            }
+    335            if (cmd==7)
+    336            {
+    337              SetSoftKey(data,&sk,SET_SOFT_KEY_N);
+    338            }
+    339          }
+    340          
+    341          HEADER_DESC edit_xstatus_hdr={0,0,0,0,NULL,(int)"X-Статус",LGP_NULL};
+    342          
+    343          INPUTDIA_DESC edit_xstatus_desc =
+    344          {
+    345            1,
+    346            edit_xstatus_onkey,
+    347            edit_xstatus_ghook,
+    348            (void *)edit_xstatus_locret,
+    349            0,
+    350            &edit_x_skt,
+    351            {0,0,0,0},
+    352            FONT_SMALL,
+    353            100,
+    354            101,
+    355            0,
+    356            //  0x00000001 - Выровнять по правому краю
+    357            //  0x00000002 - Выровнять по центру
+    358            //  0x00000004 - Инверсия знакомест
+    359            //  0x00000008 - UnderLine
+    360            //  0x00000020 - Не переносить слова
+    361            //  0x00000200 - bold
+    362            0,
+    363            //  0x00000002 - ReadOnly
+    364            //  0x00000004 - Не двигается курсор
+    365            //  0x40000000 - Поменять местами софт-кнопки
+    366            0x40000000
+    367          };
+    368          
+    369          
+    370          static void EditXStatus(int xstatus)
+    371          {
+    372            void *ma=malloc_adr();
+    373            void *eq;
+    374            EDITCONTROL ec;
+    375            char *s;
+    376            int len;
+    377            int c;
+    378             
+    379            eq=AllocEQueue(ma,mfree_adr());    
+    380            WSHDR *ews=AllocWS(128);
+    381            ascii2ws(ews,"Комментарий:");   // Коментарий
+    382            PrepareEditControl(&ec);
+    383            ConstructEditControl(&ec,ECT_HEADER,0x40,ews,ews->wsbody[0]);
+    384            AddEditControlToEditQend(eq,&ec,ma);    //1
+    385            
+    386            CutWSTR(ews,0);
+    387            s=GetXStatusStr(xstatus*3, &len);
+    388            if (s)
+    389            {
+    390              while((c=*s++) && len)
+    391              {
+    392                wsAppendChar(ews,char8to16(c));
+    393                len--;
+    394              }
+    395            }
+    396            PrepareEditControl(&ec);
+    397            ConstructEditControl(&ec,ECT_NORMAL_TEXT,0x40,ews,20);
+    398            AddEditControlToEditQend(eq,&ec,ma);   //2
+    399            
+    400            ascii2ws(ews,"Short X:");      // Короткий Икс Статус
+    401            PrepareEditControl(&ec);
+    402            ConstructEditControl(&ec,ECT_HEADER,0x40,ews,ews->wsbody[0]);
+    403            AddEditControlToEditQend(eq,&ec,ma);   //3
+    404            
+    405            CutWSTR(ews,0);
+    406            s=GetXStatusStr(xstatus*3+1, &len);
+    407            if (s)
+    408            {
+    409              while((c=*s++) && len)
+    410              {
+    411                wsAppendChar(ews,char8to16(c));
+    412                len--;
+    413              }
+    414            }
+    415            PrepareEditControl(&ec);
+    416            ConstructEditControl(&ec,ECT_NORMAL_TEXT,0x40,ews,128);
+    417            AddEditControlToEditQend(eq,&ec,ma);   //4
+    418            
+    419            ascii2ws(ews,"Large X:");     // Длинный Икс Статус
+    420            PrepareEditControl(&ec);
+    421            ConstructEditControl(&ec,ECT_HEADER,0x40,ews,ews->wsbody[0]);
+    422            AddEditControlToEditQend(eq,&ec,ma);   //5
+    423            
+    424            CutWSTR(ews,0);
+    425            s=GetXStatusStr(xstatus*3+2, &len);
+    426            if (s)
+    427            {
+    428              while((c=*s++) && len)
+    429              {
+    430                wsAppendChar(ews,char8to16(c));
+    431                len--;
+    432              }
+    433            }
+    434            PrepareEditControl(&ec);
+    435            ConstructEditControl(&ec,ECT_NORMAL_TEXT,0x40,ews,128);
+    436            AddEditControlToEditQend(eq,&ec,ma);   //6
+    437            
+    438            FreeWS(ews);
+    439            patch_header(&edit_xstatus_hdr);
+    440            patch_input(&edit_xstatus_desc);
+    441            CreateInputTextDialog(&edit_xstatus_desc,&edit_xstatus_hdr,eq,1,(void *)xstatus);  
+    442          }
+    443          
+    444          static int xst_onkey(void *data, GUI_MSG *msg)
+    445          {
+    446            int i;
+    447            i=GetCurMenuItem(data);
+    448            if (msg->keys==0x18)
+    449            {
+    450              EditXStatus(i);
+    451              return(0);
+    452            }
+    453            if (msg->keys==0x3D)
+    454            {
+    455              Change_XStatus(i);
+    456              return(1);
+    457            }
+    458            return (0);
+    459          }
+    460          
+    461          static void xst_ghook(void *data, int cmd)
+    462          {
+    463            PNGTOP_DESC *pltop=PNG_TOP();
+    464            if (cmd==9)
+    465            {
+    466              pltop->dyn_pltop=NULL;
+    467            }
+    468            if (cmd==0x0A)
+    469            {
+    470              pltop->dyn_pltop=XStatusesImgList;
+    471              DisableIDLETMR();
+    472              //Загрузка текста при фокусе
+    473              LoadXStatusText();
+    474            }
+    475          }
+    476          
+    477          static void xst_itemh(void *data, int curitem, void *unk)
+    478          {
+    479            void *item=AllocMLMenuItem(data);
+    480            WSHDR ws1loc, *ws1, *ws2;
+    481            unsigned short num[128];
+    482            WSHDR ws3loc, *ws3, *ws4;
+    483            unsigned short num3[128];
+    484            char ss[128];
+    485            char *s;
+    486            int l;
+    487            extern const char percent_t[];
+    488            
+    489            ws1=CreateLocalWS(&ws1loc,num,128);
+    490            ws3=CreateLocalWS(&ws3loc,num3,128);
+    491            
+    492            if (s=GetXStatusStr(curitem*3+1,&l))
+    493            {
+    494              memset(ss,0,128);
+    495              if (l>127) l=127;
+    496              strncpy(ss,s,l);
+    497              wsprintf(ws1,percent_t,ss);
+    498            }
+    499            else
+    500            {
+    501              wsprintf(ws1,"Short XS %d",curitem);
+    502            }
+    503            if (s=GetXStatusStr(curitem*3+2,&l))
+    504            {
+    505              memset(ss,0,128);
+    506              if (l>127) l=127;
+    507              strncpy(ss,s,l);
+    508              wsprintf(ws3,percent_t,ss);
+    509            }
+    510            else
+    511            {
+    512              wsprintf(ws3,"Large XS %d",curitem);
+    513            }
+    514            ws2=AllocMenuWS(data,ws1->wsbody[0]);
+    515          
+    516            wstrcpy(ws2,ws1);
+    517            ws4=AllocMenuWS(data,ws3->wsbody[0]);
+    518            wstrcpy(ws4,ws3);
+    519            SetMenuItemIconArray(data, item, XStatusesIconArray+curitem);
+    520            SetMLMenuItemText(data, item, ws2, ws4, curitem);
+    521          }
+    522          
+    523          static const SOFTKEY_DESC xst_menu_sk[]=
+    524          {
+    525            {0x0018,0x0000,(int)LG_TEXT},
+    526            {0x0001,0x0000,(int)LG_BACK},
+    527            {0x003D,0x0000,(int)LGP_DOIT_PIC}
+    528          };
+    529          
+    530          static const SOFTKEYSTAB xst_menu_skt=
+    531          {
+    532            xst_menu_sk,0
+    533          };
+    534          
+    535          static const HEADER_DESC xst_menuhdr={0,0,0,0,NULL,(int)LG_CHGXSTATUS,LGP_NULL};
+    536          
+    537          static const ML_MENU_DESC xst_menu=
+    538          {
+    539            8,xst_onkey,xst_ghook,NULL,
+    540            st_menusoftkeys,
+    541            &xst_menu_skt,
+    542            0x11,
+    543            xst_itemh,
+    544            NULL,
+    545            NULL,
+    546            0,
+    547            1
+    548          };
+    549          
+    550          void DispXStatusChangeMenu(void)
+    551          {
+    552            patch_header(&xst_menuhdr);
+    553            *((int **)(&xst_menuhdr.icon))=XStatusesIconArray+CurrentXStatus;
+    554            CreateMultiLinesMenu(0,0,&xst_menu,&xst_menuhdr,CurrentXStatus,total_xstatuses);
+    555          }
+    556          
+    557          void LoadXStatusText(void)
+    558          {
+    559            FSTATS stat;
+    560            char fn[256];
+    561            int f;
+    562            unsigned int ul;
+    563            int fsize;
+    564            char *p, *s;
+    565            int c;
+    566            FreeXStatusText();
+    567            strcpy(fn,TEMPLATES_PATH);
+    568            strcat(fn,XS_FILE_NAME);
+    569            if (GetFileStats(fn,&stat,&ul)==-1) return;
+    570            if ((fsize=stat.size)<=0) return;
+    571            if ((f=fopen(fn,A_ReadOnly+A_BIN,P_READ,&ul))==-1) return;
+    572            p=XStatusText=malloc(fsize+2);
+    573            s=p+1;
+    574            s[fread(f,s,fsize,&ul)]=0;
+    575            fclose(f,&ul);
+    576            while((c=*s++)!=0)
+    577            {
+    578              if (c==10)
+    579              {
+    580                c=13;
+    581                if (*s==13) s++;   // пропускаем
+    582              }
+    583              else if (c==13)
+    584              {
+    585                if (*s==10) s++;  // пропускаем
+    586              }
+    587              *p++=c;
+    588            }
+    589            *p=0;
+    590          }
+    591          
+    592          void SaveXStatusText(void)
+    593          {
+    594            int f;
+    595            char fn[256];
+    596            unsigned int ul;
+    597            if (!XStatusText) return;
+    598            strcpy(fn,TEMPLATES_PATH);
+    599            strcat(fn,XS_FILE_NAME);
+    600            if ((f=fopen(fn,A_ReadWrite+A_Create+A_Truncate+A_BIN,P_READ+P_WRITE,&ul))==-1) return;
+    601            fwrite(f,XStatusText,strlen(XStatusText),&ul);
+    602            fclose(f,&ul);
+    603          }
+    604          
+    605          void FreeXStatusText(void)
+    606          {
+    607            mfree(XStatusText);
+    608            XStatusText=NULL;
+    609          }
+    610          
+    611          char *GetXStatusStr(int n, int *len)
+    612          {
+    613            int l=0;
+    614            int c;
+    615            char *p=XStatusText;
+    616            char *pp;
+    617            if (len) *len=0;
+    618            if (!p) return p;
+    619            while(n)
+    620            {
+    621              while((c=*p++)>=32);
+    622              if (!c) return NULL;
+    623              n--;
+    624            }
+    625            pp=p;
+    626            while((*pp++)>=32) l++;
+    627            if (len) *len=l;
+    628            return p;
+    629          }
+
+Errors: 5
+Warnings: none

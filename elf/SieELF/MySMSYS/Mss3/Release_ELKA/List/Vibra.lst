@@ -1,0 +1,182 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    07/May/2009  10:45:40 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Vibra.cpp           #
+#    Command line    =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Vibra.cpp -D        #
+#                       NEWSGOLD -D ELKA -D LANG_CN -lcN                     #
+#                       D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\List\  #
+#                       -o D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\Obj #
+#                       \ -s9 --no_unroll --cpu_mode arm --endian little     #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --eec++ --dlib_config "D:\pasha\Embedded  #
+#                       Workbench 4.0 Evaluation2\ARM\LIB\dl5tpainl8n.h" -I  #
+#                       "D:\pasha\Embedded Workbench 4.0                     #
+#                       Evaluation2\ARM\INC\" --inline_threshold=2           #
+#    List file       =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\List\V #
+#                       ibra.lst                                             #
+#    Object file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\Obj\Vi #
+#                       bra.r79                                              #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\pasha\elf\SieELF\MySMSYS\Mss3\Vibra.cpp
+      1          #include "include.h"
+      2          #include "SiemensPDU.h"
+      3          #include "MyIpcMessage.h"
+      4          #include "File.h"
+      5          #include "SmsData.h"
+      6          #include "Vibra.h"
+      7          
+      8          //const char CFG_VIBRA_RHYTHM[]="90;10;0;";
+      9          
+     10          Vibra::Vibra()
+     11          {
+     12            zeromem(&this->thythm, sizeof(int)*VBA_MAX);
+     13            this->vba_cnt=0;
+     14            this->vba_pp=0;
+     15            this->InitThythm();
+     16          }
+     17          
+     18          Vibra::~Vibra()
+     19          {
+     20            this->VibraStop();
+     21          }
+     22          /*
+     23          inline int mystr2int(const char *p)
+     24          {
+     25            int r=0;
+     26            int c;
+     27            while((c=*p++))
+     28            {
+     29              if(c>'9' || c<'0')
+     30                break;
+     31              r=r*10+c-'0';
+     32            }
+     33            return r;
+     34          }
+     35          */
+     36          void Vibra::InitThythm()
+     37          {
+     38            int n=1;
+     39            int c=0;
+     40            const char *p=CFG_VIBRA_RHYTHM;
+     41            while((c=*p))
+     42            {
+     43              if(n>=VBA_MAX)
+     44                break;
+     45              if(c==';')
+     46              {
+     47                n++;
+     48                p++;
+     49              }
+     50              else
+     51              {
+     52                //this->thythm[n]=mystr2int(p);
+     53                this->thythm[n]=str2int(p);
+     54                n++;
+     55                while((c=*p))
+     56                {
+     57          	p++;
+     58          	if(c==';')
+     59          	  break;
+     60                }
+     61              }
+     62            }
+     63            this->vba_cnt=n;
+     64          }
+     65          
+     66          void Vibra::ReInitThythm()
+     67          {
+     68            zeromem(&this->thythm, sizeof(int)*VBA_MAX);
+     69            this->vba_cnt=0;
+     70            this->vba_pp=0;
+     71            GBS_DelTimer(&this->vba_tmr);
+     72            SetVibration(0);
+     73            this->InitThythm();
+     74          }
+     75          
+     76          void Vibra::VibraStart()
+     77          {
+     78            if(CFG_NOTIFY_TIME && CFG_ENA_VIBRA && !IsCalling())
+     79            {
+     80              this->vba_pp=1;
+     81              this->VibraNext();
+     82            }
+     83          }
+     84          
+     85          void Vibra::VibraNext()
+     86          {
+     87            if (CFG_NOTIFY_TIME && CFG_ENA_VIBRA && this->vba_pp && SMSDATA->n_new && !IsCalling())
+     88            {
+     89              SetVibration(this->thythm[this->vba_pp]);
+     90              if(this->vba_pp<this->vba_cnt) this->vba_pp++;
+     91              else this->vba_pp=1;
+     92              GBS_StartTimerProc(&this->vba_tmr, 216/6, this->VibraNextTmrProc);
+     93            }
+     94            else
+     95            {
+     96              this->vba_pp=0;
+     97              GBS_DelTimer(&this->vba_tmr);
+     98              SetVibration(0);
+     99            }
+    100          }
+    101          
+    102          void Vibra::VibraStop()
+    103          {
+    104            this->vba_pp=0;
+    105            GBS_DelTimer(&this->vba_tmr);
+    106            SetVibration(0);
+    107          }
+    108          
+    109          void Vibra::VibraNextTmrProc()
+    110          {
+    111            SendMyIpc(SMSYS_IPC_VIBRA_NEXT);
+    112          }
+
+   Maximum stack usage in bytes:
+
+     Function                      CSTACK
+     --------                      ------
+     Vibra::InitThythm()              20
+     Vibra::ReInitThythm()             8
+     Vibra::Vibra()                    8
+     Vibra::VibraNext()                8
+     Vibra::VibraNextTmrProc()         4
+     Vibra::VibraStart()               8
+     Vibra::VibraStop()                4
+     Vibra::delete ~Vibra(Vibra *)     8
+     Vibra::new Vibra()                4
+     Vibra::~Vibra()                   4
+
+
+   Segment part sizes:
+
+     Function/Label                Bytes
+     --------------                -----
+     Vibra::Vibra()                  48
+     Vibra::~Vibra()                  4
+     Vibra::InitThythm()            120
+     Vibra::ReInitThythm()           60
+     Vibra::VibraStart()             72
+     Vibra::VibraNext()             176
+     Vibra::VibraStop()              28
+     Vibra::VibraNextTmrProc()       12
+     Vibra::new Vibra()              28
+     Vibra::delete ~Vibra(Vibra *)   28
+     ??DataTable2                     4
+     ??DataTable3                     4
+      Others                         88
+
+ 
+ 672 bytes in segment CODE
+ 
+ 584 bytes of CODE memory (+ 88 bytes shared)
+
+Errors: none
+Warnings: none

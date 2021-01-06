@@ -1,0 +1,498 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    19/Jan/2011  13:20:52 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\grabber\jpeg-7\jcmainct.c                     #
+#    Command line    =  C:\arm\grabber\jpeg-7\jcmainct.c -lC                 #
+#                       C:\arm\grabber\Release_SGOLD\List\ -o                #
+#                       C:\arm\grabber\Release_SGOLD\Obj\ -s9 --no_unroll    #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\grabber\Release_SGOLD\List\jcmainct.lst       #
+#    Object file     =  C:\arm\grabber\Release_SGOLD\Obj\jcmainct.r79        #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\grabber\jpeg-7\jcmainct.c
+      1          /*
+                  ^
+Warning[Pa050]: non-native end of line sequence detected (this diagnostic is
+          only issued once)
+      2           * jcmainct.c
+      3           *
+      4           * Copyright (C) 1994-1996, Thomas G. Lane.
+      5           * This file is part of the Independent JPEG Group's software.
+      6           * For conditions of distribution and use, see the accompanying README file.
+      7           *
+      8           * This file contains the main buffer controller for compression.
+      9           * The main buffer lies between the pre-processor and the JPEG
+     10           * compressor proper; it holds downsampled data in the JPEG colorspace.
+     11           */
+     12          
+     13          #define JPEG_INTERNALS
+     14          #include "jinclude.h"
+     15          #include "jpeglib.h"
+     16          
+     17          
+     18          /* Note: currently, there is no operating mode in which a full-image buffer
+     19           * is needed at this step.  If there were, that mode could not be used with
+     20           * "raw data" input, since this module is bypassed in that case.  However,
+     21           * we've left the code here for possible use in special applications.
+     22           */
+     23          #undef FULL_MAIN_BUFFER_SUPPORTED
+     24          
+     25          
+     26          /* Private buffer controller object */
+     27          
+     28          typedef struct {
+     29            struct jpeg_c_main_controller pub; /* public fields */
+     30          
+     31            JDIMENSION cur_iMCU_row;	/* number of current iMCU row */
+     32            JDIMENSION rowgroup_ctr;	/* counts row groups received in iMCU row */
+     33            boolean suspended;		/* remember if we suspended output */
+     34            J_BUF_MODE pass_mode;		/* current operating mode */
+     35          
+     36            /* If using just a strip buffer, this points to the entire set of buffers
+     37             * (we allocate one for each component).  In the full-image case, this
+     38             * points to the currently accessible strips of the virtual arrays.
+     39             */
+     40            JSAMPARRAY buffer[MAX_COMPONENTS];
+     41          
+     42          #ifdef FULL_MAIN_BUFFER_SUPPORTED
+     43            /* If using full-image storage, this array holds pointers to virtual-array
+     44             * control blocks for each component.  Unused if not full-image storage.
+     45             */
+     46            jvirt_sarray_ptr whole_image[MAX_COMPONENTS];
+     47          #endif
+     48          } my_main_controller;
+     49          
+     50          typedef my_main_controller * my_main_ptr;
+     51          
+     52          
+     53          /* Forward declarations */
+     54          METHODDEF(void) process_data_simple_main
+     55          	JPP((j_compress_ptr cinfo, JSAMPARRAY input_buf,
+     56          	     JDIMENSION *in_row_ctr, JDIMENSION in_rows_avail));
+     57          #ifdef FULL_MAIN_BUFFER_SUPPORTED
+     58          METHODDEF(void) process_data_buffer_main
+     59          	JPP((j_compress_ptr cinfo, JSAMPARRAY input_buf,
+     60          	     JDIMENSION *in_row_ctr, JDIMENSION in_rows_avail));
+     61          #endif
+     62          
+     63          
+     64          /*
+     65           * Initialize for a processing pass.
+     66           */
+     67          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     68          METHODDEF(void)
+     69          start_pass_main (j_compress_ptr cinfo, J_BUF_MODE pass_mode)
+     70          {
+   \                     start_pass_main:
+   \   00000000   00402DE9           PUSH     {LR}
+   \   00000004   0020A0E1           MOV      R2,R0
+     71            my_main_ptr main = (my_main_ptr) cinfo->main;
+     72          
+     73            /* Do nothing in raw-data mode. */
+     74            if (cinfo->raw_data_in)
+   \   00000008   CC3092E5           LDR      R3,[R2, #+204]
+   \   0000000C   780192E5           LDR      R0,[R2, #+376]
+   \   00000010   000053E3           CMP      R3,#+0
+   \   00000014   0080BD18           POPNE    {PC}
+     75              return;
+     76          
+     77            main->cur_iMCU_row = 0;	/* initialize counters */
+   \   00000018   083080E5           STR      R3,[R0, #+8]
+     78            main->rowgroup_ctr = 0;
+   \   0000001C   0C3080E5           STR      R3,[R0, #+12]
+     79            main->suspended = FALSE;
+   \   00000020   103080E5           STR      R3,[R0, #+16]
+     80            main->pass_mode = pass_mode;	/* save mode for use by process_data */
+   \   00000024   1410C0E5           STRB     R1,[R0, #+20]
+     81          
+     82            switch (pass_mode) {
+   \   00000028   000051E3           CMP      R1,#+0
+     83            case JBUF_PASS_THRU:
+     84          #ifdef FULL_MAIN_BUFFER_SUPPORTED
+     85              if (main->whole_image[0] != NULL)
+     86                ERREXIT(cinfo, JERR_BAD_BUFFER_MODE);
+     87          #endif
+     88              main->pub.process_data = process_data_simple_main;
+   \   0000002C   24109F05           LDREQ    R1,??start_pass_main_0  ;; process_data_simple_main
+   \   00000030   04108005           STREQ    R1,[R0, #+4]
+   \   00000034   0080BD08           POPEQ    {PC}
+     89              break;
+     90          #ifdef FULL_MAIN_BUFFER_SUPPORTED
+     91            case JBUF_SAVE_SOURCE:
+     92            case JBUF_CRANK_DEST:
+     93            case JBUF_SAVE_AND_PASS:
+     94              if (main->whole_image[0] == NULL)
+     95                ERREXIT(cinfo, JERR_BAD_BUFFER_MODE);
+     96              main->pub.process_data = process_data_buffer_main;
+     97              break;
+     98          #endif
+     99            default:
+    100              ERREXIT(cinfo, JERR_BAD_BUFFER_MODE);
+   \   00000038   000092E5           LDR      R0,[R2, #+0]
+   \   0000003C   0310A0E3           MOV      R1,#+3
+   \   00000040   141080E5           STR      R1,[R0, #+20]
+   \   00000044   001092E5           LDR      R1,[R2, #+0]
+   \   00000048   0200A0E1           MOV      R0,R2
+   \   0000004C   001091E5           LDR      R1,[R1, #+0]
+   \   00000050   31FF2FE1           BLX      R1
+   \   00000054   0080BDE8           POP      {PC}             ;; return
+   \                     ??start_pass_main_0:
+   \   00000058   ........           DC32     process_data_simple_main
+    101              break;
+    102            }
+    103          }
+    104          
+    105          
+    106          /*
+    107           * Process some data.
+    108           * This routine handles the simple pass-through mode,
+    109           * where we have only a strip buffer.
+    110           */
+    111          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    112          METHODDEF(void)
+    113          process_data_simple_main (j_compress_ptr cinfo,
+    114          			  JSAMPARRAY input_buf, JDIMENSION *in_row_ctr,
+    115          			  JDIMENSION in_rows_avail)
+    116          {
+   \                     process_data_simple_main:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+    117            my_main_ptr main = (my_main_ptr) cinfo->main;
+   \   0000000C   788194E5           LDR      R8,[R4, #+376]
+   \   00000010   0260A0E1           MOV      R6,R2
+   \   00000014   0370A0E1           MOV      R7,R3
+   \   00000018   0B0000EA           B        ??process_data_simple_main_0
+    118          
+    119            while (main->cur_iMCU_row < cinfo->total_iMCU_rows) {
+    120              /* Read input data if we haven't filled the main buffer yet */
+    121              if (main->rowgroup_ctr < (JDIMENSION) cinfo->min_DCT_v_scaled_size)
+    122                (*cinfo->prep->pre_process_data) (cinfo,
+    123          					input_buf, in_row_ctr, in_rows_avail,
+    124          					main->buffer, &main->rowgroup_ctr,
+    125          					(JDIMENSION) cinfo->min_DCT_v_scaled_size);
+    126          
+    127              /* If we don't have a full iMCU row buffered, return to application for
+    128               * more data.  Note that preprocessor will always pad to fill the iMCU row
+    129               * at the bottom of the image.
+    130               */
+    131              if (main->rowgroup_ctr != (JDIMENSION) cinfo->min_DCT_v_scaled_size)
+    132                return;
+    133          
+    134              /* Send the completed row to the compressor */
+    135              if (! (*cinfo->coef->compress_data) (cinfo, main->buffer)) {
+    136                /* If compressor did not consume the whole row, then we must need to
+    137                 * suspend processing and return to the application.  In this situation
+    138                 * we pretend we didn't yet consume the last input row; otherwise, if
+    139                 * it happened to be the last row of the image, the application would
+    140                 * think we were done.
+    141                 */
+    142                if (! main->suspended) {
+    143          	(*in_row_ctr)--;
+    144          	main->suspended = TRUE;
+    145                }
+    146                return;
+    147              }
+    148              /* We did finish the row.  Undo our little suspension hack if a previous
+    149               * call suspended; then mark the main buffer empty.
+    150               */
+    151              if (main->suspended) {
+   \                     ??process_data_simple_main_1:
+   \   0000001C   101098E5           LDR      R1,[R8, #+16]
+   \   00000020   0000A0E3           MOV      R0,#+0
+   \   00000024   000051E3           CMP      R1,#+0
+   \   00000028   0300000A           BEQ      ??process_data_simple_main_2
+    152                (*in_row_ctr)++;
+   \   0000002C   001096E5           LDR      R1,[R6, #+0]
+   \   00000030   011081E2           ADD      R1,R1,#+1
+   \   00000034   001086E5           STR      R1,[R6, #+0]
+    153                main->suspended = FALSE;
+   \   00000038   100088E5           STR      R0,[R8, #+16]
+    154              }
+    155              main->rowgroup_ctr = 0;
+   \                     ??process_data_simple_main_2:
+   \   0000003C   0C0088E5           STR      R0,[R8, #+12]
+    156              main->cur_iMCU_row++;
+   \   00000040   080098E5           LDR      R0,[R8, #+8]
+   \   00000044   010080E2           ADD      R0,R0,#+1
+   \   00000048   080088E5           STR      R0,[R8, #+8]
+   \                     ??process_data_simple_main_0:
+   \   0000004C   080098E5           LDR      R0,[R8, #+8]
+   \   00000050   181194E5           LDR      R1,[R4, #+280]
+   \   00000054   010050E1           CMP      R0,R1
+   \   00000058   F081BD28           POPCS    {R4-R8,PC}
+   \   0000005C   140194E5           LDR      R0,[R4, #+276]
+   \   00000060   0C1098E5           LDR      R1,[R8, #+12]
+   \   00000064   000051E1           CMP      R1,R0
+   \   00000068   0C00002A           BCS      ??process_data_simple_main_3
+   \   0000006C   01002DE9           PUSH     {R0}
+   \   00000070   0730A0E1           MOV      R3,R7
+   \   00000074   0620A0E1           MOV      R2,R6
+   \   00000078   0510A0E1           MOV      R1,R5
+   \   0000007C   0C0088E2           ADD      R0,R8,#+12
+   \   00000080   01002DE9           PUSH     {R0}
+   \   00000084   180088E2           ADD      R0,R8,#+24
+   \   00000088   01002DE9           PUSH     {R0}
+   \   0000008C   7CC194E5           LDR      R12,[R4, #+380]
+   \   00000090   0400A0E1           MOV      R0,R4
+   \   00000094   04C09CE5           LDR      R12,[R12, #+4]
+   \   00000098   3CFF2FE1           BLX      R12
+   \   0000009C   0CD08DE2           ADD      SP,SP,#+12
+   \                     ??process_data_simple_main_3:
+   \   000000A0   0C0098E5           LDR      R0,[R8, #+12]
+   \   000000A4   141194E5           LDR      R1,[R4, #+276]
+   \   000000A8   010050E1           CMP      R0,R1
+   \   000000AC   F081BD18           POPNE    {R4-R8,PC}
+   \   000000B0   802194E5           LDR      R2,[R4, #+384]
+   \   000000B4   181088E2           ADD      R1,R8,#+24
+   \   000000B8   042092E5           LDR      R2,[R2, #+4]
+   \   000000BC   0400A0E1           MOV      R0,R4
+   \   000000C0   32FF2FE1           BLX      R2
+   \   000000C4   000050E3           CMP      R0,#+0
+   \   000000C8   D3FFFF1A           BNE      ??process_data_simple_main_1
+   \   000000CC   100098E5           LDR      R0,[R8, #+16]
+   \   000000D0   000050E3           CMP      R0,#+0
+   \   000000D4   F081BD18           POPNE    {R4-R8,PC}
+   \   000000D8   000096E5           LDR      R0,[R6, #+0]
+   \   000000DC   010040E2           SUB      R0,R0,#+1
+   \   000000E0   000086E5           STR      R0,[R6, #+0]
+   \   000000E4   0100A0E3           MOV      R0,#+1
+   \   000000E8   100088E5           STR      R0,[R8, #+16]
+   \   000000EC   F081BDE8           POP      {R4-R8,PC}       ;; return
+    157            }
+    158          }
+    159          
+    160          
+    161          #ifdef FULL_MAIN_BUFFER_SUPPORTED
+    162          
+    163          /*
+    164           * Process some data.
+    165           * This routine handles all of the modes that use a full-size buffer.
+    166           */
+    167          
+    168          METHODDEF(void)
+    169          process_data_buffer_main (j_compress_ptr cinfo,
+    170          			  JSAMPARRAY input_buf, JDIMENSION *in_row_ctr,
+    171          			  JDIMENSION in_rows_avail)
+    172          {
+    173            my_main_ptr main = (my_main_ptr) cinfo->main;
+    174            int ci;
+    175            jpeg_component_info *compptr;
+    176            boolean writing = (main->pass_mode != JBUF_CRANK_DEST);
+    177          
+    178            while (main->cur_iMCU_row < cinfo->total_iMCU_rows) {
+    179              /* Realign the virtual buffers if at the start of an iMCU row. */
+    180              if (main->rowgroup_ctr == 0) {
+    181                for (ci = 0, compptr = cinfo->comp_info; ci < cinfo->num_components;
+    182          	   ci++, compptr++) {
+    183          	main->buffer[ci] = (*cinfo->mem->access_virt_sarray)
+    184          	  ((j_common_ptr) cinfo, main->whole_image[ci],
+    185          	   main->cur_iMCU_row * (compptr->v_samp_factor * DCTSIZE),
+    186          	   (JDIMENSION) (compptr->v_samp_factor * DCTSIZE), writing);
+    187                }
+    188                /* In a read pass, pretend we just read some source data. */
+    189                if (! writing) {
+    190          	*in_row_ctr += cinfo->max_v_samp_factor * DCTSIZE;
+    191          	main->rowgroup_ctr = DCTSIZE;
+    192                }
+    193              }
+    194          
+    195              /* If a write pass, read input data until the current iMCU row is full. */
+    196              /* Note: preprocessor will pad if necessary to fill the last iMCU row. */
+    197              if (writing) {
+    198                (*cinfo->prep->pre_process_data) (cinfo,
+    199          					input_buf, in_row_ctr, in_rows_avail,
+    200          					main->buffer, &main->rowgroup_ctr,
+    201          					(JDIMENSION) DCTSIZE);
+    202                /* Return to application if we need more data to fill the iMCU row. */
+    203                if (main->rowgroup_ctr < DCTSIZE)
+    204          	return;
+    205              }
+    206          
+    207              /* Emit data, unless this is a sink-only pass. */
+    208              if (main->pass_mode != JBUF_SAVE_SOURCE) {
+    209                if (! (*cinfo->coef->compress_data) (cinfo, main->buffer)) {
+    210          	/* If compressor did not consume the whole row, then we must need to
+    211          	 * suspend processing and return to the application.  In this situation
+    212          	 * we pretend we didn't yet consume the last input row; otherwise, if
+    213          	 * it happened to be the last row of the image, the application would
+    214          	 * think we were done.
+    215          	 */
+    216          	if (! main->suspended) {
+    217          	  (*in_row_ctr)--;
+    218          	  main->suspended = TRUE;
+    219          	}
+    220          	return;
+    221                }
+    222                /* We did finish the row.  Undo our little suspension hack if a previous
+    223                 * call suspended; then mark the main buffer empty.
+    224                 */
+    225                if (main->suspended) {
+    226          	(*in_row_ctr)++;
+    227          	main->suspended = FALSE;
+    228                }
+    229              }
+    230          
+    231              /* If get here, we are done with this iMCU row.  Mark buffer empty. */
+    232              main->rowgroup_ctr = 0;
+    233              main->cur_iMCU_row++;
+    234            }
+    235          }
+    236          
+    237          #endif /* FULL_MAIN_BUFFER_SUPPORTED */
+    238          
+    239          
+    240          /*
+    241           * Initialize main buffer controller.
+    242           */
+    243          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    244          GLOBAL(void)
+    245          jinit_c_main_controller (j_compress_ptr cinfo, boolean need_full_buffer)
+    246          {
+   \                     jinit_c_main_controller:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    247            my_main_ptr main;
+    248            int ci;
+    249            jpeg_component_info *compptr;
+    250          
+    251            main = (my_main_ptr)
+    252              (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_IMAGE,
+    253          				SIZEOF(my_main_controller));
+   \   00000008   043094E5           LDR      R3,[R4, #+4]
+   \   0000000C   0160A0E1           MOV      R6,R1
+   \   00000010   003093E5           LDR      R3,[R3, #+0]
+   \   00000014   4020A0E3           MOV      R2,#+64
+   \   00000018   0110A0E3           MOV      R1,#+1
+   \   0000001C   33FF2FE1           BLX      R3
+   \   00000020   0050A0E1           MOV      R5,R0
+    254            cinfo->main = (struct jpeg_c_main_controller *) main;
+    255            main->pub.start_pass = start_pass_main;
+   \   00000024   98009FE5           LDR      R0,??jinit_c_main_controller_0  ;; start_pass_main
+   \   00000028   785184E5           STR      R5,[R4, #+376]
+   \   0000002C   000085E5           STR      R0,[R5, #+0]
+    256          
+    257            /* We don't need to create a buffer in raw-data mode. */
+    258            if (cinfo->raw_data_in)
+   \   00000030   CC0094E5           LDR      R0,[R4, #+204]
+   \   00000034   000050E3           CMP      R0,#+0
+   \   00000038   F080BD18           POPNE    {R4-R7,PC}
+    259              return;
+    260          
+    261            /* Create the buffer.  It holds downsampled data, so each component
+    262             * may be of a different size.
+    263             */
+    264            if (need_full_buffer) {
+   \   0000003C   000056E3           CMP      R6,#+0
+   \   00000040   0700000A           BEQ      ??jinit_c_main_controller_1
+    265          #ifdef FULL_MAIN_BUFFER_SUPPORTED
+    266              /* Allocate a full-image virtual array for each component */
+    267              /* Note we pad the bottom to a multiple of the iMCU height */
+    268              for (ci = 0, compptr = cinfo->comp_info; ci < cinfo->num_components;
+    269          	 ci++, compptr++) {
+    270                main->whole_image[ci] = (*cinfo->mem->request_virt_sarray)
+    271          	((j_common_ptr) cinfo, JPOOL_IMAGE, FALSE,
+    272          	 compptr->width_in_blocks * compptr->DCT_h_scaled_size,
+    273          	 (JDIMENSION) jround_up((long) compptr->height_in_blocks,
+    274          				(long) compptr->v_samp_factor) * DCTSIZE,
+    275          	 (JDIMENSION) (compptr->v_samp_factor * compptr->DCT_v_scaled_size));
+    276              }
+    277          #else
+    278              ERREXIT(cinfo, JERR_BAD_BUFFER_MODE);
+   \   00000044   000094E5           LDR      R0,[R4, #+0]
+   \   00000048   0310A0E3           MOV      R1,#+3
+   \   0000004C   141080E5           STR      R1,[R0, #+20]
+   \   00000050   001094E5           LDR      R1,[R4, #+0]
+   \   00000054   0400A0E1           MOV      R0,R4
+   \   00000058   001091E5           LDR      R1,[R1, #+0]
+   \   0000005C   31FF2FE1           BLX      R1
+   \   00000060   F080BDE8           POP      {R4-R7,PC}
+    279          #endif
+    280            } else {
+    281          #ifdef FULL_MAIN_BUFFER_SUPPORTED
+    282              main->whole_image[0] = NULL; /* flag for no virtual arrays */
+    283          #endif
+    284              /* Allocate a strip buffer for each component */
+    285              for (ci = 0, compptr = cinfo->comp_info; ci < cinfo->num_components;
+   \                     ??jinit_c_main_controller_1:
+   \   00000064   480094E5           LDR      R0,[R4, #+72]
+   \   00000068   507094E5           LDR      R7,[R4, #+80]
+   \   0000006C   010050E3           CMP      R0,#+1
+   \   00000070   0F0000AA           BGE      ??jinit_c_main_controller_2
+   \   00000074   F080BDE8           POP      {R4-R7,PC}
+    286          	 ci++, compptr++) {
+    287                main->buffer[ci] = (*cinfo->mem->alloc_sarray)
+    288          	((j_common_ptr) cinfo, JPOOL_IMAGE,
+    289          	 compptr->width_in_blocks * compptr->DCT_h_scaled_size,
+    290          	 (JDIMENSION) (compptr->v_samp_factor * compptr->DCT_v_scaled_size));
+   \                     ??jinit_c_main_controller_3:
+   \   00000078   0C0097E5           LDR      R0,[R7, #+12]
+   \   0000007C   281097E5           LDR      R1,[R7, #+40]
+   \   00000080   04C094E5           LDR      R12,[R4, #+4]
+   \   00000084   910003E0           MUL      R3,R1,R0
+   \   00000088   1C0097E5           LDR      R0,[R7, #+28]
+   \   0000008C   241097E5           LDR      R1,[R7, #+36]
+   \   00000090   08C09CE5           LDR      R12,[R12, #+8]
+   \   00000094   910002E0           MUL      R2,R1,R0
+   \   00000098   0110A0E3           MOV      R1,#+1
+   \   0000009C   0400A0E1           MOV      R0,R4
+   \   000000A0   3CFF2FE1           BLX      R12
+   \   000000A4   061185E0           ADD      R1,R5,R6, LSL #+2
+   \   000000A8   180081E5           STR      R0,[R1, #+24]
+    291              }
+   \   000000AC   016086E2           ADD      R6,R6,#+1
+   \   000000B0   587087E2           ADD      R7,R7,#+88
+   \                     ??jinit_c_main_controller_2:
+   \   000000B4   480094E5           LDR      R0,[R4, #+72]
+   \   000000B8   000056E1           CMP      R6,R0
+   \   000000BC   EDFFFFBA           BLT      ??jinit_c_main_controller_3
+   \   000000C0   F080BDE8           POP      {R4-R7,PC}       ;; return
+   \                     ??jinit_c_main_controller_0:
+   \   000000C4   ........           DC32     start_pass_main
+    292            }
+    293          }
+
+   Maximum stack usage in bytes:
+
+     Function                 CSTACK
+     --------                 ------
+     jinit_c_main_controller     20
+     process_data_simple_main    36
+     start_pass_main              4
+
+
+   Segment part sizes:
+
+     Function/Label           Bytes
+     --------------           -----
+     start_pass_main            92
+     process_data_simple_main  240
+     jinit_c_main_controller   200
+      Others                    12
+
+ 
+ 544 bytes in segment CODE
+ 
+ 532 bytes of CODE memory (+ 12 bytes shared)
+
+Errors: none
+Warnings: 1

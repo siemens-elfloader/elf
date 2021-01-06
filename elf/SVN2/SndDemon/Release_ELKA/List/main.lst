@@ -1,0 +1,2055 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    02/Dec/2008  15:15:24 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\Pasha\elf\SVN2\SndDemon\main.c                    #
+#    Command line    =  D:\Pasha\elf\SVN2\SndDemon\main.c -D ELKA -D         #
+#                       NEWSGOLD --preprocess D:\Pasha\elf\SVN2\SndDemon\Rel #
+#                       ease_ELKA\List\ -lC D:\Pasha\elf\SVN2\SndDemon\Relea #
+#                       se_ELKA\List\ -o D:\Pasha\elf\SVN2\SndDemon\Release_ #
+#                       ELKA\Obj\ -z9 --cpu_mode arm --endian little --cpu   #
+#                       ARM7TDMI --stack_align 4 --interwork -e --fpu None   #
+#                       --dlib_config "D:\Pasha\Embedded Workbench 4.0       #
+#                       Evaluation2\ARM\LIB\dl4tpainl8n.h" -I                #
+#                       "D:\Pasha\Embedded Workbench 4.0                     #
+#                       Evaluation2\ARM\INC\" --inline_threshold=2           #
+#    List file       =  D:\Pasha\elf\SVN2\SndDemon\Release_ELKA\List\main.ls #
+#                       t                                                    #
+#    Object file     =  D:\Pasha\elf\SVN2\SndDemon\Release_ELKA\Obj\main.r79 #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\Pasha\elf\SVN2\SndDemon\main.c
+      1          
+      2          #include "..\inc\swilib.h"
+      3          
+      4          #include "..\inc\playsound.h"
+      5          #include "swilib2.h"
+      6          #include "conf_loader.h"
+      7          #ifdef ELKA
+      8          #include "snd_buffers.h"
+      9          #endif
+     10          #ifdef NEWSGOLD
+     11          #include "player_tags.h"
+     12          #include "some_utils.h"
+     13          #endif
+     14          #include "speech_txt.h"
+     15          #include "..\inc\mplayer.h"
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \   __??Code32?? __code __interwork __atpcs void Send_MPlayer_Command(unsigned short, short)
+   \                     Send_MPlayer_Command:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+   \   0000000C   E18000EF           SWI      +32993
+   \   00000010   10002DE9           PUSH     {R4}
+   \   00000014   000090E5           LDR      R0,[R0, #+0]
+   \   00000018   053040E0           SUB      R3,R0,R5
+   \   0000001C   0020A0E3           MOV      R2,#+0
+   \   00000020   5310A0E3           MOV      R1,#+83
+   \   00000024   801C81E3           ORR      R1,R1,#0x8000
+   \   00000028   0900A0E3           MOV      R0,#+9
+   \   0000002C   420C80E3           ORR      R0,R0,#0x4200
+   \   00000030   000100EF           SWI      +256
+   \   00000034   3140BDE8           POP      {R0,R4,R5,LR}
+   \   00000038   1EFF2FE1           BX       LR               ;; return
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \   __??Code32?? __code __interwork __atpcs void MPlayer_VolChange(short)
+   \                     MPlayer_VolChange:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   010050E3           CMP      R0,#+1
+   \   00000008   1540A003           MOVEQ    R4,#+21
+   \   0000000C   1640A013           MOVNE    R4,#+22
+   \   00000010   0210A0E3           MOV      R1,#+2
+   \   00000014   0400A0E1           MOV      R0,R4
+   \   00000018   ........           BL       Send_MPlayer_Command
+   \   0000001C   0010A0E3           MOV      R1,#+0
+   \   00000020   0400A0E1           MOV      R0,R4
+   \   00000024   ........           BL       Send_MPlayer_Command
+   \   00000028   ........           B        ?Subroutine14
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ?Subroutine14:
+   \   00000000   1040BDE8           POP      {R4,LR}
+   \   00000004   1EFF2FE1           BX       LR               ;; return
+   \                     ??Subroutine14_0:
+   \   00000008   ........           DC32     spc_kukvol
+   \   0000000C   ........           DC32     spc_net
+   \   00000010   ........           DC32     pcsmadr
+     16          word next=0;
+     17          char gbs[128]; //check may be short 
+     18          
+     19          CSM_DESC icsmd;
+     20          //CSM_RAM oldicsm,*poldicsm;
+     21          void **picsm,*picsm2;
+     22          //-------------------------------------------------------------------
+     23          #ifdef NEWSGOLD
+     24            #define _GetAkkuCapacity GetAkkuCapacity
+     25            #define sMSG 0xDF01
+     26            extern const unsigned int key_prev;  
+     27            extern const unsigned int key_next;    
+     28          #else
+     29            #define _GetAkkuCapacity  *RamCap
+     30            #define sMSG
+     31          #endif
+     32          
+     33          #ifndef NEWSGOLD
+     34          #ifndef NOHEADSET
+     35            #define NOHEADSET
+     36          #endif
+     37          #endif
+     38          
+     39          #define PLAYERTRACK
+     40          #ifdef NOHEADSET
+     41            #undef   PLAYERTRACK
+     42          #endif
+     43          
+     44          
+     45          
+     46          
+     47          //-------------------------------------------------------------------
+     48          #ifdef NEWSGOLD
+     49          #ifndef ELKA
+     50            byte gfp2=0;
+     51            extern const unsigned int killPlr;  //mp3 call for S75
+     52          #endif
+     53          #endif
+     54          //-- vars ------------------------------------------------------------
+     55          
+     56          
+     57          //void (*old_icsm_onClose)(CSM_RAM*);
+     58          int (*old_icsm_onMessage)(CSM_RAM*,GBS_MSG*);
+     59          GBSTMR mytmr;
+     60          #ifdef PLAYERTRACK  
+     61            GBSTMR mytmr2;
+     62          #endif
+
+   \                                 In segment DATA_C, align 4, align-sorted
+     63          const unsigned int refresh=130;
+   \                     refresh:
+   \   00000000   82000000           DC32 130
+     64          byte  llevel=0;
+     65          //byte  kbs=0;
+     66          
+     67            extern const unsigned int spc_min;
+     68            byte rds=0;
+     69          #ifndef NOHEADSET
+     70            int st=0;
+     71          #endif
+     72          
+     73            extern const unsigned int spc_level;
+     74            extern const unsigned int spc_net;  
+     75          //-------------------------------------------------------------------
+
+   \                                 In segment CODE, align 4, keep-with-next
+     76          inline void ReadConfig(){
+   \                     ReadConfig:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+     77            InitConfig();
+   \   00000004   ........           _BLF     InitConfig,??InitConfig??rA
+     78          #ifdef PLAYERTRACK  
+     79            scr_w=cTgr.x2-cTgr.x;
+   \   00000008   60009FE5           LDR      R0,??ReadConfig_0  ;; cTgr
+   \   0000000C   60109FE5           LDR      R1,??ReadConfig_0+0x4  ;; scr_w
+   \   00000010   F420D0E1           LDRSH    R2,[R0, #+4]
+   \   00000014   F000D0E1           LDRSH    R0,[R0, #+0]
+   \   00000018   000042E0           SUB      R0,R2,R0
+   \   0000001C   000081E5           STR      R0,[R1, #+0]
+     80            initTags();
+   \   00000020   ........           _BLF     initTags,??initTags??rA
+     81          #endif  
+     82             if (spc_net)  
+   \   00000024   4C409FE5           LDR      R4,??ReadConfig_0+0x8  ;; llevel
+   \   00000028   4C009FE5           LDR      R0,??ReadConfig_0+0xC  ;; spc_net
+   \   0000002C   000090E5           LDR      R0,[R0, #+0]
+   \   00000030   000050E3           CMP      R0,#+0
+   \   00000034   0200000A           BEQ      ??ReadConfig_1
+     83              rds=*RamNetOnline();
+   \   00000038   D68000EF           SWI      +32982
+   \   0000003C   000090E5           LDR      R0,[R0, #+0]
+   \   00000040   0100C4E5           STRB     R0,[R4, #+1]
+     84            
+     85            if (spc_level)     llevel=(_GetAkkuCapacity()-1)/5;  
+   \                     ??ReadConfig_1:
+   \   00000044   34009FE5           LDR      R0,??ReadConfig_0+0x10  ;; spc_level
+   \   00000048   000090E5           LDR      R0,[R0, #+0]
+   \   0000004C   000050E3           CMP      R0,#+0
+   \   00000050   0400000A           BEQ      ??ReadConfig_2
+   \   00000054   C60000EF           SWI      +198
+   \   00000058   010040E2           SUB      R0,R0,#+1
+   \   0000005C   0510A0E3           MOV      R1,#+5
+   \   00000060   ........           _BLF     ??div32_a,??rA??div32_a
+   \   00000064   0010C4E5           STRB     R1,[R4, #+0]
+     86          
+     87          }
+   \                     ??ReadConfig_2:
+   \   00000068   1040BDE8           POP      {R4,LR}
+   \   0000006C   1EFF2FE1           BX       LR               ;; return
+   \                     ??ReadConfig_0:
+   \   00000070   ........           DC32     cTgr
+   \   00000074   ........           DC32     scr_w
+   \   00000078   ........           DC32     llevel
+   \   0000007C   ........           DC32     spc_net
+   \   00000080   ........           DC32     spc_level
+     88          //-------------------------------------------------------------------
+     89          
+     90          //-- config ------------------------------------------
+     91          
+     92          #ifndef NOHEADSET
+     93            extern const unsigned int batt_level;
+     94            extern const unsigned int exitOnHeadDisc;
+     95            extern const unsigned int keyb_state;
+     96          #endif
+     97          
+     98          
+     99          extern const unsigned int spc_keyvol;
+    100          extern const unsigned int spc_kukvol;
+    101          extern const unsigned int spc_kukloc;
+    102          extern const unsigned int spc_kukkey;
+    103          //--------------------------------------------
+    104          
+    105          #define _TDEBUG  
+    106          #ifdef TDEBUG  
+    107            GBSTMR mytmr7;
+    108          #endif
+    109          
+    110          
+    111          
+    112          
+    113          
+    114          //-------------------------------------------------------------------
+
+   \                                 In segment CODE, align 4, keep-with-next
+    115           void ProcessTime(byte cl){
+   \                     ProcessTime:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   D4D04DE2           SUB      SP,SP,#+212
+   \   00000008   0040A0E1           MOV      R4,R0
+    116            GetDateTime (&dt,&tm);
+   \   0000000C   8C519FE5           LDR      R5,??ProcessTime_0+0x4  ;; tm
+   \   00000010   0510A0E1           MOV      R1,R5
+   \   00000014   88019FE5           LDR      R0,??ProcessTime_0+0x8  ;; dt
+   \   00000018   B40000EF           SWI      +180
+    117            if (cl) if (tm.min!=0){
+   \   0000001C   000054E3           CMP      R4,#+0
+   \   00000020   0100D515           LDRBNE   R0,[R5, #+1]
+   \   00000024   00005013           CMPNE    R0,#+0
+   \   00000028   5900001A           BNE      ??ProcessTime_1
+    118              return;
+    119            };
+    120            char tmp[128];
+    121            char tmp2[30];  //check    
+    122            tmp[0]=0;
+   \   0000002C   0010A0E3           MOV      R1,#+0
+   \   00000030   3810CDE5           STRB     R1,[SP, #+56]
+    123            char ms[25]="v0aaavvvvvvvvvvvvvvvv0aa"; //hours
+   \   00000034   B8008DE2           ADD      R0,SP,#+184
+   \   00000038   68119FE5           LDR      R1,??ProcessTime_0+0xC  ;; `?<Constant "v0aaavvvvvvvvvvvvvvvv0aa">`
+   \   0000003C   CC5191E8           LDM      R1,{R2,R3,R6-R8,R12,LR}
+   \   00000040   CC5180E8           STM      R0,{R2,R3,R6-R8,R12,LR}
+    124            sprintf (tmp2,"%st%d.amr;th%c.amr",cl?"thx.amr;":"",tm.hour,ms[tm.hour]);
+   \   00000044   60619FE5           LDR      R6,??ProcessTime_0+0x10  ;; `?<Constant "0ayyy00000000000000000">`
+   \   00000048   000054E3           CMP      R4,#+0
+   \   0000004C   9C208612           ADDNE    R2,R6,#+156
+   \   00000050   512F8F02           ADREQ    R2,??ProcessTime_0  ;; ""
+   \   00000054   0030D5E5           LDRB     R3,[R5, #+0]
+   \   00000058   0000D3E7           LDRB     R0,[R3, +R0]
+   \   0000005C   01002DE9           PUSH     {R0}
+   \   00000060   881086E2           ADD      R1,R6,#+136
+   \   00000064   04008DE2           ADD      R0,SP,#+4
+   \   00000068   160000EF           SWI      +22
+    125            char ms2[11+11]="0ayyy00000000000000000";  //minutes                 
+   \   0000006C   24008DE2           ADD      R0,SP,#+36
+   \   00000070   8C5196E8           LDM      R6,{R2,R3,R7,R8,R12,LR}
+   \   00000074   8C5180E8           STM      R0,{R2,R3,R7,R8,R12,LR}
+    126            if (tm.min<=20){         
+   \   00000078   0100D5E5           LDRB     R0,[R5, #+1]
+   \   0000007C   150050E3           CMP      R0,#+21
+   \   00000080   04D08DE2           ADD      SP,SP,#+4        ;; stack cleaning
+   \   00000084   1D00002A           BCS      ??ProcessTime_2
+    127              if (spc_min&&tm.min==0){
+   \   00000088   20119FE5           LDR      R1,??ProcessTime_0+0x14  ;; spc_min
+   \   0000008C   001091E5           LDR      R1,[R1, #+0]
+   \   00000090   000051E3           CMP      R1,#+0
+   \   00000094   0600000A           BEQ      ??ProcessTime_3
+   \   00000098   000050E3           CMP      R0,#+0
+   \   0000009C   0400001A           BNE      ??ProcessTime_3
+    128                sprintf (tmp,"%s;tx.amr;#",tmp2);      
+   \   000000A0   0D20A0E1           MOV      R2,SP
+   \   000000A4   A81086E2           ADD      R1,R6,#+168
+   \   000000A8   38008DE2           ADD      R0,SP,#+56
+   \   000000AC   160000EF           SWI      +22
+   \   000000B0   310000EA           B        ??ProcessTime_4
+    129              } else
+    130              if (tm.min!=1&&tm.min!=2)
+   \                     ??ProcessTime_3:
+   \   000000B4   0030A0E1           MOV      R3,R0
+   \   000000B8   010050E3           CMP      R0,#+1
+   \   000000BC   02005013           CMPNE    R0,#+2
+   \   000000C0   0800000A           BEQ      ??ProcessTime_5
+    131                sprintf (tmp,"%s;t%d.amr;tm%c.amr;#",tmp2,tm.min,ms2[tm.min]);
+   \   000000C4   20008DE2           ADD      R0,SP,#+32
+   \   000000C8   0000D3E7           LDRB     R0,[R3, +R0]
+   \   000000CC   01002DE9           PUSH     {R0}
+   \   000000D0   04208DE2           ADD      R2,SP,#+4
+   \   000000D4   181086E2           ADD      R1,R6,#+24
+   \                     ??ProcessTime_6:
+   \   000000D8   3C008DE2           ADD      R0,SP,#+60
+   \   000000DC   160000EF           SWI      +22
+   \   000000E0   04D08DE2           ADD      SP,SP,#+4        ;; stack cleaning
+   \   000000E4   240000EA           B        ??ProcessTime_4
+    132               else
+    133                 sprintf (tmp,"%s;t%de.amr;tm%c.amr;#",tmp2,tm.min,ms2[tm.min]);
+   \                     ??ProcessTime_5:
+   \   000000E8   20008DE2           ADD      R0,SP,#+32
+   \   000000EC   0000D3E7           LDRB     R0,[R3, +R0]
+   \   000000F0   01002DE9           PUSH     {R0}
+   \   000000F4   04208DE2           ADD      R2,SP,#+4
+   \   000000F8   301086E2           ADD      R1,R6,#+48
+   \   000000FC   F5FFFFEA           B        ??ProcessTime_6
+    134            }else
+    135             if (tm.min%10!=1&&tm.min%10!=2&&tm.min%10!=0)
+   \                     ??ProcessTime_2:
+   \   00000100   0030A0E1           MOV      R3,R0
+   \   00000104   0A10A0E3           MOV      R1,#+10
+   \   00000108   ........           _BLF     ??div32_a,??rA??div32_a
+   \   0000010C   010050E3           CMP      R0,#+1
+   \   00000110   02005013           CMPNE    R0,#+2
+   \   00000114   00005013           CMPNE    R0,#+0
+   \   00000118   0A00000A           BEQ      ??ProcessTime_7
+    136               sprintf (tmp,"%s;t%d0.amr;t%d.amr;tm%c.amr;#",tmp2,tm.min/10,tm.min%10,ms2[tm.min%10]);
+   \   0000011C   20108DE2           ADD      R1,SP,#+32
+   \   00000120   0110D0E7           LDRB     R1,[R0, +R1]
+   \   00000124   02002DE9           PUSH     {R1}
+   \   00000128   01002DE9           PUSH     {R0}
+   \   0000012C   0300A0E1           MOV      R0,R3
+   \   00000130   0A10A0E3           MOV      R1,#+10
+   \   00000134   ........           _BLF     ??div32_a,??rA??div32_a
+   \   00000138   0130A0E1           MOV      R3,R1
+   \   0000013C   08208DE2           ADD      R2,SP,#+8
+   \   00000140   681086E2           ADD      R1,R6,#+104
+   \   00000144   090000EA           B        ??ProcessTime_8
+    137              else
+    138               sprintf (tmp,"%s;t%d0.amr;t%de.amr;tm%c.amr;#",tmp2,tm.min/10,tm.min%10,ms2[tm.min%10]);
+   \                     ??ProcessTime_7:
+   \   00000148   20108DE2           ADD      R1,SP,#+32
+   \   0000014C   0110D0E7           LDRB     R1,[R0, +R1]
+   \   00000150   02002DE9           PUSH     {R1}
+   \   00000154   01002DE9           PUSH     {R0}
+   \   00000158   0300A0E1           MOV      R0,R3
+   \   0000015C   0A10A0E3           MOV      R1,#+10
+   \   00000160   ........           _BLF     ??div32_a,??rA??div32_a
+   \   00000164   0130A0E1           MOV      R3,R1
+   \   00000168   08208DE2           ADD      R2,SP,#+8
+   \   0000016C   481086E2           ADD      R1,R6,#+72
+   \                     ??ProcessTime_8:
+   \   00000170   40008DE2           ADD      R0,SP,#+64
+   \   00000174   160000EF           SWI      +22
+   \   00000178   08D08DE2           ADD      SP,SP,#+8        ;; stack cleaning
+    139             if (cl)      SpeechPhrasesChk(tmp)    ;     
+   \                     ??ProcessTime_4:
+   \   0000017C   000054E3           CMP      R4,#+0
+   \   00000180   38008DE2           ADD      R0,SP,#+56
+   \   00000184   0100000A           BEQ      ??ProcessTime_9
+   \   00000188   ........           _BLF     SpeechPhrasesChk,??SpeechPhrasesChk??rA
+   \   0000018C   000000EA           B        ??ProcessTime_1
+    140              else      SpeechPhrasesChkNat(tmp)    ;     
+   \                     ??ProcessTime_9:
+   \   00000190   ........           _BLF     SpeechPhrasesChkNat,??SpeechPhrasesChkNat??rA
+   \                     ??ProcessTime_1:
+   \   00000194   D4D08DE2           ADD      SP,SP,#+212      ;; stack cleaning
+   \   00000198   ........           B        ?Subroutine15
+   \                     ??ProcessTime_0:
+   \   0000019C   00000000           DC8      "",+0,+0,+0
+   \   000001A0   ........           DC32     tm
+   \   000001A4   ........           DC32     dt
+   \   000001A8   ........           DC32     `?<Constant "v0aaavvvvvvvvvvvvvvvv0aa">`
+   \   000001AC   ........           DC32     `?<Constant "0ayyy00000000000000000">`
+   \   000001B0   ........           DC32     spc_min
+    141          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ?Subroutine15:
+   \   00000000   F041BDE8           POP      {R4-R8,LR}
+   \   00000004   1EFF2FE1           BX       LR               ;; return
+   \                     ??Subroutine15_0:
+   \   00000008   ........           DC32     llevel
+   \   0000000C   ........           DC32     `?<Constant "found.amr;#">`
+
+   \                                 In segment DATA_Z, align 1, align-sorted
+   \                     llevel:
+   \   00000000                      DS8 1
+   \                     rds:
+   \   00000001                      DS8 1
+    142          //-------------------------------------------------------------------
+    143          byte zds=0;
+   \                     zds:
+   \   00000002                      DS8 1
+    144          /*
+    145          char t_dash[]="#";
+    146           char num[22]="\0";
+    147          void ProcessAON(){
+    148            int cnt=strlen(num);
+    149          // ShowMSG(1,(int)num);
+    150            char tmp[128],*tmp2;
+    151            tmp2=tmp;
+    152            //оптимизировать
+    153            sprintf (tmp2,"kp.amr;"); //децл чит что все номера с +
+    154            for (int i=1;(i<cnt)&&(i<18);i++){ //i,17 additional check gbs 125 bytes only 
+    155                  sprintf (tmp2,"k%c.amr;",num[i]);
+    156                  tmp2+=7;
+    157            }
+    158          //  tmp2[0]='#';
+    159          //  tmp2[1]=0;
+    160          
+    161            sprintf (tmp2,t_dash);  //оптимизировать
+    162            SpeechPhrasesChk(tmp);
+    163          }
+    164          /*
+                 ^
+Warning[Pe009]: nested comment is not allowed
+    165          void TimerProcAON(void)
+    166          { 
+    167            ProcessAON();
+    168          }*/
+    169          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    170          void ProcessAccum(void){
+   \                     ProcessAccum:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   40D04DE2           SUB      SP,SP,#+64
+    171            char tmp[64];
+    172            byte lvl= _GetAkkuCapacity();
+   \   00000008   C60000EF           SWI      +198
+   \   0000000C   0040A0E1           MOV      R4,R0
+    173            byte lvl10=(lvl-1)/5;
+   \   00000010   010040E2           SUB      R0,R0,#+1
+   \   00000014   0510A0E3           MOV      R1,#+5
+   \   00000018   ........           _BLF     ??div32_a,??rA??div32_a
+   \   0000001C   FF5001E2           AND      R5,R1,#0xFF
+    174            byte LS=*RamLS();
+   \   00000020   C98000EF           SWI      +32969
+   \   00000024   B060D0E1           LDRH     R6,[R0, #+0]
+   \   00000028   FF6006E2           AND      R6,R6,#0xFF
+    175            if ((zds)==0&&LS)  {    
+   \   0000002C   ........           LDR      R7,??Subroutine15_0  ;; llevel
+   \   00000030   0200D7E5           LDRB     R0,[R7, #+2]
+   \   00000034   ........           LDR      R8,??Subroutine15_0+0x4  ;; `?<Constant "found.amr;#">`
+   \   00000038   000050E3           CMP      R0,#+0
+   \   0000003C   0500001A           BNE      ??ProcessAccum_0
+   \   00000040   0610B0E1           MOVS     R1,R6
+   \   00000044   0500000A           BEQ      ??ProcessAccum_1
+    176              SpeechPhrasesChk("found.amr;#");    
+   \   00000048   0800A0E1           MOV      R0,R8
+   \   0000004C   ........           _BLF     SpeechPhrasesChk,??SpeechPhrasesChk??rA
+    177              llevel=lvl10;
+   \   00000050   0050C7E5           STRB     R5,[R7, #+0]
+   \   00000054   0A0000EA           B        ??ProcessAccum_2
+    178            }else
+    179            if ((zds)!=3&&(LS==3))      SpeechPhrasesChk("full.wav;#");
+   \                     ??ProcessAccum_0:
+   \   00000058   030050E3           CMP      R0,#+3
+   \   0000005C   0400000A           BEQ      ??ProcessAccum_3
+   \                     ??ProcessAccum_1:
+   \   00000060   030056E3           CMP      R6,#+3
+   \   00000064   0C008802           ADDEQ    R0,R8,#+12
+   \   00000068   0400000A           BEQ      ??ProcessAccum_4
+    180             else
+    181            if ((zds)!=0&&(LS==0))      SpeechPhrasesChk("found0.amr;#");
+   \   0000006C   000050E3           CMP      R0,#+0
+   \   00000070   0300000A           BEQ      ??ProcessAccum_2
+   \                     ??ProcessAccum_3:
+   \   00000074   0600B0E1           MOVS     R0,R6
+   \   00000078   0100001A           BNE      ??ProcessAccum_2
+   \   0000007C   180088E2           ADD      R0,R8,#+24
+   \                     ??ProcessAccum_4:
+   \   00000080   ........           _BLF     SpeechPhrasesChk,??SpeechPhrasesChk??rA
+    182            zds=LS;
+   \                     ??ProcessAccum_2:
+   \   00000084   0260C7E5           STRB     R6,[R7, #+2]
+    183          
+    184            if (LS!=3&&((lvl10/2)!=(llevel/2))){
+   \   00000088   030056E3           CMP      R6,#+3
+   \   0000008C   A520A011           LSRNE    R2,R5,#+1
+   \   00000090   0000D715           LDRBNE   R0,[R7, #+0]
+   \   00000094   A000A011           LSRNE    R0,R0,#+1
+   \   00000098   00005211           CMPNE    R2,R0
+   \   0000009C   1100000A           BEQ      ??ProcessAccum_5
+    185              tmp[0]=0;
+   \   000000A0   0010A0E3           MOV      R1,#+0
+   \   000000A4   0010CDE5           STRB     R1,[SP, #+0]
+    186              if (LS)
+   \   000000A8   0600B0E1           MOVS     R0,R6
+    187                sprintf (tmp,"up.amr;%d0.amr;percent.amr;#",lvl10/2);
+   \   000000AC   28108812           ADDNE    R1,R8,#+40
+   \   000000B0   0500001A           BNE      ??ProcessAccum_6
+    188              else
+    189               if (lvl<spc_level) sprintf (tmp,"down.amr;%d0.amr;percent.amr;#",(lvl10/2)+1);
+   \   000000B4   ........           LDR      R0,??DataTable2  ;; spc_level
+   \   000000B8   000090E5           LDR      R0,[R0, #+0]
+   \   000000BC   000054E1           CMP      R4,R0
+   \   000000C0   0800002A           BCS      ??ProcessAccum_5
+   \   000000C4   012082E2           ADD      R2,R2,#+1
+   \   000000C8   481088E2           ADD      R1,R8,#+72
+   \                     ??ProcessAccum_6:
+   \   000000CC   0D00A0E1           MOV      R0,SP
+   \   000000D0   160000EF           SWI      +22
+    190              if (tmp[0]!=0)      SpeechPhrasesChk(tmp);     
+   \   000000D4   0000DDE5           LDRB     R0,[SP, #+0]
+   \   000000D8   000050E3           CMP      R0,#+0
+   \   000000DC   0100000A           BEQ      ??ProcessAccum_5
+   \   000000E0   0D00A0E1           MOV      R0,SP
+   \   000000E4   ........           _BLF     SpeechPhrasesChk,??SpeechPhrasesChk??rA
+    191            };
+    192            if (lvl<6&&llevel==1&&LS!=3) SpeechPhrasesChk("down.amr;5.amr;percent.amr;#"); 
+   \                     ??ProcessAccum_5:
+   \   000000E8   060054E3           CMP      R4,#+6
+   \   000000EC   0600002A           BCS      ??ProcessAccum_7
+   \   000000F0   0000D7E5           LDRB     R0,[R7, #+0]
+   \   000000F4   010050E3           CMP      R0,#+1
+   \   000000F8   0300001A           BNE      ??ProcessAccum_7
+   \   000000FC   030056E3           CMP      R6,#+3
+   \   00000100   0100000A           BEQ      ??ProcessAccum_7
+   \   00000104   680088E2           ADD      R0,R8,#+104
+   \   00000108   ........           _BLF     SpeechPhrasesChk,??SpeechPhrasesChk??rA
+    193            llevel=lvl10;
+   \                     ??ProcessAccum_7:
+   \   0000010C   0050C7E5           STRB     R5,[R7, #+0]
+    194          };
+   \   00000110   40D08DE2           ADD      SP,SP,#+64       ;; stack cleaning
+   \   00000114                      REQUIRE ?Subroutine15
+   \   00000114                      ;; // Fall through to label ?Subroutine15
+    195          
+    196          //-------------------------------------------------------------------
+    197          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    198          void ProcessNet(){
+   \                     ProcessNet:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+    199            byte rdsc=*RamNetOnline();
+   \   00000004   D68000EF           SWI      +32982
+   \   00000008   004090E5           LDR      R4,[R0, #+0]
+   \   0000000C   FF4004E2           AND      R4,R4,#0xFF
+    200            if (rds!=rdsc){
+   \   00000010   20509FE5           LDR      R5,??ProcessNet_0  ;; llevel
+   \   00000014   0110D5E5           LDRB     R1,[R5, #+1]
+   \   00000018   040051E1           CMP      R1,R4
+   \   0000001C   0400000A           BEQ      ??ProcessNet_1
+    201              if (rds) SpeechPhrasesChk("sp.amr;#"); 
+   \   00000020   14009FE5           LDR      R0,??ProcessNet_0+0x4  ;; `?<Constant "sp.amr;#">`
+   \   00000024   000051E3           CMP      R1,#+0
+    202               else SpeechPhrasesChk("sn.amr;#"); 
+   \   00000028   0C008002           ADDEQ    R0,R0,#+12
+   \   0000002C   ........           _BLF     SpeechPhrasesChk,??SpeechPhrasesChk??rA
+    203              rds=rdsc;
+   \   00000030   0140C5E5           STRB     R4,[R5, #+1]
+    204            }
+    205          }
+   \                     ??ProcessNet_1:
+   \   00000034   ........           B        ?Subroutine16
+   \                     ??ProcessNet_0:
+   \   00000038   ........           DC32     llevel
+   \   0000003C   ........           DC32     `?<Constant "sp.amr;#">`
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ?Subroutine16:
+   \   00000000   3040BDE8           POP      {R4,R5,LR}
+   \   00000004   1EFF2FE1           BX       LR               ;; return
+   \                     ??Subroutine16_0:
+   \   00000008   ........           DC32     next
+   \   0000000C   ........           DC32     successed_config_filename
+   \   00000010   ........           DC32     REFMSG
+   \   00000014   ........           DC32     `?<Constant "SndDemon config updated!">`
+    206          //-------------------------------------------------------------------
+    207          int cntr=1;
+
+   \                                 In segment CODE, align 4, keep-with-next
+    208          void TimerProc(void)
+    209          { 
+   \                     TimerProc:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    210            cntr=cntr+1;
+   \   00000004   ........           LDR      R4,??DataTable24  ;; next
+   \   00000008   3C0094E5           LDR      R0,[R4, #+60]
+   \   0000000C   010080E2           ADD      R0,R0,#+1
+    211          #define CNT_S 99
+    212            if (cntr>CNT_S){
+   \   00000010   640050E3           CMP      R0,#+100
+    213              cntr=1;
+   \   00000014   0100A0A3           MOVGE    R0,#+1
+   \   00000018   3C0084E5           STR      R0,[R4, #+60]
+    214            }
+    215            
+    216            if (!IsCalling()){
+   \   0000001C   6E0000EF           SWI      +110
+   \   00000020   000050E3           CMP      R0,#+0
+   \   00000024   2F00001A           BNE      ??TimerProc_0
+    217              if (spc_kukvol&&(cntr==1)){
+   \   00000028   ........           LDR      R0,??Subroutine14_0  ;; spc_kukvol
+   \   0000002C   000090E5           LDR      R0,[R0, #+0]
+   \   00000030   000050E3           CMP      R0,#+0
+   \   00000034   0300000A           BEQ      ??TimerProc_1
+   \   00000038   3C0094E5           LDR      R0,[R4, #+60]
+   \   0000003C   010050E3           CMP      R0,#+1
+   \   00000040   0000001A           BNE      ??TimerProc_1
+    218                ProcessTime(1);  
+   \   00000044   ........           BL       ProcessTime
+    219              }
+    220          
+    221              if  (spc_net)  ProcessNet();
+   \                     ??TimerProc_1:
+   \   00000048   ........           LDR      R0,??Subroutine14_0+0x4  ;; spc_net
+   \   0000004C   000090E5           LDR      R0,[R0, #+0]
+   \   00000050   000050E3           CMP      R0,#+0
+   \   00000054   0000000A           BEQ      ??TimerProc_2
+   \   00000058   ........           BL       ProcessNet
+    222              if  (spc_level)ProcessAccum();
+   \                     ??TimerProc_2:
+   \   0000005C   ........           LDR      R0,??DataTable2  ;; spc_level
+   \   00000060   000090E5           LDR      R0,[R0, #+0]
+   \   00000064   000050E3           CMP      R0,#+0
+   \   00000068   0000000A           BEQ      ??TimerProc_3
+   \   0000006C   ........           BL       ProcessAccum
+    223              
+    224            #ifndef NOHEADSET
+    225              if (st>3)st--;
+   \                     ??TimerProc_3:
+   \   00000070   380094E5           LDR      R0,[R4, #+56]
+   \   00000074   040050E3           CMP      R0,#+4
+   \   00000078   010040A2           SUBGE    R0,R0,#+1
+   \   0000007C   380084A5           STRGE    R0,[R4, #+56]
+    226              if (st==3){
+   \   00000080   380094E5           LDR      R0,[R4, #+56]
+   \   00000084   030050E3           CMP      R0,#+3
+   \   00000088   0200001A           BNE      ??TimerProc_4
+    227                st=2;
+   \   0000008C   0200A0E3           MOV      R0,#+2
+   \   00000090   380084E5           STR      R0,[R4, #+56]
+    228                MEDIA_PLAYER();
+   \   00000094   ........           _BLF     MEDIA_PLAYER,??MEDIA_PLAYER??rA
+    229              }
+    230            #ifdef ELKA
+    231              if (cntr==1)  if (allowbuf==2){
+   \                     ??TimerProc_4:
+   \   00000098   3C0094E5           LDR      R0,[R4, #+60]
+   \   0000009C   010050E3           CMP      R0,#+1
+   \   000000A0   ........           LDREQ    R0,??DataTable23  ;; allowbuf
+   \   000000A4   00009005           LDREQ    R0,[R0, #+0]
+   \   000000A8   02005003           CMPEQ    R0,#+2
+   \   000000AC   0D00001A           BNE      ??TimerProc_0
+    232                if (GetPlayStatus())
+   \   000000B0   F80100EF           SWI      +504
+   \   000000B4   000050E3           CMP      R0,#+0
+   \   000000B8   0700000A           BEQ      ??TimerProc_5
+    233                 SetupBuffers((buff_size+(buff_nof*256)));
+   \   000000BC   ........           LDR      R0,??DataTable11  ;; buff_size
+   \   000000C0   000090E5           LDR      R0,[R0, #+0]
+   \   000000C4   ........           LDR      R1,??DataTable12  ;; buff_nof
+   \   000000C8   001091E5           LDR      R1,[R1, #+0]
+   \   000000CC   010480E0           ADD      R0,R0,R1, LSL #+8
+   \   000000D0   0008A0E1           MOV      R0,R0, LSL #+16
+   \   000000D4   2008A0E1           MOV      R0,R0, LSR #+16
+   \   000000D8   010000EA           B        ??TimerProc_6
+    234                else
+    235                  SetupBuffers(oldAudValue);        
+   \                     ??TimerProc_5:
+   \   000000DC   ........           LDR      R0,??DataTable13  ;; oldAudValue
+   \   000000E0   B000D0E1           LDRH     R0,[R0, #+0]
+   \                     ??TimerProc_6:
+   \   000000E4   ........           _BLF     SetupBuffers,??SetupBuffers??rA
+    236              }
+    237            #endif
+    238              
+    239            #endif  
+    240              
+    241            }
+    242          
+    243          #ifdef PLAYERTRACK  
+    244            if (  pcsmadr)GetTags();
+   \                     ??TimerProc_0:
+   \   000000E8   ........           LDR      R0,??Subroutine14_0+0x8  ;; pcsmadr
+   \   000000EC   000090E5           LDR      R0,[R0, #+0]
+   \   000000F0   000050E3           CMP      R0,#+0
+   \   000000F4   0000000A           BEQ      ??TimerProc_7
+   \   000000F8   ........           _BLF     GetTags,??GetTags??rA
+    245          #endif  
+    246            GBS_StartTimerProc(&mytmr, refresh, TimerProc);
+   \                     ??TimerProc_7:
+   \   000000FC   ........           LDR      R2,??DataTable17  ;; TimerProc
+   \   00000100   8210A0E3           MOV      R1,#+130
+   \   00000104   C00084E2           ADD      R0,R4,#+192
+   \   00000108   4D0000EF           SWI      +77
+    247          }
+   \   0000010C                      REQUIRE ?Subroutine14
+   \   0000010C                      ;; // Fall through to label ?Subroutine14
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     next:
+   \   00000000                      DS8 2
+   \   00000002                      REQUIRE `?<Initializer for next>`
+    248          
+    249          
+    250          word  klong=0;
+   \                     klong:
+   \   00000002                      DS8 2
+   \   00000004                      REQUIRE `?<Initializer for klong>`
+   \                     icsmd:
+   \   00000004                      DS8 40
+   \   0000002C                      REQUIRE `?<Initializer for icsmd>`
+   \                     picsm:
+   \   0000002C                      DS8 4
+   \   00000030                      REQUIRE `?<Initializer for picsm>`
+   \                     picsm2:
+   \   00000030                      DS8 4
+   \   00000034                      REQUIRE `?<Initializer for picsm2>`
+   \                     old_icsm_onMessage:
+   \   00000034                      DS8 4
+   \   00000038                      REQUIRE `?<Initializer for old_icsm_onMessage>`
+   \                     st:
+   \   00000038                      DS8 4
+   \   0000003C                      REQUIRE `?<Initializer for st>`
+   \                     cntr:
+   \   0000003C                      DS8 4
+   \   00000040                      REQUIRE `?<Initializer for cntr>`
+   \                     gbs:
+   \   00000040                      DS8 128
+   \   000000C0                      REQUIRE `?<Initializer for gbs>`
+   \                     mytmr:
+   \   000000C0                      DS8 16
+   \   000000D0                      REQUIRE `?<Initializer for mytmr>`
+   \                     mytmr2:
+   \   000000D0                      DS8 16
+   \   000000E0                      REQUIRE `?<Initializer for mytmr2>`
+    251          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    252          int TopG (int disp){
+   \                     TopG:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    253            CSM_RAM *icsm=FindCSMbyID(CSM_root()->idle_id);
+   \   00000008   068100EF           SWI      +33030
+   \   0000000C   040090E5           LDR      R0,[R0, #+4]
+   \   00000010   080100EF           SWI      +264
+    254            if (!icsm) return 0;
+   \   00000014   000050E3           CMP      R0,#+0
+   \   00000018   0600000A           BEQ      ??TopG_0
+    255            if (!IsGuiOnTop(((int *)icsm)[disp/4])) return 0;
+   \   0000001C   C410A0E1           ASR      R1,R4,#+1
+   \   00000020   211F84E0           ADD      R1,R4,R1, LSR #+30
+   \   00000024   4111A0E1           ASR      R1,R1,#+2
+   \   00000028   010190E7           LDR      R0,[R0, +R1, LSL #+2]
+   \   0000002C   350100EF           SWI      +309
+   \   00000030   000050E3           CMP      R0,#+0
+    256            return 1;
+   \   00000034   0100A013           MOVNE    R0,#+1
+   \                     ??TopG_0:
+   \   00000038   ........           B        ?Subroutine14
+    257          }
+    258          
+    259          
+    260          //-------------------------------------------------------------
+
+   \                                 In segment CODE, align 4, keep-with-next
+    261          int my_keyhook(int submsg, int msg)
+    262          {
+   \                     my_keyhook:
+   \   00000000   F7472DE9           PUSH     {R0-R2,R4-R10,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+    263            int vl=TopG(DISPLACE_OF_IDLEGUI_ID);
+   \   0000000C   2C00A0E3           MOV      R0,#+44
+   \   00000010   ........           BL       TopG
+   \   00000014   0060A0E1           MOV      R6,R0
+    264           
+    265            if (msg==KEY_UP){
+   \   00000018   CC019FE5           LDR      R0,??my_keyhook_0  ;; key_next
+   \   0000001C   009090E5           LDR      R9,[R0, #+0]
+   \   00000020   C8019FE5           LDR      R0,??my_keyhook_0+0x4  ;; key_prev
+   \   00000024   00A090E5           LDR      R10,[R0, #+0]
+   \   00000028   0070A0E3           MOV      R7,#+0
+   \   0000002C   ........           LDR      R8,??DataTable24  ;; next
+   \   00000030   650F55E3           CMP      R5,#+404
+   \   00000034   4C00001A           BNE      ??my_keyhook_1
+    266              if (!IsCalling()){  
+   \   00000038   6E0000EF           SWI      +110
+   \   0000003C   000050E3           CMP      R0,#+0
+   \   00000040   6500001A           BNE      ??my_keyhook_2
+    267          
+    268          #ifdef NEWSGOLD      
+    269                 if (submsg!=RED_BUTTON&&submsg!=key_prev&&submsg!=key_next&&submsg!=PTT_BUTTON&&submsg!=35&&((!IsUnlocked()&&spc_kukloc)||(submsg==spc_kukkey&&vl))){        
+   \   00000044   0C0054E3           CMP      R4,#+12
+   \   00000048   0A005411           CMPNE    R4,R10
+   \   0000004C   09005411           CMPNE    R4,R9
+   \   00000050   27005413           CMPNE    R4,#+39
+   \   00000054   23005413           CMPNE    R4,#+35
+   \   00000058   1400000A           BEQ      ??my_keyhook_3
+   \   0000005C   430000EF           SWI      +67
+   \   00000060   000050E3           CMP      R0,#+0
+   \   00000064   0300001A           BNE      ??my_keyhook_4
+   \   00000068   84019FE5           LDR      R0,??my_keyhook_0+0x8  ;; spc_kukloc
+   \   0000006C   000090E5           LDR      R0,[R0, #+0]
+   \   00000070   000050E3           CMP      R0,#+0
+   \   00000074   0500001A           BNE      ??my_keyhook_5
+   \                     ??my_keyhook_4:
+   \   00000078   78019FE5           LDR      R0,??my_keyhook_0+0xC  ;; spc_kukkey
+   \   0000007C   000090E5           LDR      R0,[R0, #+0]
+   \   00000080   000054E1           CMP      R4,R0
+   \   00000084   0900001A           BNE      ??my_keyhook_3
+   \   00000088   000056E3           CMP      R6,#+0
+   \   0000008C   0700000A           BEQ      ??my_keyhook_3
+    270          #else
+    271                 if (submsg!=RED_BUTTON&&submsg!=35&&((!IsUnlocked()&&spc_kukloc)||(submsg==spc_kukkey&&vl))){        
+    272          #endif          
+    273                   if (klong){
+   \                     ??my_keyhook_5:
+   \   00000090   B200D8E1           LDRH     R0,[R8, #+2]
+   \   00000094   000050E3           CMP      R0,#+0
+   \   00000098   4F00000A           BEQ      ??my_keyhook_2
+    274                     ProcessTime(0);
+   \   0000009C   0000A0E3           MOV      R0,#+0
+   \   000000A0   ........           BL       ProcessTime
+    275                     klong=0;      
+   \   000000A4   B270C8E1           STRH     R7,[R8, #+2]
+    276                     return 2;    
+   \                     ??my_keyhook_6:
+   \   000000A8   0200A0E3           MOV      R0,#+2
+   \   000000AC   4C0000EA           B        ??my_keyhook_7
+    277                   }else;
+    278                 } else
+    279                 {
+    280          #ifndef  NOHEADSET
+    281                 
+    282                 if (spc_keyvol&&IsUnlocked()&&TopG(DISPLACE_OF_EDGUI_ID)&&!st){
+   \                     ??my_keyhook_3:
+   \   000000B0   44019FE5           LDR      R0,??my_keyhook_0+0x10  ;; spc_keyvol
+   \   000000B4   000090E5           LDR      R0,[R0, #+0]
+   \   000000B8   000050E3           CMP      R0,#+0
+   \   000000BC   4600000A           BEQ      ??my_keyhook_2
+   \   000000C0   430000EF           SWI      +67
+   \   000000C4   000050E3           CMP      R0,#+0
+   \   000000C8   4300000A           BEQ      ??my_keyhook_2
+   \   000000CC   4C00A0E3           MOV      R0,#+76
+   \   000000D0   ........           BL       TopG
+   \   000000D4   000050E3           CMP      R0,#+0
+   \   000000D8   3F00000A           BEQ      ??my_keyhook_2
+   \   000000DC   380098E5           LDR      R0,[R8, #+56]
+   \   000000E0   000050E3           CMP      R0,#+0
+   \   000000E4   3C00001A           BNE      ??my_keyhook_2
+    283           #else
+    284                 if (spc_keyvol&&IsUnlocked()&&TopG(DISPLACE_OF_EDGUI_ID)){         
+    285          #endif         
+    286                      
+    287                   char tmp[]="k-.amr;#";
+   \   000000E8   0D00A0E1           MOV      R0,SP
+   \   000000EC   0C119FE5           LDR      R1,??my_keyhook_0+0x14  ;; `?<Constant "k-.amr;#">`
+   \   000000F0   2C0091E8           LDM      R1,{R2,R3,R5}
+   \   000000F4   2C0080E8           STM      R0,{R2,R3,R5}
+    288                   if (submsg==35){
+   \   000000F8   B200D8E1           LDRH     R0,[R8, #+2]
+   \   000000FC   230054E3           CMP      R4,#+35
+   \   00000100   0400001A           BNE      ??my_keyhook_8
+    289                     if (klong)  tmp[1]='q';
+   \   00000104   000050E3           CMP      R0,#+0
+   \   00000108   7310A003           MOVEQ    R1,#+115
+   \   0000010C   7110A013           MOVNE    R1,#+113
+   \                     ??my_keyhook_9:
+   \   00000110   0110CDE5           STRB     R1,[SP, #+1]
+   \   00000114   110000EA           B        ??my_keyhook_10
+    290                      else  tmp[1]='s';
+    291                   }else
+    292                   if (submsg=='0'){
+   \                     ??my_keyhook_8:
+   \   00000118   300054E3           CMP      R4,#+48
+   \   0000011C   0500001A           BNE      ??my_keyhook_11
+    293                     if (klong)   tmp[1]='p';
+   \   00000120   000050E3           CMP      R0,#+0
+   \   00000124   0100000A           BEQ      ??my_keyhook_12
+   \   00000128   7010A0E3           MOV      R1,#+112
+   \                     ??my_keyhook_13:
+   \   0000012C   F7FFFFEA           B        ??my_keyhook_9
+    294                      else     tmp[1]='0';
+   \                     ??my_keyhook_12:
+   \   00000130   3010A0E3           MOV      R1,#+48
+   \   00000134   F5FFFFEA           B        ??my_keyhook_9
+    295                   }else
+    296                   if (submsg==42)tmp[1]='z';       
+   \                     ??my_keyhook_11:
+   \   00000138   2A0054E3           CMP      R4,#+42
+   \   0000013C   7A10A003           MOVEQ    R1,#+122
+   \   00000140   F2FFFF0A           BEQ      ??my_keyhook_9
+    297                    else
+    298                   if (submsg>'0'&&submsg<='9'){
+   \   00000144   310054E3           CMP      R4,#+49
+   \   00000148   010000BA           BLT      ??my_keyhook_14
+   \   0000014C   3A0054E3           CMP      R4,#+58
+    299                     tmp[1]=(char)submsg;
+   \   00000150   0140CDB5           STRBLT   R4,[SP, #+1]
+    300                   }else;
+    301                   if (tmp[1]!='-'){
+   \                     ??my_keyhook_14:
+   \   00000154   0100DDE5           LDRB     R0,[SP, #+1]
+   \   00000158   2D0050E3           CMP      R0,#+45
+   \   0000015C   1E00000A           BEQ      ??my_keyhook_2
+    302                                    
+    303                      SpeechPhrasesChk(tmp);    
+   \                     ??my_keyhook_10:
+   \   00000160   0D00A0E1           MOV      R0,SP
+   \   00000164   ........           _BLF     SpeechPhrasesChk,??SpeechPhrasesChk??rA
+    304          
+    305                   }
+    306                 }
+    307                 }
+    308                 
+    309               } 
+    310              
+    311               klong=0;         
+   \   00000168   1B0000EA           B        ??my_keyhook_2
+    312             } else
+    313               if (msg==LONG_PRESS){
+   \                     ??my_keyhook_1:
+   \   0000016C   9500A0E3           MOV      R0,#+149
+   \   00000170   400F80E3           ORR      R0,R0,#0x100
+   \   00000174   000055E1           CMP      R5,R0
+   \   00000178   1400001A           BNE      ??my_keyhook_15
+    314                 klong++;   
+   \   0000017C   B200D8E1           LDRH     R0,[R8, #+2]
+   \   00000180   010080E2           ADD      R0,R0,#+1
+   \   00000184   B200C8E1           STRH     R0,[R8, #+2]
+    315          #ifndef NOHEADSET     
+    316                 if ((GetPlayStatus()==2)&&(klong&0x1)){
+   \   00000188   F80100EF           SWI      +504
+   \   0000018C   020050E3           CMP      R0,#+2
+   \   00000190   1200001A           BNE      ??my_keyhook_16
+   \   00000194   B200D8E1           LDRH     R0,[R8, #+2]
+   \   00000198   010010E3           TST      R0,#0x1
+   \   0000019C   0F00000A           BEQ      ??my_keyhook_16
+    317                   if (submsg==key_prev||submsg==key_next){  
+   \   000001A0   0A0054E1           CMP      R4,R10
+   \   000001A4   0600000A           BEQ      ??my_keyhook_17
+   \   000001A8   090054E1           CMP      R4,R9
+   \   000001AC   0B00001A           BNE      ??my_keyhook_16
+    318                     
+    319          //            (void *)(MPlayer_VolChange(submsg==VOL_DOWN_BUTTON));
+    320                     if (submsg==key_prev)  MPlayer_Prev(); else  MPlayer_Next();
+   \   000001B0   0010A0E3           MOV      R1,#+0
+   \   000001B4   0200A0E3           MOV      R0,#+2
+   \                     ??my_keyhook_18:
+   \   000001B8   ........           BL       Send_MPlayer_Command
+    321                     GetTags();    
+   \   000001BC   ........           _BLF     GetTags,??GetTags??rA
+    322          
+    323          //           if (submsg==key_prev)   SUBPROC((void*)vol2);else            SUBPROC((void*)vol1);                         
+    324                     return 2;
+   \   000001C0   B8FFFFEA           B        ??my_keyhook_6
+   \                     ??my_keyhook_17:
+   \   000001C4   0010A0E3           MOV      R1,#+0
+   \   000001C8   0100A0E3           MOV      R0,#+1
+   \   000001CC   F9FFFFEA           B        ??my_keyhook_18
+    325                     
+    326                   }
+    327                 }
+    328          #endif       
+    329               }if (msg==KEY_DOWN) {
+   \                     ??my_keyhook_15:
+   \   000001D0   020040E2           SUB      R0,R0,#+2
+   \   000001D4   000055E1           CMP      R5,R0
+   \   000001D8   0000001A           BNE      ??my_keyhook_16
+    330                 klong=0;
+   \                     ??my_keyhook_2:
+   \   000001DC   B270C8E1           STRH     R7,[R8, #+2]
+    331                 /*
+    332          #ifndef NOHEADSET            
+    333                 if (submsg==VOL_UP_BUTTON||submsg==VOL_DOWN_BUTTON) {
+    334                   if (_GetPlayStatus())
+    335                    return 2;
+    336                 }
+    337                
+    338          #endif   
+    339                 */
+    340               }  
+    341            return 0;
+   \                     ??my_keyhook_16:
+   \   000001E0   0000A0E3           MOV      R0,#+0
+   \                     ??my_keyhook_7:
+   \   000001E4   FE47BDE8           POP      {R1-R10,LR}
+   \   000001E8   1EFF2FE1           BX       LR               ;; return
+   \                     ??my_keyhook_0:
+   \   000001EC   ........           DC32     key_next
+   \   000001F0   ........           DC32     key_prev
+   \   000001F4   ........           DC32     spc_kukloc
+   \   000001F8   ........           DC32     spc_kukkey
+   \   000001FC   ........           DC32     spc_keyvol
+   \   00000200   ........           DC32     `?<Constant "k-.amr;#">`
+    342          }
+    343          
+    344          
+    345          
+    346          #pragma inline=forced
+    347          inline int toupper(int c)
+    348          {
+    349            if ((c>='a')&&(c<='z')) c+='A'-'a';
+    350            return(c);
+    351          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+    352          int inline strcmp_nocase(const char *s1,const char *s2)
+    353          {
+    354            int i;
+    355            int c;
+    356            while(!(i=(c=toupper(*s1++))-toupper(*s2++))) if (!c) break;
+   \                     strcmp_nocase:
+   \                     ??strcmp_nocase_0:
+   \   00000000   0020D0E5           LDRB     R2,[R0, #+0]
+   \   00000004   610052E3           CMP      R2,#+97
+   \   00000008   010000BA           BLT      ??strcmp_nocase_1
+   \   0000000C   7B0052E3           CMP      R2,#+123
+   \   00000010   202042B2           SUBLT    R2,R2,#+32
+   \                     ??strcmp_nocase_1:
+   \   00000014   010080E2           ADD      R0,R0,#+1
+   \   00000018   0230A0E1           MOV      R3,R2
+   \   0000001C   00C0D1E5           LDRB     R12,[R1, #+0]
+   \   00000020   61005CE3           CMP      R12,#+97
+   \   00000024   010000BA           BLT      ??strcmp_nocase_2
+   \   00000028   7B005CE3           CMP      R12,#+123
+   \   0000002C   20C04CB2           SUBLT    R12,R12,#+32
+   \                     ??strcmp_nocase_2:
+   \   00000030   011081E2           ADD      R1,R1,#+1
+   \   00000034   0C2052E0           SUBS     R2,R2,R12
+   \   00000038   0100001A           BNE      ??strcmp_nocase_3
+   \   0000003C   000053E3           CMP      R3,#+0
+   \   00000040   EEFFFF1A           BNE      ??strcmp_nocase_0
+    357            return(i);
+   \                     ??strcmp_nocase_3:
+   \   00000044   0200A0E1           MOV      R0,R2
+   \   00000048   1EFF2FE1           BX       LR               ;; return
+    358          }
+    359          /*
+    360          ///////////////////////////////////////////////
+    361          int ingui=0;
+    362            char s[]="s";
+    363                  char ss[]="s2";
+    364                 char sss[]="s3";
+    365          
+    366          char *getNumber(){
+    367          
+    368          
+    369           memset (num,0,sizeof(num));
+    370             CSM_RAM *icsm=FindCSMbyID(CSM_root()->idle_id);
+    371           
+    372                
+    373            void *data=FindGUIbyId(((int *)icsm)[DISPLACE_OF_INCOMMINGGUI/4],NULL);
+    374            if (data){
+    375          
+    376              int ***d1=        GetDataOfItemByID(data,9);
+    377              int d3=d1[0x1c/4][0x08/4][0];
+    378              WSHDR *snd=AllocWS(70);
+    379              if (d3) {
+    380                memcpy(snd->wsbody,(unsigned short*)d3,((unsigned short*)d3)[0]*2+2);         //maybe check len of mem
+    381          
+    382              }
+    383              if (snd){
+    384               
+    385                if (snd->wsbody) {
+    386                  if (snd->wsbody[0]) {
+    387                       ws_2str(snd,num,20);
+    388                      
+    389                       FreeWS(snd);
+    390                            
+    391                       return num;
+    392                     
+    393                  }
+    394                }
+    395              }
+    396              FreeWS(snd);
+    397            }
+    398            return NULL;
+    399          }
+    400          */
+    401          
+    402          
+    403          
+    404          
+    405          
+    406          //-------------------------------------------
+
+   \                                 In segment CODE, align 4, keep-with-next
+    407          int MyIDLECSM_onMessage(CSM_RAM* data,GBS_MSG* msg)
+    408          {
+   \                     MyIDLECSM_onMessage:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+    409          
+    410          
+    411            #ifdef NEWSGOLD
+    412          #ifndef ELKA  // cheats for mp3 melody on calls at S75
+    413          
+    414            if (msg->msg==   MSG_INCOMMING_CALL){
+    415              gfp2=(GetPlayStatus()==2);
+    416              if (gfp2&&killPlr){
+    417                MPlayer_Stop();
+    418                MPlayer_Shutdown();
+    419          //      MEDIA_PLAYLAST();      
+    420          //      MPlayer_Toggle();
+    421          
+    422              }
+    423          
+    424            }else
+    425            if (msg->msg==   MSG_END_CALL){
+    426              if (gfp2&&killPlr){
+    427                MEDIA_PLAYLAST();
+    428          //      MPlayer_Toggle();      
+    429                gfp2=0;
+    430              }
+    431          
+    432          
+    433            }else;
+    434          
+    435          #endif
+    436            //new code (R) BoBa
+    437          
+    438          #ifdef ELKA
+    439            
+    440          
+    441            if (msg->msg==0x15680){
+   \   0000000C   ........           LDR      R6,??DataTable24  ;; next
+   \   00000010   040095E5           LDR      R0,[R5, #+4]
+   \   00000014   501BA0E3           MOV      R1,#+81920
+   \   00000018   5A1D81E3           ORR      R1,R1,#0x1680
+   \   0000001C   010050E1           CMP      R0,R1
+   \   00000020   3500001A           BNE      ??MyIDLECSM_onMessage_0
+    442          #else
+    443            if (msg->msg==0x15682){
+    444          #endif    
+    445          
+    446              if ((   ((char *)(((int *)msg->data1)[6]))[0x11]  )==0){
+   \   00000024   100095E5           LDR      R0,[R5, #+16]
+   \   00000028   180090E5           LDR      R0,[R0, #+24]
+   \   0000002C   1100D0E5           LDRB     R0,[R0, #+17]
+   \   00000030   000050E3           CMP      R0,#+0
+   \   00000034   1F00001A           BNE      ??MyIDLECSM_onMessage_1
+    447          
+    448                byte loc;
+    449                loc=keyb_state==2?1:IsUnlocked()==keyb_state;
+   \   00000038   D8009FE5           LDR      R0,??MyIDLECSM_onMessage_2  ;; keyb_state
+   \   0000003C   007090E5           LDR      R7,[R0, #+0]
+   \   00000040   020057E3           CMP      R7,#+2
+   \   00000044   0200000A           BEQ      ??MyIDLECSM_onMessage_3
+   \   00000048   430000EF           SWI      +67
+   \   0000004C   070050E1           CMP      R0,R7
+   \   00000050   1800001A           BNE      ??MyIDLECSM_onMessage_1
+   \                     ??MyIDLECSM_onMessage_3:
+   \   00000054   C0009FE5           LDR      R0,??MyIDLECSM_onMessage_2+0x4  ;; batt_level
+   \   00000058   007090E5           LDR      R7,[R0, #+0]
+   \   0000005C   000057E3           CMP      R7,#+0
+   \   00000060   0200000A           BEQ      ??MyIDLECSM_onMessage_4
+   \   00000064   C60000EF           SWI      +198
+   \   00000068   000057E1           CMP      R7,R0
+   \   0000006C   1100002A           BCS      ??MyIDLECSM_onMessage_1
+    450                
+    451                if (loc&&(!batt_level||(_GetAkkuCapacity()>batt_level))){
+    452               //insert 
+    453                
+    454              #ifdef ELKA        
+    455                    if (allowbuf)SetupBuffers((buff_size+(buff_nof*256)));
+   \                     ??MyIDLECSM_onMessage_4:
+   \   00000070   ........           LDR      R0,??DataTable23  ;; allowbuf
+   \   00000074   000090E5           LDR      R0,[R0, #+0]
+   \   00000078   000050E3           CMP      R0,#+0
+   \   0000007C   0700000A           BEQ      ??MyIDLECSM_onMessage_5
+   \   00000080   ........           LDR      R0,??DataTable11  ;; buff_size
+   \   00000084   000090E5           LDR      R0,[R0, #+0]
+   \   00000088   ........           LDR      R1,??DataTable12  ;; buff_nof
+   \   0000008C   001091E5           LDR      R1,[R1, #+0]
+   \   00000090   010480E0           ADD      R0,R0,R1, LSL #+8
+   \   00000094   0008A0E1           MOV      R0,R0, LSL #+16
+   \   00000098   2008A0E1           MOV      R0,R0, LSR #+16
+   \   0000009C   ........           _BLF     SetupBuffers,??SetupBuffers??rA
+    456              #endif        
+    457          
+    458                    if (!GetPlayStatus()){
+   \                     ??MyIDLECSM_onMessage_5:
+   \   000000A0   F80100EF           SWI      +504
+   \   000000A4   000050E3           CMP      R0,#+0
+    459                      st=7;
+   \   000000A8   0700A003           MOVEQ    R0,#+7
+    460                    }else
+    461                      st=2;            
+   \   000000AC   0200A013           MOVNE    R0,#+2
+   \   000000B0   380086E5           STR      R0,[R6, #+56]
+    462                    
+    463                      MEDIA_PLAYLAST();          
+   \   000000B4   FF0100EF           SWI      +511
+    464                 }
+    465                  
+    466                ;//     PlayVibra(50,30,1);
+    467            
+    468              }
+    469              if ((   ((char *)(((int *)msg->data1)[6]))[0x11]  )==1){
+   \                     ??MyIDLECSM_onMessage_1:
+   \   000000B8   100095E5           LDR      R0,[R5, #+16]
+   \   000000BC   180090E5           LDR      R0,[R0, #+24]
+   \   000000C0   1100D0E5           LDRB     R0,[R0, #+17]
+   \   000000C4   010050E3           CMP      R0,#+1
+   \   000000C8   0B00001A           BNE      ??MyIDLECSM_onMessage_0
+    470                //eject
+    471              #ifdef ELKA        
+    472                    if (oldAudValue)SetupBuffers(oldAudValue);
+   \   000000CC   ........           LDR      R0,??DataTable13  ;; oldAudValue
+   \   000000D0   B000D0E1           LDRH     R0,[R0, #+0]
+   \   000000D4   000050E3           CMP      R0,#+0
+   \   000000D8   0000000A           BEQ      ??MyIDLECSM_onMessage_6
+   \   000000DC   ........           _BLF     SetupBuffers,??SetupBuffers??rA
+    473              #endif        
+    474                    if (exitOnHeadDisc) MPlayer_Shutdown();
+   \                     ??MyIDLECSM_onMessage_6:
+   \   000000E0   38009FE5           LDR      R0,??MyIDLECSM_onMessage_2+0x8  ;; exitOnHeadDisc
+   \   000000E4   000090E5           LDR      R0,[R0, #+0]
+   \   000000E8   000050E3           CMP      R0,#+0
+   \   000000EC   0010A0E3           MOV      R1,#+0
+   \   000000F0   0C00A013           MOVNE    R0,#+12
+    475                      else  MPlayer_Pause();
+   \   000000F4   1000A003           MOVEQ    R0,#+16
+   \   000000F8   ........           BL       Send_MPlayer_Command
+    476          
+    477              }
+    478            }
+    479            
+    480            
+    481            
+    482            
+    483            
+    484          #endif    
+    485              
+    486          return(old_icsm_onMessage(data,msg));  
+   \                     ??MyIDLECSM_onMessage_0:
+   \   000000FC   0510A0E1           MOV      R1,R5
+   \   00000100   0400A0E1           MOV      R0,R4
+   \   00000104   342096E5           LDR      R2,[R6, #+52]
+   \   00000108   0FE0A0E1           MOV      LR,PC
+   \   0000010C   12FF2FE1           BX       R2
+   \   00000110   F040BDE8           POP      {R4-R7,LR}
+   \   00000114   1EFF2FE1           BX       LR               ;; return
+   \                     ??MyIDLECSM_onMessage_2:
+   \   00000118   ........           DC32     keyb_state
+   \   0000011C   ........           DC32     batt_level
+   \   00000120   ........           DC32     exitOnHeadDisc
+    487            }
+    488           ;
+
+   \                                 In segment CODE, align 4, keep-with-next
+    489          int MainCSM_onMessage(CSM_RAM* data,GBS_MSG* msg)
+    490          {
+   \                     MainCSM_onMessage:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+    491          
+    492          //  int csm_result;
+    493          
+    494          #define edgui_id (((int *)data)[DISPLACE_OF_EDGUI_ID/4])
+    495          
+    496          
+    497            /*
+    498              if (!ingui) {
+    499              if (TopG(DISPLACE_OF_INCOMMINGGUI)){
+    500                 char *num ;
+    501                if (num=getNumber() ){
+    502                             
+    503              //    ProcessAON();
+    504                  ingui=1;
+    505                }
+    506              }
+    507            }else{
+    508              
+    509              ingui=TopG(DISPLACE_OF_INCOMMINGGUI); //not good csm states
+    510            }
+    511            
+    512          */
+    513            
+    514          #ifdef PLAYERTRACK
+    515           
+    516            if (msg->msg== sMSG){
+   \   00000004   040091E5           LDR      R0,[R1, #+4]
+   \   00000008   ........           LDR      R4,??Subroutine16_0  ;; next
+   \   0000000C   0150A0E3           MOV      R5,#+1
+   \   00000010   DF5C85E3           ORR      R5,R5,#0xDF00
+   \   00000014   050050E1           CMP      R0,R5
+   \   00000018   0A00001A           BNE      ??MainCSM_onMessage_0
+    517              ShowTag();
+   \   0000001C   ........           _BLF     ShowTag,??ShowTag??rA
+    518              GBS_StartTimer(&mytmr2,refresh, sMSG,0,MMI_CEPID);
+   \   00000020   0900A0E3           MOV      R0,#+9
+   \   00000024   420C80E3           ORR      R0,R0,#0x4200
+   \   00000028   01002DE9           PUSH     {R0}
+   \   0000002C   0030A0E3           MOV      R3,#+0
+   \   00000030   0520A0E1           MOV      R2,R5
+   \   00000034   8210A0E3           MOV      R1,#+130
+   \   00000038   D00084E2           ADD      R0,R4,#+208
+   \   0000003C   430100EF           SWI      +323
+   \   00000040   04D08DE2           ADD      SP,SP,#+4        ;; stack cleaning
+   \   00000044   1F0000EA           B        ??MainCSM_onMessage_1
+    519              //csm_result = 1;
+    520              return (1);
+    521            }else{
+    522          //     csm_result=old_icsm_onMessage(data,msg); 
+    523          #else     
+    524              //  csm_result=old_icsm_onMessage(data,msg);      
+    525          #endif     
+    526          
+    527            if(msg->msg == MSG_RECONFIGURE_REQ)   {
+   \                     ??MainCSM_onMessage_0:
+   \   00000048   522045E2           SUB      R2,R5,#+82
+   \   0000004C   020050E1           CMP      R0,R2
+   \   00000050   0E00001A           BNE      ??MainCSM_onMessage_2
+    528              
+    529             extern const int REFMSG;
+    530              extern const char *successed_config_filename;
+    531             if (strcmp_nocase(successed_config_filename,(char *)msg->data0)==0)    {
+   \   00000054   0C1091E5           LDR      R1,[R1, #+12]
+   \   00000058   ........           LDR      R0,??Subroutine16_0+0x4  ;; successed_config_filename
+   \   0000005C   000090E5           LDR      R0,[R0, #+0]
+   \   00000060   ........           _BLF     strcmp_nocase,??strcmp_nocase??rA
+   \   00000064   000050E3           CMP      R0,#+0
+   \   00000068   1600001A           BNE      ??MainCSM_onMessage_1
+    532                if(REFMSG)ShowMSG(1,(int)"SndDemon config updated!");
+   \   0000006C   ........           LDR      R0,??Subroutine16_0+0x8  ;; REFMSG
+   \   00000070   000090E5           LDR      R0,[R0, #+0]
+   \   00000074   000050E3           CMP      R0,#+0
+   \   00000078   0200000A           BEQ      ??MainCSM_onMessage_3
+   \   0000007C   ........           LDR      R1,??Subroutine16_0+0xC  ;; `?<Constant "SndDemon config updated!">`
+   \   00000080   0100A0E3           MOV      R0,#+1
+   \   00000084   480100EF           SWI      +328
+    533                ReadConfig();
+   \                     ??MainCSM_onMessage_3:
+   \   00000088   ........           _BLF     ReadConfig,??ReadConfig??rA
+   \   0000008C   0D0000EA           B        ??MainCSM_onMessage_1
+    534             }  
+    535            }else
+    536            if (msg->msg==MSG_PLAYFILE_REPORT)  {
+   \                     ??MainCSM_onMessage_2:
+   \   00000090   BC20A0E3           MOV      R2,#+188
+   \   00000094   702C82E3           ORR      R2,R2,#0x7000
+   \   00000098   020050E1           CMP      R0,R2
+    537              if ((msg->submess>>16)==next){    
+   \   0000009C   08009105           LDREQ    R0,[R1, #+8]
+   \   000000A0   B010D401           LDRHEQ   R1,[R4, #+0]
+   \   000000A4   40085101           CMPEQ    R1,R0, ASR #+16
+   \   000000A8   0600001A           BNE      ??MainCSM_onMessage_1
+    538                word kd=(msg->submess);
+   \   000000AC   0008A0E1           MOV      R0,R0, LSL #+16
+   \   000000B0   2008A0E1           MOV      R0,R0, LSR #+16
+    539                if (kd==M_SAE_PLAYBACK_DONE||kd==M_SAE_PLAYBACK_ERROR)        SpeechPhrases(gbs);else;        
+   \   000000B4   070050E3           CMP      R0,#+7
+   \   000000B8   05005013           CMPNE    R0,#+5
+   \   000000BC   0100001A           BNE      ??MainCSM_onMessage_1
+   \   000000C0   400084E2           ADD      R0,R4,#+64
+   \   000000C4   ........           _BLF     SpeechPhrases,??SpeechPhrases??rA
+    540              };/*else{ //try capture song id
+    541                int nextp=(msg->submess>>16);
+    542                if (nextp){
+    543                  char p[128];
+    544                  sprintf(p,"%d    ",nextp);
+    545                  ShowMSG(1,(int)p);
+    546                }
+    547               
+    548              }*/
+    549              
+    550              
+    551            };/*else
+    552          */
+    553           ;
+    554          
+    555          #ifdef PLAYERTRACK 
+    556            }
+    557          #endif  
+    558          //  return(csm_result);
+    559              return(1);
+   \                     ??MainCSM_onMessage_1:
+   \   000000C8   0100A0E3           MOV      R0,#+1
+   \   000000CC                      REQUIRE ?Subroutine16
+   \   000000CC                      ;; // Fall through to label ?Subroutine16
+    560          }
+    561          
+    562          /*
+    563          void MyIDLECSM_onClose(CSM_RAM *data)
+    564          {
+    565           
+    566          
+    567            extern void seqkill(void *data, void(*next_in_seq)(CSM_RAM *), void *data_to_kill, void *seqkiller);
+    568            extern void *ELF_BEGIN;
+    569            GBS_DelTimer(&mytmr);
+    570          #ifdef PLAYERTRACK  
+    571            GBS_DelTimer(&mytmr2);    
+    572                  FreeWS(wstag);
+    573          #endif  
+    574            RemoveKeybMsgHook((void *)my_keyhook);
+    575            FreeWS(sndPath);
+    576            FreeWS(sndFName);
+    577          
+    578            seqkill(data,old_icsm_onClose,&ELF_BEGIN,SEQKILLER_ADR());  
+    579          }*/
+    580          
+    581          extern void kill_data(void *p, void (*func_p)(void *));
+    582          
+
+   \                                 In segment DATA_C, align 4, align-sorted
+    583          const int minus11=-11;
+   \                     minus11:
+   \   00000000   F5FFFFFF           DC32 -11
+    584          
+    585          typedef struct
+    586          {
+    587            CSM_RAM csm;
+    588          }MAIN_CSM;
+    589          
+    590          #define SND_VER "SndDemon v1.50"
+    591          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    592          static void maincsm_oncreate(CSM_RAM *data)
+    593          {
+   \                     maincsm_oncreate:
+   \   00000000   00402DE9           PUSH     {LR}
+    594              extern const int ALLOW_HELLO_MSG;
+    595            if (ALLOW_HELLO_MSG) ShowMSG(1,(int)(SND_VER " loaded."));  
+   \   00000004   64009FE5           LDR      R0,??maincsm_oncreate_0  ;; ALLOW_HELLO_MSG
+   \   00000008   000090E5           LDR      R0,[R0, #+0]
+   \   0000000C   000050E3           CMP      R0,#+0
+   \   00000010   0200000A           BEQ      ??maincsm_oncreate_1
+   \   00000014   58109FE5           LDR      R1,??maincsm_oncreate_0+0x4  ;; `?<Constant "SndDemon v1.50 loaded.">`
+   \   00000018   0100A0E3           MOV      R0,#+1
+   \   0000001C   480100EF           SWI      +328
+    596            sndPath=AllocWS(256);
+   \                     ??maincsm_oncreate_1:
+   \   00000020   400FA0E3           MOV      R0,#+256
+   \   00000024   250100EF           SWI      +293
+   \   00000028   ........           LDR      R1,??DataTable21  ;; sndPath
+   \   0000002C   000081E5           STR      R0,[R1, #+0]
+    597            sndFName=AllocWS(256);
+   \   00000030   400FA0E3           MOV      R0,#+256
+   \   00000034   250100EF           SWI      +293
+   \   00000038   ........           LDR      R1,??DataTable22  ;; sndFName
+   \   0000003C   000081E5           STR      R0,[R1, #+0]
+    598          
+    599            AddKeybMsgHook((void *)my_keyhook);   
+   \   00000040   ........           LDR      R0,??DataTable19  ;; my_keyhook
+   \   00000044   2B0100EF           SWI      +299
+    600            
+    601            GBS_StartTimerProc(&mytmr,216*3,TimerProc);  //262 delay for starting from demon
+   \   00000048   ........           LDR      R2,??DataTable17  ;; TimerProc
+   \   0000004C   A21FA0E3           MOV      R1,#+648
+   \   00000050   20009FE5           LDR      R0,??maincsm_oncreate_0+0x8  ;; next + 192
+   \   00000054   4D0000EF           SWI      +77
+    602          #ifdef PLAYERTRACK  
+    603          
+    604            GBS_SendMessage(MMI_CEPID, sMSG);
+   \   00000058   0110A0E3           MOV      R1,#+1
+   \   0000005C   DF1C81E3           ORR      R1,R1,#0xDF00
+   \   00000060   0900A0E3           MOV      R0,#+9
+   \   00000064   420C80E3           ORR      R0,R0,#0x4200
+   \   00000068   000100EF           SWI      +256
+    605          #endif  
+    606          
+    607          }
+   \   0000006C   ........           B        ?Subroutine17
+   \                     ??maincsm_oncreate_0:
+   \   00000070   ........           DC32     ALLOW_HELLO_MSG
+   \   00000074   ........           DC32     `?<Constant "SndDemon v1.50 loaded.">`
+   \   00000078   ........           DC32     next + 192
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ?Subroutine17:
+   \   00000000   0040BDE8           POP      {LR}
+   \   00000004   1EFF2FE1           BX       LR               ;; return
+   \                     ??Subroutine17_0:
+   \   00000008   ........           DC32     ELF_BEGIN
+    608          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    609          static void Killer(void)
+    610          {
+   \                     Killer:
+   \   00000000   00402DE9           PUSH     {LR}
+    611            extern void *ELF_BEGIN;
+    612          
+    613            /*LockSched();
+    614            memcpy(poldicsm,&oldicsm,sizeof(oldicsm));  
+    615            UnlockSched();
+    616             */
+    617            picsm[0]=picsm2;
+   \   00000004   ........           LDR      R0,??DataTable24  ;; next
+   \   00000008   2C1090E5           LDR      R1,[R0, #+44]
+   \   0000000C   300090E5           LDR      R0,[R0, #+48]
+   \   00000010   000081E5           STR      R0,[R1, #+0]
+    618            kill_data(&ELF_BEGIN,(void (*)(void *))mfree_adr());
+   \   00000014   158000EF           SWI      +32789
+   \   00000018   0010A0E1           MOV      R1,R0
+   \   0000001C   ........           LDR      R0,??Subroutine17_0  ;; ELF_BEGIN
+   \   00000020   ........           _BLF     kill_data,??kill_data??rA
+    619            
+    620          //    extern void seqkill(void *data, void(*next_in_seq)(CSM_RAM *), void *data_to_kill, void *seqkiller);
+    621          //  extern void *ELF_BEGIN;
+    622          
+    623          //  seqkill(data,old_icsm_onClose,&ELF_BEGIN,SEQKILLER_ADR());  
+    624          
+    625          
+    626          }
+   \   00000024                      REQUIRE ?Subroutine17
+   \   00000024                      ;; // Fall through to label ?Subroutine17
+    627          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    628          static void maincsm_onclose(CSM_RAM *csm)
+    629          {
+   \                     maincsm_onclose:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    630              RemoveKeybMsgHook((void *)my_keyhook);  
+   \   00000004   ........           LDR      R0,??DataTable19  ;; my_keyhook
+   \   00000008   2D0100EF           SWI      +301
+    631            GBS_DelTimer(&mytmr);
+   \   0000000C   ........           LDR      R4,??DataTable24  ;; next
+   \   00000010   C00084E2           ADD      R0,R4,#+192
+   \   00000014   8C0100EF           SWI      +396
+    632          #ifdef PLAYERTRACK  
+    633            GBS_DelTimer(&mytmr2);    
+   \   00000018   D00084E2           ADD      R0,R4,#+208
+   \   0000001C   8C0100EF           SWI      +396
+    634                  FreeWS(wstag);
+   \   00000020   28009FE5           LDR      R0,??maincsm_onclose_0  ;; wstag
+   \   00000024   000090E5           LDR      R0,[R0, #+0]
+   \   00000028   290100EF           SWI      +297
+    635          #endif  
+    636            FreeWS(sndPath);
+   \   0000002C   ........           LDR      R0,??DataTable21  ;; sndPath
+   \   00000030   000090E5           LDR      R0,[R0, #+0]
+   \   00000034   290100EF           SWI      +297
+    637            FreeWS(sndFName);
+   \   00000038   ........           LDR      R0,??DataTable22  ;; sndFName
+   \   0000003C   000090E5           LDR      R0,[R0, #+0]
+   \   00000040   290100EF           SWI      +297
+    638          
+    639            SUBPROC((void *)Killer);
+   \   00000044   08009FE5           LDR      R0,??maincsm_onclose_0+0x4  ;; Killer
+   \   00000048   710100EF           SWI      +369
+    640          }
+   \   0000004C   ........           B        ?Subroutine14
+   \                     ??maincsm_onclose_0:
+   \   00000050   ........           DC32     wstag
+   \   00000054   ........           DC32     Killer
+    641          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    642          static unsigned short maincsm_name_body[140];
+   \                     maincsm_name_body:
+   \   00000000                      DS8 280
+    643          
+    644          static const struct
+    645          {
+    646            CSM_DESC maincsm;
+    647            WSHDR maincsm_name;
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "SndDemon v1.50">`:
+   \   00000000   536E6444656D       DC8 "SndDemon v1.50"
+   \              6F6E2076312E
+   \              353000      
+   \   0000000F   00                 DC8 0
+   \   00000010   456E74727920       DC8 "Entry point for Buffer change found."
+   \              706F696E7420
+   \              666F72204275
+   \              666665722063
+   \              68616E676520
+   \              666F756E642E
+   \              00          
+   \   00000035   000000             DC8 0, 0, 0
+   \   00000038   456E74727920       DC8 "Entry point not found :("
+   \              706F696E7420
+   \              6E6F7420666F
+   \              756E64203A28
+   \              00          
+   \   00000051   000000             DC8 0, 0, 0
+   \   00000054   ............       DC32 MainCSM_onMessage, maincsm_oncreate, 0, 0, 0, 0, maincsm_onclose
+   \              ....00000000
+   \              000000000000
+   \              000000000000
+   \              ........    
+   \   00000070   280000000100       DC32 40, 1, minus11, maincsm_name_body, 55AACCCCH, 3333AA55H, 0
+   \              0000........
+   \              ........CCCC
+   \              AA5555AA3333
+   \              00000000    
+   \   0000008C   8B00               DC16 139
+   \   0000008E   0000               DC8 0, 0
+    648          }MAINCSM =
+    649          {
+    650            {
+    651           MainCSM_onMessage,
+    652            maincsm_oncreate,
+    653          #ifdef NEWSGOLD
+    654            0,
+    655            0,
+    656            0,
+    657            0,
+    658          #endif
+    659            maincsm_onclose,
+    660            sizeof(MAIN_CSM),
+    661            1,
+    662            &minus11
+    663            },
+    664            {
+    665              maincsm_name_body,
+    666              NAMECSM_MAGIC1,
+    667              NAMECSM_MAGIC2,
+    668              0x0,
+    669              139
+    670            }
+    671          };
+    672          
+    673          static void UpdateCSMname(void)
+    674          {
+    675            wsprintf((WSHDR *)(&MAINCSM.maincsm_name),SND_VER);
+    676          }
+    677          
+    678          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    679          int main(char *exename, char *fname)
+    680          {
+   \                     main:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   28D04DE2           SUB      SP,SP,#+40
+    681                CSM_RAM *save_cmpc;
+    682            char dummy[sizeof(MAIN_CSM)];
+    683            
+    684            ReadConfig();
+   \   00000008   ........           _BLF     ReadConfig,??ReadConfig??rA
+    685             UpdateCSMname();  
+   \   0000000C   00419FE5           LDR      R4,??main_0      ;; `?<Constant "SndDemon v1.50">`
+   \   00000010   0410A0E1           MOV      R1,R4
+   \   00000014   7C0084E2           ADD      R0,R4,#+124
+   \   00000018   240100EF           SWI      +292
+    686            LockSched();  
+   \   0000001C   460100EF           SWI      +326
+    687          
+    688          #ifdef ELKA // try find audiobuffer size hook
+    689            
+    690            if (allowbuf&&!audcfg){
+   \   00000020   ........           LDR      R0,??DataTable23  ;; allowbuf
+   \   00000024   000090E5           LDR      R0,[R0, #+0]
+   \   00000028   000050E3           CMP      R0,#+0
+   \   0000002C   0900000A           BEQ      ??main_1
+   \   00000030   E0009FE5           LDR      R0,??main_0+0x4  ;; audcfg
+   \   00000034   000090E5           LDR      R0,[R0, #+0]
+   \   00000038   000050E3           CMP      R0,#+0
+   \   0000003C   0500001A           BNE      ??main_1
+    691              if (autosearch())
+   \   00000040   ........           _BLF     autosearch,??autosearch??rA
+   \   00000044   000050E3           CMP      R0,#+0
+   \   00000048   2B00000A           BEQ      ??main_2
+    692                ShowMSG(1,(int)"Entry point for Buffer change found.");
+   \   0000004C   101084E2           ADD      R1,R4,#+16
+   \   00000050   0100A0E3           MOV      R0,#+1
+   \   00000054   480100EF           SWI      +328
+    693              else{
+    694                ShowMSG(1,(int)"Entry point not found :(");    
+    695                UnlockSched();        
+    696                return -1;
+    697              }
+    698            }
+    699          #endif 
+    700          
+    701          
+    702          
+    703             save_cmpc=CSM_root()->csm_q->current_msg_processing_csm;
+   \                     ??main_1:
+   \   00000058   068100EF           SWI      +33030
+   \   0000005C   080090E5           LDR      R0,[R0, #+8]
+   \   00000060   045090E5           LDR      R5,[R0, #+4]
+    704            CSM_root()->csm_q->current_msg_processing_csm=CSM_root()->csm_q->csm.first;
+   \   00000064   068100EF           SWI      +33030
+   \   00000068   0060A0E1           MOV      R6,R0
+   \   0000006C   068100EF           SWI      +33030
+   \   00000070   080090E5           LDR      R0,[R0, #+8]
+   \   00000074   080090E5           LDR      R0,[R0, #+8]
+   \   00000078   081096E5           LDR      R1,[R6, #+8]
+   \   0000007C   040081E5           STR      R0,[R1, #+4]
+    705            CreateCSM(&MAINCSM.maincsm,dummy,0);
+   \   00000080   0020A0E3           MOV      R2,#+0
+   \   00000084   0D10A0E1           MOV      R1,SP
+   \   00000088   540084E2           ADD      R0,R4,#+84
+   \   0000008C   070100EF           SWI      +263
+    706            CSM_root()->csm_q->current_msg_processing_csm=save_cmpc;
+   \   00000090   068100EF           SWI      +33030
+   \   00000094   080090E5           LDR      R0,[R0, #+8]
+   \   00000098   045080E5           STR      R5,[R0, #+4]
+    707          
+    708          
+    709            CSM_RAM *icsm=FindCSMbyID(CSM_root()->idle_id);
+   \   0000009C   068100EF           SWI      +33030
+   \   000000A0   040090E5           LDR      R0,[R0, #+4]
+   \   000000A4   080100EF           SWI      +264
+   \   000000A8   0040A0E1           MOV      R4,R0
+    710          //  poldicsm=icsm;
+    711          //  memcpy(&oldicsm,icsm,sizeof(oldicsm));  
+    712             picsm =&icsm->constr;
+   \   000000AC   ........           LDR      R5,??DataTable24  ;; next
+   \   000000B0   080084E2           ADD      R0,R4,#+8
+   \   000000B4   2C0085E5           STR      R0,[R5, #+44]
+    713             picsm2 =icsm->constr;
+   \   000000B8   080094E5           LDR      R0,[R4, #+8]
+   \   000000BC   300085E5           STR      R0,[R5, #+48]
+    714            memcpy(&icsmd,icsm->constr,sizeof(icsmd));
+   \   000000C0   2820A0E3           MOV      R2,#+40
+   \   000000C4   081094E5           LDR      R1,[R4, #+8]
+   \   000000C8   040085E2           ADD      R0,R5,#+4
+   \   000000CC   1E0100EF           SWI      +286
+    715            old_icsm_onMessage=icsmd.onMessage;
+   \   000000D0   040095E5           LDR      R0,[R5, #+4]
+   \   000000D4   340085E5           STR      R0,[R5, #+52]
+    716          //  old_icsm_onClose=icsmd.onClose;
+    717            icsmd.onMessage=MyIDLECSM_onMessage;  
+   \   000000D8   3C009FE5           LDR      R0,??main_0+0x8  ;; MyIDLECSM_onMessage
+   \   000000DC   040085E5           STR      R0,[R5, #+4]
+    718          //  icsmd.onClose=MyIDLECSM_onClose;  
+    719            icsm->constr=&icsmd;
+   \   000000E0   040085E2           ADD      R0,R5,#+4
+   \   000000E4   080084E5           STR      R0,[R4, #+8]
+    720          
+    721            UnlockSched();    
+   \   000000E8   470100EF           SWI      +327
+    722            
+    723            return 0;
+   \   000000EC   0000A0E3           MOV      R0,#+0
+   \                     ??main_3:
+   \   000000F0   28D08DE2           ADD      SP,SP,#+40       ;; stack cleaning
+   \   000000F4   7040BDE8           POP      {R4-R6,LR}
+   \   000000F8   1EFF2FE1           BX       LR               ;; return
+   \                     ??main_2:
+   \   000000FC   381084E2           ADD      R1,R4,#+56
+   \   00000100   0100A0E3           MOV      R0,#+1
+   \   00000104   480100EF           SWI      +328
+   \   00000108   470100EF           SWI      +327
+   \   0000010C   0000E0E3           MVN      R0,#+0
+   \   00000110   F6FFFFEA           B        ??main_3
+   \                     ??main_0:
+   \   00000114   ........           DC32     `?<Constant "SndDemon v1.50">`
+   \   00000118   ........           DC32     audcfg
+   \   0000011C   ........           DC32     MyIDLECSM_onMessage
+    724          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable2:
+   \   00000000   ........           DC32     spc_level
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable11:
+   \   00000000   ........           DC32     buff_size
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable12:
+   \   00000000   ........           DC32     buff_nof
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable13:
+   \   00000000   ........           DC32     oldAudValue
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable17:
+   \   00000000   ........           DC32     TimerProc
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable19:
+   \   00000000   ........           DC32     my_keyhook
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable21:
+   \   00000000   ........           DC32     sndPath
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable22:
+   \   00000000   ........           DC32     sndFName
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable23:
+   \   00000000   ........           DC32     allowbuf
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable24:
+   \   00000000   ........           DC32     next
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for next>`:
+   \   00000000   0000               DC16 0
+   \                     `?<Initializer for klong>`:
+   \   00000002   0000               DC16 0
+   \                     `?<Initializer for icsmd>`:
+   \   00000004   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000014   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000024   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0
+   \              0000        
+   \                     `?<Initializer for picsm>`:
+   \   0000002C   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for picsm2>`:
+   \   00000030   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for old_icsm_onMessage>`:
+   \   00000034   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for st>`:
+   \   00000038   00000000           DC32 0
+   \                     `?<Initializer for cntr>`:
+   \   0000003C   01000000           DC32 1
+   \                     `?<Initializer for gbs>`:
+   \   00000040   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000050   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000060   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000070   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000080   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   00000090   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   000000A0   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \   000000B0   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \                     `?<Initializer for mytmr>`:
+   \   000000C0   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+   \                     `?<Initializer for mytmr2>`:
+   \   000000D0   000000000000       DC8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+   \              000000000000
+   \              00000000    
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "0ayyy00000000000000000">`:
+   \   00000000   306179797930       DC8 30H, 61H, 79H, 79H, 79H, 30H, 30H, 30H
+   \              3030        
+   \   00000008   303030303030       DC8 30H, 30H, 30H, 30H, 30H, 30H, 30H, 30H
+   \              3030        
+   \   00000010   303030303030       DC8 30H, 30H, 30H, 30H, 30H, 30H
+   \   00000016   0000               DC8 0, 0
+   \   00000018   25733B742564       DC8 "%s;t%d.amr;tm%c.amr;#"
+   \              2E616D723B74
+   \              6D25632E616D
+   \              723B2300    
+   \   0000002E   0000               DC8 0, 0
+   \   00000030   25733B742564       DC8 "%s;t%de.amr;tm%c.amr;#"
+   \              652E616D723B
+   \              746D25632E61
+   \              6D723B2300  
+   \   00000047   00                 DC8 0
+   \   00000048   25733B742564       DC8 "%s;t%d0.amr;t%de.amr;tm%c.amr;#"
+   \              302E616D723B
+   \              742564652E61
+   \              6D723B746D25
+   \              632E616D723B
+   \              2300        
+   \   00000068   25733B742564       DC8 "%s;t%d0.amr;t%d.amr;tm%c.amr;#"
+   \              302E616D723B
+   \              7425642E616D
+   \              723B746D2563
+   \              2E616D723B23
+   \              00          
+   \   00000087   00                 DC8 0
+   \   00000088   25737425642E       DC8 "%st%d.amr;th%c.amr"
+   \              616D723B7468
+   \              25632E616D72
+   \              00          
+   \   0000009B   00                 DC8 0
+   \   0000009C   7468782E616D       DC8 "thx.amr;"
+   \              723B00      
+   \   000000A5   000000             DC8 0, 0, 0
+   \   000000A8   25733B74782E       DC8 "%s;tx.amr;#"
+   \              616D723B2300
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "found.amr;#">`:
+   \   00000000   666F756E642E       DC8 "found.amr;#"
+   \              616D723B2300
+   \   0000000C   66756C6C2E77       DC8 "full.wav;#"
+   \              61763B2300  
+   \   00000017   00                 DC8 0
+   \   00000018   666F756E6430       DC8 "found0.amr;#"
+   \              2E616D723B23
+   \              00          
+   \   00000025   000000             DC8 0, 0, 0
+   \   00000028   75702E616D72       DC8 "up.amr;%d0.amr;percent.amr;#"
+   \              3B2564302E61
+   \              6D723B706572
+   \              63656E742E61
+   \              6D723B2300  
+   \   00000045   000000             DC8 0, 0, 0
+   \   00000048   646F776E2E61       DC8 "down.amr;%d0.amr;percent.amr;#"
+   \              6D723B256430
+   \              2E616D723B70
+   \              657263656E74
+   \              2E616D723B23
+   \              00          
+   \   00000067   00                 DC8 0
+   \   00000068   646F776E2E61       DC8 "down.amr;5.amr;percent.amr;#"
+   \              6D723B352E61
+   \              6D723B706572
+   \              63656E742E61
+   \              6D723B2300  
+   \   00000085   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "sp.amr;#">`:
+   \   00000000   73702E616D72       DC8 "sp.amr;#"
+   \              3B2300      
+   \   00000009   000000             DC8 0, 0, 0
+   \   0000000C   736E2E616D72       DC8 "sn.amr;#"
+   \              3B2300      
+   \   00000015   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "SndDemon config updated!">`:
+   \   00000000   536E6444656D       DC8 "SndDemon config updated!"
+   \              6F6E20636F6E
+   \              666967207570
+   \              646174656421
+   \              00          
+   \   00000019   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "SndDemon v1.50 loaded.">`:
+   \   00000000   536E6444656D       DC8 "SndDemon v1.50 loaded."
+   \              6F6E2076312E
+   \              3530206C6F61
+   \              6465642E00  
+   \   00000017   00                 DC8 0
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \   00000000   00                 DC8 ""
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "v0aaavvvvvvvvvvvvvvvv0aa">`:
+   \   00000000   763061616176       DC8 "v0aaavvvvvvvvvvvvvvvv0aa"
+   \              767676767676
+   \              767676767676
+   \              767676306161
+   \              00          
+   \   00000019   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "k-.amr;#">`:
+   \   00000000   6B2D2E616D72       DC8 "k-.amr;#"
+   \              3B2300      
+   \   00000009   000000             DC8 0, 0, 0
+    725          
+
+   Maximum stack usage in bytes:
+
+     Function             CSTACK
+     --------             ------
+     Killer                   4
+     MPlayer_VolChange        8
+     MainCSM_onMessage       16
+     MyIDLECSM_onMessage     20
+     ProcessAccum            88
+     ProcessNet              12
+     ProcessTime            244
+     ReadConfig               8
+     Send_MPlayer_Command    16
+     TimerProc                8
+     TopG                     8
+     main                    56
+     maincsm_onclose          8
+     maincsm_oncreate         4
+     my_keyhook              44
+     strcmp_nocase            0
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     Send_MPlayer_Command             60
+     MPlayer_VolChange                44
+     ?Subroutine14                    20
+     refresh                           4
+     ReadConfig                      132
+     ProcessTime                     436
+     ?Subroutine15                    16
+     llevel                            3
+     ProcessAccum                    276
+     ProcessNet                       64
+     ?Subroutine16                    24
+     TimerProc                       268
+     next                            224
+     TopG                             60
+     my_keyhook                      516
+     ??strcmp_nocase_0                76
+     MyIDLECSM_onMessage             292
+     MainCSM_onMessage               204
+     minus11                           4
+     maincsm_oncreate                124
+     ?Subroutine17                    12
+     Killer                           36
+     maincsm_onclose                  88
+     maincsm_name_body               280
+     ?<Constant "SndDemon v1.50">    144
+     main                            288
+     ??DataTable2                      4
+     ??DataTable11                     4
+     ??DataTable12                     4
+     ??DataTable13                     4
+     ??DataTable17                     4
+     ??DataTable19                     4
+     ??DataTable21                     4
+     ??DataTable22                     4
+     ??DataTable23                     4
+     ??DataTable24                     4
+     ?<Initializer for next>         224
+     ?<Constant "0ayyy00000000000000000">
+                                     180
+     ?<Constant "found.amr;#">       136
+     ?<Constant "sp.amr;#">           24
+     ?<Constant "SndDemon config updated!">
+                                      28
+     ?<Constant "SndDemon v1.50 loaded.">
+                                      24
+     ?<Constant "">                    1
+     ?<Constant "v0aaavvvvvvvvvvvvvvvv0aa">
+                                      28
+     ?<Constant "k-.amr;#">           12
+      Others                         248
+
+ 
+ 3 300 bytes in segment CODE
+   585 bytes in segment DATA_C
+   224 bytes in segment DATA_I
+   224 bytes in segment DATA_ID
+   283 bytes in segment DATA_Z
+    24 bytes in segment INITTAB
+ 
+ 2 868 bytes of CODE  memory (+ 456 bytes shared)
+   809 bytes of CONST memory
+   507 bytes of DATA  memory
+
+Errors: none
+Warnings: 1

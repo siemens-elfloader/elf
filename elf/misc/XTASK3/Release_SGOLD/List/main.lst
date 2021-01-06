@@ -1,0 +1,475 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.41A/W32 EVALUATION    14/Sep/2007  19:11:10 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\Documents and Settings\User\Рабочий               #
+#                       стол\XTASK3\main.c                                   #
+#    Command line    =  "C:\Documents and Settings\User\Рабочий              #
+#                       стол\XTASK3\main.c" -lC "C:\Documents and            #
+#                       Settings\User\Рабочий стол\XTASK3\Release_SGOLD\List #
+#                       \" -o "C:\Documents and Settings\User\Рабочий        #
+#                       стол\XTASK3\Release_SGOLD\Obj\" -s9 --no_unroll      #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None -I "D:\Pasha\ARM_Embedded_Workbench\Embed #
+#                       ded Workbench 4.0 Evaluation\ARM\INC\"               #
+#                       --inline_threshold=2                                 #
+#    List file       =  C:\Documents and Settings\User\Рабочий               #
+#                       стол\XTASK3\Release_SGOLD\List\main.lst              #
+#    Object file     =  C:\Documents and Settings\User\Рабочий               #
+#                       стол\XTASK3\Release_SGOLD\Obj\main.r79               #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\Documents and Settings\User\Рабочий стол\XTASK3\main.c
+      1          #include "..\inc\swilib.h"
+      2          #include "..\inc\cfg_items.h"
+      3          #include "conf_loader.h"
+      4          #include "..\inc\xtask_ipc.h"
+      5          #include "swaper.h"
+      6          
+      7          #ifdef NEWSGOLD
+      8          #define USE_ONE_KEY
+      9          #endif
+     10          
+     11          volatile int SHOW_LOCK;
+     12          
+     13          CSM_DESC icsmd;
+     14          int (*old_icsm_onMessage)(CSM_RAM*,GBS_MSG*);
+     15          void (*old_icsm_onClose)(CSM_RAM*);
+     16          
+     17          WSHDR *ws_nogui;
+     18          
+     19          CSM_RAM *under_idle;
+     20          
+     21          extern const int ACTIVE_KEY;
+     22          extern const int ACTIVE_KEY_STYLE;
+     23          extern const int RED_BUT_MODE;
+     24          extern const int ENA_LONG_PRESS;
+     25          extern const int ENA_LOCK;
+     26          extern int my_csm_id;
+     27          
+     28          extern void kill_data(void *p, void (*func_p)(void *));
+     29          
+     30          void ElfKiller(void)
+     31          {
+     32            extern void *ELF_BEGIN;
+     33            FreeWS(ws_nogui);
+     34            kill_data(&ELF_BEGIN,(void (*)(void *))mfree_adr());
+     35          }
+     36          
+     37          extern void ShowMenu(void);
+     38          
+     39          // -1 - XTask GUI present
+     40          // 0 - XTask GUI absent
+     41          // 1 - IBUT longpressed, ready for exit
+     42          int mode;
+     43          
+     44          // 0 - no press
+     45          // 1 - long press REDBUT
+     46          int mode_red;
+     47          
+     48          // 0 - no press
+     49          // 1 - long press ENTER_BUTTON
+     50          // 2 - disable KEY_UP process
+     51          int mode_enter;
+     52          
+     53          int my_keyhook(int submsg, int msg)
+     54          {
+     55          #ifdef NEWSGOLD
+     56            void *icsm=FindCSMbyID(CSM_root()->idle_id);
+     57            if ((submsg==RED_BUTTON)&&(RED_BUT_MODE))
+     58            {
+     59              if ((CSM_root()->csm_q->csm.last==icsm)||(IsCalling())) //(IsGuiOnTop(((int *)icsm)[DISPLACE_OF_IDLEGUI_ID/4]))
+     60              {
+     61                if (msg==KEY_UP)
+     62                {
+     63          	if (mode_red!=2)
+     64          	{
+     65          	  mode_red=0;
+     66          	  return KEYHOOK_BREAK;
+     67          	}
+     68                }
+     69                mode_red=2; //Ложим на отпускания
+     70              }
+     71              else
+     72              {
+     73                if (msg==KEY_DOWN)
+     74                {
+     75          	if (mode_red==1)
+     76          	{
+     77          	  mode_red=0;
+     78          	  return KEYHOOK_NEXT; //Long press, continue with REDB PRESS
+     79          	}
+     80                }
+     81                if (msg==KEY_UP)
+     82                {
+     83          	if (mode_red)
+     84          	{
+     85          	  mode_red=0; //Release after longpress
+     86          	  return KEYHOOK_NEXT;
+     87          	}
+     88          	else
+     89          	  //Release after short press
+     90          	{
+     91                    if (RED_BUT_MODE==1)
+     92                    {
+     93                      GBS_SendMessage(MMI_CEPID,KEY_DOWN,RIGHT_SOFT);
+     94                    }
+     95                    else
+     96                    {
+     97          	    if (!my_csm_id)
+     98          	    {
+     99          	      CSMtoTop(CSM_root()->idle_id,-1);
+    100          	    }
+    101                    }
+    102          	}
+    103                }
+    104                if (msg==LONG_PRESS)
+    105                {
+    106          	mode_red=1;
+    107          	GBS_SendMessage(MMI_CEPID,KEY_DOWN,RED_BUTTON);
+    108                }
+    109                return KEYHOOK_BREAK;
+    110              }
+    111            }
+    112          #endif
+    113            if (ACTIVE_KEY_STYLE==3)
+    114            {
+    115              if (submsg!=ENTER_BUTTON) return KEYHOOK_NEXT;
+                                                      ^
+Error[Pe020]: identifier "KEYHOOK_NEXT" is undefined
+    116              if (my_csm_id)
+    117              {
+    118                if (((CSM_RAM *)(CSM_root()->csm_q->csm.last))->id!=my_csm_id)
+    119                {
+    120                  CloseCSM(my_csm_id);
+    121                }
+    122                return KEYHOOK_NEXT;
+    123              }
+    124              switch(msg)
+    125              {
+    126              case KEY_DOWN:
+    127                if (mode_enter==2)
+    128                {
+    129          	GBS_SendMessage(MMI_CEPID,KEY_UP,ENTER_BUTTON);
+    130          	return KEYHOOK_NEXT;
+    131                }
+    132                mode_enter=0;
+    133                return KEYHOOK_BREAK;
+                              ^
+Error[Pe020]: identifier "KEYHOOK_BREAK" is undefined
+    134              case KEY_UP:
+    135                if (mode_enter==0)
+    136                {
+    137                  mode_enter=2;
+    138                  GBS_SendMessage(MMI_CEPID,KEY_DOWN,ENTER_BUTTON);
+    139                  return KEYHOOK_BREAK;
+    140                }
+    141                if (mode_enter==2)
+    142                {
+    143                  mode_enter=0;
+    144                  return KEYHOOK_NEXT;
+    145                }
+    146                mode_enter=0;
+    147                return KEYHOOK_BREAK;      
+    148              case LONG_PRESS:
+    149                mode_enter=1;
+    150                if (IsUnlocked()||ENA_LOCK)
+    151                {
+    152                  ShowMenu();
+    153                }
+    154                mode=0;
+    155                break;
+    156              }
+    157              return KEYHOOK_BREAK;
+                            ^
+Error[Pe020]: identifier "KEYHOOK_BREAK" is undefined
+    158            }
+    159            // * + # implementation
+    160            if ((ACTIVE_KEY_STYLE==2) && !(my_csm_id))
+    161            {
+    162              if (msg==KEY_UP)
+    163              {
+    164                mode=0;
+    165                return KEYHOOK_NEXT;
+                              ^
+Error[Pe020]: identifier "KEYHOOK_NEXT" is undefined
+    166              }
+    167              if (msg==KEY_DOWN)
+    168              {
+    169                switch (submsg)
+    170                {
+    171                case '*':
+    172                  mode=1;
+    173                  return (0);
+    174                case '#':
+    175                  if (mode==1)
+    176                  {
+    177                    if (IsUnlocked()||ENA_LOCK)
+    178                      ShowMenu();
+    179                    else mode=0;
+    180                  }
+    181                  else return KEYHOOK_NEXT;
+                                     ^
+Error[Pe020]: identifier "KEYHOOK_NEXT" is undefined
+    182                }
+    183              }
+    184            }
+    185            if (ACTIVE_KEY_STYLE<2)
+    186            {
+    187              if (submsg!=ACTIVE_KEY) return KEYHOOK_NEXT;
+                                                    ^
+Error[Pe020]: identifier "KEYHOOK_NEXT" is undefined
+    188              if (my_csm_id)
+    189              {
+    190                if (((CSM_RAM *)(CSM_root()->csm_q->csm.last))->id!=my_csm_id)
+    191                {
+    192          	CloseCSM(my_csm_id);
+    193                }
+    194                if (msg==KEY_UP)
+    195                {
+    196          	GBS_SendMessage(MMI_CEPID,KEY_DOWN,ENTER_BUTTON);
+    197                }
+    198                return KEYHOOK_BREAK;
+                              ^
+Error[Pe020]: identifier "KEYHOOK_BREAK" is undefined
+    199              }
+    200              switch(msg)
+    201              {
+    202              case KEY_DOWN:
+    203                mode=0;
+    204                if (ACTIVE_KEY_STYLE==0)
+    205          	return KEYHOOK_BREAK;
+                 	       ^
+Error[Pe020]: identifier "KEYHOOK_BREAK" is undefined
+    206                else 
+    207          	return KEYHOOK_NEXT;
+    208              case KEY_UP:
+    209                if (mode==1)
+    210                {
+    211          	//Release after longpress
+    212          	mode=0;
+    213          	if ((ACTIVE_KEY_STYLE==1) || (ENA_LONG_PRESS==3))
+    214          	{
+    215          	  //Launch on LongPress or Extra on LP - Launch
+    216          	  if (IsUnlocked()||ENA_LOCK)
+    217          	  {
+    218          	    ShowMenu();
+    219          	  }
+    220          	  return KEYHOOK_BREAK;
+    221          	}
+    222          	if (ENA_LONG_PRESS==2)
+    223          	{
+    224          	  CSMtoTop(CSM_root()->idle_id,-1);
+    225          	  return KEYHOOK_BREAK;
+    226          	}
+    227          	if (ENA_LONG_PRESS==1) return KEYHOOK_BREAK;
+    228          	break;
+    229                }
+    230                if (ACTIVE_KEY_STYLE==0)
+    231                {
+    232          	if (IsUnlocked()||ENA_LOCK)
+    233          	{
+    234          	  ShowMenu();
+    235          	}
+    236          	return KEYHOOK_BREAK;
+    237                }
+    238                break;
+    239              case LONG_PRESS:
+    240                mode=1;
+    241                if (ACTIVE_KEY_STYLE==1)
+    242                {
+    243          	if (ENA_LONG_PRESS)
+    244          	  return KEYHOOK_NEXT;
+    245          	else 
+    246          	  return KEYHOOK_BREAK;
+    247                }
+    248              }
+    249            }
+    250            return KEYHOOK_NEXT;
+                          ^
+Error[Pe020]: identifier "KEYHOOK_NEXT" is undefined
+    251          }
+    252          
+    253          volatile int callhide_mode=0;
+    254          
+    255          #pragma inline=forced
+    256          int toupper(int c)
+    257          {
+    258            if ((c>='a')&&(c<='z')) c+='A'-'a';
+    259            return(c);
+    260          }
+    261          
+    262          int strcmp_nocase(const char *s1,const char *s2)
+    263          {
+    264            int i;
+    265            int c;
+    266            while(!(i=(c=toupper(*s1++))-toupper(*s2++))) if (!c) break;
+    267            return(i);
+    268          }
+    269          
+    270          const char my_ipc_name[]=IPC_XTASK_NAME;
+    271          
+    272          int MyIDLECSM_onMessage(CSM_RAM* data,GBS_MSG* msg)
+    273          {
+    274            int csm_result;
+    275            int icgui_id;
+    276            //  int ocgui_id;
+    277            int idlegui_id;
+    278            
+    279          #ifndef NEWSGOLD 
+    280          #define EXT_BUTTON 0x63  
+    281            if ((ACTIVE_KEY_STYLE!=2)&&(ACTIVE_KEY_STYLE!=3)) //не "* + #" и не "Enter Button"
+    282            {//чтоб можно было вызвать браузер при этих режимах
+    283              if (ACTIVE_KEY==EXT_BUTTON) //мнимая кнопка браузера
+    284              {
+    285                if (msg->msg==439) //вызван браузер
+    286                {
+    287                  switch (msg->submess) 
+    288                  {
+    289          	case 1:
+    290          	  GBS_SendMessage(MMI_CEPID,LONG_PRESS,EXT_BUTTON);
+    291                    break;
+    292          	case 2:
+    293          	  GBS_SendMessage(MMI_CEPID,KEY_UP,EXT_BUTTON);
+    294                    break; // Никакого default!!!
+    295                  }
+    296                }
+    297                else //браузер не вызывался
+    298          	goto L1;
+    299              }
+    300              else //кнопка вызова не является мнимой кнопкой вызова браузера
+    301                goto L1;
+    302            }
+    303            else
+    304          L1:
+    305            csm_result=old_icsm_onMessage(data,msg);
+    306          #else    
+    307            csm_result = old_icsm_onMessage(data, msg); //Вызываем старый обработчик событий    
+    308          #endif
+    309            
+    310            icgui_id=((int *)data)[DISPLACE_OF_INCOMMINGGUI/4];
+    311            idlegui_id=((int *)data)[DISPLACE_OF_IDLEGUI_ID/4];
+    312            //  ocgui_id=((int *)data)[DISPLACE_OF_OUTGOINGGUI/4];
+    313            if (!icgui_id) callhide_mode=0;
+    314            //  if (!ocgui_id) callhide_mode=0;
+    315            
+    316            if(msg->msg == MSG_RECONFIGURE_REQ) 
+    317            {
+    318              extern const char *successed_config_filename;
+    319              if (strcmp_nocase(successed_config_filename,(char *)msg->data0)==0)
+    320              {
+    321                ShowMSG(1,(int)"XTask config updated!");
+    322                InitConfig();
+    323              }
+    324            }
+    325            //IPC
+    326            if (msg->msg==MSG_IPC)
+    327            {
+    328              IPC_REQ *ipc;
+    329              if ((ipc=(IPC_REQ*)msg->data0))
+    330              {
+    331                if (strcmp(ipc->name_to,my_ipc_name)==0)
+    332                {
+    333          	switch (msg->submess)
+    334          	{
+    335          	case IPC_XTASK_SHOW_CSM:
+    336          	  if (my_csm_id) break;
+    337          	  if ((!IsCalling())&&(!SHOW_LOCK))
+    338          	  {
+    339          	    if ((CSM_root()->csm_q->csm.last!=data)||IsGuiOnTop(idlegui_id))
+    340          	    {
+    341          	      CSMtoTop((int)(ipc->data),-1);
+    342          	    }
+    343          	  }
+    344          	  break;
+    345          	case IPC_XTASK_IDLE:
+    346          	  if (my_csm_id) break;
+    347          	  if ((!IsCalling())/*&&(!SHOW_LOCK)*/)
+    348          	    CSMtoTop(CSM_root()->idle_id,-1);
+    349          	  break;
+    350          	case IPC_XTASK_LOCK_SHOW:
+                 	     ^
+Error[Pe020]: identifier "IPC_XTASK_LOCK_SHOW" is undefined
+    351          	  SHOW_LOCK++;
+    352          	  break;
+    353          	case IPC_XTASK_UNLOCK_SHOW:
+                 	     ^
+Error[Pe020]: identifier "IPC_XTASK_UNLOCK_SHOW" is undefined
+    354          	  if (SHOW_LOCK) SHOW_LOCK--;
+    355          	  break;
+    356          	}
+    357                }
+    358              }
+    359            }
+    360            if (msg->msg==MSG_INCOMMING_CALL)
+    361            {
+    362              callhide_mode=1;
+    363            }
+    364            //  #ifdef NEWSGOLD
+    365            //  if ((msg->msg==MSG_STATE_OF_CALL)&&(msg->submess==0)&&((int)msg->data0==3)) callhide_mode=1;
+    366            //  #else
+    367            //if ((msg->msg==MSG_STATE_OF_CALL)&&(msg->submess==0)&&((int)msg->data0==0)) callhide_mode=1;
+    368            //    Говно!!!! Лечить!!!
+    369            //  #endif   
+    370            if (callhide_mode)
+    371            {
+    372              if ((IsGuiOnTop(icgui_id))/*||(IsGuiOnTop(ocgui_id))*/)
+    373              {
+    374                CSMtoTop(CSM_root()->idle_id,((CSM_RAM *)(CSM_root()->csm_q->csm.last))->id);
+    375                callhide_mode=0;
+    376              }
+    377            }
+    378            return csm_result;  
+    379          }
+    380          
+    381          void MyIDLECSM_onClose(CSM_RAM *data)
+    382          {
+    383            extern void seqkill(void *data, void(*next_in_seq)(CSM_RAM *), void *data_to_kill, void *seqkiller);
+    384            extern void *ELF_BEGIN;
+    385            FreeWS(ws_nogui);
+    386            RemoveKeybMsgHook((void *)my_keyhook);
+    387            seqkill(data,old_icsm_onClose,&ELF_BEGIN,SEQKILLER_ADR());
+    388          }
+    389          
+    390          void main(void)
+    391          {
+    392            mode=0;
+    393            InitConfig();
+    394            extern const int SHOW_DAEMONS;
+    395            extern int show_daemons;
+    396            show_daemons=SHOW_DAEMONS;
+    397            LockSched();
+    398            if (!AddKeybMsgHook_end((void *)my_keyhook))
+    399            {
+    400              ShowMSG(1,(int)"Невозможно зарегистрировать обработчик!");
+    401              SUBPROC((void *)ElfKiller);
+    402            }
+    403            else
+    404            {
+    405              extern const int ENA_HELLO_MSG;
+    406              if (ENA_HELLO_MSG) ShowMSG(1,(int)"XTask3 установлен!");
+    407              {
+    408                CSM_RAM *icsm=FindCSMbyID(CSM_root()->idle_id);
+    409                memcpy(&icsmd,icsm->constr,sizeof(icsmd));
+    410                old_icsm_onClose=icsmd.onClose;
+    411                old_icsm_onMessage=icsmd.onMessage;
+    412                icsmd.onClose=MyIDLECSM_onClose;
+    413                icsmd.onMessage=MyIDLECSM_onMessage;
+    414                icsm->constr=&icsmd;
+    415              }
+    416              ws_nogui=AllocWS(256);
+    417              wsprintf(ws_nogui,"%t","Нет GUI!");
+    418              under_idle=(FindCSMbyID(CSM_root()->idle_id))->prev; //Ищем idle_dialog
+    419            }
+    420            UnlockSched();
+    421          }
+
+Errors: 11
+Warnings: none

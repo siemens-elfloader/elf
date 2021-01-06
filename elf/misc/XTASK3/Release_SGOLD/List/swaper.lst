@@ -1,0 +1,156 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.41A/W32 EVALUATION    14/Sep/2007  19:11:09 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\Documents and Settings\User\Рабочий               #
+#                       стол\XTASK3\swaper.c                                 #
+#    Command line    =  "C:\Documents and Settings\User\Рабочий              #
+#                       стол\XTASK3\swaper.c" -lC "C:\Documents and          #
+#                       Settings\User\Рабочий стол\XTASK3\Release_SGOLD\List #
+#                       \" -o "C:\Documents and Settings\User\Рабочий        #
+#                       стол\XTASK3\Release_SGOLD\Obj\" -s9 --no_unroll      #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None -I "D:\Pasha\ARM_Embedded_Workbench\Embed #
+#                       ded Workbench 4.0 Evaluation\ARM\INC\"               #
+#                       --inline_threshold=2                                 #
+#    List file       =  C:\Documents and Settings\User\Рабочий               #
+#                       стол\XTASK3\Release_SGOLD\List\swaper.lst            #
+#    Object file     =  C:\Documents and Settings\User\Рабочий               #
+#                       стол\XTASK3\Release_SGOLD\Obj\swaper.r79             #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\Documents and Settings\User\Рабочий стол\XTASK3\swaper.c
+      1          #include "../inc/swilib.h"
+      2          #include "swaper.h"
+      3          
+      4          extern CSM_RAM *under_idle;
+      5          
+      6          static int do_CSMtoTop(CSMQ *csm_q, void *_cmd)
+      7          {
+      8          //  static const char my_color[]={0x00,0x00,0x00,0x32};
+      9            MMICMD *cmd=_cmd;
+                   ^
+Error[Pe020]: identifier "MMICMD" is undefined
+
+    MMICMD *cmd=_cmd;
+            ^
+"C:\Documents and Settings\User\Рабочий стол\XTASK3\swaper.c",9  Error[Pe020]: 
+          identifier "cmd" is undefined
+     10            int *gui;
+     11            CSM_RAM *wcsm;
+     12            CSM_RAM *top_csm=FindCSM(csm_q,cmd->parent_id);
+     13            CSM_RAM *bot_csm=under_idle;
+     14            if (!bot_csm) return 1;
+     15          #ifdef NEWSGOLD
+     16            CSM_RAM *work_csm=FindCSM(csm_q,cmd->id);
+     17          #else
+     18            CSM_RAM *work_csm=FindCSM(csm_q,(int)(cmd->cmd_csm));
+     19          #endif
+     20            if (!work_csm) return 1;
+     21            if (work_csm==bot_csm) return 1;
+     22            if (work_csm==top_csm) return 1;
+     23            if (work_csm==(top_csm?top_csm->prev:csm_q->csm.last)) return 1;
+     24            UnfocusGUI();
+                   ^
+Warning[Pe223]: function "UnfocusGUI" declared implicitly
+     25          //
+     26            do
+     27            {
+     28              if (top_csm)
+     29              {
+     30                wcsm=(CSM_RAM *)top_csm->prev; //Получаем перемещаемый CSM
+     31              }
+     32              else
+     33              {
+     34                wcsm=csm_q->csm.last;
+     35              }
+     36              ((CSM_RAM *)(wcsm->prev))->next=top_csm; //CSM перед перемещаемым теперь указывает на верхний CSM
+     37              if (top_csm)
+     38              {
+     39                top_csm->prev=wcsm->prev; //prev верхнего CSM указывает на CSM перед перемещаемым
+     40              }
+     41              else
+     42              {
+     43                csm_q->csm.last=wcsm->prev;
+     44              }
+     45              //Теперь вставляем в нужное место перемещаемый CSM
+     46              ((CSM_RAM *)(wcsm->next=bot_csm->next))->prev=wcsm;
+     47              bot_csm->next=wcsm;
+     48              wcsm->prev=bot_csm;
+     49            }
+     50            while((top_csm?top_csm->prev:csm_q->csm.last)!=work_csm);
+     51          //  
+     52          /*  DrawRectangle(0,0+YDISP,ScreenW()-1,ScreenH()-1,0,
+     53          			my_color,
+     54          			my_color);*/
+     55          
+     56            if ((gui=((CSM_RAM *)(csm_q->csm.last))->gui_ll.last))
+     57            {
+     58              FocusGUI(gui[3]);
+                     ^
+Warning[Pe223]: function "FocusGUI" declared implicitly
+     59            }
+     60            //Сообщение об уничтожении несуществующего CSM, необходимо для правильной работы IdleCSM
+     61            GBS_SendMessage(MMI_CEPID,MSG_CSM_DESTROYED,0,30002,0);
+     62            return 1;
+     63          }
+     64          
+     65          #pragma optimize=no_inline
+     66          __thumb static void LLaddToEnd(LLQ *ll, void *data)
+     67          {
+     68            LLIST *d=data;
+     69            d->next=NULL;
+     70            d->prev=ll->last;
+     71            if (ll->last)
+     72            {
+     73              ((LLIST *)ll->last)->next=d;
+     74            }
+     75            else
+     76            {
+     77              ll->first=d;
+     78            }
+     79            ll->last=d;
+     80          }
+     81          
+     82          //Move CSM with "id" on top
+     83          //Top is under CSM with "top_id" - may be -1
+     84          void CSMtoTop(int id, int top_id)
+     85          {
+     86            CSMQ *csm_q=CSM_root()->csm_q;
+     87            MMICMD *cmd;
+                   ^
+Error[Pe020]: identifier "MMICMD" is undefined
+
+    MMICMD *cmd;
+            ^
+"C:\Documents and Settings\User\Рабочий стол\XTASK3\swaper.c",87  Error[Pe020]: 
+          identifier "cmd" is undefined
+     88            if (!FindCSMbyID(id)) return;
+     89            if (id==top_id) return; //Нечего
+     90            cmd=malloc(sizeof(MMICMD));
+     91            cmd->csm_q=csm_q;
+     92          
+     93            cmd->flag1=5;
+     94          #ifdef NEWSGOLD
+     95            cmd->prio=0;
+     96            cmd->id=id;
+     97          #else
+     98            cmd->cmd_csm=(CSM_RAM*)id;
+     99          #endif
+    100            cmd->parent_id=top_id;
+    101            cmd->proc=do_CSMtoTop;
+    102            LLaddToEnd(&csm_q->cmd,cmd);
+                                      ^
+Error[Pe136]: struct "<unnamed>" has no field "cmd"
+    103          }
+    104          
+
+Errors: 5
+Warnings: 2

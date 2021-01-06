@@ -1,0 +1,1543 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    15/Feb/2011  01:38:46 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\SieJC_BR\adv_login.c                          #
+#    Command line    =  C:\arm\SieJC_BR\adv_login.c -D NEWSGOLD -D ELKA      #
+#                       --preprocess C:\arm\SieJC_BR\Release_ELKA\List\ -lC  #
+#                       C:\arm\SieJC_BR\Release_ELKA\List\ -o                #
+#                       C:\arm\SieJC_BR\Release_ELKA\Obj\ -s9 --no_unroll    #
+#                       --cpu_mode arm --endian little --cpu ARM926EJ-S      #
+#                       --stack_align 4 --interwork -e --fpu None            #
+#                       --dlib_config "C:\arm2\Embedded Workbench 4.0        #
+#                       Evaluation\ARM\LIB\dl5tpainl8n.h" -I                 #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\SieJC_BR\Release_ELKA\List\adv_login.lst      #
+#    Object file     =  C:\arm\SieJC_BR\Release_ELKA\Obj\adv_login.r79       #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\SieJC_BR\adv_login.c
+      1          #include "../inc/swilib.h"
+      2          #include "main.h"
+      3          #include "string_util.h"
+      4          #include "xml_parser.h"
+      5          #include "md5.h"
+      6          #include "jabber.h"
+      7          #include "jabber_util.h"
+      8          #include "history.h"
+      9          #include "adv_login.h"
+     10          
+     11          extern JABBER_STATE Jabber_state;
+     12          extern const char JABBER_SERVER[];
+     13          extern const char USERNAME[];
+     14          extern const char PASSWORD[];
+     15          extern const char RESOURCE[30];
+     16          extern char My_JID_full[];
+     17          extern char My_JID[];
+     18          extern char logmsg[];
+     19          
+     20          SASL_AUTH_DATA SASL_Auth_data = {NULL, NULL, NULL, NULL};
+     21          
+     22          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     23          void Send_Welcome_Packet_SASL()
+     24          {
+   \                     Send_Welcome_Packet_SASL:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   A4D04DE2           SUB      SP,SP,#+164
+     25            char streamheader[]="<?xml version='1.0' encoding='UTF-8'?>\n"
+     26              "<stream:stream to='%s' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams' xml:lang='en' version='1.0'>";
+   \   00000008   58409FE5           LDR      R4,??Send_Welcome_Packet_SASL_0  ;; `?<Constant "<?xml version=\\'1.0\\' e...">`
+   \   0000000C   0D00A0E1           MOV      R0,SP
+   \   00000010   A420A0E3           MOV      R2,#+164
+   \                     ??Send_Welcome_Packet_SASL_1:
+   \   00000014   042052E2           SUBS     R2,R2,#+4
+   \   00000018   021094E7           LDR      R1,[R4, R2]
+   \   0000001C   021080E7           STR      R1,[R0, R2]
+   \   00000020   FBFFFF1A           BNE      ??Send_Welcome_Packet_SASL_1
+     27            char* buf=malloc(256);
+   \   00000024   400FA0E3           MOV      R0,#+256
+   \   00000028   140000EF           SWI      +20
+     28            sprintf(buf,streamheader,JABBER_SERVER);
+   \   0000002C   ........           LDR      R2,??DataTable21  ;; JABBER_SERVER
+   \   00000030   0050A0E1           MOV      R5,R0
+   \   00000034   0D10A0E1           MOV      R1,SP
+   \   00000038   160000EF           SWI      +22
+     29            SendAnswer(buf);
+   \   0000003C   0500A0E1           MOV      R0,R5
+   \   00000040   ........           _BLF     SendAnswer,??SendAnswer??rA
+     30            mfree(buf);
+   \   00000044   0500A0E1           MOV      R0,R5
+   \   00000048   150000EF           SWI      +21
+     31            LockSched();
+   \   0000004C   460100EF           SWI      +326
+     32            strcat(logmsg,"\nSend Extended Welcome");
+   \   00000050   ........           LDR      R0,??DataTable32  ;; logmsg
+   \   00000054   A41084E2           ADD      R1,R4,#+164
+   \   00000058   170000EF           SWI      +23
+     33            UnlockSched();
+   \   0000005C   470100EF           SWI      +327
+     34          #ifdef LOG_ALL
+     35            Log("CONN",logmsg);
+     36          #endif
+     37          }
+   \   00000060   A4D08DE2           ADD      SP,SP,#+164
+   \   00000064   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??Send_Welcome_Packet_SASL_0:
+   \   00000068   ........           DC32     `?<Constant "<?xml version=\\'1.0\\' e...">`
+     38          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     39          void Destroy_SASL_Ctx()
+     40          {
+   \                     Destroy_SASL_Ctx:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+     41            if(SASL_Auth_data.nonce)mfree(SASL_Auth_data.nonce);
+   \   00000004   ........           LDR      R4,??DataTable18  ;; SASL_Auth_data
+   \   00000008   000094E5           LDR      R0,[R4, #+0]
+   \   0000000C   000050E3           CMP      R0,#+0
+   \   00000010   0000000A           BEQ      ??Destroy_SASL_Ctx_0
+   \   00000014   150000EF           SWI      +21
+     42            if(SASL_Auth_data.cnonce)mfree(SASL_Auth_data.cnonce);
+   \                     ??Destroy_SASL_Ctx_0:
+   \   00000018   040094E5           LDR      R0,[R4, #+4]
+   \   0000001C   000050E3           CMP      R0,#+0
+   \   00000020   0000000A           BEQ      ??Destroy_SASL_Ctx_1
+   \   00000024   150000EF           SWI      +21
+     43            if(SASL_Auth_data.qop)mfree(SASL_Auth_data.qop);
+   \                     ??Destroy_SASL_Ctx_1:
+   \   00000028   080094E5           LDR      R0,[R4, #+8]
+   \   0000002C   000050E3           CMP      R0,#+0
+   \   00000030   0000000A           BEQ      ??Destroy_SASL_Ctx_2
+   \   00000034   150000EF           SWI      +21
+     44            if(SASL_Auth_data.rsp_auth)mfree(SASL_Auth_data.rsp_auth);
+   \                     ??Destroy_SASL_Ctx_2:
+   \   00000038   0C0094E5           LDR      R0,[R4, #+12]
+   \   0000003C   000050E3           CMP      R0,#+0
+   \   00000040   0000000A           BEQ      ??Destroy_SASL_Ctx_3
+   \   00000044   150000EF           SWI      +21
+     45            zeromem(&SASL_Auth_data, sizeof(SASL_AUTH_DATA));
+   \                     ??Destroy_SASL_Ctx_3:
+   \   00000048   1010A0E3           MOV      R1,#+16
+   \   0000004C   0400A0E1           MOV      R0,R4
+   \   00000050   1D0100EF           SWI      +285
+     46          }
+   \   00000054   1080BDE8           POP      {R4,PC}          ;; return
+     47          
+     48          // Сообщить серверу об использовании аунтитификации MD5-DIGEST
+     49          //Context:HELPER
+
+   \                                 In segment CODE, align 4, keep-with-next
+     50          void Use_Md5_Auth_Report()
+     51          {
+     52            char s[]="<auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' mechanism='DIGEST-MD5'/>";
+   \                     Use_Md5_Auth_Report:
+   \   00000000   38109FE5           LDR      R1,??Use_Md5_Auth_Report_0  ;; `?<Constant "<auth xmlns=\\'urn:ietf...">`
+   \   00000004   00402DE9           PUSH     {LR}
+   \   00000008   48D04DE2           SUB      SP,SP,#+72
+   \   0000000C   0D00A0E1           MOV      R0,SP
+   \   00000010   4830A0E3           MOV      R3,#+72
+   \                     ??Use_Md5_Auth_Report_1:
+   \   00000014   043053E2           SUBS     R3,R3,#+4
+   \   00000018   032091E7           LDR      R2,[R1, R3]
+   \   0000001C   032080E7           STR      R2,[R0, R3]
+   \   00000020   FBFFFF1A           BNE      ??Use_Md5_Auth_Report_1
+     53            Jabber_state = JS_SASL_NEGOTIATION;
+   \   00000024   ........           LDR      R0,??DataTable31  ;; Jabber_state
+   \   00000028   0410A0E3           MOV      R1,#+4
+   \   0000002C   0010C0E5           STRB     R1,[R0, #+0]
+     54            SendAnswer(s);
+   \   00000030   0D00A0E1           MOV      R0,SP
+   \   00000034   ........           _BLF     SendAnswer,??SendAnswer??rA
+     55          }
+   \   00000038   48D08DE2           ADD      SP,SP,#+72
+   \   0000003C   0080BDE8           POP      {PC}             ;; return
+   \                     ??Use_Md5_Auth_Report_0:
+   \   00000040   ........           DC32     `?<Constant "<auth xmlns=\\'urn:ietf...">`
+     56          
+     57          // Сообщить серверу об использовании аунтитификации PLAIN
+     58          //Context:HELPER
+
+   \                                 In segment CODE, align 4, keep-with-next
+     59          void Use_Plain_Auth_Report()
+     60          {
+     61          // По мотивам e:\CPP_Proj\Miranda_IM\miranda\protocols\JabberG\jabber_secur.cpp
+     62          
+     63            char s[]="<auth xmlns=\"urn:ietf:params:xml:ns:xmpp-sasl\" mechanism=\"PLAIN\">%s</auth>";
+   \                     Use_Plain_Auth_Report:
+   \   00000000   44119FE5           LDR      R1,??Use_Plain_Auth_Report_0  ;; `?<Constant "<auth xmlns=\\"urn:ietf...">`
+   \   00000004   F0432DE9           PUSH     {R4-R9,LR}
+   \   00000008   5CD04DE2           SUB      SP,SP,#+92
+   \   0000000C   10008DE2           ADD      R0,SP,#+16
+   \   00000010   4C30A0E3           MOV      R3,#+76
+   \                     ??Use_Plain_Auth_Report_1:
+   \   00000014   043053E2           SUBS     R3,R3,#+4
+   \   00000018   032091E7           LDR      R2,[R1, R3]
+   \   0000001C   032080E7           STR      R2,[R0, R3]
+   \   00000020   FBFFFF1A           BNE      ??Use_Plain_Auth_Report_1
+     64            char patt[]="%s@%s%c%s%c%s";
+   \   00000024   24119FE5           LDR      R1,??Use_Plain_Auth_Report_0+0x4  ;; `?<Constant "%s@%s%c%s%c%s">`
+     65            unsigned short patlen = strlen(USERNAME)*2 + strlen(JABBER_SERVER) + strlen(PASSWORD) + 3;
+   \   00000028   ........           LDR      R6,??DataTable21  ;; JABBER_SERVER
+   \   0000002C   3C0091E8           LDM      R1,{R2-R5}
+   \   00000030   ........           LDR      R7,??DataTable22  ;; PASSWORD
+   \   00000034   0D00A0E1           MOV      R0,SP
+   \   00000038   3C0080E8           STM      R0,{R2-R5}
+   \   0000003C   ........           LDR      R5,??DataTable23  ;; USERNAME
+   \   00000040   0500A0E1           MOV      R0,R5
+   \   00000044   1B0000EF           SWI      +27
+   \   00000048   0040A0E1           MOV      R4,R0
+   \   0000004C   0600A0E1           MOV      R0,R6
+   \   00000050   1B0000EF           SWI      +27
+   \   00000054   844080E0           ADD      R4,R0,R4, LSL #+1
+   \   00000058   0700A0E1           MOV      R0,R7
+   \   0000005C   1B0000EF           SWI      +27
+   \   00000060   040080E0           ADD      R0,R0,R4
+   \   00000064   038080E2           ADD      R8,R0,#+3
+   \   00000068   0888A0E1           MOV      R8,R8, LSL #+16
+   \   0000006C   2888A0E1           MOV      R8,R8, LSR #+16
+     66            char *authdata = malloc(patlen+1);
+   \   00000070   019088E2           ADD      R9,R8,#+1
+   \   00000074   0900A0E1           MOV      R0,R9
+   \   00000078   140000EF           SWI      +20
+   \   0000007C   0040A0E1           MOV      R4,R0
+     67            zeromem(authdata, patlen+1);
+   \   00000080   0910A0E1           MOV      R1,R9
+   \   00000084   1D0100EF           SWI      +285
+     68            snprintf(authdata, patlen+1, patt, USERNAME, JABBER_SERVER, 0, USERNAME, 0, PASSWORD);
+   \   00000088   80002DE9           PUSH     {R7}
+   \   0000008C   0000A0E3           MOV      R0,#+0
+   \   00000090   01002DE9           PUSH     {R0}
+   \   00000094   0530A0E1           MOV      R3,R5
+   \   00000098   0910A0E1           MOV      R1,R9
+   \   0000009C   0500A0E1           MOV      R0,R5
+   \   000000A0   01002DE9           PUSH     {R0}
+   \   000000A4   0000A0E3           MOV      R0,#+0
+   \   000000A8   01002DE9           PUSH     {R0}
+   \   000000AC   40002DE9           PUSH     {R6}
+   \   000000B0   14208DE2           ADD      R2,SP,#+20
+   \   000000B4   0400A0E1           MOV      R0,R4
+   \   000000B8   1B0100EF           SWI      +283
+     69            char *Data_To_Send=malloc(patlen*2);
+   \   000000BC   8860A0E1           LSL      R6,R8,#+1
+   \   000000C0   0600A0E1           MOV      R0,R6
+   \   000000C4   140000EF           SWI      +20
+   \   000000C8   0050A0E1           MOV      R5,R0
+     70            zeromem(Data_To_Send, patlen*2);
+   \   000000CC   0610A0E1           MOV      R1,R6
+   \   000000D0   1D0100EF           SWI      +285
+     71            Base64Encode(authdata, patlen,Data_To_Send, patlen*2);
+   \   000000D4   0630A0E1           MOV      R3,R6
+   \   000000D8   0520A0E1           MOV      R2,R5
+   \   000000DC   0810A0E1           MOV      R1,R8
+   \   000000E0   0400A0E1           MOV      R0,R4
+   \   000000E4   440200EF           SWI      +580
+     72            char *fin = malloc(strlen(Data_To_Send) + strlen(s) + 1 - 2); // ибо %s нах не надо считать
+   \   000000E8   0500A0E1           MOV      R0,R5
+   \   000000EC   1B0000EF           SWI      +27
+   \   000000F0   0060A0E1           MOV      R6,R0
+   \   000000F4   24008DE2           ADD      R0,SP,#+36
+   \   000000F8   1B0000EF           SWI      +27
+   \   000000FC   060080E0           ADD      R0,R0,R6
+   \   00000100   010040E2           SUB      R0,R0,#+1
+   \   00000104   140000EF           SWI      +20
+   \   00000108   0060A0E1           MOV      R6,R0
+     73            sprintf(fin, s, Data_To_Send);
+   \   0000010C   0520A0E1           MOV      R2,R5
+   \   00000110   24108DE2           ADD      R1,SP,#+36
+   \   00000114   160000EF           SWI      +22
+     74            Jabber_state = JS_SASL_AUTH_ACK;  // Фишка - пропускаем несколько этапов ;)
+   \   00000118   ........           LDR      R0,??DataTable31  ;; Jabber_state
+   \   0000011C   0610A0E3           MOV      R1,#+6
+   \   00000120   0010C0E5           STRB     R1,[R0, #+0]
+     75            SendAnswer(fin);
+   \   00000124   0600A0E1           MOV      R0,R6
+   \   00000128   ........           _BLF     SendAnswer,??SendAnswer??rA
+     76            mfree(Data_To_Send);
+   \   0000012C   0500A0E1           MOV      R0,R5
+   \   00000130   150000EF           SWI      +21
+     77            mfree(authdata);
+   \   00000134   0400A0E1           MOV      R0,R4
+   \   00000138   150000EF           SWI      +21
+     78            mfree(fin);
+   \   0000013C   0600A0E1           MOV      R0,R6
+   \   00000140   150000EF           SWI      +21
+     79          }
+   \   00000144   70D08DE2           ADD      SP,SP,#+112
+   \   00000148   F083BDE8           POP      {R4-R9,PC}       ;; return
+   \                     ??Use_Plain_Auth_Report_0:
+   \   0000014C   ........           DC32     `?<Constant "<auth xmlns=\\"urn:ietf...">`
+   \   00000150   ........           DC32     `?<Constant "%s@%s%c%s%c%s">`
+     80          
+     81          // Открываем новый поток к серверу по окончании авторизации
+
+   \                                 In segment CODE, align 4, keep-with-next
+     82          void SASL_Open_New_Stream()
+     83          {
+     84            Jabber_state = JS_SASL_NEW_STREAM_ACK;
+   \                     SASL_Open_New_Stream:
+   \   00000000   ........           LDR      R0,??DataTable31  ;; Jabber_state
+   \   00000004   00402DE9           PUSH     {LR}
+   \   00000008   0710A0E3           MOV      R1,#+7
+   \   0000000C   0010C0E5           STRB     R1,[R0, #+0]
+     85            SUBPROC((void*)Send_Welcome_Packet_SASL);
+   \   00000010   04009FE5           LDR      R0,??SASL_Open_New_Stream_0  ;; Send_Welcome_Packet_SASL
+   \   00000014   710100EF           SWI      +369
+     86          }
+   \   00000018   0080BDE8           POP      {PC}             ;; return
+   \                     ??SASL_Open_New_Stream_0:
+   \   0000001C   ........           DC32     Send_Welcome_Packet_SASL
+     87          
+     88          // Выполняем Resource Binding
+
+   \                                 In segment CODE, align 4, keep-with-next
+     89          void SASL_Bind_Resource()
+     90          {
+     91            sprintf(My_JID, "%s@%s",USERNAME, JABBER_SERVER);
+   \                     SASL_Bind_Resource:
+   \   00000000   ........           LDR      R3,??DataTable21  ;; JABBER_SERVER
+   \   00000004   ........           LDR      R2,??DataTable23  ;; USERNAME
+   \   00000008   70402DE9           PUSH     {R4-R6,LR}
+   \   0000000C   68409FE5           LDR      R4,??SASL_Bind_Resource_0  ;; My_JID
+   \   00000010   68509FE5           LDR      R5,??SASL_Bind_Resource_0+0x4  ;; `?<Constant "%s@%s">`
+     92            sprintf(My_JID_full,"%s/%s",My_JID, RESOURCE);
+   \   00000014   68609FE5           LDR      R6,??SASL_Bind_Resource_0+0x8  ;; RESOURCE
+   \   00000018   0510A0E1           MOV      R1,R5
+   \   0000001C   0400A0E1           MOV      R0,R4
+   \   00000020   160000EF           SWI      +22
+   \   00000024   5C009FE5           LDR      R0,??SASL_Bind_Resource_0+0xC  ;; My_JID_full
+   \   00000028   0630A0E1           MOV      R3,R6
+   \   0000002C   0420A0E1           MOV      R2,R4
+   \   00000030   081085E2           ADD      R1,R5,#+8
+   \   00000034   160000EF           SWI      +22
+     93          
+     94            sprintf(logmsg, "Resource binding");
+   \   00000038   ........           LDR      R0,??DataTable32  ;; logmsg
+   \   0000003C   101085E2           ADD      R1,R5,#+16
+   \   00000040   160000EF           SWI      +22
+     95            REDRAW();
+   \   00000044   720100EF           SWI      +370
+     96            char *bind_tpl = malloc(256);
+   \   00000048   400FA0E3           MOV      R0,#+256
+   \   0000004C   140000EF           SWI      +20
+   \   00000050   0040A0E1           MOV      R4,R0
+     97            sprintf(bind_tpl, "<iq type='set' id='SieJC_bind_req'>"
+     98                            "<bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'>"
+     99                            "<resource>%s</resource>"
+    100                            "</bind>"
+    101                            "</iq>", RESOURCE);
+   \   00000054   0620A0E1           MOV      R2,R6
+   \   00000058   241085E2           ADD      R1,R5,#+36
+   \   0000005C   160000EF           SWI      +22
+    102            Jabber_state = JS_SASL_RESBIND_ACK;
+   \   00000060   ........           LDR      R0,??DataTable31  ;; Jabber_state
+   \   00000064   0810A0E3           MOV      R1,#+8
+   \   00000068   0010C0E5           STRB     R1,[R0, #+0]
+    103            SUBPROC((void*)_sendandfree, bind_tpl);
+   \   0000006C   ........           LDR      R0,??DataTable25  ;; _sendandfree
+   \   00000070   0410A0E1           MOV      R1,R4
+   \   00000074   710100EF           SWI      +369
+    104          }
+   \   00000078   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??SASL_Bind_Resource_0:
+   \   0000007C   ........           DC32     My_JID
+   \   00000080   ........           DC32     `?<Constant "%s@%s">`
+   \   00000084   ........           DC32     RESOURCE
+   \   00000088   ........           DC32     My_JID_full
+    105          
+    106          // Инициализация сессии
+
+   \                                 In segment CODE, align 4, keep-with-next
+    107          void SASL_Init_Session()
+    108          {
+    109            sprintf(logmsg, "Session Init");
+   \                     SASL_Init_Session:
+   \   00000000   28109FE5           LDR      R1,??SASL_Init_Session_0  ;; `?<Constant "Session Init">`
+   \   00000004   ........           LDR      R0,??DataTable32  ;; logmsg
+   \   00000008   00402DE9           PUSH     {LR}
+   \   0000000C   160000EF           SWI      +22
+    110            REDRAW();
+   \   00000010   720100EF           SWI      +370
+    111          
+    112          static char sess_init_tpl[]="<iq type='set' id='SieJC_sess_req'>"
+    113                            "<session xmlns='urn:ietf:params:xml:ns:xmpp-session'/>"
+    114                            "</iq>";
+    115          
+    116            Jabber_state = JS_SASL_SESS_INIT_ACK;
+   \   00000014   ........           LDR      R0,??DataTable31  ;; Jabber_state
+   \   00000018   0910A0E3           MOV      R1,#+9
+   \   0000001C   0010C0E5           STRB     R1,[R0, #+0]
+    117            SUBPROC((void*)SendAnswer, sess_init_tpl);
+   \   00000020   0C109FE5           LDR      R1,??SASL_Init_Session_0+0x4  ;; ??sess_init_tpl
+   \   00000024   ........           LDR      R0,??DataTable33  ;; SendAnswer
+   \   00000028   710100EF           SWI      +369
+    118          }
+   \   0000002C   0080BDE8           POP      {PC}             ;; return
+   \                     ??SASL_Init_Session_0:
+   \   00000030   ........           DC32     `?<Constant "Session Init">`
+   \   00000034   ........           DC32     ??sess_init_tpl
+    119          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    120          void Decode_Challenge(char *challenge)
+    121          {
+   \                     Decode_Challenge:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   04D04DE2           SUB      SP,SP,#+4
+    122            char *decoded_challenge = malloc(1024);
+    123            zeromem(decoded_challenge, 1024);
+    124            int unk5 = 0;
+    125            Base64Decode(challenge,strlen(challenge), decoded_challenge, 1024, NULL, &unk5);  
+    126            SASL_Auth_data.nonce = Get_Param_Value(decoded_challenge, "nonce",1);
+   \   00000008   9C609FE5           LDR      R6,??Decode_Challenge_0+0x4  ;; `?<Constant "nonce">`
+   \   0000000C   0040A0E1           MOV      R4,R0
+   \   00000010   400EA0E3           MOV      R0,#+1024
+   \   00000014   140000EF           SWI      +20
+   \   00000018   0050A0E1           MOV      R5,R0
+   \   0000001C   401EA0E3           MOV      R1,#+1024
+   \   00000020   1D0100EF           SWI      +285
+   \   00000024   0010A0E3           MOV      R1,#+0
+   \   00000028   00108DE5           STR      R1,[SP, #+0]
+   \   0000002C   0400A0E1           MOV      R0,R4
+   \   00000030   1B0000EF           SWI      +27
+   \   00000034   0D10A0E1           MOV      R1,SP
+   \   00000038   02002DE9           PUSH     {R1}
+   \   0000003C   403EA0E3           MOV      R3,#+1024
+   \   00000040   0520A0E1           MOV      R2,R5
+   \   00000044   0010A0E3           MOV      R1,#+0
+   \   00000048   02002DE9           PUSH     {R1}
+   \   0000004C   0010A0E1           MOV      R1,R0
+   \   00000050   0400A0E1           MOV      R0,R4
+   \   00000054   ........           LDR      R4,??DataTable18  ;; SASL_Auth_data
+   \   00000058   450200EF           SWI      +581
+   \   0000005C   0120A0E3           MOV      R2,#+1
+   \   00000060   0610A0E1           MOV      R1,R6
+   \   00000064   0500A0E1           MOV      R0,R5
+   \   00000068   ........           _BLF     Get_Param_Value,??Get_Param_Value??rA
+   \   0000006C   000084E5           STR      R0,[R4, #+0]
+    127            SASL_Auth_data.qop   = Get_Param_Value(decoded_challenge, "qop",1);
+   \   00000070   0120A0E3           MOV      R2,#+1
+   \   00000074   0B1F8FE2           ADR      R1,??Decode_Challenge_0  ;; "qop"
+   \   00000078   0500A0E1           MOV      R0,R5
+   \   0000007C   ........           _BLF     Get_Param_Value,??Get_Param_Value??rA
+   \   00000080   080084E5           STR      R0,[R4, #+8]
+    128          
+    129          //SASL_Auth_data.nonce = malloc(128);strcpy(SASL_Auth_data.nonce,"455564019");
+    130          //SASL_Auth_data.qop = malloc(128);strcpy(SASL_Auth_data.qop,"auth");
+    131          
+    132            mfree(decoded_challenge);
+   \   00000084   0500A0E1           MOV      R0,R5
+   \   00000088   150000EF           SWI      +21
+    133            char *cnonce= malloc(60);
+   \   0000008C   3C00A0E3           MOV      R0,#+60
+   \   00000090   140000EF           SWI      +20
+   \   00000094   0050A0E1           MOV      R5,R0
+    134            strcpy(cnonce, "7425da72aliuf242765");
+   \   00000098   081086E2           ADD      R1,R6,#+8
+   \   0000009C   1A0000EF           SWI      +26
+    135            SASL_Auth_data.cnonce = cnonce;
+   \   000000A0   045084E5           STR      R5,[R4, #+4]
+    136          }
+   \   000000A4   7780BDE8           POP      {R0-R2,R4-R6,PC}  ;; return
+   \                     ??Decode_Challenge_0:
+   \   000000A8   716F7000           DC8      "qop"
+   \   000000AC   ........           DC32     `?<Constant "nonce">`
+    137          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    138          void mkhex(md5_byte_t digest[16], char *hex_output)
+    139          {
+   \                     mkhex:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+    140            for (int di = 0; di < 16; ++di)sprintf(hex_output + di * 2, "%02x", digest[di]);
+   \   0000000C   0060A0E3           MOV      R6,#+0
+   \                     ??mkhex_0:
+   \   00000010   0420D6E7           LDRB     R2,[R6, +R4]
+   \   00000014   14109FE5           LDR      R1,??mkhex_1     ;; `?<Constant "%02x">`
+   \   00000018   860085E0           ADD      R0,R5,R6, LSL #+1
+   \   0000001C   160000EF           SWI      +22
+   \   00000020   016086E2           ADD      R6,R6,#+1
+   \   00000024   100056E3           CMP      R6,#+16
+   \   00000028   F8FFFFBA           BLT      ??mkhex_0
+    141          }
+   \   0000002C   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??mkhex_1:
+   \   00000030   ........           DC32     `?<Constant "%02x">`
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     SASL_Auth_data:
+   \   00000000                      DS8 16
+   \   00000010                      REQUIRE `?<Initializer for SASL_Auth_data>`
+    142          
+    143          char ans[]="<response xmlns='urn:ietf:params:xml:ns:xmpp-sasl'/>";
+   \                     ans:
+   \   00000010                      DS8 56
+   \   00000048                      REQUIRE `?<Initializer for ans>`
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     ??sess_init_tpl:
+   \   00000000                      DS8 96
+   \   00000060                      REQUIRE `?<Initializer for sess_init_tpl>`
+    144          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    145          void Process_Auth_Answer(char *challenge)
+    146          {
+   \                     Process_Auth_Answer:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   04D04DE2           SUB      SP,SP,#+4
+   \   00000008   0040A0E1           MOV      R4,R0
+    147            char *decoded_challenge = malloc(256);
+   \   0000000C   400FA0E3           MOV      R0,#+256
+   \   00000010   140000EF           SWI      +20
+   \   00000014   0050A0E1           MOV      R5,R0
+    148            zeromem(decoded_challenge, 256);
+   \   00000018   401FA0E3           MOV      R1,#+256
+   \   0000001C   1D0100EF           SWI      +285
+    149            int unk5 = 0;
+   \   00000020   0010A0E3           MOV      R1,#+0
+   \   00000024   00108DE5           STR      R1,[SP, #+0]
+    150            Base64Decode(challenge,strlen(challenge), decoded_challenge, 256, NULL, &unk5);  
+   \   00000028   0400A0E1           MOV      R0,R4
+   \   0000002C   1B0000EF           SWI      +27
+   \   00000030   0D10A0E1           MOV      R1,SP
+   \   00000034   02002DE9           PUSH     {R1}
+   \   00000038   403FA0E3           MOV      R3,#+256
+   \   0000003C   0520A0E1           MOV      R2,R5
+   \   00000040   0010A0E3           MOV      R1,#+0
+   \   00000044   02002DE9           PUSH     {R1}
+   \   00000048   0010A0E1           MOV      R1,R0
+   \   0000004C   0400A0E1           MOV      R0,R4
+    151            SASL_Auth_data.rsp_auth   = Get_Param_Value(decoded_challenge, "rspauth",0);
+   \   00000050   ........           LDR      R4,??DataTable18  ;; SASL_Auth_data
+   \   00000054   450200EF           SWI      +581
+   \   00000058   30109FE5           LDR      R1,??Process_Auth_Answer_0  ;; `?<Constant "rspauth">`
+   \   0000005C   0020A0E3           MOV      R2,#+0
+   \   00000060   0500A0E1           MOV      R0,R5
+   \   00000064   ........           _BLF     Get_Param_Value,??Get_Param_Value??rA
+   \   00000068   0C0084E5           STR      R0,[R4, #+12]
+    152            mfree(decoded_challenge);
+   \   0000006C   0500A0E1           MOV      R0,R5
+   \   00000070   150000EF           SWI      +21
+    153            Jabber_state = JS_SASL_AUTH_ACK;
+   \   00000074   ........           LDR      R0,??DataTable31  ;; Jabber_state
+   \   00000078   0610A0E3           MOV      R1,#+6
+   \   0000007C   0010C0E5           STRB     R1,[R0, #+0]
+    154            SUBPROC((void*)SendAnswer,ans);
+   \   00000080   ........           LDR      R0,??DataTable33  ;; SendAnswer
+   \   00000084   101084E2           ADD      R1,R4,#+16
+   \   00000088   710100EF           SWI      +369
+    155          }
+   \   0000008C   3780BDE8           POP      {R0-R2,R4,R5,PC}  ;; return
+   \                     ??Process_Auth_Answer_0:
+   \   00000090   ........           DC32     `?<Constant "rspauth">`
+    156          
+    157          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    158          void Send_Login_Packet()
+    159          {
+    160            md5_state_t state;
+    161            md5_byte_t digest[16];
+    162            md5_byte_t  A1[16], A2[16], Response[16];
+    163            char colon_t[]=":";
+   \                     Send_Login_Packet:
+   \   00000000   E0139FE5           LDR      R1,??Send_Login_Packet_0  ;; `?<Constant ":">`
+   \   00000004   F0432DE9           PUSH     {R4-R9,LR}
+    164            char _00000001[]="00000001";
+    165            char hex_output[16*2 + 1];
+    166            char A1_HEX[16*2 + 1];
+    167            char A2_HEX[16*2 + 1];
+    168            char R_HEX[16*2 + 1];
+    169          
+    170            char *digest_uri = malloc(128);
+    171            char realm[]="";
+   \   00000008   DC739FE5           LDR      R7,??Send_Login_Packet_0+0x4  ;; `?<Constant "">`
+    172            char *User_Realm_Pass = malloc(256);
+    173            zeromem(digest_uri, 128);
+    174            snprintf(digest_uri, 127, "AUTHENTICATE:xmpp/%s", JABBER_SERVER);
+   \   0000000C   ........           LDR      R6,??DataTable21  ;; JABBER_SERVER
+    175          
+    176            md5_init(&state);
+    177            md5_append(&state, (const md5_byte_t *)USERNAME, strlen(USERNAME));
+    178            md5_append(&state, (const md5_byte_t *)colon_t,1);
+    179            md5_append(&state, (const md5_byte_t *)realm, strlen(realm));
+    180            md5_append(&state, (const md5_byte_t *)colon_t,1);
+    181            md5_append(&state, (const md5_byte_t *)PASSWORD, strlen(PASSWORD));
+   \   00000010   ........           LDR      R8,??DataTable22  ;; PASSWORD
+   \   00000014   7DDF4DE2           SUB      SP,SP,#+500
+   \   00000018   0020D1E5           LDRB     R2,[R1, #0]
+   \   0000001C   0D00A0E1           MOV      R0,SP
+   \   00000020   0020C0E5           STRB     R2,[R0, #+0]
+   \   00000024   0120D1E5           LDRB     R2,[R1, #+1]
+   \   00000028   C0139FE5           LDR      R1,??Send_Login_Packet_0+0x8  ;; `?<Constant "00000001">`
+   \   0000002C   0120C0E5           STRB     R2,[R0, #+1]
+   \   00000030   1C0091E8           LDM      R1,{R2-R4}
+   \   00000034   6C008DE2           ADD      R0,SP,#+108
+   \   00000038   1C0080E8           STM      R0,{R2-R4}
+   \   0000003C   8000A0E3           MOV      R0,#+128
+   \   00000040   140000EF           SWI      +20
+   \   00000044   0010D7E5           LDRB     R1,[R7, #0]
+   \   00000048   0040A0E1           MOV      R4,R0
+   \   0000004C   02008DE2           ADD      R0,SP,#+2
+   \   00000050   0010C0E5           STRB     R1,[R0, #+0]
+   \   00000054   400FA0E3           MOV      R0,#+256
+   \   00000058   140000EF           SWI      +20
+   \   0000005C   0050A0E1           MOV      R5,R0
+   \   00000060   8010A0E3           MOV      R1,#+128
+   \   00000064   0400A0E1           MOV      R0,R4
+   \   00000068   1D0100EF           SWI      +285
+   \   0000006C   042087E2           ADD      R2,R7,#+4
+   \   00000070   ........           LDR      R7,??DataTable23  ;; USERNAME
+   \   00000074   0630A0E1           MOV      R3,R6
+   \   00000078   7F10A0E3           MOV      R1,#+127
+   \   0000007C   0400A0E1           MOV      R0,R4
+   \   00000080   1B0100EF           SWI      +283
+   \   00000084   04008DE2           ADD      R0,SP,#+4
+   \   00000088   ........           _BLF     md5_init,??md5_init??rA
+   \   0000008C   0700A0E1           MOV      R0,R7
+   \   00000090   1B0000EF           SWI      +27
+   \   00000094   0020A0E1           MOV      R2,R0
+   \   00000098   0710A0E1           MOV      R1,R7
+   \   0000009C   04008DE2           ADD      R0,SP,#+4
+   \   000000A0   ........           _BLF     md5_append,??md5_append??rA
+   \   000000A4   0120A0E3           MOV      R2,#+1
+   \   000000A8   0D10A0E1           MOV      R1,SP
+   \   000000AC   04008DE2           ADD      R0,SP,#+4
+   \   000000B0   ........           _BLF     md5_append,??md5_append??rA
+   \   000000B4   02008DE2           ADD      R0,SP,#+2
+   \   000000B8   1B0000EF           SWI      +27
+   \   000000BC   0020A0E1           MOV      R2,R0
+   \   000000C0   02108DE2           ADD      R1,SP,#+2
+   \   000000C4   04008DE2           ADD      R0,SP,#+4
+   \   000000C8   ........           _BLF     md5_append,??md5_append??rA
+   \   000000CC   0120A0E3           MOV      R2,#+1
+   \   000000D0   0D10A0E1           MOV      R1,SP
+   \   000000D4   04008DE2           ADD      R0,SP,#+4
+   \   000000D8   ........           _BLF     md5_append,??md5_append??rA
+   \   000000DC   0800A0E1           MOV      R0,R8
+   \   000000E0   1B0000EF           SWI      +27
+   \   000000E4   0810A0E1           MOV      R1,R8
+    182            md5_finish(&state, digest);
+    183            mkhex(digest, hex_output);
+    184          
+    185            md5_init(&state);
+    186            md5_append(&state, (const md5_byte_t *)digest, 16);      // (MD5(user:realm:pass)
+    187            md5_append(&state, (const md5_byte_t *)colon_t,1);            // :
+    188            md5_append(&state, (const md5_byte_t *)SASL_Auth_data.nonce,strlen(SASL_Auth_data.nonce));
+   \   000000E8   04839FE5           LDR      R8,??Send_Login_Packet_0+0xC  ;; SASL_Auth_data
+   \   000000EC   0020A0E1           MOV      R2,R0
+   \   000000F0   04008DE2           ADD      R0,SP,#+4
+   \   000000F4   ........           _BLF     md5_append,??md5_append??rA
+   \   000000F8   5C108DE2           ADD      R1,SP,#+92
+   \   000000FC   04008DE2           ADD      R0,SP,#+4
+   \   00000100   ........           _BLF     md5_finish,??md5_finish??rA
+   \   00000104   591F8DE2           ADD      R1,SP,#+356
+   \   00000108   5C008DE2           ADD      R0,SP,#+92
+   \   0000010C   ........           BL       mkhex
+   \   00000110   04008DE2           ADD      R0,SP,#+4
+   \   00000114   ........           _BLF     md5_init,??md5_init??rA
+   \   00000118   1020A0E3           MOV      R2,#+16
+   \   0000011C   5C108DE2           ADD      R1,SP,#+92
+   \   00000120   04008DE2           ADD      R0,SP,#+4
+   \   00000124   ........           _BLF     md5_append,??md5_append??rA
+   \   00000128   0120A0E3           MOV      R2,#+1
+   \   0000012C   0D10A0E1           MOV      R1,SP
+   \   00000130   04008DE2           ADD      R0,SP,#+4
+   \   00000134   ........           _BLF     md5_append,??md5_append??rA
+   \   00000138   000098E5           LDR      R0,[R8, #+0]
+   \   0000013C   1B0000EF           SWI      +27
+   \   00000140   001098E5           LDR      R1,[R8, #+0]
+   \   00000144   0020A0E1           MOV      R2,R0
+   \   00000148   04008DE2           ADD      R0,SP,#+4
+   \   0000014C   ........           _BLF     md5_append,??md5_append??rA
+    189            md5_append(&state, (const md5_byte_t *)colon_t,1);            // :
+   \   00000150   0120A0E3           MOV      R2,#+1
+   \   00000154   0D10A0E1           MOV      R1,SP
+   \   00000158   04008DE2           ADD      R0,SP,#+4
+   \   0000015C   ........           _BLF     md5_append,??md5_append??rA
+    190            md5_append(&state, (const md5_byte_t *)SASL_Auth_data.cnonce,strlen(SASL_Auth_data.cnonce));
+   \   00000160   040098E5           LDR      R0,[R8, #+4]
+   \   00000164   1B0000EF           SWI      +27
+   \   00000168   041098E5           LDR      R1,[R8, #+4]
+   \   0000016C   0020A0E1           MOV      R2,R0
+   \   00000170   04008DE2           ADD      R0,SP,#+4
+   \   00000174   ........           _BLF     md5_append,??md5_append??rA
+    191            md5_finish(&state, A1);
+   \   00000178   78108DE2           ADD      R1,SP,#+120
+   \   0000017C   04008DE2           ADD      R0,SP,#+4
+   \   00000180   ........           _BLF     md5_finish,??md5_finish??rA
+    192            mkhex(A1, A1_HEX);
+   \   00000184   621F8DE2           ADD      R1,SP,#+392
+   \   00000188   78008DE2           ADD      R0,SP,#+120
+   \   0000018C   ........           BL       mkhex
+    193          
+    194            md5_init(&state);
+   \   00000190   04008DE2           ADD      R0,SP,#+4
+   \   00000194   ........           _BLF     md5_init,??md5_init??rA
+    195            md5_append(&state, (const md5_byte_t *)digest_uri, strlen(digest_uri));
+   \   00000198   0400A0E1           MOV      R0,R4
+   \   0000019C   1B0000EF           SWI      +27
+   \   000001A0   0020A0E1           MOV      R2,R0
+   \   000001A4   0410A0E1           MOV      R1,R4
+   \   000001A8   04008DE2           ADD      R0,SP,#+4
+   \   000001AC   ........           _BLF     md5_append,??md5_append??rA
+    196            md5_finish(&state, A2);
+   \   000001B0   88108DE2           ADD      R1,SP,#+136
+   \   000001B4   04008DE2           ADD      R0,SP,#+4
+   \   000001B8   ........           _BLF     md5_finish,??md5_finish??rA
+    197            mkhex(A2, A2_HEX);
+   \   000001BC   6B1F8DE2           ADD      R1,SP,#+428
+   \   000001C0   88008DE2           ADD      R0,SP,#+136
+   \   000001C4   ........           BL       mkhex
+    198          
+    199            md5_init(&state);
+   \   000001C8   04008DE2           ADD      R0,SP,#+4
+   \   000001CC   ........           _BLF     md5_init,??md5_init??rA
+    200            md5_append(&state, (const md5_byte_t *)A1_HEX, strlen(A1_HEX));
+   \   000001D0   620F8DE2           ADD      R0,SP,#+392
+   \   000001D4   1B0000EF           SWI      +27
+   \   000001D8   0020A0E1           MOV      R2,R0
+   \   000001DC   621F8DE2           ADD      R1,SP,#+392
+   \   000001E0   04008DE2           ADD      R0,SP,#+4
+   \   000001E4   ........           _BLF     md5_append,??md5_append??rA
+    201            md5_append(&state, (const md5_byte_t *)colon_t,1);
+   \   000001E8   0120A0E3           MOV      R2,#+1
+   \   000001EC   0D10A0E1           MOV      R1,SP
+   \   000001F0   04008DE2           ADD      R0,SP,#+4
+   \   000001F4   ........           _BLF     md5_append,??md5_append??rA
+    202            md5_append(&state, (const md5_byte_t *)SASL_Auth_data.nonce,strlen(SASL_Auth_data.nonce));
+   \   000001F8   000098E5           LDR      R0,[R8, #+0]
+   \   000001FC   1B0000EF           SWI      +27
+   \   00000200   001098E5           LDR      R1,[R8, #+0]
+   \   00000204   0020A0E1           MOV      R2,R0
+   \   00000208   04008DE2           ADD      R0,SP,#+4
+   \   0000020C   ........           _BLF     md5_append,??md5_append??rA
+    203            md5_append(&state, (const md5_byte_t *)colon_t,1);
+   \   00000210   0120A0E3           MOV      R2,#+1
+   \   00000214   0D10A0E1           MOV      R1,SP
+   \   00000218   04008DE2           ADD      R0,SP,#+4
+   \   0000021C   ........           _BLF     md5_append,??md5_append??rA
+    204            md5_append(&state, (const md5_byte_t *)_00000001, strlen(_00000001));
+   \   00000220   6C008DE2           ADD      R0,SP,#+108
+   \   00000224   1B0000EF           SWI      +27
+   \   00000228   0020A0E1           MOV      R2,R0
+   \   0000022C   6C108DE2           ADD      R1,SP,#+108
+   \   00000230   04008DE2           ADD      R0,SP,#+4
+   \   00000234   ........           _BLF     md5_append,??md5_append??rA
+    205            md5_append(&state, (const md5_byte_t *)colon_t,1);
+   \   00000238   0120A0E3           MOV      R2,#+1
+   \   0000023C   0D10A0E1           MOV      R1,SP
+   \   00000240   04008DE2           ADD      R0,SP,#+4
+   \   00000244   ........           _BLF     md5_append,??md5_append??rA
+    206            md5_append(&state, (const md5_byte_t *)SASL_Auth_data.cnonce,strlen(SASL_Auth_data.cnonce));
+   \   00000248   040098E5           LDR      R0,[R8, #+4]
+   \   0000024C   1B0000EF           SWI      +27
+   \   00000250   041098E5           LDR      R1,[R8, #+4]
+   \   00000254   0020A0E1           MOV      R2,R0
+   \   00000258   04008DE2           ADD      R0,SP,#+4
+   \   0000025C   ........           _BLF     md5_append,??md5_append??rA
+    207            md5_append(&state, (const md5_byte_t *)colon_t,1);
+   \   00000260   0120A0E3           MOV      R2,#+1
+   \   00000264   0D10A0E1           MOV      R1,SP
+   \   00000268   04008DE2           ADD      R0,SP,#+4
+   \   0000026C   ........           _BLF     md5_append,??md5_append??rA
+    208            md5_append(&state, (const md5_byte_t *)SASL_Auth_data.qop,strlen(SASL_Auth_data.qop));
+   \   00000270   080098E5           LDR      R0,[R8, #+8]
+   \   00000274   1B0000EF           SWI      +27
+   \   00000278   081098E5           LDR      R1,[R8, #+8]
+   \   0000027C   0020A0E1           MOV      R2,R0
+   \   00000280   04008DE2           ADD      R0,SP,#+4
+   \   00000284   ........           _BLF     md5_append,??md5_append??rA
+    209            md5_append(&state, (const md5_byte_t *)colon_t,1);
+   \   00000288   0120A0E3           MOV      R2,#+1
+   \   0000028C   0D10A0E1           MOV      R1,SP
+   \   00000290   04008DE2           ADD      R0,SP,#+4
+   \   00000294   ........           _BLF     md5_append,??md5_append??rA
+    210            md5_append(&state, (const md5_byte_t *)A2_HEX, strlen(A2_HEX));
+   \   00000298   6B0F8DE2           ADD      R0,SP,#+428
+   \   0000029C   1B0000EF           SWI      +27
+   \   000002A0   0020A0E1           MOV      R2,R0
+   \   000002A4   6B1F8DE2           ADD      R1,SP,#+428
+   \   000002A8   04008DE2           ADD      R0,SP,#+4
+   \   000002AC   ........           _BLF     md5_append,??md5_append??rA
+    211            md5_finish(&state, Response);
+   \   000002B0   98108DE2           ADD      R1,SP,#+152
+   \   000002B4   04008DE2           ADD      R0,SP,#+4
+   \   000002B8   ........           _BLF     md5_finish,??md5_finish??rA
+    212            mkhex(Response, R_HEX);
+   \   000002BC   741F8DE2           ADD      R1,SP,#+464
+   \   000002C0   98008DE2           ADD      R0,SP,#+152
+   \   000002C4   ........           BL       mkhex
+    213          
+    214            char *Response_STR = malloc(1024);
+   \   000002C8   400EA0E3           MOV      R0,#+1024
+   \   000002CC   140000EF           SWI      +20
+   \   000002D0   0090A0E1           MOV      R9,R0
+    215            zeromem(Response_STR, 1024);
+   \   000002D4   401EA0E3           MOV      R1,#+1024
+   \   000002D8   1D0100EF           SWI      +285
+    216            char Res_tpl[]=
+    217              "username=\"%s\",realm=\"%s\",nonce=\"%s\",nc=00000001,cnonce=\"%s\","
+    218                          "qop=auth,digest-uri=\"xmpp/%s\",response=\"%s\",charset=utf-8";
+   \   000002DC   14119FE5           LDR      R1,??Send_Login_Packet_0+0x10  ;; `?<Constant "username=\\"%s\\",realm=\\"...">`
+   \   000002E0   A8008DE2           ADD      R0,SP,#+168
+   \   000002E4   7830A0E3           MOV      R3,#+120
+   \                     ??Send_Login_Packet_1:
+   \   000002E8   043053E2           SUBS     R3,R3,#+4
+   \   000002EC   032091E7           LDR      R2,[R1, R3]
+   \   000002F0   032080E7           STR      R2,[R0, R3]
+   \   000002F4   FBFFFF1A           BNE      ??Send_Login_Packet_1
+    219            snprintf(Response_STR, 1024, Res_tpl,
+    220                     USERNAME,
+    221                     realm,
+    222                     SASL_Auth_data.nonce,
+    223                     SASL_Auth_data.cnonce,
+    224                     JABBER_SERVER,
+    225                     R_HEX
+    226                     );
+   \   000002F8   740F8DE2           ADD      R0,SP,#+464
+   \   000002FC   01002DE9           PUSH     {R0}
+   \   00000300   40002DE9           PUSH     {R6}
+   \   00000304   040098E5           LDR      R0,[R8, #+4]
+   \   00000308   0730A0E1           MOV      R3,R7
+   \   0000030C   01002DE9           PUSH     {R0}
+   \   00000310   000098E5           LDR      R0,[R8, #+0]
+   \   00000314   401EA0E3           MOV      R1,#+1024
+   \   00000318   01002DE9           PUSH     {R0}
+   \   0000031C   12008DE2           ADD      R0,SP,#+18
+   \   00000320   01002DE9           PUSH     {R0}
+   \   00000324   BC208DE2           ADD      R2,SP,#+188
+   \   00000328   0900A0E1           MOV      R0,R9
+   \   0000032C   1B0100EF           SWI      +283
+    227            char *Result_Resp=malloc(2048);
+   \   00000330   800EA0E3           MOV      R0,#+2048
+   \   00000334   140000EF           SWI      +20
+   \   00000338   0060A0E1           MOV      R6,R0
+    228            zeromem(Result_Resp, 2048);
+   \   0000033C   801EA0E3           MOV      R1,#+2048
+   \   00000340   1D0100EF           SWI      +285
+    229            Base64Encode(Response_STR, strlen(Response_STR),Result_Resp, 2048);
+   \   00000344   0900A0E1           MOV      R0,R9
+   \   00000348   1B0000EF           SWI      +27
+   \   0000034C   0010A0E1           MOV      R1,R0
+   \   00000350   803EA0E3           MOV      R3,#+2048
+   \   00000354   0620A0E1           MOV      R2,R6
+   \   00000358   0900A0E1           MOV      R0,R9
+   \   0000035C   440200EF           SWI      +580
+    230            const char resp_full_tpl[]="<response xmlns='urn:ietf:params:xml:ns:xmpp-sasl'>%s</response>";
+   \   00000360   94109FE5           LDR      R1,??Send_Login_Packet_0+0x14  ;; `?<Constant "<response xmlns=\\'urn:...">`
+   \   00000364   4D0F8DE2           ADD      R0,SP,#+308
+   \   00000368   4430A0E3           MOV      R3,#+68
+   \                     ??Send_Login_Packet_2:
+   \   0000036C   043053E2           SUBS     R3,R3,#+4
+   \   00000370   032091E7           LDR      R2,[R1, R3]
+   \   00000374   032080E7           STR      R2,[R0, R3]
+   \   00000378   FBFFFF1A           BNE      ??Send_Login_Packet_2
+    231            char *resp_full = malloc(1024);
+   \   0000037C   400EA0E3           MOV      R0,#+1024
+   \   00000380   140000EF           SWI      +20
+   \   00000384   0070A0E1           MOV      R7,R0
+    232            zeromem(resp_full, 1024);
+   \   00000388   401EA0E3           MOV      R1,#+1024
+   \   0000038C   1D0100EF           SWI      +285
+    233            snprintf(resp_full, 1023, resp_full_tpl, Result_Resp);
+   \   00000390   0630A0E1           MOV      R3,R6
+   \   00000394   4D2F8DE2           ADD      R2,SP,#+308
+   \   00000398   FF10A0E3           MOV      R1,#+255
+   \   0000039C   C01F81E3           ORR      R1,R1,#0x300
+   \   000003A0   0700A0E1           MOV      R0,R7
+   \   000003A4   1B0100EF           SWI      +283
+    234            Jabber_state=JS_SASL_NEG_ANS_WAIT;
+   \   000003A8   ........           LDR      R0,??DataTable31  ;; Jabber_state
+   \   000003AC   0510A0E3           MOV      R1,#+5
+   \   000003B0   0010C0E5           STRB     R1,[R0, #+0]
+    235            SUBPROC((void*)_sendandfree, resp_full);
+   \   000003B4   ........           LDR      R0,??DataTable25  ;; _sendandfree
+   \   000003B8   0710A0E1           MOV      R1,R7
+   \   000003BC   710100EF           SWI      +369
+    236            mfree(Result_Resp);
+   \   000003C0   0600A0E1           MOV      R0,R6
+   \   000003C4   150000EF           SWI      +21
+    237            mfree(Response_STR);
+   \   000003C8   0900A0E1           MOV      R0,R9
+   \   000003CC   150000EF           SWI      +21
+    238            mfree(digest_uri);
+   \   000003D0   0400A0E1           MOV      R0,R4
+   \   000003D4   150000EF           SWI      +21
+    239            mfree(User_Realm_Pass);
+   \   000003D8   0500A0E1           MOV      R0,R5
+   \   000003DC   150000EF           SWI      +21
+    240          }
+   \   000003E0   82DF8DE2           ADD      SP,SP,#+520
+   \   000003E4   F083BDE8           POP      {R4-R9,PC}       ;; return
+   \                     ??Send_Login_Packet_0:
+   \   000003E8   ........           DC32     `?<Constant ":">`
+   \   000003EC   ........           DC32     `?<Constant "">`
+   \   000003F0   ........           DC32     `?<Constant "00000001">`
+   \   000003F4   ........           DC32     SASL_Auth_data
+   \   000003F8   ........           DC32     `?<Constant "username=\\"%s\\",realm=\\"...">`
+   \   000003FC   ........           DC32     `?<Constant "<response xmlns=\\'urn:...">`
+    241          
+    242          // Обработка ошибок SASL
+
+   \                                 In segment CODE, align 4, keep-with-next
+    243          void SASL_Process_Error(XMLNode *nodeEx)
+    244          {
+    245            Jabber_state=JS_ERROR;
+   \                     SASL_Process_Error:
+   \   00000000   ........           LDR      R1,??DataTable31  ;; Jabber_state
+   \   00000004   70402DE9           PUSH     {R4-R6,LR}
+   \   00000008   0D20A0E3           MOV      R2,#+13
+   \   0000000C   0020C1E5           STRB     R2,[R1, #+0]
+    246            XMLNode *err = nodeEx->subnode;
+   \   00000010   044090E5           LDR      R4,[R0, #+4]
+    247            if(err)
+   \   00000014   000054E3           CMP      R4,#+0
+   \   00000018   7080BD08           POPEQ    {R4-R6,PC}
+    248            {
+    249              strcpy(logmsg, "SASL error!\n");
+   \   0000001C   ........           LDR      R5,??DataTable32  ;; logmsg
+   \   00000020   38609FE5           LDR      R6,??SASL_Process_Error_0  ;; `?<Constant "SASL error!\\n">`
+   \   00000024   0500A0E1           MOV      R0,R5
+   \   00000028   0610A0E1           MOV      R1,R6
+   \   0000002C   1A0000EF           SWI      +26
+    250              strcat(logmsg, err->name);  // Не юзер-френдли
+   \   00000030   081094E5           LDR      R1,[R4, #+8]
+   \   00000034   0500A0E1           MOV      R0,R5
+   \   00000038   170000EF           SWI      +23
+    251              if(!strcmp(err->name, SASLERR_NOTAUTH))strcat(logmsg, "\nBad password");
+   \   0000003C   080094E5           LDR      R0,[R4, #+8]
+   \   00000040   201086E2           ADD      R1,R6,#+32
+   \   00000044   190000EF           SWI      +25
+   \   00000048   000050E3           CMP      R0,#+0
+   \   0000004C   7080BD18           POPNE    {R4-R6,PC}
+   \   00000050   101086E2           ADD      R1,R6,#+16
+   \   00000054   0500A0E1           MOV      R0,R5
+   \   00000058   170000EF           SWI      +23
+    252            }
+    253          }
+   \   0000005C   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??SASL_Process_Error_0:
+   \   00000060   ........           DC32     `?<Constant "SASL error!\\n">`
+    254          ////////////////////////////////////////////////////////////////////////////////
+    255          
+    256          // Запрос компрессии у сервера
+
+   \                                 In segment CODE, align 4, keep-with-next
+    257          void Compression_Ask()
+    258          {
+    259          static  char zlib_ask[]="<compress xmlns='http://jabber.org/protocol/compress'>"
+    260                            "<method>zlib</method>"
+    261                            "</compress>";
+    262            Jabber_state = JS_ZLIB_INIT_ACK;
+   \                     Compression_Ask:
+   \   00000000   ........           LDR      R0,??DataTable31  ;; Jabber_state
+   \   00000004   00402DE9           PUSH     {LR}
+   \   00000008   0210A0E3           MOV      R1,#+2
+   \   0000000C   0010C0E5           STRB     R1,[R0, #+0]
+    263            SUBPROC((void*)SendAnswer,zlib_ask);
+   \   00000010   14109FE5           LDR      R1,??Compression_Ask_0  ;; ??zlib_ask
+   \   00000014   ........           LDR      R0,??DataTable33  ;; SendAnswer
+   \   00000018   710100EF           SWI      +369
+    264            strcat(logmsg, "\nUsing ZLib ack");
+   \   0000001C   0C109FE5           LDR      R1,??Compression_Ask_0+0x4  ;; `?<Constant "\\nUsing ZLib ack">`
+   \   00000020   ........           LDR      R0,??DataTable32  ;; logmsg
+   \   00000024   170000EF           SWI      +23
+    265          }
+   \   00000028   0080BDE8           POP      {PC}             ;; return
+   \                     ??Compression_Ask_0:
+   \   0000002C   ........           DC32     ??zlib_ask
+   \   00000030   ........           DC32     `?<Constant "\\nUsing ZLib ack">`
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     ??zlib_ask:
+   \   00000000                      DS8 88
+   \   00000058                      REQUIRE `?<Initializer for zlib_ask>`
+    266          
+    267          //Context:HELPER
+
+   \                                 In segment CODE, align 4, keep-with-next
+    268          void Compression_Send_Header()
+    269          {
+   \                     Compression_Send_Header:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    270            char cMethod = 8;
+    271            char cInfo = 3;
+    272            char cm = (char) (cMethod | (cInfo << 4));
+    273            extern int sock;
+    274            send(sock,&cm,1,0);
+   \   00000004   68409FE5           LDR      R4,??Compression_Send_Header_0  ;; sock
+   \   00000008   04D04DE2           SUB      SP,SP,#+4
+   \   0000000C   000094E5           LDR      R0,[R4, #+0]
+   \   00000010   3810A0E3           MOV      R1,#+56
+   \   00000014   0110CDE5           STRB     R1,[SP, #+1]
+   \   00000018   0030A0E3           MOV      R3,#+0
+   \   0000001C   0120A0E3           MOV      R2,#+1
+   \   00000020   01108DE2           ADD      R1,SP,#+1
+   \   00000024   790100EF           SWI      +377
+    275            char flags = 0;// bez dictu a fastest
+   \   00000028   0010A0E3           MOV      R1,#+0
+   \   0000002C   0010CDE5           STRB     R1,[SP, #+0]
+    276            if ((cm * 256 + flags) % 31 != 0)
+   \   00000030   0100DDE5           LDRB     R0,[SP, #+1]
+   \   00000034   3C109FE5           LDR      R1,??Compression_Send_Header_0+0x4  ;; 0xffffffff84210843
+   \   00000038   0004A0E1           LSL      R0,R0,#+8
+   \   0000003C   9021C3E0           SMULL    R2,R3,R0,R1
+   \   00000040   1F20A0E3           MOV      R2,#+31
+   \   00000044   003083E0           ADD      R3,R3,R0
+   \   00000048   4332A0E1           ASR      R3,R3,#+4
+   \   0000004C   920303E0           MUL      R3,R2,R3
+    277            {
+    278              flags += 31 - ((cm * 256 + flags) % 31);
+    279            }
+    280            send(sock,&flags,1,0);
+   \   00000050   0120A0E3           MOV      R2,#+1
+   \   00000054   030050E0           SUBS     R0,R0,R3
+   \   00000058   1F006012           RSBNE    R0,R0,#+31
+   \   0000005C   0000CD15           STRBNE   R0,[SP, #+0]
+   \   00000060   000094E5           LDR      R0,[R4, #+0]
+   \   00000064   0030A0E3           MOV      R3,#+0
+   \   00000068   0D10A0E1           MOV      R1,SP
+   \   0000006C   790100EF           SWI      +377
+    281          }
+   \   00000070   1180BDE8           POP      {R0,R4,PC}       ;; return
+   \                     ??Compression_Send_Header_0:
+   \   00000074   ........           DC32     sock
+   \   00000078   43082184           DC32     0xffffffff84210843
+    282          
+    283          
+    284          //Context:HELPER
+
+   \                                 In segment CODE, align 4, keep-with-next
+    285          void Send_New_stream()
+    286          {
+    287            Jabber_state = JS_ZLIB_STREAM_INIT_ACK;
+   \                     Send_New_stream:
+   \   00000000   ........           LDR      R0,??DataTable31  ;; Jabber_state
+   \   00000004   00402DE9           PUSH     {LR}
+   \   00000008   0310A0E3           MOV      R1,#+3
+   \   0000000C   0010C0E5           STRB     R1,[R0, #+0]
+    288            Compression_Send_Header();
+   \   00000010   ........           BL       Compression_Send_Header
+    289            Send_Welcome_Packet_SASL();
+   \   00000014   0040BDE8           POP      {LR}             ;; Pop
+   \   00000018   ........           B        Send_Welcome_Packet_SASL  ;; tailcall
+    290          }
+    291          
+    292          //GBSTMR Newstream;
+    293          // Инициализация нового потока (уже сжатого)
+
+   \                                 In segment CODE, align 4, keep-with-next
+    294          void Compression_Init_Stream()
+    295          {
+    296            strcat(logmsg, "\nOK, ZLib enable...");
+   \                     Compression_Init_Stream:
+   \   00000000   20109FE5           LDR      R1,??Compression_Init_Stream_0  ;; `?<Constant "\\nOK, ZLib enable...">`
+   \   00000004   ........           LDR      R0,??DataTable32  ;; logmsg
+   \   00000008   00402DE9           PUSH     {LR}
+   \   0000000C   170000EF           SWI      +23
+    297            extern char Is_Compression_Enabled;
+    298            Is_Compression_Enabled = 1;
+   \   00000010   14009FE5           LDR      R0,??Compression_Init_Stream_0+0x4  ;; Is_Compression_Enabled
+   \   00000014   0110A0E3           MOV      R1,#+1
+   \   00000018   0010C0E5           STRB     R1,[R0, #+0]
+    299            SUBPROC((void*)Send_New_stream);
+   \   0000001C   0C009FE5           LDR      R0,??Compression_Init_Stream_0+0x8  ;; Send_New_stream
+   \   00000020   710100EF           SWI      +369
+    300          }
+   \   00000024   0080BDE8           POP      {PC}             ;; return
+   \                     ??Compression_Init_Stream_0:
+   \   00000028   ........           DC32     `?<Constant "\\nOK, ZLib enable...">`
+   \   0000002C   ........           DC32     Is_Compression_Enabled
+   \   00000030   ........           DC32     Send_New_stream
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable18:
+   \   00000000   ........           DC32     SASL_Auth_data
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable21:
+   \   00000000   ........           DC32     JABBER_SERVER
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable22:
+   \   00000000   ........           DC32     PASSWORD
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable23:
+   \   00000000   ........           DC32     USERNAME
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable25:
+   \   00000000   ........           DC32     _sendandfree
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable31:
+   \   00000000   ........           DC32     Jabber_state
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable32:
+   \   00000000   ........           DC32     logmsg
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable33:
+   \   00000000   ........           DC32     SendAnswer
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for SASL_Auth_data>`:
+   \   00000000   000000000000       DC32 0H, 0H, 0H, 0H
+   \              000000000000
+   \              00000000    
+   \                     `?<Initializer for ans>`:
+   \   00000010   3C726573706F       DC8 3CH, 72H, 65H, 73H, 70H, 6FH, 6EH, 73H
+   \              6E73        
+   \   00000018   6520786D6C6E       DC8 65H, 20H, 78H, 6DH, 6CH, 6EH, 73H, 3DH
+   \              733D        
+   \   00000020   2775726E3A69       DC8 27H, 75H, 72H, 6EH, 3AH, 69H, 65H, 74H
+   \              6574        
+   \   00000028   663A70617261       DC8 66H, 3AH, 70H, 61H, 72H, 61H, 6DH, 73H
+   \              6D73        
+   \   00000030   3A786D6C3A6E       DC8 3AH, 78H, 6DH, 6CH, 3AH, 6EH, 73H, 3AH
+   \              733A        
+   \   00000038   786D70702D73       DC8 78H, 6DH, 70H, 70H, 2DH, 73H, 61H, 73H
+   \              6173        
+   \   00000040   6C272F3E00         DC8 6CH, 27H, 2FH, 3EH, 0
+   \   00000045   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for sess_init_tpl>`:
+   \   00000000   3C6971207479       DC8 3CH, 69H, 71H, 20H, 74H, 79H, 70H, 65H
+   \              7065        
+   \   00000008   3D2773657427       DC8 3DH, 27H, 73H, 65H, 74H, 27H, 20H, 69H
+   \              2069        
+   \   00000010   643D27536965       DC8 64H, 3DH, 27H, 53H, 69H, 65H, 4AH, 43H
+   \              4A43        
+   \   00000018   5F736573735F       DC8 5FH, 73H, 65H, 73H, 73H, 5FH, 72H, 65H
+   \              7265        
+   \   00000020   71273E3C7365       DC8 71H, 27H, 3EH, 3CH, 73H, 65H, 73H, 73H
+   \              7373        
+   \   00000028   696F6E20786D       DC8 69H, 6FH, 6EH, 20H, 78H, 6DH, 6CH, 6EH
+   \              6C6E        
+   \   00000030   733D2775726E       DC8 73H, 3DH, 27H, 75H, 72H, 6EH, 3AH, 69H
+   \              3A69        
+   \   00000038   6574663A7061       DC8 65H, 74H, 66H, 3AH, 70H, 61H, 72H, 61H
+   \              7261        
+   \   00000040   6D733A786D6C       DC8 6DH, 73H, 3AH, 78H, 6DH, 6CH, 3AH, 6EH
+   \              3A6E        
+   \   00000048   733A786D7070       DC8 73H, 3AH, 78H, 6DH, 70H, 70H, 2DH, 73H
+   \              2D73        
+   \   00000050   657373696F6E       DC8 65H, 73H, 73H, 69H, 6FH, 6EH, 27H, 2FH
+   \              272F        
+   \   00000058   3E3C2F69713E       DC8 3EH, 3CH, 2FH, 69H, 71H, 3EH, 0
+   \              00          
+   \   0000005F   00                 DC8 0
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for zlib_ask>`:
+   \   00000000   3C636F6D7072       DC8 3CH, 63H, 6FH, 6DH, 70H, 72H, 65H, 73H
+   \              6573        
+   \   00000008   7320786D6C6E       DC8 73H, 20H, 78H, 6DH, 6CH, 6EH, 73H, 3DH
+   \              733D        
+   \   00000010   27687474703A       DC8 27H, 68H, 74H, 74H, 70H, 3AH, 2FH, 2FH
+   \              2F2F        
+   \   00000018   6A6162626572       DC8 6AH, 61H, 62H, 62H, 65H, 72H, 2EH, 6FH
+   \              2E6F        
+   \   00000020   72672F70726F       DC8 72H, 67H, 2FH, 70H, 72H, 6FH, 74H, 6FH
+   \              746F        
+   \   00000028   636F6C2F636F       DC8 63H, 6FH, 6CH, 2FH, 63H, 6FH, 6DH, 70H
+   \              6D70        
+   \   00000030   72657373273E       DC8 72H, 65H, 73H, 73H, 27H, 3EH, 3CH, 6DH
+   \              3C6D        
+   \   00000038   6574686F643E       DC8 65H, 74H, 68H, 6FH, 64H, 3EH, 7AH, 6CH
+   \              7A6C        
+   \   00000040   69623C2F6D65       DC8 69H, 62H, 3CH, 2FH, 6DH, 65H, 74H, 68H
+   \              7468        
+   \   00000048   6F643E3C2F63       DC8 6FH, 64H, 3EH, 3CH, 2FH, 63H, 6FH, 6DH
+   \              6F6D        
+   \   00000050   70726573733E       DC8 70H, 72H, 65H, 73H, 73H, 3EH, 0
+   \              00          
+   \   00000057   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "<?xml version=\\'1.0\\' e...">`:
+   \   00000000   3C3F786D6C20       DC8 3CH, 3FH, 78H, 6DH, 6CH, 20H, 76H, 65H
+   \              7665        
+   \   00000008   7273696F6E3D       DC8 72H, 73H, 69H, 6FH, 6EH, 3DH, 27H, 31H
+   \              2731        
+   \   00000010   2E302720656E       DC8 2EH, 30H, 27H, 20H, 65H, 6EH, 63H, 6FH
+   \              636F        
+   \   00000018   64696E673D27       DC8 64H, 69H, 6EH, 67H, 3DH, 27H, 55H, 54H
+   \              5554        
+   \   00000020   462D38273F3E       DC8 46H, 2DH, 38H, 27H, 3FH, 3EH, 0AH, 3CH
+   \              0A3C        
+   \   00000028   73747265616D       DC8 73H, 74H, 72H, 65H, 61H, 6DH, 3AH, 73H
+   \              3A73        
+   \   00000030   747265616D20       DC8 74H, 72H, 65H, 61H, 6DH, 20H, 74H, 6FH
+   \              746F        
+   \   00000038   3D2725732720       DC8 3DH, 27H, 25H, 73H, 27H, 20H, 78H, 6DH
+   \              786D        
+   \   00000040   6C6E733D276A       DC8 6CH, 6EH, 73H, 3DH, 27H, 6AH, 61H, 62H
+   \              6162        
+   \   00000048   6265723A636C       DC8 62H, 65H, 72H, 3AH, 63H, 6CH, 69H, 65H
+   \              6965        
+   \   00000050   6E742720786D       DC8 6EH, 74H, 27H, 20H, 78H, 6DH, 6CH, 6EH
+   \              6C6E        
+   \   00000058   733A73747265       DC8 73H, 3AH, 73H, 74H, 72H, 65H, 61H, 6DH
+   \              616D        
+   \   00000060   3D2768747470       DC8 3DH, 27H, 68H, 74H, 74H, 70H, 3AH, 2FH
+   \              3A2F        
+   \   00000068   2F6574686572       DC8 2FH, 65H, 74H, 68H, 65H, 72H, 78H, 2EH
+   \              782E        
+   \   00000070   6A6162626572       DC8 6AH, 61H, 62H, 62H, 65H, 72H, 2EH, 6FH
+   \              2E6F        
+   \   00000078   72672F737472       DC8 72H, 67H, 2FH, 73H, 74H, 72H, 65H, 61H
+   \              6561        
+   \   00000080   6D732720786D       DC8 6DH, 73H, 27H, 20H, 78H, 6DH, 6CH, 3AH
+   \              6C3A        
+   \   00000088   6C616E673D27       DC8 6CH, 61H, 6EH, 67H, 3DH, 27H, 65H, 6EH
+   \              656E        
+   \   00000090   272076657273       DC8 27H, 20H, 76H, 65H, 72H, 73H, 69H, 6FH
+   \              696F        
+   \   00000098   6E3D27312E30       DC8 6EH, 3DH, 27H, 31H, 2EH, 30H, 27H, 3EH
+   \              273E        
+   \   000000A0   00                 DC8 0
+   \   000000A1   000000             DC8 0, 0, 0
+   \   000000A4   0A53656E6420       DC8 "\012Send Extended Welcome"
+   \              457874656E64
+   \              65642057656C
+   \              636F6D6500  
+   \   000000BB   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "<auth xmlns=\\'urn:ietf...">`:
+   \   00000000   3C6175746820       DC8 3CH, 61H, 75H, 74H, 68H, 20H, 78H, 6DH
+   \              786D        
+   \   00000008   6C6E733D2775       DC8 6CH, 6EH, 73H, 3DH, 27H, 75H, 72H, 6EH
+   \              726E        
+   \   00000010   3A696574663A       DC8 3AH, 69H, 65H, 74H, 66H, 3AH, 70H, 61H
+   \              7061        
+   \   00000018   72616D733A78       DC8 72H, 61H, 6DH, 73H, 3AH, 78H, 6DH, 6CH
+   \              6D6C        
+   \   00000020   3A6E733A786D       DC8 3AH, 6EH, 73H, 3AH, 78H, 6DH, 70H, 70H
+   \              7070        
+   \   00000028   2D7361736C27       DC8 2DH, 73H, 61H, 73H, 6CH, 27H, 20H, 6DH
+   \              206D        
+   \   00000030   656368616E69       DC8 65H, 63H, 68H, 61H, 6EH, 69H, 73H, 6DH
+   \              736D        
+   \   00000038   3D2744494745       DC8 3DH, 27H, 44H, 49H, 47H, 45H, 53H, 54H
+   \              5354        
+   \   00000040   2D4D4435272F       DC8 2DH, 4DH, 44H, 35H, 27H, 2FH, 3EH, 0
+   \              3E00        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "<auth xmlns=\\"urn:ietf...">`:
+   \   00000000   3C6175746820       DC8 3CH, 61H, 75H, 74H, 68H, 20H, 78H, 6DH
+   \              786D        
+   \   00000008   6C6E733D2275       DC8 6CH, 6EH, 73H, 3DH, 22H, 75H, 72H, 6EH
+   \              726E        
+   \   00000010   3A696574663A       DC8 3AH, 69H, 65H, 74H, 66H, 3AH, 70H, 61H
+   \              7061        
+   \   00000018   72616D733A78       DC8 72H, 61H, 6DH, 73H, 3AH, 78H, 6DH, 6CH
+   \              6D6C        
+   \   00000020   3A6E733A786D       DC8 3AH, 6EH, 73H, 3AH, 78H, 6DH, 70H, 70H
+   \              7070        
+   \   00000028   2D7361736C22       DC8 2DH, 73H, 61H, 73H, 6CH, 22H, 20H, 6DH
+   \              206D        
+   \   00000030   656368616E69       DC8 65H, 63H, 68H, 61H, 6EH, 69H, 73H, 6DH
+   \              736D        
+   \   00000038   3D22504C4149       DC8 3DH, 22H, 50H, 4CH, 41H, 49H, 4EH, 22H
+   \              4E22        
+   \   00000040   3E25733C2F61       DC8 3EH, 25H, 73H, 3CH, 2FH, 61H, 75H, 74H
+   \              7574        
+   \   00000048   683E00             DC8 68H, 3EH, 0
+   \   0000004B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "%s@%s%c%s%c%s">`:
+   \   00000000   257340257325       DC8 "%s@%s%c%s%c%s"
+   \              632573256325
+   \              7300        
+   \   0000000E   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "%s@%s">`:
+   \   00000000   257340257300       DC8 "%s@%s"
+   \   00000006   0000               DC8 0, 0
+   \   00000008   25732F257300       DC8 "%s/%s"
+   \   0000000E   0000               DC8 0, 0
+   \   00000010   5265736F7572       DC8 "Resource binding"
+   \              63652062696E
+   \              64696E6700  
+   \   00000021   000000             DC8 0, 0, 0
+   \   00000024   3C6971207479       DC8 3CH, 69H, 71H, 20H, 74H, 79H, 70H, 65H
+   \              7065        
+   \   0000002C   3D2773657427       DC8 3DH, 27H, 73H, 65H, 74H, 27H, 20H, 69H
+   \              2069        
+   \   00000034   643D27536965       DC8 64H, 3DH, 27H, 53H, 69H, 65H, 4AH, 43H
+   \              4A43        
+   \   0000003C   5F62696E645F       DC8 5FH, 62H, 69H, 6EH, 64H, 5FH, 72H, 65H
+   \              7265        
+   \   00000044   71273E3C6269       DC8 71H, 27H, 3EH, 3CH, 62H, 69H, 6EH, 64H
+   \              6E64        
+   \   0000004C   20786D6C6E73       DC8 20H, 78H, 6DH, 6CH, 6EH, 73H, 3DH, 27H
+   \              3D27        
+   \   00000054   75726E3A6965       DC8 75H, 72H, 6EH, 3AH, 69H, 65H, 74H, 66H
+   \              7466        
+   \   0000005C   3A706172616D       DC8 3AH, 70H, 61H, 72H, 61H, 6DH, 73H, 3AH
+   \              733A        
+   \   00000064   786D6C3A6E73       DC8 78H, 6DH, 6CH, 3AH, 6EH, 73H, 3AH, 78H
+   \              3A78        
+   \   0000006C   6D70702D6269       DC8 6DH, 70H, 70H, 2DH, 62H, 69H, 6EH, 64H
+   \              6E64        
+   \   00000074   273E3C726573       DC8 27H, 3EH, 3CH, 72H, 65H, 73H, 6FH, 75H
+   \              6F75        
+   \   0000007C   7263653E2573       DC8 72H, 63H, 65H, 3EH, 25H, 73H, 3CH, 2FH
+   \              3C2F        
+   \   00000084   7265736F7572       DC8 72H, 65H, 73H, 6FH, 75H, 72H, 63H, 65H
+   \              6365        
+   \   0000008C   3E3C2F62696E       DC8 3EH, 3CH, 2FH, 62H, 69H, 6EH, 64H, 3EH
+   \              643E        
+   \   00000094   3C2F69713E00       DC8 3CH, 2FH, 69H, 71H, 3EH, 0
+   \   0000009A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Session Init">`:
+   \   00000000   53657373696F       DC8 "Session Init"
+   \              6E20496E6974
+   \              00          
+   \   0000000D   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "nonce">`:
+   \   00000000   6E6F6E636500       DC8 "nonce"
+   \   00000006   0000               DC8 0, 0
+   \   00000008   373432356461       DC8 "7425da72aliuf242765"
+   \              3732616C6975
+   \              663234323736
+   \              3500        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \   00000000   716F7000           DC8 "qop"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "%02x">`:
+   \   00000000   2530327800         DC8 "%02x"
+   \   00000005   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "rspauth">`:
+   \   00000000   727370617574       DC8 "rspauth"
+   \              6800        
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \                     `?<Constant ":">`:
+   \   00000000   3A00               DC8 ":"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "00000001">`:
+   \   00000000   303030303030       DC8 "00000001"
+   \              303100      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "">`:
+   \   00000000   00                 DC8 ""
+   \   00000001   000000             DC8 0, 0, 0
+   \   00000004   41555448454E       DC8 "AUTHENTICATE:xmpp/%s"
+   \              544943415445
+   \              3A786D70702F
+   \              257300      
+   \   00000019   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "username=\\"%s\\",realm=\\"...">`:
+   \   00000000   757365726E61       DC8 75H, 73H, 65H, 72H, 6EH, 61H, 6DH, 65H
+   \              6D65        
+   \   00000008   3D222573222C       DC8 3DH, 22H, 25H, 73H, 22H, 2CH, 72H, 65H
+   \              7265        
+   \   00000010   616C6D3D2225       DC8 61H, 6CH, 6DH, 3DH, 22H, 25H, 73H, 22H
+   \              7322        
+   \   00000018   2C6E6F6E6365       DC8 2CH, 6EH, 6FH, 6EH, 63H, 65H, 3DH, 22H
+   \              3D22        
+   \   00000020   2573222C6E63       DC8 25H, 73H, 22H, 2CH, 6EH, 63H, 3DH, 30H
+   \              3D30        
+   \   00000028   303030303030       DC8 30H, 30H, 30H, 30H, 30H, 30H, 31H, 2CH
+   \              312C        
+   \   00000030   636E6F6E6365       DC8 63H, 6EH, 6FH, 6EH, 63H, 65H, 3DH, 22H
+   \              3D22        
+   \   00000038   2573222C716F       DC8 25H, 73H, 22H, 2CH, 71H, 6FH, 70H, 3DH
+   \              703D        
+   \   00000040   617574682C64       DC8 61H, 75H, 74H, 68H, 2CH, 64H, 69H, 67H
+   \              6967        
+   \   00000048   6573742D7572       DC8 65H, 73H, 74H, 2DH, 75H, 72H, 69H, 3DH
+   \              693D        
+   \   00000050   22786D70702F       DC8 22H, 78H, 6DH, 70H, 70H, 2FH, 25H, 73H
+   \              2573        
+   \   00000058   222C72657370       DC8 22H, 2CH, 72H, 65H, 73H, 70H, 6FH, 6EH
+   \              6F6E        
+   \   00000060   73653D222573       DC8 73H, 65H, 3DH, 22H, 25H, 73H, 22H, 2CH
+   \              222C        
+   \   00000068   636861727365       DC8 63H, 68H, 61H, 72H, 73H, 65H, 74H, 3DH
+   \              743D        
+   \   00000070   7574662D3800       DC8 75H, 74H, 66H, 2DH, 38H, 0
+   \   00000076   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "<response xmlns=\\'urn:...">`:
+   \   00000000   3C726573706F       DC8 3CH, 72H, 65H, 73H, 70H, 6FH, 6EH, 73H
+   \              6E73        
+   \   00000008   6520786D6C6E       DC8 65H, 20H, 78H, 6DH, 6CH, 6EH, 73H, 3DH
+   \              733D        
+   \   00000010   2775726E3A69       DC8 27H, 75H, 72H, 6EH, 3AH, 69H, 65H, 74H
+   \              6574        
+   \   00000018   663A70617261       DC8 66H, 3AH, 70H, 61H, 72H, 61H, 6DH, 73H
+   \              6D73        
+   \   00000020   3A786D6C3A6E       DC8 3AH, 78H, 6DH, 6CH, 3AH, 6EH, 73H, 3AH
+   \              733A        
+   \   00000028   786D70702D73       DC8 78H, 6DH, 70H, 70H, 2DH, 73H, 61H, 73H
+   \              6173        
+   \   00000030   6C273E25733C       DC8 6CH, 27H, 3EH, 25H, 73H, 3CH, 2FH, 72H
+   \              2F72        
+   \   00000038   6573706F6E73       DC8 65H, 73H, 70H, 6FH, 6EH, 73H, 65H, 3EH
+   \              653E        
+   \   00000040   00                 DC8 0
+   \   00000041   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "SASL error!\\n">`:
+   \   00000000   5341534C2065       DC8 "SASL error!\012"
+   \              72726F72210A
+   \              00          
+   \   0000000D   000000             DC8 0, 0, 0
+   \   00000010   0A4261642070       DC8 "\012Bad password"
+   \              617373776F72
+   \              6400        
+   \   0000001E   0000               DC8 0, 0
+   \   00000020   6E6F742D6175       DC8 "not-authorized"
+   \              74686F72697A
+   \              656400      
+   \   0000002F   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\nUsing ZLib ack">`:
+   \   00000000   0A5573696E67       DC8 "\012Using ZLib ack"
+   \              205A4C696220
+   \              61636B00    
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\nOK, ZLib enable...">`:
+   \   00000000   0A4F4B2C205A       DC8 "\012OK, ZLib enable..."
+   \              4C696220656E
+   \              61626C652E2E
+   \              2E00        
+    301          
+    302          //EOL,EOF
+
+   Maximum stack usage in bytes:
+
+     Function                 CSTACK
+     --------                 ------
+     Compression_Ask              4
+     Compression_Init_Stream      4
+     Compression_Send_Header     12
+     Decode_Challenge            28
+     Destroy_SASL_Ctx             8
+     Process_Auth_Answer         24
+     SASL_Bind_Resource          16
+     SASL_Init_Session            4
+     SASL_Open_New_Stream         4
+     SASL_Process_Error          16
+     Send_Login_Packet          548
+     Send_New_stream              4
+     Send_Welcome_Packet_SASL   176
+     Use_Md5_Auth_Report         76
+     Use_Plain_Auth_Report      140
+     mkhex                       16
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     Send_Welcome_Packet_SASL        108
+     Destroy_SASL_Ctx                 88
+     Use_Md5_Auth_Report              68
+     Use_Plain_Auth_Report           340
+     SASL_Open_New_Stream             32
+     SASL_Bind_Resource              140
+     SASL_Init_Session                56
+     Decode_Challenge                176
+     mkhex                            52
+     SASL_Auth_data                   72
+     sess_init_tpl                    96
+     Process_Auth_Answer             148
+     Send_Login_Packet              1024
+     SASL_Process_Error              100
+     Compression_Ask                  52
+     zlib_ask                         88
+     Compression_Send_Header         124
+     Send_New_stream                  28
+     Compression_Init_Stream          52
+     ??DataTable18                     4
+     ??DataTable21                     4
+     ??DataTable22                     4
+     ??DataTable23                     4
+     ??DataTable25                     4
+     ??DataTable31                     4
+     ??DataTable32                     4
+     ??DataTable33                     4
+     ?<Initializer for SASL_Auth_data>
+                                      72
+     ?<Initializer for sess_init_tpl>
+                                      96
+     ?<Initializer for zlib_ask>      88
+     ?<Constant "<?xml version=\'1.0\' e...">
+                                     188
+     ?<Constant "<auth xmlns=\'urn:ietf...">
+                                      72
+     ?<Constant "<auth xmlns=\"urn:ietf...">
+                                      76
+     ?<Constant "%s@%s%c%s%c%s">      16
+     ?<Constant "%s@%s">             156
+     ?<Constant "Session Init">       16
+     ?<Constant "nonce">              28
+     ?<Constant "qop">                 4
+     ?<Constant "%02x">                8
+     ?<Constant "rspauth">             8
+     ?<Constant ":">                   2
+     ?<Constant "00000001">           12
+     ?<Constant "">                   28
+     ?<Constant "username=\"%s\",realm=\"...">
+                                     120
+     ?<Constant "<response xmlns=\'urn:...">
+                                      68
+     ?<Constant "SASL error!\n">      48
+     ?<Constant "\nUsing ZLib ack">   16
+     ?<Constant "\nOK, ZLib enable...">
+                                      20
+      Others                         132
+
+ 
+ 2 740 bytes in segment CODE
+   886 bytes in segment DATA_C
+   256 bytes in segment DATA_I
+   256 bytes in segment DATA_ID
+    12 bytes in segment INITTAB
+ 
+ 2 620 bytes of CODE  memory (+ 132 bytes shared)
+ 1 142 bytes of CONST memory
+   256 bytes of DATA  memory
+
+Errors: none
+Warnings: none

@@ -1,0 +1,2286 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    19/Jan/2011  13:20:26 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\grabber\jpeg-7\jerror.c                       #
+#    Command line    =  C:\arm\grabber\jpeg-7\jerror.c -lC                   #
+#                       C:\arm\grabber\Release_SGOLD\List\ -o                #
+#                       C:\arm\grabber\Release_SGOLD\Obj\ -s9 --no_unroll    #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\grabber\Release_SGOLD\List\jerror.lst         #
+#    Object file     =  C:\arm\grabber\Release_SGOLD\Obj\jerror.r79          #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\grabber\jpeg-7\jerror.c
+      1          /*
+      2           * jerror.c
+      3           *
+      4           * Copyright (C) 1991-1998, Thomas G. Lane.
+      5           * This file is part of the Independent JPEG Group's software.
+      6           * For conditions of distribution and use, see the accompanying README file.
+      7           *
+      8           * This file contains simple error-reporting and trace-message routines.
+      9           * These are suitable for Unix-like systems and others where writing to
+     10           * stderr is the right thing to do.  Many applications will want to replace
+     11           * some or all of these routines.
+     12           *
+     13           * If you define USE_WINDOWS_MESSAGEBOX in jconfig.h or in the makefile,
+     14           * you get a Windows-specific hack to display error messages in a dialog box.
+     15           * It ain't much, but it beats dropping error messages into the bit bucket,
+     16           * which is what happens to output to stderr under most Windows C compilers.
+     17           *
+     18           * These routines are used by both the compression and decompression code.
+     19           */
+     20          
+     21          /* this is not a core library module, so it doesn't define JPEG_INTERNALS */
+     22          #include "jinclude.h"
+     23          #include "jpeglib.h"
+     24          #include "jversion.h"
+     25          #include "jerror.h"
+     26          
+     27          #ifdef USE_WINDOWS_MESSAGEBOX
+     28          //#include <windows.h>
+     29          #endif
+     30          
+     31          #ifndef EXIT_FAILURE		/* define exit() codes if not provided */
+     32          #define EXIT_FAILURE  1
+     33          #endif
+     34          
+     35          
+     36          /*
+     37           * Create the message string table.
+     38           * We do this from the master message list in jerror.h by re-reading
+     39           * jerror.h with a suitable definition for macro JMESSAGE.
+     40           * The message table is made an external symbol just in case any applications
+     41           * want to refer to it directly.
+     42           */
+     43          
+     44          #ifdef NEED_SHORT_EXTERNAL_NAMES
+     45          #define jpeg_std_message_table	jMsgTable
+     46          #endif
+     47          
+     48          #define JMESSAGE(code,string)	string ,
+     49          
+
+   \                                 In segment DATA_C, align 4, align-sorted
+     50          const char * const jpeg_std_message_table[] = {
+   \                     jpeg_std_message_table:
+   \   00000000   ........           DC32 `?<Constant "Bogus message code %d">`
+   \   00000004   ........           DC32 `?<Constant "ALIGN_TYPE is wrong, ...">`
+   \   00000008   ........           DC32 `?<Constant "MAX_ALLOC_CHUNK is wr...">`
+   \   0000000C   ........           DC32 `?<Constant "Bogus buffer control ...">`
+   \   00000010   ........           DC32 `?<Constant "Invalid component ID ...">`
+   \   00000014   ........           DC32 `?<Constant "Invalid crop request">`
+   \   00000018   ........           DC32 `?<Constant "DCT coefficient out o...">`
+   \   0000001C   ........           DC32 `?<Constant "DCT scaled block size...">`
+   \   00000020   ........           DC32 `?<Constant "Component index %d: m...">`
+   \   00000024   ........           DC32 `?<Constant "Bogus Huffman table d...">`
+   \   00000028   ........           DC32 `?<Constant "Bogus input colorspace">`
+   \   0000002C   ........           DC32 `?<Constant "Bogus JPEG colorspace">`
+   \   00000030   ........           DC32 `?<Constant "Bogus marker length">`
+   \   00000034   ........           DC32 `?<Constant "Wrong JPEG library ve...">`
+   \   00000038   ........           DC32 `?<Constant "Sampling factors too ...">`
+   \   0000003C   ........           DC32 `?<Constant "Invalid memory pool c...">`
+   \   00000040   ........           DC32 `?<Constant "Unsupported JPEG data...">`
+   \   00000044   ........           DC32 `?<Constant "Invalid progressive p...">`
+   \   00000048   ........           DC32 `?<Constant "Invalid progressive p...">_1`
+   \   0000004C   ........           DC32 `?<Constant "Bogus sampling factors">`
+   \   00000050   ........           DC32 `?<Constant "Invalid scan script a...">`
+   \   00000054   ........           DC32 `?<Constant "Improper call to JPEG...">`
+   \   00000058   ........           DC32 `?<Constant "JPEG parameter struct...">`
+   \   0000005C   ........           DC32 `?<Constant "Bogus virtual array a...">`
+   \   00000060   ........           DC32 `?<Constant "Buffer passed to JPEG...">`
+   \   00000064   ........           DC32 `?<Constant "Suspension not allowe...">`
+   \   00000068   ........           DC32 `?<Constant "CCIR601 sampling not ...">`
+   \   0000006C   ........           DC32 `?<Constant "Too many color compon...">`
+   \   00000070   ........           DC32 `?<Constant "Unsupported color con...">`
+   \   00000074   ........           DC32 `?<Constant "Bogus DAC index %d">`
+   \   00000078   ........           DC32 `?<Constant "Bogus DAC value 0x%x">`
+   \   0000007C   ........           DC32 `?<Constant "Bogus DHT index %d">`
+   \   00000080   ........           DC32 `?<Constant "Bogus DQT index %d">`
+   \   00000084   ........           DC32 `?<Constant "Empty JPEG image (DNL...">`
+   \   00000088   ........           DC32 `?<Constant "Read from EMS failed">`
+   \   0000008C   ........           DC32 `?<Constant "Write to EMS failed">`
+   \   00000090   ........           DC32 `?<Constant "Didn\\'t expect more th...">`
+   \   00000094   ........           DC32 `?<Constant "Input file read error">`
+   \   00000098   ........           DC32 `?<Constant "Output file write err...">`
+   \   0000009C   ........           DC32 `?<Constant "Fractional sampling n...">`
+   \   000000A0   ........           DC32 `?<Constant "Huffman code size tab...">`
+   \   000000A4   ........           DC32 `?<Constant "Missing Huffman code ...">`
+   \   000000A8   ........           DC32 `?<Constant "Maximum supported ima...">`
+   \   000000AC   ........           DC32 `?<Constant "Empty input file">`
+   \   000000B0   ........           DC32 `?<Constant "Premature end of inpu...">`
+   \   000000B4   ........           DC32 `?<Constant "Cannot transcode due ...">`
+   \   000000B8   ........           DC32 `?<Constant "Scan script does not ...">`
+   \   000000BC   ........           DC32 `?<Constant "Invalid color quantiz...">`
+   \   000000C0   ........           DC32 `?<Constant "Not implemented yet">`
+   \   000000C4   ........           DC32 `?<Constant "Requested feature was...">`
+   \   000000C8   ........           DC32 `?<Constant "Arithmetic table 0x%0...">`
+   \   000000CC   ........           DC32 `?<Constant "Backing store not sup...">`
+   \   000000D0   ........           DC32 `?<Constant "Huffman table 0x%02x ...">`
+   \   000000D4   ........           DC32 `?<Constant "JPEG datastream conta...">`
+   \   000000D8   ........           DC32 `?<Constant "Quantization table 0x...">`
+   \   000000DC   ........           DC32 `?<Constant "Not a JPEG file: star...">`
+   \   000000E0   ........           DC32 `?<Constant "Insufficient memory (...">`
+   \   000000E4   ........           DC32 `?<Constant "Cannot quantize more ...">`
+   \   000000E8   ........           DC32 `?<Constant "Cannot quantize to fe...">`
+   \   000000EC   ........           DC32 `?<Constant "Cannot quantize to mo...">`
+   \   000000F0   ........           DC32 `?<Constant "Invalid JPEG file str...">`
+   \   000000F4   ........           DC32 `?<Constant "Invalid JPEG file str...">_1`
+   \   000000F8   ........           DC32 `?<Constant "Unsupported JPEG proc...">`
+   \   000000FC   ........           DC32 `?<Constant "Invalid JPEG file str...">_2`
+   \   00000100   ........           DC32 `?<Constant "Invalid JPEG file str...">_3`
+   \   00000104   ........           DC32 `?<Constant "Failed to create temp...">`
+   \   00000108   ........           DC32 `?<Constant "Read failed on tempor...">`
+   \   0000010C   ........           DC32 `?<Constant "Seek failed on tempor...">`
+   \   00000110   ........           DC32 `?<Constant "Write failed on tempo...">`
+   \   00000114   ........           DC32 `?<Constant "Application transferr...">`
+   \   00000118   ........           DC32 `?<Constant "Unsupported marker ty...">`
+   \   0000011C   ........           DC32 `?<Constant "Virtual array control...">`
+   \   00000120   ........           DC32 `?<Constant "Image too wide for th...">`
+   \   00000124   ........           DC32 `?<Constant "Read from XMS failed">`
+   \   00000128   ........           DC32 `?<Constant "Write to XMS failed">`
+   \   0000012C   ........           DC32 `?<Constant "Copyright (C) 2009, T...">`
+   \   00000130   ........           DC32 `?<Constant "7  27-Jun-2009">`
+   \   00000134   ........           DC32 `?<Constant "Caution: quantization...">`
+   \   00000138   ........           DC32 `?<Constant "Adobe APP14 marker: v...">`
+   \   0000013C   ........           DC32 `?<Constant "Unknown APP0 marker (...">`
+   \   00000140   ........           DC32 `?<Constant "Unknown APP14 marker ...">`
+   \   00000144   ........           DC32 `?<Constant "Define Arithmetic Tab...">`
+   \   00000148   ........           DC32 `?<Constant "Define Huffman Table ...">`
+   \   0000014C   ........           DC32 `?<Constant "Define Quantization T...">`
+   \   00000150   ........           DC32 `?<Constant "Define Restart Interv...">`
+   \   00000154   ........           DC32 `?<Constant "Freed EMS handle %u">`
+   \   00000158   ........           DC32 `?<Constant "Obtained EMS handle %u">`
+   \   0000015C   ........           DC32 `?<Constant "End Of Image">`
+   \   00000160   ........           DC32 `?<Constant "        %3d %3d %3d %...">`
+   \   00000164   ........           DC32 `?<Constant "JFIF APP0 marker: ver...">`
+   \   00000168   ........           DC32 `?<Constant "Warning: thumbnail im...">`
+   \   0000016C   ........           DC32 `?<Constant "JFIF extension marker...">`
+   \   00000170   ........           DC32 `?<Constant "    with %d x %d thum...">`
+   \   00000174   ........           DC32 `?<Constant "Miscellaneous marker ...">`
+   \   00000178   ........           DC32 `?<Constant "Unexpected marker 0x%02x">`
+   \   0000017C   ........           DC32 `?<Constant "        %4u %4u %4u %...">`
+   \   00000180   ........           DC32 `?<Constant "Quantizing to %d = %d...">`
+   \   00000184   ........           DC32 `?<Constant "Quantizing to %d colors">`
+   \   00000188   ........           DC32 `?<Constant "Selected %d colors fo...">`
+   \   0000018C   ............       DC32 `?<Constant "At marker 0x%02x, rec...">`, `?<Constant "RST%d">`
+   \              ....        
+   \   00000194   ........           DC32 `?<Constant "Smoothing not support...">`
+   \   00000198   ........           DC32 `?<Constant "Start Of Frame 0x%02x...">`
+   \   0000019C   ........           DC32 `?<Constant "    Component %d: %dh...">`
+   \   000001A0   ........           DC32 `?<Constant "Start of Image">`
+   \   000001A4   ........           DC32 `?<Constant "Start Of Scan: %d com...">`
+   \   000001A8   ........           DC32 `?<Constant "    Component %d: dc=...">`
+   \   000001AC   ........           DC32 `?<Constant "  Ss=%d, Se=%d, Ah=%d...">`
+   \   000001B0   ........           DC32 `?<Constant "Closed temporary file %s">`
+   \   000001B4   ........           DC32 `?<Constant "Opened temporary file %s">`
+   \   000001B8   ........           DC32 `?<Constant "JFIF extension marker...">_1`
+   \   000001BC   ........           DC32 `?<Constant "JFIF extension marker...">_2`
+   \   000001C0   ........           DC32 `?<Constant "JFIF extension marker...">_3`
+   \   000001C4   ........           DC32 `?<Constant "Unrecognized componen...">`
+   \   000001C8   ........           DC32 `?<Constant "Freed XMS handle %u">`
+   \   000001CC   ........           DC32 `?<Constant "Obtained XMS handle %u">`
+   \   000001D0   ........           DC32 `?<Constant "Unknown Adobe color t...">`
+   \   000001D4   ........           DC32 `?<Constant "Corrupt JPEG data: ba...">`
+   \   000001D8   ........           DC32 `?<Constant "Inconsistent progress...">`
+   \   000001DC   ........           DC32 `?<Constant "Corrupt JPEG data: %u...">`
+   \   000001E0   ........           DC32 `?<Constant "Corrupt JPEG data: pr...">`
+   \   000001E4   ........           DC32 `?<Constant "Corrupt JPEG data: ba...">_1`
+   \   000001E8   ........           DC32 `?<Constant "Warning: unknown JFIF...">`
+   \   000001EC   ........           DC32 `?<Constant "Premature end of JPEG...">`
+   \   000001F0   ........           DC32 `?<Constant "Corrupt JPEG data: fo...">`
+   \   000001F4   ........           DC32 `?<Constant "Invalid SOS parameter...">`
+   \   000001F8   ........0000       DC32 `?<Constant "Application transferr...">_1`, 0H
+   \              0000        
+     51          #include "jerror.h"
+     52            NULL
+     53          };
+     54          
+     55          
+     56          /*
+     57           * Error exit handler: must not return to caller.
+     58           *
+     59           * Applications may override this if they want to get control back after
+     60           * an error.  Typically one would longjmp somewhere instead of exiting.
+     61           * The setjmp buffer can be made a private field within an expanded error
+     62           * handler object.  Note that the info needed to generate an error message
+     63           * is stored in the error object, so you can generate the message now or
+     64           * later, at your convenience.
+     65           * You should make sure that the JPEG object is cleaned up (with jpeg_abort
+     66           * or jpeg_destroy) at some point.
+     67           */
+     68          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     69          METHODDEF(void)
+     70          error_exit (j_common_ptr cinfo)
+     71          {
+   \                     error_exit:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+     72            /* Always display the message */
+     73            (*cinfo->err->output_message) (cinfo);
+   \   00000008   001094E5           LDR      R1,[R4, #+0]
+   \   0000000C   081091E5           LDR      R1,[R1, #+8]
+   \   00000010   31FF2FE1           BLX      R1
+     74          
+     75            /* Let the memory manager delete any temp files before we die */
+     76            jpeg_destroy(cinfo);
+   \   00000014   0400A0E1           MOV      R0,R4
+   \   00000018   ........           _BLF     jpeg_destroy,??jpeg_destroy??rA
+     77          
+     78            Tlog("EXIT_FAILURE");
+   \   0000001C   04009FE5           LDR      R0,??error_exit_0  ;; `?<Constant "EXIT_FAILURE">`
+   \   00000020   1040BDE8           POP      {R4,LR}          ;; Pop
+   \   00000024   ........           _BF      Tlog,??Tlog??rA  ;; tailcall
+   \                     ??error_exit_0:
+   \   00000028   ........           DC32     `?<Constant "EXIT_FAILURE">`
+     79          }
+     80          
+     81          
+     82          /*
+     83           * Actual output of an error or trace message.
+     84           * Applications may override this method to send JPEG messages somewhere
+     85           * other than stderr.
+     86           *
+     87           * On Windows, printing to stderr is generally completely useless,
+     88           * so we provide optional code to produce an error-dialog popup.
+     89           * Most Windows applications will still prefer to override this routine,
+     90           * but if they don't, it'll do something at least marginally useful.
+     91           *
+     92           * NOTE: to use the library in an environment that doesn't support the
+     93           * C stdio library, you may have to delete the call to fprintf() entirely,
+     94           * not just not use this routine.
+     95           */
+     96          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     97          METHODDEF(void)
+     98          output_message (j_common_ptr cinfo)
+     99          {
+   \                     output_message:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    100            char buffer[JMSG_LENGTH_MAX];
+    101          
+    102            /* Create the message */
+    103            (*cinfo->err->format_message) (cinfo, buffer);
+    104          
+    105          #ifdef USE_WINDOWS_MESSAGEBOX
+    106            /* Display it in a message dialog box */
+    107            MessageBox(GetActiveWindow(), buffer, "JPEG Library Error",
+    108          	     MB_OK | MB_ICONERROR);
+    109          #else
+    110            /* Send it to stderr, adding a newline */
+    111            sprintf(lgn, "ERROR:%s\n", buffer);Tlog(lgn);
+   \   00000004   30409FE5           LDR      R4,??output_message_0  ;; lgn
+   \   00000008   C8D04DE2           SUB      SP,SP,#+200
+   \   0000000C   002090E5           LDR      R2,[R0, #+0]
+   \   00000010   0D10A0E1           MOV      R1,SP
+   \   00000014   0C2092E5           LDR      R2,[R2, #+12]
+   \   00000018   32FF2FE1           BLX      R2
+   \   0000001C   1C109FE5           LDR      R1,??output_message_0+0x4  ;; `?<Constant "ERROR:%s\\n">`
+   \   00000020   0D20A0E1           MOV      R2,SP
+   \   00000024   0400A0E1           MOV      R0,R4
+   \   00000028   160000EF           SWI      +22
+   \   0000002C   0400A0E1           MOV      R0,R4
+   \   00000030   ........           _BLF     Tlog,??Tlog??rA
+    112          #endif
+    113          }
+   \   00000034   C8D08DE2           ADD      SP,SP,#+200
+   \   00000038   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??output_message_0:
+   \   0000003C   ........           DC32     lgn
+   \   00000040   ........           DC32     `?<Constant "ERROR:%s\\n">`
+    114          
+    115          
+    116          /*
+    117           * Decide whether to emit a trace or warning message.
+    118           * msg_level is one of:
+    119           *   -1: recoverable corrupt-data warning, may want to abort.
+    120           *    0: important advisory messages (always display to user).
+    121           *    1: first level of tracing detail.
+    122           *    2,3,...: successively more detailed tracing messages.
+    123           * An application might override this method if it wanted to abort on warnings
+    124           * or change the policy about which messages to display.
+    125           */
+    126          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    127          METHODDEF(void)
+    128          emit_message (j_common_ptr cinfo, int msg_level)
+    129          {
+   \                     emit_message:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    130            struct jpeg_error_mgr * err = cinfo->err;
+   \   00000004   004090E5           LDR      R4,[R0, #+0]
+    131          
+    132            if (msg_level < 0) {
+   \   00000008   000051E3           CMP      R1,#+0
+   \   0000000C   0B00005A           BPL      ??emit_message_0
+    133              /* It's a warning message.  Since corrupt files may generate many warnings,
+    134               * the policy implemented here is to show only the first warning,
+    135               * unless trace_level >= 3.
+    136               */
+    137              if (err->num_warnings == 0 || err->trace_level >= 3)
+   \   00000010   6C1094E5           LDR      R1,[R4, #+108]
+   \   00000014   000051E3           CMP      R1,#+0
+   \   00000018   0200000A           BEQ      ??emit_message_1
+   \   0000001C   681094E5           LDR      R1,[R4, #+104]
+   \   00000020   030051E3           CMP      R1,#+3
+   \   00000024   010000BA           BLT      ??emit_message_2
+    138                (*err->output_message) (cinfo);
+   \                     ??emit_message_1:
+   \   00000028   081094E5           LDR      R1,[R4, #+8]
+   \   0000002C   31FF2FE1           BLX      R1
+    139              /* Always count warnings in num_warnings. */
+    140              err->num_warnings++;
+   \                     ??emit_message_2:
+   \   00000030   6C0094E5           LDR      R0,[R4, #+108]
+   \   00000034   010080E2           ADD      R0,R0,#+1
+   \   00000038   6C0084E5           STR      R0,[R4, #+108]
+   \   0000003C   1080BDE8           POP      {R4,PC}
+    141            } else {
+    142              /* It's a trace message.  Show it if trace_level >= msg_level. */
+    143              if (err->trace_level >= msg_level)
+   \                     ??emit_message_0:
+   \   00000040   682094E5           LDR      R2,[R4, #+104]
+   \   00000044   010052E1           CMP      R2,R1
+   \   00000048   1080BDB8           POPLT    {R4,PC}
+    144                (*err->output_message) (cinfo);
+   \   0000004C   081094E5           LDR      R1,[R4, #+8]
+   \   00000050   31FF2FE1           BLX      R1
+    145            }
+    146          }
+   \   00000054   1080BDE8           POP      {R4,PC}          ;; return
+    147          
+    148          
+    149          /*
+    150           * Format a message string for the most recent JPEG error or message.
+    151           * The message is stored into buffer, which should be at least JMSG_LENGTH_MAX
+    152           * characters.  Note that no '\n' character is added to the string.
+    153           * Few applications should need to override this method.
+    154           */
+    155          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    156          METHODDEF(void)
+    157          format_message (j_common_ptr cinfo, char * buffer)
+    158          {
+   \                     format_message:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0020A0E1           MOV      R2,R0
+    159            struct jpeg_error_mgr * err = cinfo->err;
+   \   00000008   002092E5           LDR      R2,[R2, #+0]
+   \   0000000C   0100A0E1           MOV      R0,R1
+    160            int msg_code = err->msg_code;
+   \   00000010   143092E5           LDR      R3,[R2, #+20]
+    161            const char * msgtext = NULL;
+    162            const char * msgptr;
+    163            char ch;
+    164            boolean isstring;
+    165          
+    166            /* Look up message string in proper table */
+    167            if (msg_code > 0 && msg_code <= err->last_jpeg_message) {
+   \   00000014   010053E3           CMP      R3,#+1
+   \   00000018   741092A5           LDRGE    R1,[R2, #+116]
+   \   0000001C   030051A1           CMPGE    R1,R3
+    168              msgtext = err->jpeg_message_table[msg_code];
+   \   00000020   701092A5           LDRGE    R1,[R2, #+112]
+   \   00000024   031191A7           LDRGE    R1,[R1, +R3, LSL #+2]
+   \   00000028   090000AA           BGE      ??format_message_0
+    169            } else if (err->addon_message_table != NULL &&
+    170          	     msg_code >= err->first_addon_message &&
+    171          	     msg_code <= err->last_addon_message) {
+   \   0000002C   781092E5           LDR      R1,[R2, #+120]
+   \   00000030   000051E3           CMP      R1,#+0
+   \   00000034   0800000A           BEQ      ??format_message_1
+   \   00000038   7CC092E5           LDR      R12,[R2, #+124]
+   \   0000003C   0C0053E1           CMP      R3,R12
+   \   00000040   804092A5           LDRGE    R4,[R2, #+128]
+   \   00000044   030054A1           CMPGE    R4,R3
+   \   00000048   030000BA           BLT      ??format_message_1
+    172              msgtext = err->addon_message_table[msg_code - err->first_addon_message];
+   \   0000004C   0C4043E0           SUB      R4,R3,R12
+   \   00000050   041191E7           LDR      R1,[R1, +R4, LSL #+2]
+    173            }
+    174          
+    175            /* Defend against bogus message number */
+    176            if (msgtext == NULL) {
+   \                     ??format_message_0:
+   \   00000054   000051E3           CMP      R1,#+0
+   \   00000058   0200001A           BNE      ??format_message_2
+    177              err->msg_parm.i[0] = msg_code;
+   \                     ??format_message_1:
+   \   0000005C   183082E5           STR      R3,[R2, #+24]
+    178              msgtext = err->jpeg_message_table[0];
+   \   00000060   701092E5           LDR      R1,[R2, #+112]
+   \   00000064   001091E5           LDR      R1,[R1, #+0]
+    179            }
+    180          
+    181            /* Check for string parameter, as indicated by %s in the message text */
+    182            isstring = FALSE;
+    183            msgptr = msgtext;
+   \                     ??format_message_2:
+   \   00000068   0130A0E1           MOV      R3,R1
+    184            while ((ch = *msgptr++) != '\0') {
+   \                     ??format_message_3:
+   \   0000006C   ........           LDRB     R12,[R3], #+1
+   \   00000070   0C40B0E1           MOVS     R4,R12
+   \   00000074   0700000A           BEQ      ??format_message_4
+    185              if (ch == '%') {
+   \   00000078   25005CE3           CMP      R12,#+37
+   \   0000007C   FAFFFF1A           BNE      ??format_message_3
+    186                if (*msgptr == 's') isstring = TRUE;
+   \   00000080   0030D3E5           LDRB     R3,[R3, #+0]
+   \   00000084   730053E3           CMP      R3,#+115
+   \   00000088   0200001A           BNE      ??format_message_4
+    187                break;
+    188              }
+    189            }
+    190          
+    191            /* Format the message into the passed buffer */
+    192            if (isstring)
+    193              sprintf(buffer, msgtext, err->msg_parm.s);
+   \   0000008C   182082E2           ADD      R2,R2,#+24
+   \   00000090   160000EF           SWI      +22
+   \   00000094   1080BDE8           POP      {R4,PC}
+    194            else
+    195              sprintf(buffer, msgtext,
+    196          	    err->msg_parm.i[0], err->msg_parm.i[1],
+    197          	    err->msg_parm.i[2], err->msg_parm.i[3],
+    198          	    err->msg_parm.i[4], err->msg_parm.i[5],
+    199          	    err->msg_parm.i[6], err->msg_parm.i[7]);
+   \                     ??format_message_4:
+   \   00000098   343092E5           LDR      R3,[R2, #+52]
+   \   0000009C   08002DE9           PUSH     {R3}
+   \   000000A0   303092E5           LDR      R3,[R2, #+48]
+   \   000000A4   08002DE9           PUSH     {R3}
+   \   000000A8   2C3092E5           LDR      R3,[R2, #+44]
+   \   000000AC   08002DE9           PUSH     {R3}
+   \   000000B0   283092E5           LDR      R3,[R2, #+40]
+   \   000000B4   08002DE9           PUSH     {R3}
+   \   000000B8   243092E5           LDR      R3,[R2, #+36]
+   \   000000BC   08002DE9           PUSH     {R3}
+   \   000000C0   203092E5           LDR      R3,[R2, #+32]
+   \   000000C4   08002DE9           PUSH     {R3}
+   \   000000C8   1C3092E5           LDR      R3,[R2, #+28]
+   \   000000CC   182092E5           LDR      R2,[R2, #+24]
+   \   000000D0   160000EF           SWI      +22
+   \   000000D4   18D08DE2           ADD      SP,SP,#+24
+    200          }
+   \   000000D8   1080BDE8           POP      {R4,PC}          ;; return
+    201          
+    202          
+    203          /*
+    204           * Reset error state variables at start of a new image.
+    205           * This is called during compression startup to reset trace/error
+    206           * processing to default state, without losing any application-specific
+    207           * method pointers.  An application might possibly want to override
+    208           * this method if it has additional error processing state.
+    209           */
+    210          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    211          METHODDEF(void)
+    212          reset_error_mgr (j_common_ptr cinfo)
+    213          {
+    214            cinfo->err->num_warnings = 0;
+   \                     reset_error_mgr:
+   \   00000000   000090E5           LDR      R0,[R0, #+0]
+   \   00000004   0010A0E3           MOV      R1,#+0
+   \   00000008   6C1080E5           STR      R1,[R0, #+108]
+    215            /* trace_level is not reset since it is an application-supplied parameter */
+    216            cinfo->err->msg_code = 0;	/* may be useful as a flag for "no error" */
+   \   0000000C   141080E5           STR      R1,[R0, #+20]
+    217          }
+   \   00000010   1EFF2FE1           BX       LR               ;; return
+    218          
+    219          
+    220          /*
+    221           * Fill in the standard error-handling methods in a jpeg_error_mgr object.
+    222           * Typical call is:
+    223           *	struct jpeg_compress_struct cinfo;
+    224           *	struct jpeg_error_mgr err;
+    225           *
+    226           *	cinfo.err = jpeg_std_error(&err);
+    227           * after which the application may override some of the methods.
+    228           */
+    229          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    230          GLOBAL(struct jpeg_error_mgr *)
+    231          jpeg_std_error (struct jpeg_error_mgr * err)
+    232          {
+    233            err->error_exit = error_exit;
+   \                     jpeg_std_error:
+   \   00000000   50109FE5           LDR      R1,??jpeg_std_error_0  ;; error_exit
+    234            err->emit_message = emit_message;
+    235            err->output_message = output_message;
+    236            err->format_message = format_message;
+    237            err->reset_error_mgr = reset_error_mgr;
+    238          
+    239            err->trace_level = 0;		/* default = no tracing */
+    240            err->num_warnings = 0;	/* no warnings emitted yet */
+    241            err->msg_code = 0;		/* may be useful as a flag for "no error" */
+    242          
+    243            /* Initialize message table pointers */
+    244            err->jpeg_message_table = jpeg_std_message_table;
+   \   00000004   50209FE5           LDR      R2,??jpeg_std_error_0+0x4  ;; jpeg_std_message_table
+   \   00000008   001080E5           STR      R1,[R0, #+0]
+   \   0000000C   4C109FE5           LDR      R1,??jpeg_std_error_0+0x8  ;; emit_message
+   \   00000010   041080E5           STR      R1,[R0, #+4]
+   \   00000014   48109FE5           LDR      R1,??jpeg_std_error_0+0xC  ;; output_message
+   \   00000018   081080E5           STR      R1,[R0, #+8]
+   \   0000001C   44109FE5           LDR      R1,??jpeg_std_error_0+0x10  ;; format_message
+   \   00000020   0C1080E5           STR      R1,[R0, #+12]
+   \   00000024   40109FE5           LDR      R1,??jpeg_std_error_0+0x14  ;; reset_error_mgr
+   \   00000028   101080E5           STR      R1,[R0, #+16]
+   \   0000002C   0010A0E3           MOV      R1,#+0
+   \   00000030   681080E5           STR      R1,[R0, #+104]
+   \   00000034   6C1080E5           STR      R1,[R0, #+108]
+   \   00000038   141080E5           STR      R1,[R0, #+20]
+   \   0000003C   702080E5           STR      R2,[R0, #+112]
+    245            err->last_jpeg_message = (int) JMSG_LASTMSGCODE - 1;
+   \   00000040   7E20A0E3           MOV      R2,#+126
+   \   00000044   742080E5           STR      R2,[R0, #+116]
+    246          
+    247            err->addon_message_table = NULL;
+   \   00000048   781080E5           STR      R1,[R0, #+120]
+    248            err->first_addon_message = 0;	/* for safety */
+   \   0000004C   7C1080E5           STR      R1,[R0, #+124]
+    249            err->last_addon_message = 0;
+   \   00000050   801080E5           STR      R1,[R0, #+128]
+    250          
+    251            return err;
+   \   00000054   1EFF2FE1           BX       LR               ;; return
+   \                     ??jpeg_std_error_0:
+   \   00000058   ........           DC32     error_exit
+   \   0000005C   ........           DC32     jpeg_std_message_table
+   \   00000060   ........           DC32     emit_message
+   \   00000064   ........           DC32     output_message
+   \   00000068   ........           DC32     format_message
+   \   0000006C   ........           DC32     reset_error_mgr
+    252          }
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Invalid memory pool c...">`:
+   \   00000000   496E76616C69       DC8 "Invalid memory pool code %d"
+   \              64206D656D6F
+   \              727920706F6F
+   \              6C20636F6465
+   \              20256400    
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Bogus message code %d">`:
+   \   00000000   426F67757320       DC8 "Bogus message code %d"
+   \              6D6573736167
+   \              6520636F6465
+   \              20256400    
+   \   00000016   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ALIGN_TYPE is wrong, ...">`:
+   \   00000000   414C49474E5F       DC8 "ALIGN_TYPE is wrong, please fix"
+   \              545950452069
+   \              732077726F6E
+   \              672C20706C65
+   \              617365206669
+   \              7800        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "MAX_ALLOC_CHUNK is wr...">`:
+   \   00000000   4D41585F414C       DC8 "MAX_ALLOC_CHUNK is wrong, please fix"
+   \              4C4F435F4348
+   \              554E4B206973
+   \              2077726F6E67
+   \              2C20706C6561
+   \              736520666978
+   \              00          
+   \   00000025   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Bogus buffer control ...">`:
+   \   00000000   426F67757320       DC8 "Bogus buffer control mode"
+   \              627566666572
+   \              20636F6E7472
+   \              6F6C206D6F64
+   \              6500        
+   \   0000001A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Invalid component ID ...">`:
+   \   00000000   496E76616C69       DC8 "Invalid component ID %d in SOS"
+   \              6420636F6D70
+   \              6F6E656E7420
+   \              494420256420
+   \              696E20534F53
+   \              00          
+   \   0000001F   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Invalid crop request">`:
+   \   00000000   496E76616C69       DC8 "Invalid crop request"
+   \              642063726F70
+   \              207265717565
+   \              737400      
+   \   00000015   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "DCT coefficient out o...">`:
+   \   00000000   44435420636F       DC8 "DCT coefficient out of range"
+   \              656666696369
+   \              656E74206F75
+   \              74206F662072
+   \              616E676500  
+   \   0000001D   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "DCT scaled block size...">`:
+   \   00000000   444354207363       DC8 "DCT scaled block size %dx%d not supported"
+   \              616C65642062
+   \              6C6F636B2073
+   \              697A65202564
+   \              782564206E6F
+   \              742073757070
+   \              6F7274656400
+   \   0000002A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Component index %d: m...">`:
+   \   00000000   436F6D706F6E       DC8 43H, 6FH, 6DH, 70H, 6FH, 6EH, 65H, 6EH
+   \              656E        
+   \   00000008   7420696E6465       DC8 74H, 20H, 69H, 6EH, 64H, 65H, 78H, 20H
+   \              7820        
+   \   00000010   25643A206D69       DC8 25H, 64H, 3AH, 20H, 6DH, 69H, 73H, 6DH
+   \              736D        
+   \   00000018   61746368696E       DC8 61H, 74H, 63H, 68H, 69H, 6EH, 67H, 20H
+   \              6720        
+   \   00000020   73616D706C69       DC8 73H, 61H, 6DH, 70H, 6CH, 69H, 6EH, 67H
+   \              6E67        
+   \   00000028   20726174696F       DC8 20H, 72H, 61H, 74H, 69H, 6FH, 20H, 25H
+   \              2025        
+   \   00000030   643A25642C20       DC8 64H, 3AH, 25H, 64H, 2CH, 20H, 25H, 64H
+   \              2564        
+   \   00000038   3A25642C2025       DC8 3AH, 25H, 64H, 2CH, 20H, 25H, 63H, 0
+   \              6300        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Bogus Huffman table d...">`:
+   \   00000000   426F67757320       DC8 "Bogus Huffman table definition"
+   \              487566666D61
+   \              6E207461626C
+   \              652064656669
+   \              6E6974696F6E
+   \              00          
+   \   0000001F   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Bogus input colorspace">`:
+   \   00000000   426F67757320       DC8 "Bogus input colorspace"
+   \              696E70757420
+   \              636F6C6F7273
+   \              7061636500  
+   \   00000017   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Bogus JPEG colorspace">`:
+   \   00000000   426F67757320       DC8 "Bogus JPEG colorspace"
+   \              4A5045472063
+   \              6F6C6F727370
+   \              61636500    
+   \   00000016   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Bogus marker length">`:
+   \   00000000   426F67757320       DC8 "Bogus marker length"
+   \              6D61726B6572
+   \              206C656E6774
+   \              6800        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Wrong JPEG library ve...">`:
+   \   00000000   57726F6E6720       DC8 57H, 72H, 6FH, 6EH, 67H, 20H, 4AH, 50H
+   \              4A50        
+   \   00000008   4547206C6962       DC8 45H, 47H, 20H, 6CH, 69H, 62H, 72H, 61H
+   \              7261        
+   \   00000010   727920766572       DC8 72H, 79H, 20H, 76H, 65H, 72H, 73H, 69H
+   \              7369        
+   \   00000018   6F6E3A206C69       DC8 6FH, 6EH, 3AH, 20H, 6CH, 69H, 62H, 72H
+   \              6272        
+   \   00000020   617279206973       DC8 61H, 72H, 79H, 20H, 69H, 73H, 20H, 25H
+   \              2025        
+   \   00000028   642C2063616C       DC8 64H, 2CH, 20H, 63H, 61H, 6CH, 6CH, 65H
+   \              6C65        
+   \   00000030   722065787065       DC8 72H, 20H, 65H, 78H, 70H, 65H, 63H, 74H
+   \              6374        
+   \   00000038   7320256400         DC8 73H, 20H, 25H, 64H, 0
+   \   0000003D   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Sampling factors too ...">`:
+   \   00000000   53616D706C69       DC8 "Sampling factors too large for interleaved scan"
+   \              6E6720666163
+   \              746F72732074
+   \              6F6F206C6172
+   \              676520666F72
+   \              20696E746572
+   \              6C6561766564
+   \              207363616E00
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Bogus DHT index %d">`:
+   \   00000000   426F67757320       DC8 "Bogus DHT index %d"
+   \              44485420696E
+   \              646578202564
+   \              00          
+   \   00000013   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Unsupported JPEG data...">`:
+   \   00000000   556E73757070       DC8 "Unsupported JPEG data precision %d"
+   \              6F7274656420
+   \              4A5045472064
+   \              617461207072
+   \              65636973696F
+   \              6E20256400  
+   \   00000023   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Invalid progressive p...">`:
+   \   00000000   496E76616C69       DC8 49H, 6EH, 76H, 61H, 6CH, 69H, 64H, 20H
+   \              6420        
+   \   00000008   70726F677265       DC8 70H, 72H, 6FH, 67H, 72H, 65H, 73H, 73H
+   \              7373        
+   \   00000010   697665207061       DC8 69H, 76H, 65H, 20H, 70H, 61H, 72H, 61H
+   \              7261        
+   \   00000018   6D6574657273       DC8 6DH, 65H, 74H, 65H, 72H, 73H, 20H, 53H
+   \              2053        
+   \   00000020   733D25642053       DC8 73H, 3DH, 25H, 64H, 20H, 53H, 65H, 3DH
+   \              653D        
+   \   00000028   25642041683D       DC8 25H, 64H, 20H, 41H, 68H, 3DH, 25H, 64H
+   \              2564        
+   \   00000030   20416C3D2564       DC8 20H, 41H, 6CH, 3DH, 25H, 64H, 0
+   \              00          
+   \   00000037   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Invalid progressive p...">_1`:
+   \   00000000   496E76616C69       DC8 49H, 6EH, 76H, 61H, 6CH, 69H, 64H, 20H
+   \              6420        
+   \   00000008   70726F677265       DC8 70H, 72H, 6FH, 67H, 72H, 65H, 73H, 73H
+   \              7373        
+   \   00000010   697665207061       DC8 69H, 76H, 65H, 20H, 70H, 61H, 72H, 61H
+   \              7261        
+   \   00000018   6D6574657273       DC8 6DH, 65H, 74H, 65H, 72H, 73H, 20H, 61H
+   \              2061        
+   \   00000020   74207363616E       DC8 74H, 20H, 73H, 63H, 61H, 6EH, 20H, 73H
+   \              2073        
+   \   00000028   637269707420       DC8 63H, 72H, 69H, 70H, 74H, 20H, 65H, 6EH
+   \              656E        
+   \   00000030   747279202564       DC8 74H, 72H, 79H, 20H, 25H, 64H, 0
+   \              00          
+   \   00000037   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Bogus sampling factors">`:
+   \   00000000   426F67757320       DC8 "Bogus sampling factors"
+   \              73616D706C69
+   \              6E6720666163
+   \              746F727300  
+   \   00000017   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Invalid scan script a...">`:
+   \   00000000   496E76616C69       DC8 "Invalid scan script at entry %d"
+   \              64207363616E
+   \              207363726970
+   \              742061742065
+   \              6E7472792025
+   \              6400        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Improper call to JPEG...">`:
+   \   00000000   496D70726F70       DC8 "Improper call to JPEG library in state %d"
+   \              65722063616C
+   \              6C20746F204A
+   \              504547206C69
+   \              627261727920
+   \              696E20737461
+   \              746520256400
+   \   0000002A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "JPEG parameter struct...">`:
+   \   00000000   4A5045472070       DC8 4AH, 50H, 45H, 47H, 20H, 70H, 61H, 72H
+   \              6172        
+   \   00000008   616D65746572       DC8 61H, 6DH, 65H, 74H, 65H, 72H, 20H, 73H
+   \              2073        
+   \   00000010   747275637420       DC8 74H, 72H, 75H, 63H, 74H, 20H, 6DH, 69H
+   \              6D69        
+   \   00000018   736D61746368       DC8 73H, 6DH, 61H, 74H, 63H, 68H, 3AH, 20H
+   \              3A20        
+   \   00000020   6C6962726172       DC8 6CH, 69H, 62H, 72H, 61H, 72H, 79H, 20H
+   \              7920        
+   \   00000028   7468696E6B73       DC8 74H, 68H, 69H, 6EH, 6BH, 73H, 20H, 73H
+   \              2073        
+   \   00000030   697A65206973       DC8 69H, 7AH, 65H, 20H, 69H, 73H, 20H, 25H
+   \              2025        
+   \   00000038   752C2063616C       DC8 75H, 2CH, 20H, 63H, 61H, 6CH, 6CH, 65H
+   \              6C65        
+   \   00000040   722065787065       DC8 72H, 20H, 65H, 78H, 70H, 65H, 63H, 74H
+   \              6374        
+   \   00000048   7320257500         DC8 73H, 20H, 25H, 75H, 0
+   \   0000004D   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Bogus virtual array a...">`:
+   \   00000000   426F67757320       DC8 "Bogus virtual array access"
+   \              766972747561
+   \              6C2061727261
+   \              792061636365
+   \              737300      
+   \   0000001B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Buffer passed to JPEG...">`:
+   \   00000000   427566666572       DC8 "Buffer passed to JPEG library is too small"
+   \              207061737365
+   \              6420746F204A
+   \              504547206C69
+   \              627261727920
+   \              697320746F6F
+   \              20736D616C6C
+   \              00          
+   \   0000002B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Suspension not allowe...">`:
+   \   00000000   53757370656E       DC8 "Suspension not allowed here"
+   \              73696F6E206E
+   \              6F7420616C6C
+   \              6F7765642068
+   \              65726500    
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "CCIR601 sampling not ...">`:
+   \   00000000   434349523630       DC8 "CCIR601 sampling not implemented yet"
+   \              312073616D70
+   \              6C696E67206E
+   \              6F7420696D70
+   \              6C656D656E74
+   \              656420796574
+   \              00          
+   \   00000025   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Too many color compon...">`:
+   \   00000000   546F6F206D61       DC8 "Too many color components: %d, max %d"
+   \              6E7920636F6C
+   \              6F7220636F6D
+   \              706F6E656E74
+   \              733A2025642C
+   \              206D61782025
+   \              6400        
+   \   00000026   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Unsupported color con...">`:
+   \   00000000   556E73757070       DC8 "Unsupported color conversion request"
+   \              6F7274656420
+   \              636F6C6F7220
+   \              636F6E766572
+   \              73696F6E2072
+   \              657175657374
+   \              00          
+   \   00000025   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Bogus DAC index %d">`:
+   \   00000000   426F67757320       DC8 "Bogus DAC index %d"
+   \              44414320696E
+   \              646578202564
+   \              00          
+   \   00000013   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Bogus DAC value 0x%x">`:
+   \   00000000   426F67757320       DC8 "Bogus DAC value 0x%x"
+   \              444143207661
+   \              6C7565203078
+   \              257800      
+   \   00000015   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ERROR:%s\\n">`:
+   \   00000000   4552524F523A       DC8 "ERROR:%s\012"
+   \              25730A00    
+   \   0000000A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Bogus DQT index %d">`:
+   \   00000000   426F67757320       DC8 "Bogus DQT index %d"
+   \              44515420696E
+   \              646578202564
+   \              00          
+   \   00000013   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Empty JPEG image (DNL...">`:
+   \   00000000   456D70747920       DC8 "Empty JPEG image (DNL not supported)"
+   \              4A5045472069
+   \              6D6167652028
+   \              444E4C206E6F
+   \              742073757070
+   \              6F7274656429
+   \              00          
+   \   00000025   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Read from EMS failed">`:
+   \   00000000   526561642066       DC8 "Read from EMS failed"
+   \              726F6D20454D
+   \              53206661696C
+   \              656400      
+   \   00000015   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Write to EMS failed">`:
+   \   00000000   577269746520       DC8 "Write to EMS failed"
+   \              746F20454D53
+   \              206661696C65
+   \              6400        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Didn\\'t expect more th...">`:
+   \   00000000   4469646E2774       DC8 "Didn't expect more than one scan"
+   \              206578706563
+   \              74206D6F7265
+   \              207468616E20
+   \              6F6E65207363
+   \              616E00      
+   \   00000021   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Input file read error">`:
+   \   00000000   496E70757420       DC8 "Input file read error"
+   \              66696C652072
+   \              656164206572
+   \              726F7200    
+   \   00000016   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Output file write err...">`:
+   \   00000000   4F7574707574       DC8 "Output file write error --- out of disk space?"
+   \              2066696C6520
+   \              777269746520
+   \              6572726F7220
+   \              2D2D2D206F75
+   \              74206F662064
+   \              69736B207370
+   \              6163653F00  
+   \   0000002F   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Fractional sampling n...">`:
+   \   00000000   467261637469       DC8 "Fractional sampling not implemented yet"
+   \              6F6E616C2073
+   \              616D706C696E
+   \              67206E6F7420
+   \              696D706C656D
+   \              656E74656420
+   \              79657400    
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Huffman code size tab...">`:
+   \   00000000   487566666D61       DC8 "Huffman code size table overflow"
+   \              6E20636F6465
+   \              2073697A6520
+   \              7461626C6520
+   \              6F766572666C
+   \              6F7700      
+   \   00000021   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Missing Huffman code ...">`:
+   \   00000000   4D697373696E       DC8 "Missing Huffman code table entry"
+   \              672048756666
+   \              6D616E20636F
+   \              646520746162
+   \              6C6520656E74
+   \              727900      
+   \   00000021   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Maximum supported ima...">`:
+   \   00000000   4D6178696D75       DC8 "Maximum supported image dimension is %u pixels"
+   \              6D2073757070
+   \              6F7274656420
+   \              696D61676520
+   \              64696D656E73
+   \              696F6E206973
+   \              202575207069
+   \              78656C7300  
+   \   0000002F   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Empty input file">`:
+   \   00000000   456D70747920       DC8 "Empty input file"
+   \              696E70757420
+   \              66696C6500  
+   \   00000011   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Premature end of inpu...">`:
+   \   00000000   5072656D6174       DC8 "Premature end of input file"
+   \              75726520656E
+   \              64206F662069
+   \              6E7075742066
+   \              696C6500    
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Cannot transcode due ...">`:
+   \   00000000   43616E6E6F74       DC8 43H, 61H, 6EH, 6EH, 6FH, 74H, 20H, 74H
+   \              2074        
+   \   00000008   72616E73636F       DC8 72H, 61H, 6EH, 73H, 63H, 6FH, 64H, 65H
+   \              6465        
+   \   00000010   206475652074       DC8 20H, 64H, 75H, 65H, 20H, 74H, 6FH, 20H
+   \              6F20        
+   \   00000018   6D756C746970       DC8 6DH, 75H, 6CH, 74H, 69H, 70H, 6CH, 65H
+   \              6C65        
+   \   00000020   20757365206F       DC8 20H, 75H, 73H, 65H, 20H, 6FH, 66H, 20H
+   \              6620        
+   \   00000028   7175616E7469       DC8 71H, 75H, 61H, 6EH, 74H, 69H, 7AH, 61H
+   \              7A61        
+   \   00000030   74696F6E2074       DC8 74H, 69H, 6FH, 6EH, 20H, 74H, 61H, 62H
+   \              6162        
+   \   00000038   6C6520256400       DC8 6CH, 65H, 20H, 25H, 64H, 0
+   \   0000003E   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Scan script does not ...">`:
+   \   00000000   5363616E2073       DC8 "Scan script does not transmit all data"
+   \              637269707420
+   \              646F6573206E
+   \              6F7420747261
+   \              6E736D697420
+   \              616C6C206461
+   \              746100      
+   \   00000027   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Invalid color quantiz...">`:
+   \   00000000   496E76616C69       DC8 "Invalid color quantization mode change"
+   \              6420636F6C6F
+   \              72207175616E
+   \              74697A617469
+   \              6F6E206D6F64
+   \              65206368616E
+   \              676500      
+   \   00000027   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Not implemented yet">`:
+   \   00000000   4E6F7420696D       DC8 "Not implemented yet"
+   \              706C656D656E
+   \              746564207965
+   \              7400        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Requested feature was...">`:
+   \   00000000   526571756573       DC8 "Requested feature was omitted at compile time"
+   \              746564206665
+   \              617475726520
+   \              776173206F6D
+   \              697474656420
+   \              617420636F6D
+   \              70696C652074
+   \              696D6500    
+   \   0000002E   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Arithmetic table 0x%0...">`:
+   \   00000000   41726974686D       DC8 "Arithmetic table 0x%02x was not defined"
+   \              657469632074
+   \              61626C652030
+   \              782530327820
+   \              776173206E6F
+   \              742064656669
+   \              6E656400    
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Backing store not sup...">`:
+   \   00000000   4261636B696E       DC8 "Backing store not supported"
+   \              672073746F72
+   \              65206E6F7420
+   \              737570706F72
+   \              74656400    
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Huffman table 0x%02x ...">`:
+   \   00000000   487566666D61       DC8 "Huffman table 0x%02x was not defined"
+   \              6E207461626C
+   \              652030782530
+   \              327820776173
+   \              206E6F742064
+   \              6566696E6564
+   \              00          
+   \   00000025   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "JPEG datastream conta...">`:
+   \   00000000   4A5045472064       DC8 "JPEG datastream contains no image"
+   \              617461737472
+   \              65616D20636F
+   \              6E7461696E73
+   \              206E6F20696D
+   \              61676500    
+   \   00000022   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Quantization table 0x...">`:
+   \   00000000   5175616E7469       DC8 "Quantization table 0x%02x was not defined"
+   \              7A6174696F6E
+   \              207461626C65
+   \              203078253032
+   \              782077617320
+   \              6E6F74206465
+   \              66696E656400
+   \   0000002A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Not a JPEG file: star...">`:
+   \   00000000   4E6F74206120       DC8 "Not a JPEG file: starts with 0x%02x 0x%02x"
+   \              4A5045472066
+   \              696C653A2073
+   \              746172747320
+   \              776974682030
+   \              782530327820
+   \              307825303278
+   \              00          
+   \   0000002B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Insufficient memory (...">`:
+   \   00000000   496E73756666       DC8 "Insufficient memory (case %d)"
+   \              696369656E74
+   \              206D656D6F72
+   \              792028636173
+   \              652025642900
+   \   0000001E   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Cannot quantize more ...">`:
+   \   00000000   43616E6E6F74       DC8 "Cannot quantize more than %d color components"
+   \              207175616E74
+   \              697A65206D6F
+   \              726520746861
+   \              6E2025642063
+   \              6F6C6F722063
+   \              6F6D706F6E65
+   \              6E747300    
+   \   0000002E   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Cannot quantize to fe...">`:
+   \   00000000   43616E6E6F74       DC8 "Cannot quantize to fewer than %d colors"
+   \              207175616E74
+   \              697A6520746F
+   \              206665776572
+   \              207468616E20
+   \              256420636F6C
+   \              6F727300    
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Cannot quantize to mo...">`:
+   \   00000000   43616E6E6F74       DC8 "Cannot quantize to more than %d colors"
+   \              207175616E74
+   \              697A6520746F
+   \              206D6F726520
+   \              7468616E2025
+   \              6420636F6C6F
+   \              727300      
+   \   00000027   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Invalid JPEG file str...">`:
+   \   00000000   496E76616C69       DC8 "Invalid JPEG file structure: two SOF markers"
+   \              64204A504547
+   \              2066696C6520
+   \              737472756374
+   \              7572653A2074
+   \              776F20534F46
+   \              206D61726B65
+   \              727300      
+   \   0000002D   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Invalid JPEG file str...">_1`:
+   \   00000000   496E76616C69       DC8 "Invalid JPEG file structure: missing SOS marker"
+   \              64204A504547
+   \              2066696C6520
+   \              737472756374
+   \              7572653A206D
+   \              697373696E67
+   \              20534F53206D
+   \              61726B657200
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Unsupported JPEG proc...">`:
+   \   00000000   556E73757070       DC8 "Unsupported JPEG process: SOF type 0x%02x"
+   \              6F7274656420
+   \              4A5045472070
+   \              726F63657373
+   \              3A20534F4620
+   \              747970652030
+   \              782530327800
+   \   0000002A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Invalid JPEG file str...">_2`:
+   \   00000000   496E76616C69       DC8 "Invalid JPEG file structure: two SOI markers"
+   \              64204A504547
+   \              2066696C6520
+   \              737472756374
+   \              7572653A2074
+   \              776F20534F49
+   \              206D61726B65
+   \              727300      
+   \   0000002D   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Invalid JPEG file str...">_3`:
+   \   00000000   496E76616C69       DC8 "Invalid JPEG file structure: SOS before SOF"
+   \              64204A504547
+   \              2066696C6520
+   \              737472756374
+   \              7572653A2053
+   \              4F5320626566
+   \              6F726520534F
+   \              4600        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Failed to create temp...">`:
+   \   00000000   4661696C6564       DC8 "Failed to create temporary file %s"
+   \              20746F206372
+   \              656174652074
+   \              656D706F7261
+   \              72792066696C
+   \              6520257300  
+   \   00000023   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Read failed on tempor...">`:
+   \   00000000   526561642066       DC8 "Read failed on temporary file"
+   \              61696C656420
+   \              6F6E2074656D
+   \              706F72617279
+   \              2066696C6500
+   \   0000001E   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Seek failed on tempor...">`:
+   \   00000000   5365656B2066       DC8 "Seek failed on temporary file"
+   \              61696C656420
+   \              6F6E2074656D
+   \              706F72617279
+   \              2066696C6500
+   \   0000001E   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Write failed on tempo...">`:
+   \   00000000   577269746520       DC8 57H, 72H, 69H, 74H, 65H, 20H, 66H, 61H
+   \              6661        
+   \   00000008   696C6564206F       DC8 69H, 6CH, 65H, 64H, 20H, 6FH, 6EH, 20H
+   \              6E20        
+   \   00000010   74656D706F72       DC8 74H, 65H, 6DH, 70H, 6FH, 72H, 61H, 72H
+   \              6172        
+   \   00000018   792066696C65       DC8 79H, 20H, 66H, 69H, 6CH, 65H, 20H, 2DH
+   \              202D        
+   \   00000020   2D2D206F7574       DC8 2DH, 2DH, 20H, 6FH, 75H, 74H, 20H, 6FH
+   \              206F        
+   \   00000028   66206469736B       DC8 66H, 20H, 64H, 69H, 73H, 6BH, 20H, 73H
+   \              2073        
+   \   00000030   706163653F00       DC8 70H, 61H, 63H, 65H, 3FH, 0
+   \   00000036   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Application transferr...">`:
+   \   00000000   4170706C6963       DC8 "Application transferred too few scanlines"
+   \              6174696F6E20
+   \              7472616E7366
+   \              657272656420
+   \              746F6F206665
+   \              77207363616E
+   \              6C696E657300
+   \   0000002A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Unsupported marker ty...">`:
+   \   00000000   556E73757070       DC8 "Unsupported marker type 0x%02x"
+   \              6F7274656420
+   \              6D61726B6572
+   \              207479706520
+   \              307825303278
+   \              00          
+   \   0000001F   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Virtual array control...">`:
+   \   00000000   566972747561       DC8 "Virtual array controller messed up"
+   \              6C2061727261
+   \              7920636F6E74
+   \              726F6C6C6572
+   \              206D65737365
+   \              6420757000  
+   \   00000023   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Image too wide for th...">`:
+   \   00000000   496D61676520       DC8 "Image too wide for this implementation"
+   \              746F6F207769
+   \              646520666F72
+   \              207468697320
+   \              696D706C656D
+   \              656E74617469
+   \              6F6E00      
+   \   00000027   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Read from XMS failed">`:
+   \   00000000   526561642066       DC8 "Read from XMS failed"
+   \              726F6D20584D
+   \              53206661696C
+   \              656400      
+   \   00000015   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Write to XMS failed">`:
+   \   00000000   577269746520       DC8 "Write to XMS failed"
+   \              746F20584D53
+   \              206661696C65
+   \              6400        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Copyright (C) 2009, T...">`:
+   \   00000000   436F70797269       DC8 43H, 6FH, 70H, 79H, 72H, 69H, 67H, 68H
+   \              6768        
+   \   00000008   742028432920       DC8 74H, 20H, 28H, 43H, 29H, 20H, 32H, 30H
+   \              3230        
+   \   00000010   30392C205468       DC8 30H, 39H, 2CH, 20H, 54H, 68H, 6FH, 6DH
+   \              6F6D        
+   \   00000018   617320472E20       DC8 61H, 73H, 20H, 47H, 2EH, 20H, 4CH, 61H
+   \              4C61        
+   \   00000020   6E652C204775       DC8 6EH, 65H, 2CH, 20H, 47H, 75H, 69H, 64H
+   \              6964        
+   \   00000028   6F20566F6C6C       DC8 6FH, 20H, 56H, 6FH, 6CH, 6CH, 62H, 65H
+   \              6265        
+   \   00000030   64696E6700         DC8 64H, 69H, 6EH, 67H, 0
+   \   00000035   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "7  27-Jun-2009">`:
+   \   00000000   37202032372D       DC8 "7  27-Jun-2009"
+   \              4A756E2D3230
+   \              303900      
+   \   0000000F   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Caution: quantization...">`:
+   \   00000000   43617574696F       DC8 43H, 61H, 75H, 74H, 69H, 6FH, 6EH, 3AH
+   \              6E3A        
+   \   00000008   207175616E74       DC8 20H, 71H, 75H, 61H, 6EH, 74H, 69H, 7AH
+   \              697A        
+   \   00000010   6174696F6E20       DC8 61H, 74H, 69H, 6FH, 6EH, 20H, 74H, 61H
+   \              7461        
+   \   00000018   626C65732061       DC8 62H, 6CH, 65H, 73H, 20H, 61H, 72H, 65H
+   \              7265        
+   \   00000020   20746F6F2063       DC8 20H, 74H, 6FH, 6FH, 20H, 63H, 6FH, 61H
+   \              6F61        
+   \   00000028   72736520666F       DC8 72H, 73H, 65H, 20H, 66H, 6FH, 72H, 20H
+   \              7220        
+   \   00000030   626173656C69       DC8 62H, 61H, 73H, 65H, 6CH, 69H, 6EH, 65H
+   \              6E65        
+   \   00000038   204A50454700       DC8 20H, 4AH, 50H, 45H, 47H, 0
+   \   0000003E   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Adobe APP14 marker: v...">`:
+   \   00000000   41646F626520       DC8 41H, 64H, 6FH, 62H, 65H, 20H, 41H, 50H
+   \              4150        
+   \   00000008   503134206D61       DC8 50H, 31H, 34H, 20H, 6DH, 61H, 72H, 6BH
+   \              726B        
+   \   00000010   65723A207665       DC8 65H, 72H, 3AH, 20H, 76H, 65H, 72H, 73H
+   \              7273        
+   \   00000018   696F6E202564       DC8 69H, 6FH, 6EH, 20H, 25H, 64H, 2CH, 20H
+   \              2C20        
+   \   00000020   666C61677320       DC8 66H, 6CH, 61H, 67H, 73H, 20H, 30H, 78H
+   \              3078        
+   \   00000028   253034782030       DC8 25H, 30H, 34H, 78H, 20H, 30H, 78H, 25H
+   \              7825        
+   \   00000030   3034782C2074       DC8 30H, 34H, 78H, 2CH, 20H, 74H, 72H, 61H
+   \              7261        
+   \   00000038   6E73666F726D       DC8 6EH, 73H, 66H, 6FH, 72H, 6DH, 20H, 25H
+   \              2025        
+   \   00000040   6400               DC8 64H, 0
+   \   00000042   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Unknown APP0 marker (...">`:
+   \   00000000   556E6B6E6F77       DC8 "Unknown APP0 marker (not JFIF), length %u"
+   \              6E2041505030
+   \              206D61726B65
+   \              7220286E6F74
+   \              204A46494629
+   \              2C206C656E67
+   \              746820257500
+   \   0000002A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Unknown APP14 marker ...">`:
+   \   00000000   556E6B6E6F77       DC8 "Unknown APP14 marker (not Adobe), length %u"
+   \              6E2041505031
+   \              34206D61726B
+   \              657220286E6F
+   \              742041646F62
+   \              65292C206C65
+   \              6E6774682025
+   \              7500        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Define Arithmetic Tab...">`:
+   \   00000000   446566696E65       DC8 "Define Arithmetic Table 0x%02x: 0x%02x"
+   \              204172697468
+   \              6D6574696320
+   \              5461626C6520
+   \              307825303278
+   \              3A2030782530
+   \              327800      
+   \   00000027   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Define Huffman Table ...">`:
+   \   00000000   446566696E65       DC8 "Define Huffman Table 0x%02x"
+   \              20487566666D
+   \              616E20546162
+   \              6C6520307825
+   \              30327800    
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Define Quantization T...">`:
+   \   00000000   446566696E65       DC8 "Define Quantization Table %d  precision %d"
+   \              205175616E74
+   \              697A6174696F
+   \              6E205461626C
+   \              652025642020
+   \              707265636973
+   \              696F6E202564
+   \              00          
+   \   0000002B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Define Restart Interv...">`:
+   \   00000000   446566696E65       DC8 "Define Restart Interval %u"
+   \              205265737461
+   \              727420496E74
+   \              657276616C20
+   \              257500      
+   \   0000001B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Freed EMS handle %u">`:
+   \   00000000   467265656420       DC8 "Freed EMS handle %u"
+   \              454D53206861
+   \              6E646C652025
+   \              7500        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Obtained EMS handle %u">`:
+   \   00000000   4F627461696E       DC8 "Obtained EMS handle %u"
+   \              656420454D53
+   \              2068616E646C
+   \              6520257500  
+   \   00000017   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "End Of Image">`:
+   \   00000000   456E64204F66       DC8 "End Of Image"
+   \              20496D616765
+   \              00          
+   \   0000000D   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "        %3d %3d %3d %...">`:
+   \   00000000   202020202020       DC8 "        %3d %3d %3d %3d %3d %3d %3d %3d"
+   \              202025336420
+   \              253364202533
+   \              642025336420
+   \              253364202533
+   \              642025336420
+   \              25336400    
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "JFIF APP0 marker: ver...">`:
+   \   00000000   4A4649462041       DC8 4AH, 46H, 49H, 46H, 20H, 41H, 50H, 50H
+   \              5050        
+   \   00000008   30206D61726B       DC8 30H, 20H, 6DH, 61H, 72H, 6BH, 65H, 72H
+   \              6572        
+   \   00000010   3A2076657273       DC8 3AH, 20H, 76H, 65H, 72H, 73H, 69H, 6FH
+   \              696F        
+   \   00000018   6E2025642E25       DC8 6EH, 20H, 25H, 64H, 2EH, 25H, 30H, 32H
+   \              3032        
+   \   00000020   642C2064656E       DC8 64H, 2CH, 20H, 64H, 65H, 6EH, 73H, 69H
+   \              7369        
+   \   00000028   747920256478       DC8 74H, 79H, 20H, 25H, 64H, 78H, 25H, 64H
+   \              2564        
+   \   00000030   2020256400         DC8 20H, 20H, 25H, 64H, 0
+   \   00000035   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Warning: thumbnail im...">`:
+   \   00000000   5761726E696E       DC8 57H, 61H, 72H, 6EH, 69H, 6EH, 67H, 3AH
+   \              673A        
+   \   00000008   207468756D62       DC8 20H, 74H, 68H, 75H, 6DH, 62H, 6EH, 61H
+   \              6E61        
+   \   00000010   696C20696D61       DC8 69H, 6CH, 20H, 69H, 6DH, 61H, 67H, 65H
+   \              6765        
+   \   00000018   2073697A6520       DC8 20H, 73H, 69H, 7AH, 65H, 20H, 64H, 6FH
+   \              646F        
+   \   00000020   6573206E6F74       DC8 65H, 73H, 20H, 6EH, 6FH, 74H, 20H, 6DH
+   \              206D        
+   \   00000028   617463682064       DC8 61H, 74H, 63H, 68H, 20H, 64H, 61H, 74H
+   \              6174        
+   \   00000030   61206C656E67       DC8 61H, 20H, 6CH, 65H, 6EH, 67H, 74H, 68H
+   \              7468        
+   \   00000038   20257500           DC8 20H, 25H, 75H, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "JFIF extension marker...">`:
+   \   00000000   4A4649462065       DC8 "JFIF extension marker: type 0x%02x, length %u"
+   \              7874656E7369
+   \              6F6E206D6172
+   \              6B65723A2074
+   \              797065203078
+   \              253032782C20
+   \              6C656E677468
+   \              20257500    
+   \   0000002E   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "    with %d x %d thum...">`:
+   \   00000000   202020207769       DC8 "    with %d x %d thumbnail image"
+   \              746820256420
+   \              782025642074
+   \              68756D626E61
+   \              696C20696D61
+   \              676500      
+   \   00000021   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Miscellaneous marker ...">`:
+   \   00000000   4D697363656C       DC8 "Miscellaneous marker 0x%02x, length %u"
+   \              6C616E656F75
+   \              73206D61726B
+   \              657220307825
+   \              3032782C206C
+   \              656E67746820
+   \              257500      
+   \   00000027   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Unexpected marker 0x%02x">`:
+   \   00000000   556E65787065       DC8 "Unexpected marker 0x%02x"
+   \              63746564206D
+   \              61726B657220
+   \              307825303278
+   \              00          
+   \   00000019   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "        %4u %4u %4u %...">`:
+   \   00000000   202020202020       DC8 "        %4u %4u %4u %4u %4u %4u %4u %4u"
+   \              202025347520
+   \              253475202534
+   \              752025347520
+   \              253475202534
+   \              752025347520
+   \              25347500    
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Quantizing to %d = %d...">`:
+   \   00000000   5175616E7469       DC8 "Quantizing to %d = %d*%d*%d colors"
+   \              7A696E672074
+   \              6F202564203D
+   \              2025642A2564
+   \              2A256420636F
+   \              6C6F727300  
+   \   00000023   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Quantizing to %d colors">`:
+   \   00000000   5175616E7469       DC8 "Quantizing to %d colors"
+   \              7A696E672074
+   \              6F2025642063
+   \              6F6C6F727300
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Selected %d colors fo...">`:
+   \   00000000   53656C656374       DC8 "Selected %d colors for quantization"
+   \              656420256420
+   \              636F6C6F7273
+   \              20666F722071
+   \              75616E74697A
+   \              6174696F6E00
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "At marker 0x%02x, rec...">`:
+   \   00000000   4174206D6172       DC8 "At marker 0x%02x, recovery action %d"
+   \              6B6572203078
+   \              253032782C20
+   \              7265636F7665
+   \              727920616374
+   \              696F6E202564
+   \              00          
+   \   00000025   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "RST%d">`:
+   \   00000000   525354256400       DC8 "RST%d"
+   \   00000006   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Smoothing not support...">`:
+   \   00000000   536D6F6F7468       DC8 53H, 6DH, 6FH, 6FH, 74H, 68H, 69H, 6EH
+   \              696E        
+   \   00000008   67206E6F7420       DC8 67H, 20H, 6EH, 6FH, 74H, 20H, 73H, 75H
+   \              7375        
+   \   00000010   70706F727465       DC8 70H, 70H, 6FH, 72H, 74H, 65H, 64H, 20H
+   \              6420        
+   \   00000018   77697468206E       DC8 77H, 69H, 74H, 68H, 20H, 6EH, 6FH, 6EH
+   \              6F6E        
+   \   00000020   7374616E6461       DC8 73H, 74H, 61H, 6EH, 64H, 61H, 72H, 64H
+   \              7264        
+   \   00000028   2073616D706C       DC8 20H, 73H, 61H, 6DH, 70H, 6CH, 69H, 6EH
+   \              696E        
+   \   00000030   672072617469       DC8 67H, 20H, 72H, 61H, 74H, 69H, 6FH, 73H
+   \              6F73        
+   \   00000038   00                 DC8 0
+   \   00000039   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Start Of Frame 0x%02x...">`:
+   \   00000000   537461727420       DC8 53H, 74H, 61H, 72H, 74H, 20H, 4FH, 66H
+   \              4F66        
+   \   00000008   204672616D65       DC8 20H, 46H, 72H, 61H, 6DH, 65H, 20H, 30H
+   \              2030        
+   \   00000010   78253032783A       DC8 78H, 25H, 30H, 32H, 78H, 3AH, 20H, 77H
+   \              2077        
+   \   00000018   696474683D25       DC8 69H, 64H, 74H, 68H, 3DH, 25H, 75H, 2CH
+   \              752C        
+   \   00000020   206865696768       DC8 20H, 68H, 65H, 69H, 67H, 68H, 74H, 3DH
+   \              743D        
+   \   00000028   25752C20636F       DC8 25H, 75H, 2CH, 20H, 63H, 6FH, 6DH, 70H
+   \              6D70        
+   \   00000030   6F6E656E7473       DC8 6FH, 6EH, 65H, 6EH, 74H, 73H, 3DH, 25H
+   \              3D25        
+   \   00000038   6400               DC8 64H, 0
+   \   0000003A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "    Component %d: %dh...">`:
+   \   00000000   20202020436F       DC8 "    Component %d: %dhx%dv q=%d"
+   \              6D706F6E656E
+   \              742025643A20
+   \              256468782564
+   \              7620713D2564
+   \              00          
+   \   0000001F   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Start of Image">`:
+   \   00000000   537461727420       DC8 "Start of Image"
+   \              6F6620496D61
+   \              676500      
+   \   0000000F   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Start Of Scan: %d com...">`:
+   \   00000000   537461727420       DC8 "Start Of Scan: %d components"
+   \              4F6620536361
+   \              6E3A20256420
+   \              636F6D706F6E
+   \              656E747300  
+   \   0000001D   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "    Component %d: dc=...">`:
+   \   00000000   20202020436F       DC8 "    Component %d: dc=%d ac=%d"
+   \              6D706F6E656E
+   \              742025643A20
+   \              64633D256420
+   \              61633D256400
+   \   0000001E   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "  Ss=%d, Se=%d, Ah=%d...">`:
+   \   00000000   202053733D25       DC8 "  Ss=%d, Se=%d, Ah=%d, Al=%d"
+   \              642C2053653D
+   \              25642C204168
+   \              3D25642C2041
+   \              6C3D256400  
+   \   0000001D   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Closed temporary file %s">`:
+   \   00000000   436C6F736564       DC8 "Closed temporary file %s"
+   \              2074656D706F
+   \              726172792066
+   \              696C65202573
+   \              00          
+   \   00000019   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Opened temporary file %s">`:
+   \   00000000   4F70656E6564       DC8 "Opened temporary file %s"
+   \              2074656D706F
+   \              726172792066
+   \              696C65202573
+   \              00          
+   \   00000019   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "JFIF extension marker...">_1`:
+   \   00000000   4A4649462065       DC8 4AH, 46H, 49H, 46H, 20H, 65H, 78H, 74H
+   \              7874        
+   \   00000008   656E73696F6E       DC8 65H, 6EH, 73H, 69H, 6FH, 6EH, 20H, 6DH
+   \              206D        
+   \   00000010   61726B65723A       DC8 61H, 72H, 6BH, 65H, 72H, 3AH, 20H, 4AH
+   \              204A        
+   \   00000018   5045472D636F       DC8 50H, 45H, 47H, 2DH, 63H, 6FH, 6DH, 70H
+   \              6D70        
+   \   00000020   726573736564       DC8 72H, 65H, 73H, 73H, 65H, 64H, 20H, 74H
+   \              2074        
+   \   00000028   68756D626E61       DC8 68H, 75H, 6DH, 62H, 6EH, 61H, 69H, 6CH
+   \              696C        
+   \   00000030   20696D616765       DC8 20H, 69H, 6DH, 61H, 67H, 65H, 2CH, 20H
+   \              2C20        
+   \   00000038   6C656E677468       DC8 6CH, 65H, 6EH, 67H, 74H, 68H, 20H, 25H
+   \              2025        
+   \   00000040   7500               DC8 75H, 0
+   \   00000042   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "JFIF extension marker...">_2`:
+   \   00000000   4A4649462065       DC8 4AH, 46H, 49H, 46H, 20H, 65H, 78H, 74H
+   \              7874        
+   \   00000008   656E73696F6E       DC8 65H, 6EH, 73H, 69H, 6FH, 6EH, 20H, 6DH
+   \              206D        
+   \   00000010   61726B65723A       DC8 61H, 72H, 6BH, 65H, 72H, 3AH, 20H, 70H
+   \              2070        
+   \   00000018   616C65747465       DC8 61H, 6CH, 65H, 74H, 74H, 65H, 20H, 74H
+   \              2074        
+   \   00000020   68756D626E61       DC8 68H, 75H, 6DH, 62H, 6EH, 61H, 69H, 6CH
+   \              696C        
+   \   00000028   20696D616765       DC8 20H, 69H, 6DH, 61H, 67H, 65H, 2CH, 20H
+   \              2C20        
+   \   00000030   6C656E677468       DC8 6CH, 65H, 6EH, 67H, 74H, 68H, 20H, 25H
+   \              2025        
+   \   00000038   7500               DC8 75H, 0
+   \   0000003A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "JFIF extension marker...">_3`:
+   \   00000000   4A4649462065       DC8 4AH, 46H, 49H, 46H, 20H, 65H, 78H, 74H
+   \              7874        
+   \   00000008   656E73696F6E       DC8 65H, 6EH, 73H, 69H, 6FH, 6EH, 20H, 6DH
+   \              206D        
+   \   00000010   61726B65723A       DC8 61H, 72H, 6BH, 65H, 72H, 3AH, 20H, 52H
+   \              2052        
+   \   00000018   474220746875       DC8 47H, 42H, 20H, 74H, 68H, 75H, 6DH, 62H
+   \              6D62        
+   \   00000020   6E61696C2069       DC8 6EH, 61H, 69H, 6CH, 20H, 69H, 6DH, 61H
+   \              6D61        
+   \   00000028   67652C206C65       DC8 67H, 65H, 2CH, 20H, 6CH, 65H, 6EH, 67H
+   \              6E67        
+   \   00000030   746820257500       DC8 74H, 68H, 20H, 25H, 75H, 0
+   \   00000036   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Unrecognized componen...">`:
+   \   00000000   556E7265636F       DC8 55H, 6EH, 72H, 65H, 63H, 6FH, 67H, 6EH
+   \              676E        
+   \   00000008   697A65642063       DC8 69H, 7AH, 65H, 64H, 20H, 63H, 6FH, 6DH
+   \              6F6D        
+   \   00000010   706F6E656E74       DC8 70H, 6FH, 6EH, 65H, 6EH, 74H, 20H, 49H
+   \              2049        
+   \   00000018   447320256420       DC8 44H, 73H, 20H, 25H, 64H, 20H, 25H, 64H
+   \              2564        
+   \   00000020   2025642C2061       DC8 20H, 25H, 64H, 2CH, 20H, 61H, 73H, 73H
+   \              7373        
+   \   00000028   756D696E6720       DC8 75H, 6DH, 69H, 6EH, 67H, 20H, 59H, 43H
+   \              5943        
+   \   00000030   62437200           DC8 62H, 43H, 72H, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Freed XMS handle %u">`:
+   \   00000000   467265656420       DC8 "Freed XMS handle %u"
+   \              584D53206861
+   \              6E646C652025
+   \              7500        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Obtained XMS handle %u">`:
+   \   00000000   4F627461696E       DC8 "Obtained XMS handle %u"
+   \              656420584D53
+   \              2068616E646C
+   \              6520257500  
+   \   00000017   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Unknown Adobe color t...">`:
+   \   00000000   556E6B6E6F77       DC8 "Unknown Adobe color transform code %d"
+   \              6E2041646F62
+   \              6520636F6C6F
+   \              72207472616E
+   \              73666F726D20
+   \              636F64652025
+   \              6400        
+   \   00000026   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Corrupt JPEG data: ba...">`:
+   \   00000000   436F72727570       DC8 "Corrupt JPEG data: bad arithmetic code"
+   \              74204A504547
+   \              20646174613A
+   \              206261642061
+   \              726974686D65
+   \              74696320636F
+   \              646500      
+   \   00000027   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Inconsistent progress...">`:
+   \   00000000   496E636F6E73       DC8 49H, 6EH, 63H, 6FH, 6EH, 73H, 69H, 73H
+   \              6973        
+   \   00000008   74656E742070       DC8 74H, 65H, 6EH, 74H, 20H, 70H, 72H, 6FH
+   \              726F        
+   \   00000010   677265737369       DC8 67H, 72H, 65H, 73H, 73H, 69H, 6FH, 6EH
+   \              6F6E        
+   \   00000018   207365717565       DC8 20H, 73H, 65H, 71H, 75H, 65H, 6EH, 63H
+   \              6E63        
+   \   00000020   6520666F7220       DC8 65H, 20H, 66H, 6FH, 72H, 20H, 63H, 6FH
+   \              636F        
+   \   00000028   6D706F6E656E       DC8 6DH, 70H, 6FH, 6EH, 65H, 6EH, 74H, 20H
+   \              7420        
+   \   00000030   256420636F65       DC8 25H, 64H, 20H, 63H, 6FH, 65H, 66H, 66H
+   \              6666        
+   \   00000038   696369656E74       DC8 69H, 63H, 69H, 65H, 6EH, 74H, 20H, 25H
+   \              2025        
+   \   00000040   6400               DC8 64H, 0
+   \   00000042   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Corrupt JPEG data: %u...">`:
+   \   00000000   436F72727570       DC8 43H, 6FH, 72H, 72H, 75H, 70H, 74H, 20H
+   \              7420        
+   \   00000008   4A5045472064       DC8 4AH, 50H, 45H, 47H, 20H, 64H, 61H, 74H
+   \              6174        
+   \   00000010   613A20257520       DC8 61H, 3AH, 20H, 25H, 75H, 20H, 65H, 78H
+   \              6578        
+   \   00000018   7472616E656F       DC8 74H, 72H, 61H, 6EH, 65H, 6FH, 75H, 73H
+   \              7573        
+   \   00000020   206279746573       DC8 20H, 62H, 79H, 74H, 65H, 73H, 20H, 62H
+   \              2062        
+   \   00000028   65666F726520       DC8 65H, 66H, 6FH, 72H, 65H, 20H, 6DH, 61H
+   \              6D61        
+   \   00000030   726B65722030       DC8 72H, 6BH, 65H, 72H, 20H, 30H, 78H, 25H
+   \              7825        
+   \   00000038   30327800           DC8 30H, 32H, 78H, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Corrupt JPEG data: pr...">`:
+   \   00000000   436F72727570       DC8 "Corrupt JPEG data: premature end of data segment"
+   \              74204A504547
+   \              20646174613A
+   \              207072656D61
+   \              747572652065
+   \              6E64206F6620
+   \              646174612073
+   \              65676D656E74
+   \              00          
+   \   00000031   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Corrupt JPEG data: ba...">_1`:
+   \   00000000   436F72727570       DC8 "Corrupt JPEG data: bad Huffman code"
+   \              74204A504547
+   \              20646174613A
+   \              206261642048
+   \              7566666D616E
+   \              20636F646500
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Warning: unknown JFIF...">`:
+   \   00000000   5761726E696E       DC8 "Warning: unknown JFIF revision number %d.%02d"
+   \              673A20756E6B
+   \              6E6F776E204A
+   \              464946207265
+   \              766973696F6E
+   \              206E756D6265
+   \              722025642E25
+   \              30326400    
+   \   0000002E   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Premature end of JPEG...">`:
+   \   00000000   5072656D6174       DC8 "Premature end of JPEG file"
+   \              75726520656E
+   \              64206F66204A
+   \              504547206669
+   \              6C6500      
+   \   0000001B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Corrupt JPEG data: fo...">`:
+   \   00000000   436F72727570       DC8 43H, 6FH, 72H, 72H, 75H, 70H, 74H, 20H
+   \              7420        
+   \   00000008   4A5045472064       DC8 4AH, 50H, 45H, 47H, 20H, 64H, 61H, 74H
+   \              6174        
+   \   00000010   613A20666F75       DC8 61H, 3AH, 20H, 66H, 6FH, 75H, 6EH, 64H
+   \              6E64        
+   \   00000018   206D61726B65       DC8 20H, 6DH, 61H, 72H, 6BH, 65H, 72H, 20H
+   \              7220        
+   \   00000020   307825303278       DC8 30H, 78H, 25H, 30H, 32H, 78H, 20H, 69H
+   \              2069        
+   \   00000028   6E7374656164       DC8 6EH, 73H, 74H, 65H, 61H, 64H, 20H, 6FH
+   \              206F        
+   \   00000030   662052535425       DC8 66H, 20H, 52H, 53H, 54H, 25H, 64H, 0
+   \              6400        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Invalid SOS parameter...">`:
+   \   00000000   496E76616C69       DC8 "Invalid SOS parameters for sequential JPEG"
+   \              6420534F5320
+   \              706172616D65
+   \              746572732066
+   \              6F7220736571
+   \              75656E746961
+   \              6C204A504547
+   \              00          
+   \   0000002B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Application transferr...">_1`:
+   \   00000000   4170706C6963       DC8 "Application transferred too many scanlines"
+   \              6174696F6E20
+   \              7472616E7366
+   \              657272656420
+   \              746F6F206D61
+   \              6E7920736361
+   \              6E6C696E6573
+   \              00          
+   \   0000002B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "EXIT_FAILURE">`:
+   \   00000000   455849545F46       DC8 "EXIT_FAILURE"
+   \              41494C555245
+   \              00          
+   \   0000000D   000000             DC8 0, 0, 0
+
+   Maximum stack usage in bytes:
+
+     Function        CSTACK
+     --------        ------
+     emit_message        8
+     error_exit          8
+     format_message     32
+     jpeg_std_error      0
+     output_message    208
+     reset_error_mgr     0
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     jpeg_std_message_table          512
+     error_exit                       44
+     output_message                   68
+     emit_message                     88
+     format_message                  220
+     reset_error_mgr                  20
+     jpeg_std_error                  112
+     ?<Constant "Invalid memory pool c...">
+                                      28
+     ?<Constant "Bogus message code %d">
+                                      24
+     ?<Constant "ALIGN_TYPE is wrong, ...">
+                                      32
+     ?<Constant "MAX_ALLOC_CHUNK is wr...">
+                                      40
+     ?<Constant "Bogus buffer control ...">
+                                      28
+     ?<Constant "Invalid component ID ...">
+                                      32
+     ?<Constant "Invalid crop request">
+                                      24
+     ?<Constant "DCT coefficient out o...">
+                                      32
+     ?<Constant "DCT scaled block size...">
+                                      44
+     ?<Constant "Component index %d: m...">
+                                      64
+     ?<Constant "Bogus Huffman table d...">
+                                      32
+     ?<Constant "Bogus input colorspace">
+                                      24
+     ?<Constant "Bogus JPEG colorspace">
+                                      24
+     ?<Constant "Bogus marker length">
+                                      20
+     ?<Constant "Wrong JPEG library ve...">
+                                      64
+     ?<Constant "Sampling factors too ...">
+                                      48
+     ?<Constant "Bogus DHT index %d">
+                                      20
+     ?<Constant "Unsupported JPEG data...">
+                                      36
+     ?<Constant "Invalid progressive p...">
+                                      56
+     ?<Constant "Invalid progressive p...">_1
+                                      56
+     ?<Constant "Bogus sampling factors">
+                                      24
+     ?<Constant "Invalid scan script a...">
+                                      32
+     ?<Constant "Improper call to JPEG...">
+                                      44
+     ?<Constant "JPEG parameter struct...">
+                                      80
+     ?<Constant "Bogus virtual array a...">
+                                      28
+     ?<Constant "Buffer passed to JPEG...">
+                                      44
+     ?<Constant "Suspension not allowe...">
+                                      28
+     ?<Constant "CCIR601 sampling not ...">
+                                      40
+     ?<Constant "Too many color compon...">
+                                      40
+     ?<Constant "Unsupported color con...">
+                                      40
+     ?<Constant "Bogus DAC index %d">
+                                      20
+     ?<Constant "Bogus DAC value 0x%x">
+                                      24
+     ?<Constant "ERROR:%s\n">         12
+     ?<Constant "Bogus DQT index %d">
+                                      20
+     ?<Constant "Empty JPEG image (DNL...">
+                                      40
+     ?<Constant "Read from EMS failed">
+                                      24
+     ?<Constant "Write to EMS failed">
+                                      20
+     ?<Constant "Didn\'t expect more th...">
+                                      36
+     ?<Constant "Input file read error">
+                                      24
+     ?<Constant "Output file write err...">
+                                      48
+     ?<Constant "Fractional sampling n...">
+                                      40
+     ?<Constant "Huffman code size tab...">
+                                      36
+     ?<Constant "Missing Huffman code ...">
+                                      36
+     ?<Constant "Maximum supported ima...">
+                                      48
+     ?<Constant "Empty input file">   20
+     ?<Constant "Premature end of inpu...">
+                                      28
+     ?<Constant "Cannot transcode due ...">
+                                      64
+     ?<Constant "Scan script does not ...">
+                                      40
+     ?<Constant "Invalid color quantiz...">
+                                      40
+     ?<Constant "Not implemented yet">
+                                      20
+     ?<Constant "Requested feature was...">
+                                      48
+     ?<Constant "Arithmetic table 0x%0...">
+                                      40
+     ?<Constant "Backing store not sup...">
+                                      28
+     ?<Constant "Huffman table 0x%02x ...">
+                                      40
+     ?<Constant "JPEG datastream conta...">
+                                      36
+     ?<Constant "Quantization table 0x...">
+                                      44
+     ?<Constant "Not a JPEG file: star...">
+                                      44
+     ?<Constant "Insufficient memory (...">
+                                      32
+     ?<Constant "Cannot quantize more ...">
+                                      48
+     ?<Constant "Cannot quantize to fe...">
+                                      40
+     ?<Constant "Cannot quantize to mo...">
+                                      40
+     ?<Constant "Invalid JPEG file str...">
+                                      48
+     ?<Constant "Invalid JPEG file str...">_1
+                                      48
+     ?<Constant "Unsupported JPEG proc...">
+                                      44
+     ?<Constant "Invalid JPEG file str...">_2
+                                      48
+     ?<Constant "Invalid JPEG file str...">_3
+                                      44
+     ?<Constant "Failed to create temp...">
+                                      36
+     ?<Constant "Read failed on tempor...">
+                                      32
+     ?<Constant "Seek failed on tempor...">
+                                      32
+     ?<Constant "Write failed on tempo...">
+                                      56
+     ?<Constant "Application transferr...">
+                                      44
+     ?<Constant "Unsupported marker ty...">
+                                      32
+     ?<Constant "Virtual array control...">
+                                      36
+     ?<Constant "Image too wide for th...">
+                                      40
+     ?<Constant "Read from XMS failed">
+                                      24
+     ?<Constant "Write to XMS failed">
+                                      20
+     ?<Constant "Copyright (C) 2009, T...">
+                                      56
+     ?<Constant "7  27-Jun-2009">     16
+     ?<Constant "Caution: quantization...">
+                                      64
+     ?<Constant "Adobe APP14 marker: v...">
+                                      68
+     ?<Constant "Unknown APP0 marker (...">
+                                      44
+     ?<Constant "Unknown APP14 marker ...">
+                                      44
+     ?<Constant "Define Arithmetic Tab...">
+                                      40
+     ?<Constant "Define Huffman Table ...">
+                                      28
+     ?<Constant "Define Quantization T...">
+                                      44
+     ?<Constant "Define Restart Interv...">
+                                      28
+     ?<Constant "Freed EMS handle %u">
+                                      20
+     ?<Constant "Obtained EMS handle %u">
+                                      24
+     ?<Constant "End Of Image">       16
+     ?<Constant "        %3d %3d %3d %...">
+                                      40
+     ?<Constant "JFIF APP0 marker: ver...">
+                                      56
+     ?<Constant "Warning: thumbnail im...">
+                                      60
+     ?<Constant "JFIF extension marker...">
+                                      48
+     ?<Constant "    with %d x %d thum...">
+                                      36
+     ?<Constant "Miscellaneous marker ...">
+                                      40
+     ?<Constant "Unexpected marker 0x%02x">
+                                      28
+     ?<Constant "        %4u %4u %4u %...">
+                                      40
+     ?<Constant "Quantizing to %d = %d...">
+                                      36
+     ?<Constant "Quantizing to %d colors">
+                                      24
+     ?<Constant "Selected %d colors fo...">
+                                      36
+     ?<Constant "At marker 0x%02x, rec...">
+                                      40
+     ?<Constant "RST%d">               8
+     ?<Constant "Smoothing not support...">
+                                      60
+     ?<Constant "Start Of Frame 0x%02x...">
+                                      60
+     ?<Constant "    Component %d: %dh...">
+                                      32
+     ?<Constant "Start of Image">     16
+     ?<Constant "Start Of Scan: %d com...">
+                                      32
+     ?<Constant "    Component %d: dc=...">
+                                      32
+     ?<Constant "  Ss=%d, Se=%d, Ah=%d...">
+                                      32
+     ?<Constant "Closed temporary file %s">
+                                      28
+     ?<Constant "Opened temporary file %s">
+                                      28
+     ?<Constant "JFIF extension marker...">_1
+                                      68
+     ?<Constant "JFIF extension marker...">_2
+                                      60
+     ?<Constant "JFIF extension marker...">_3
+                                      56
+     ?<Constant "Unrecognized componen...">
+                                      52
+     ?<Constant "Freed XMS handle %u">
+                                      20
+     ?<Constant "Obtained XMS handle %u">
+                                      24
+     ?<Constant "Unknown Adobe color t...">
+                                      40
+     ?<Constant "Corrupt JPEG data: ba...">
+                                      40
+     ?<Constant "Inconsistent progress...">
+                                      68
+     ?<Constant "Corrupt JPEG data: %u...">
+                                      60
+     ?<Constant "Corrupt JPEG data: pr...">
+                                      52
+     ?<Constant "Corrupt JPEG data: ba...">_1
+                                      36
+     ?<Constant "Warning: unknown JFIF...">
+                                      48
+     ?<Constant "Premature end of JPEG...">
+                                      28
+     ?<Constant "Corrupt JPEG data: fo...">
+                                      56
+     ?<Constant "Invalid SOS parameter...">
+                                      44
+     ?<Constant "Application transferr...">_1
+                                      44
+     ?<Constant "EXIT_FAILURE">       16
+      Others                          48
+
+ 
+   600 bytes in segment CODE
+ 5 420 bytes in segment DATA_C
+ 
+   552 bytes of CODE  memory (+ 48 bytes shared)
+ 5 420 bytes of CONST memory
+
+Errors: none
+Warnings: none

@@ -1,0 +1,1449 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    07/Jul/2010  13:09:19 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\splayer\FM.c                                  #
+#    Command line    =  C:\arm\splayer\FM.c -D NEWSGOLD -D ELKA -D OBS -lC   #
+#                       C:\arm\splayer\Release_ELKA\List\ -o                 #
+#                       C:\arm\splayer\Release_ELKA\Obj\ -s9 --no_unroll     #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\splayer\Release_ELKA\List\FM.lst              #
+#    Object file     =  C:\arm\splayer\Release_ELKA\Obj\FM.r79               #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\splayer\FM.c
+      1          #include "../inc/swilib.h"
+      2          #include "../inc/stdbool.h"
+      3          #include "main.h"
+      4          #include "FM.h"
+      5          #include "langpack.h"
+      6          #include "playlist.h"
+      7          
+      8          
+      9          typedef struct
+     10          {
+     11            GUI gui;
+     12          }SHOW_FM_GUI;
+     13          
+     14          typedef struct
+     15          {
+     16            CSM_RAM csm;
+     17            int gui_id;
+     18          }SHOW_FM_CSM;
+     19          extern void kill_data(void *p, void (*func_p)(void *));
+     20          
+     21          #pragma inline
+     22          void patch_rect(RECT*rc,int x,int y, int x2, int y2)
+     23          {
+     24            rc->x=x;
+     25            rc->y=y;
+     26            rc->x2=x2;
+     27            rc->y2=y2;
+     28          }
+     29          //////////////////////////Переменные//////////////////////////////
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     30          WSHDR* Files[TCFMlines];   // Массив путей к файлам/папкам   AAA
+   \                     Files:
+   \   00000000                      DS8 1024
+     31          extern const char PIC_DIR[];
+     32          extern const char MUSIC[];
+     33          //extern char COLOR_BG[4];
+     34          extern const unsigned int SHOW_NAMES;
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     35          int MarkLines[TCFMlines];  // Массив-маркер для выделения файлов   AAA
+   \                     MarkLines:
+   \   00000000                      DS8 1024
+
+   \                                 In segment DATA_I, align 4, align-sorted
+     36          int CurFile=1;       // Текущий элемент   AAA
+   \                     CurFile:
+   \   00000000                      DS8 4
+   \   00000004                      REQUIRE `?<Initializer for CurFile>`
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     37          unsigned int TCFM=0; // Количество элементов   AAA
+   \                     TCFM:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     38          char nowpath[128];
+   \                     nowpath:
+   \   00000000                      DS8 128
+     39          extern unsigned short ShowNamesNoConst;
+     40          extern bool FM_o;
+     41          extern const char p_3s[];
+     42          extern char COLOR[ncolor][4];
+     43          //////////////////////////Переменные//////////////////////////////
+     44          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     45          void PastFile(WSHDR *p, unsigned short i)
+     46          {
+   \                     PastFile:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+     47            if(CurFile==TCFMlines-1) {ShowMSG(1,(int)lgpData[LGP_eoPL]); return;}
+   \   00000004   ........           LDR      R5,??DataTable20  ;; CurFile
+   \   00000008   0140A0E1           MOV      R4,R1
+   \   0000000C   0070A0E1           MOV      R7,R0
+   \   00000010   000095E5           LDR      R0,[R5, #+0]
+   \   00000014   FF0050E3           CMP      R0,#+255
+   \   00000018   0400001A           BNE      ??PastFile_0
+   \   0000001C   48009FE5           LDR      R0,??PastFile_1  ;; lgpData + 152
+   \   00000020   001090E5           LDR      R1,[R0, #+0]
+   \   00000024   0100A0E3           MOV      R0,#+1
+   \   00000028   480100EF           SWI      +328
+   \   0000002C   F080BDE8           POP      {R4-R7,PC}
+     48            Files[TCFM+1]=AllocWS(256);
+   \                     ??PastFile_0:
+   \   00000030   ........           LDR      R6,??DataTable16  ;; TCFM
+   \   00000034   400FA0E3           MOV      R0,#+256
+   \   00000038   250100EF           SWI      +293
+   \   0000003C   001096E5           LDR      R1,[R6, #+0]
+   \   00000040   ........           LDR      R2,??DataTable17  ;; Files
+   \   00000044   012182E0           ADD      R2,R2,R1, LSL #+2
+   \   00000048   040082E5           STR      R0,[R2, #+4]
+     49            wstrcpy(Files[TCFM+1],p);
+   \   0000004C   0710A0E1           MOV      R1,R7
+   \   00000050   1F0100EF           SWI      +287
+     50            TCFM++;
+   \   00000054   000096E5           LDR      R0,[R6, #+0]
+     51            if(i) {CurFile=TCFM;}
+   \   00000058   000054E3           CMP      R4,#+0
+   \   0000005C   010080E2           ADD      R0,R0,#+1
+   \   00000060   000086E5           STR      R0,[R6, #+0]
+   \   00000064   00008515           STRNE    R0,[R5, #+0]
+   \   00000068   F080BDE8           POP      {R4-R7,PC}       ;; return
+   \                     ??PastFile_1:
+   \   0000006C   ........           DC32     lgpData + 152
+     52          }
+     53          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     54          void DeleteFiles()
+     55          {
+   \                     DeleteFiles:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+     56            DisableScroll();
+   \   00000004   ........           LDR      R4,??DataTable16  ;; TCFM
+   \   00000008   ........           _BLF     DisableScroll,??DisableScroll??rA
+   \   0000000C   000094E5           LDR      R0,[R4, #+0]
+   \   00000010   000050E3           CMP      R0,#+0
+   \   00000014   F080BD08           POPEQ    {R4-R7,PC}
+   \   00000018   ........           LDR      R5,??DataTable17  ;; Files
+   \   0000001C   ........           LDR      R6,??DataTable20  ;; CurFile
+   \   00000020   0170A0E3           MOV      R7,#+1
+     57            while(TCFM>0)
+     58            {
+     59              CurFile=1;
+     60              FreeWS(Files[TCFM]);
+   \                     ??DeleteFiles_0:
+   \   00000024   000094E5           LDR      R0,[R4, #+0]
+   \   00000028   007086E5           STR      R7,[R6, #+0]
+   \   0000002C   000195E7           LDR      R0,[R5, +R0, LSL #+2]
+   \   00000030   290100EF           SWI      +297
+     61              Files[TCFM]=NULL;
+   \   00000034   000094E5           LDR      R0,[R4, #+0]
+   \   00000038   0010A0E3           MOV      R1,#+0
+   \   0000003C   001185E7           STR      R1,[R5, +R0, LSL #+2]
+     62              TCFM--;
+   \   00000040   010050E2           SUBS     R0,R0,#+1
+   \   00000044   000084E5           STR      R0,[R4, #+0]
+     63            }
+   \   00000048   F5FFFF1A           BNE      ??DeleteFiles_0
+     64          }
+   \   0000004C   F080BDE8           POP      {R4-R7,PC}       ;; return
+     65          /*
+     66          void Sortir(WSHDR** mass)
+     67          {
+     68            WSHDR* buf=AllocWS(256);
+     69            char* a=malloc(256);
+     70            char* b=malloc(256);
+     71            for(unsigned int j=0;j<TCFM;j++)
+     72            {
+     73              for(unsigned int i=0;i<TCFM;i++)
+     74              {
+     75                
+     76                  unsigned int j=0;
+     77                  for(unsigned int k=0;k<j+1;k++)
+     78                  {
+     79                    ws_2str(mass[i],a,256);
+     80                    ws_2str(mass[i+1],b,256);
+     81                    if(a[j]>b[j])
+     82                    {
+     83                      wstrcpy(buf,mass[i]);
+     84                      wstrcpy(mass[i],mass[i+1]);
+     85                      wstrcpy(mass[i+1],buf);
+     86                    }else{
+     87                      if(a[j]==b[j]) {j++;}
+     88                    }
+     89                  }
+     90                
+     91              }
+     92            }
+     93            FreeWS(buf);
+     94            mfree(a);
+     95            mfree(b);
+     96          }*/
+     97          /*
+     98          void Sortir(WSHDR** mass)
+     99          {
+    100            WSHDR* buf=AllocWS(256);
+    101            for(unsigned int j=0;j<TCFM;j++)
+    102            {
+    103              for(unsigned int i=0;i<TCFM;i++)
+    104              {
+    105                
+    106                  unsigned int j=0;
+    107                  for(unsigned int k=0;k<j+1;k++)
+    108                  {
+    109                    if(mass[i][j]>mass[i+1][j])
+    110                    {
+    111                      wstrcpy(buf,mass[i]);
+    112                      wstrcpy(mass[i],mass[i+1]);
+    113                      wstrcpy(mass[i+1],buf);
+    114                    }else{
+    115                      if(mass[i]==mass[i+1]) {j++;}
+    116                    }
+    117                  }
+    118                
+    119              }
+    120            }
+    121            FreeWS(buf);
+    122          }
+    123          */
+    124          // Проверяем расширения   AAA
+
+   \                                 In segment CODE, align 4, keep-with-next
+    125          bool IsExt(short type, char* name)
+    126          {
+    127            char* sound[5]={"mp3","wav","amr","aac","mid"};
+   \                     IsExt:
+   \   00000000   E4209FE5           LDR      R2,??IsExt_0     ;; `?<Constant {&"mp3", &"wav", &"amr", &"aac", &"`
+   \   00000004   70402DE9           PUSH     {R4-R6,LR}
+   \   00000008   24D04DE2           SUB      SP,SP,#+36
+   \   0000000C   685092E8           LDM      R2,{R3,R5,R6,R12,LR}
+    128            char* pls[2]={"spl","m3u"};
+   \   00000010   D8209FE5           LDR      R2,??IsExt_0+0x4  ;; `?<Constant {&"spl", &"m3u"}>`
+   \   00000014   0040A0E1           MOV      R4,R0
+   \   00000018   0100A0E1           MOV      R0,R1
+   \   0000001C   10108DE2           ADD      R1,SP,#+16
+   \   00000020   685081E8           STM      R1,{R3,R5,R6,R12,LR}
+   \   00000024   280092E8           LDM      R2,{R3,R5}
+   \   00000028   08108DE2           ADD      R1,SP,#+8
+   \   0000002C   280081E8           STM      R1,{R3,R5}
+    129           // char* video[2]={"3gp","mp4"}
+    130           // char* pict[7]={"jpg","gif","png","bmp","jpeg","jpe","bmx"}
+    131            const char *p=strrchr(name,'.')+1;
+   \   00000030   2E10A0E3           MOV      R1,#+46
+   \   00000034   170100EF           SWI      +279
+   \   00000038   015080E2           ADD      R5,R0,#+1
+    132            char ext[6];
+    133            int len=strlen(p);
+   \   0000003C   0500A0E1           MOV      R0,R5
+   \   00000040   1B0000EF           SWI      +27
+   \   00000044   0060A0E1           MOV      R6,R0
+    134            strncpy(ext,p,len);
+   \   00000048   0620A0E1           MOV      R2,R6
+   \   0000004C   0510A0E1           MOV      R1,R5
+   \   00000050   0D00A0E1           MOV      R0,SP
+   \   00000054   160100EF           SWI      +278
+    135            ext[len]='\0';
+   \   00000058   0050A0E3           MOV      R5,#+0
+   \   0000005C   0D00A0E1           MOV      R0,SP
+   \   00000060   0050C6E7           STRB     R5,[R6, +R0]
+    136            strtolower(ext, ext, -1);
+   \   00000064   0520E0E1           MVN      R2,R5
+   \   00000068   0D10A0E1           MOV      R1,SP
+   \   0000006C   ........           _BLF     strtolower,??strtolower??rA
+    137            switch(type)
+   \   00000070   000054E3           CMP      R4,#+0
+   \   00000074   0600000A           BEQ      ??IsExt_1
+   \   00000078   014054E2           SUBS     R4,R4,#+1
+   \   0000007C   0D00000A           BEQ      ??IsExt_2
+   \   00000080   0000A0E3           MOV      R0,#+0
+   \   00000084   090000EA           B        ??IsExt_3
+    138            {
+    139            case 0:
+    140              for(unsigned int i=0;i<5;i++)
+   \                     ??IsExt_4:
+   \   00000088   015085E2           ADD      R5,R5,#+1
+   \   0000008C   050055E3           CMP      R5,#+5
+   \   00000090   1200002A           BCS      ??IsExt_5
+    141                if(strcmp(ext,sound[i])==0)return 1;
+   \                     ??IsExt_1:
+   \   00000094   10008DE2           ADD      R0,SP,#+16
+   \   00000098   051190E7           LDR      R1,[R0, +R5, LSL #+2]
+   \   0000009C   0D00A0E1           MOV      R0,SP
+   \   000000A0   190000EF           SWI      +25
+   \   000000A4   000050E3           CMP      R0,#+0
+   \   000000A8   F6FFFF1A           BNE      ??IsExt_4
+   \                     ??IsExt_6:
+   \   000000AC   0100A0E3           MOV      R0,#+1
+   \                     ??IsExt_3:
+   \   000000B0   24D08DE2           ADD      SP,SP,#+36
+   \   000000B4   7080BDE8           POP      {R4-R6,PC}
+    142              break;
+    143            case 1:
+    144              if(strcmp(ext,pls[0])==0)return 1;
+   \                     ??IsExt_2:
+   \   000000B8   08109DE5           LDR      R1,[SP, #+8]
+   \   000000BC   0D00A0E1           MOV      R0,SP
+   \   000000C0   190000EF           SWI      +25
+   \   000000C4   000050E3           CMP      R0,#+0
+   \   000000C8   F7FFFF0A           BEQ      ??IsExt_6
+    145              if(strcmp(ext,pls[1])==0)return 1;
+   \   000000CC   0C109DE5           LDR      R1,[SP, #+12]
+   \   000000D0   0D00A0E1           MOV      R0,SP
+   \   000000D4   190000EF           SWI      +25
+   \   000000D8   000050E3           CMP      R0,#+0
+   \   000000DC   F2FFFF0A           BEQ      ??IsExt_6
+    146              break;
+    147           /* case 2:
+    148              if(strcmp(ext,video[0])==0)return 1;
+    149              if(strcmp(ext,video[1])==0)return 1;
+    150              break;
+    151            case 3:
+    152              for(unsigned int i=0;i<7;i++)
+    153                if(strcmp(ext,pict[i])==0)return 1;
+    154              break;*/
+    155            }
+    156            return 0;
+   \                     ??IsExt_5:
+   \   000000E0   0000A0E3           MOV      R0,#+0
+   \   000000E4   24D08DE2           ADD      SP,SP,#+36
+   \   000000E8   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??IsExt_0:
+   \   000000EC   ........           DC32     `?<Constant {&"mp3", &"wav", &"amr", &"aac", &"`
+   \   000000F0   ........           DC32     `?<Constant {&"spl", &"m3u"}>`
+    157          }
+    158          
+    159          //LoadDaemonList(" 4:\\Doc\\");
+
+   \                                 In segment CODE, align 4, keep-with-next
+    160          void LoadDaemonList(const char* path, unsigned short re, unsigned short toPL) // Теперь пашет частично   AAA
+    161          {
+   \                     LoadDaemonList:
+   \   00000000   F0432DE9           PUSH     {R4-R9,LR}
+   \   00000004   48D04DE2           SUB      SP,SP,#+72
+   \   00000008   40DE4DE2           SUB      SP,SP,#+1024
+   \   0000000C   0040A0E1           MOV      R4,R0
+   \   00000010   0150A0E1           MOV      R5,R1
+   \   00000014   0260B0E1           MOVS     R6,R2
+    162           // ShowMSG(0,(int)path);
+    163            
+    164            if(toPL==0) {strcpy(nowpath, path);}
+   \   00000018   0200001A           BNE      ??LoadDaemonList_0
+   \   0000001C   ........           LDR      R0,??DataTable25  ;; nowpath
+   \   00000020   0410A0E1           MOV      R1,R4
+   \   00000024   1A0000EF           SWI      +26
+    165            DIR_ENTRY de;
+    166            unsigned int err;
+    167            char name[256];
+    168            strcpy(name,path);
+   \                     ??LoadDaemonList_0:
+   \   00000028   0410A0E1           MOV      R1,R4
+   \   0000002C   D20F8DE2           ADD      R0,SP,#+840
+   \   00000030   1A0000EF           SWI      +26
+    169            strcat(name,"*");
+   \   00000034   631F8FE2           ADR      R1,??LoadDaemonList_1  ;; "*"
+   \   00000038   D20F8DE2           ADD      R0,SP,#+840
+   \   0000003C   170000EF           SWI      +23
+    170            if(FindFirstFile(&de,name,&err))
+   \   00000040   0D20A0E1           MOV      R2,SP
+   \   00000044   D21F8DE2           ADD      R1,SP,#+840
+   \   00000048   04008DE2           ADD      R0,SP,#+4
+   \   0000004C   6B0000EF           SWI      +107
+   \   00000050   000050E3           CMP      R0,#+0
+   \   00000054   5C9F8FE2           ADR      R9,??LoadDaemonList_1+0x4  ;; "\\"
+   \   00000058   5400000A           BEQ      ??LoadDaemonList_2
+    171            {
+    172              do
+    173              {
+    174                char* p1=malloc(256);
+   \                     ??LoadDaemonList_3:
+   \   0000005C   400FA0E3           MOV      R0,#+256
+   \   00000060   140000EF           SWI      +20
+   \   00000064   0070A0E1           MOV      R7,R0
+    175                WSHDR* p=AllocWS(256);
+   \   00000068   400FA0E3           MOV      R0,#+256
+   \   0000006C   250100EF           SWI      +293
+   \   00000070   0080A0E1           MOV      R8,R0
+    176                strcpy(name,path);
+   \   00000074   0410A0E1           MOV      R1,R4
+   \   00000078   D20F8DE2           ADD      R0,SP,#+840
+   \   0000007C   1A0000EF           SWI      +26
+    177                strcat(name,de.file_name);
+   \   00000080   B9108DE2           ADD      R1,SP,#+185
+   \   00000084   D20F8DE2           ADD      R0,SP,#+840
+   \   00000088   170000EF           SWI      +23
+    178                
+    179                if (!isdir(name, &err))//(de.file_attr&FA_DIRECTORY)
+   \   0000008C   0D10A0E1           MOV      R1,SP
+   \   00000090   D20F8DE2           ADD      R0,SP,#+840
+   \   00000094   910000EF           SWI      +145
+   \   00000098   000050E3           CMP      R0,#+0
+   \   0000009C   1F00001A           BNE      ??LoadDaemonList_4
+    180                {
+    181                  if(IsExt(0, de.file_name)||IsExt(1, de.file_name))
+   \   000000A0   B9108DE2           ADD      R1,SP,#+185
+   \   000000A4   ........           BL       IsExt
+   \   000000A8   000050E3           CMP      R0,#+0
+   \   000000AC   0400001A           BNE      ??LoadDaemonList_5
+   \   000000B0   B9108DE2           ADD      R1,SP,#+185
+   \   000000B4   0100A0E3           MOV      R0,#+1
+   \   000000B8   ........           BL       IsExt
+   \   000000BC   000050E3           CMP      R0,#+0
+   \   000000C0   3100000A           BEQ      ??LoadDaemonList_6
+    182                  {   // Перерываем форматы   AAA
+    183                    
+    184                    strcpy(p1,name);
+   \                     ??LoadDaemonList_5:
+   \   000000C4   D21F8DE2           ADD      R1,SP,#+840
+   \   000000C8   0700A0E1           MOV      R0,R7
+   \   000000CC   1A0000EF           SWI      +26
+    185                    fix(p1);
+   \   000000D0   0700A0E1           MOV      R0,R7
+   \   000000D4   ........           _BLF     fix,??fix??rA
+    186                    utf8_2ws(p,p1,256);
+   \   000000D8   402FA0E3           MOV      R2,#+256
+   \   000000DC   0710A0E1           MOV      R1,R7
+   \   000000E0   0800A0E1           MOV      R0,R8
+   \   000000E4   E30100EF           SWI      +483
+    187                    if(toPL==0) {PastFile(p, 0);}
+   \   000000E8   000056E3           CMP      R6,#+0
+   \   000000EC   2300000A           BEQ      ??LoadDaemonList_7
+    188                    else {
+    189                      if(IsExt(1, de.file_name)){   // Перерываем форматы   AAA
+   \   000000F0   B9108DE2           ADD      R1,SP,#+185
+   \   000000F4   0100A0E3           MOV      R0,#+1
+   \   000000F8   ........           BL       IsExt
+   \   000000FC   000050E3           CMP      R0,#+0
+   \   00000100   0200000A           BEQ      ??LoadDaemonList_8
+    190                           LoadPlaylist(name);
+   \   00000104   D20F8DE2           ADD      R0,SP,#+840
+   \   00000108   ........           _BLF     LoadPlaylist,??LoadPlaylist??rA
+   \   0000010C   1E0000EA           B        ??LoadDaemonList_6
+    191                         }else{
+    192                           PastLine(p, 0);
+   \                     ??LoadDaemonList_8:
+   \   00000110   0010A0E3           MOV      R1,#+0
+   \   00000114   0800A0E1           MOV      R0,R8
+   \   00000118   ........           _BLF     PastLine,??PastLine??rA
+   \   0000011C   1A0000EA           B        ??LoadDaemonList_6
+    193                         }
+    194                    }
+    195                  }
+    196                }
+    197                else
+    198                {
+    199                  if(re==1) {strcat(name,"\\"); LoadDaemonList(name, re, toPL);}
+   \                     ??LoadDaemonList_4:
+   \   00000120   010055E3           CMP      R5,#+1
+   \   00000124   0700001A           BNE      ??LoadDaemonList_9
+   \   00000128   0910A0E1           MOV      R1,R9
+   \   0000012C   D20F8DE2           ADD      R0,SP,#+840
+   \   00000130   170000EF           SWI      +23
+   \   00000134   0620A0E1           MOV      R2,R6
+   \   00000138   0110A0E3           MOV      R1,#+1
+   \   0000013C   D20F8DE2           ADD      R0,SP,#+840
+   \   00000140   AEFFFFEB           BL       LoadDaemonList
+   \   00000144   100000EA           B        ??LoadDaemonList_6
+    200                  else{
+    201                    strcpy(p1,name);
+   \                     ??LoadDaemonList_9:
+   \   00000148   D21F8DE2           ADD      R1,SP,#+840
+   \   0000014C   0700A0E1           MOV      R0,R7
+   \   00000150   1A0000EF           SWI      +26
+    202                    strcat(p1,"\\");
+   \   00000154   0910A0E1           MOV      R1,R9
+   \   00000158   0700A0E1           MOV      R0,R7
+   \   0000015C   170000EF           SWI      +23
+    203                    fix(p1);
+   \   00000160   0700A0E1           MOV      R0,R7
+   \   00000164   ........           _BLF     fix,??fix??rA
+    204                    utf8_2ws(p,p1,256);
+   \   00000168   402FA0E3           MOV      R2,#+256
+   \   0000016C   0710A0E1           MOV      R1,R7
+   \   00000170   0800A0E1           MOV      R0,R8
+   \   00000174   E30100EF           SWI      +483
+    205                    if(toPL==0)PastFile(p, 0);
+   \   00000178   000056E3           CMP      R6,#+0
+   \   0000017C   0200001A           BNE      ??LoadDaemonList_6
+   \                     ??LoadDaemonList_7:
+   \   00000180   0010A0E3           MOV      R1,#+0
+   \   00000184   0800A0E1           MOV      R0,R8
+   \   00000188   ........           BL       PastFile
+    206                  }
+    207                }
+    208                FreeWS(p);
+   \                     ??LoadDaemonList_6:
+   \   0000018C   0800A0E1           MOV      R0,R8
+   \   00000190   290100EF           SWI      +297
+    209                mfree(p1);
+   \   00000194   0700A0E1           MOV      R0,R7
+   \   00000198   150000EF           SWI      +21
+    210              }
+    211              while(FindNextFile(&de,&err));
+   \   0000019C   0D10A0E1           MOV      R1,SP
+   \   000001A0   04008DE2           ADD      R0,SP,#+4
+   \   000001A4   6C0000EF           SWI      +108
+   \   000001A8   000050E3           CMP      R0,#+0
+   \   000001AC   AAFFFF1A           BNE      ??LoadDaemonList_3
+    212            }
+    213            FindClose(&de,&err);
+   \                     ??LoadDaemonList_2:
+   \   000001B0   0D10A0E1           MOV      R1,SP
+   \   000001B4   04008DE2           ADD      R0,SP,#+4
+   \   000001B8   6D0000EF           SWI      +109
+    214           // Sortir(Files);
+    215          }
+   \   000001BC   48D08DE2           ADD      SP,SP,#+72
+   \   000001C0   40DE8DE2           ADD      SP,SP,#+1024
+   \   000001C4   F083BDE8           POP      {R4-R9,PC}       ;; return
+   \                     ??LoadDaemonList_1:
+   \   000001C8   2A000000           DC8      "*",+0,+0
+   \   000001CC   5C000000           DC8      "\\",+0,+0
+    216          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    217          void LoadingDaemonList(const char* path, unsigned int re, unsigned int toPL)
+    218          {
+   \                     LoadingDaemonList:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+   \   0000000C   0260A0E1           MOV      R6,R2
+    219            DeleteFiles();  // Перед загрузкой все стираем   AAA
+   \   00000010   ........           BL       DeleteFiles
+    220            LoadDaemonList(path, re, toPL);
+   \   00000014   0628A0E1           MOV      R2,R6, LSL #+16
+   \   00000018   2228A0E1           MOV      R2,R2, LSR #+16
+   \   0000001C   0518A0E1           MOV      R1,R5, LSL #+16
+   \   00000020   2118A0E1           MOV      R1,R1, LSR #+16
+   \   00000024   0400A0E1           MOV      R0,R4
+   \   00000028   7040BDE8           POP      {R4-R6,LR}       ;; Pop
+   \   0000002C   ........           B        LoadDaemonList   ;; tailcall
+    221          }
+    222          
+    223          //void NULLmass(int* mass, unsigned int end) {for(unsigned int i=0; i<end+1; i++) {mass[i]=0;}}   // Обнуляем массив-маркер   AAA
+    224          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    225          void CopyFName(WSHDR** mlines, int* mark, unsigned int imax)   // Копируем пути к файлам в пл   AAA
+    226          {
+   \                     CopyFName:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   41DF4DE2           SUB      SP,SP,#+260
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   0150A0E1           MOV      R5,R1
+    227            unsigned int err;
+    228            char path[256];
+    229            for(unsigned int i=1; i<imax+1; i++)
+   \   00000010   0160A0E3           MOV      R6,#+1
+   \   00000014   017082E2           ADD      R7,R2,#+1
+   \   00000018   020057E3           CMP      R7,#+2
+   \   0000001C   0800002A           BCS      ??CopyFName_0
+    230            {
+    231              if(mark[i])
+    232              {
+    233                ws_2str(mlines[i],path,256);
+    234                if(isdir(path,&err))
+    235                {
+    236                  LoadDaemonList(path, 1, 1);
+    237                }else{
+    238                  if(IsExt(1, path)){   // Перерываем форматы   AAA
+    239                       LoadPlaylist(path);
+    240                     }else{
+    241                       PastLine(mlines[i], 0);
+    242                     }
+    243                }
+    244              }
+    245            }
+    246            zeromem(mark, sizeof(mark));
+   \                     ??CopyFName_1:
+   \   00000020   0410A0E3           MOV      R1,#+4
+   \   00000024   0500A0E1           MOV      R0,R5
+   \   00000028   1D0100EF           SWI      +285
+    247          }
+   \   0000002C   41DF8DE2           ADD      SP,SP,#+260
+   \   00000030   F081BDE8           POP      {R4-R8,PC}       ;; return
+   \                     ??CopyFName_2:
+   \   00000034   000098E5           LDR      R0,[R8, #+0]
+   \   00000038   0010A0E3           MOV      R1,#+0
+   \   0000003C   ........           _BLF     PastLine,??PastLine??rA
+   \                     ??CopyFName_3:
+   \   00000040   016086E2           ADD      R6,R6,#+1
+   \                     ??CopyFName_0:
+   \   00000044   070056E1           CMP      R6,R7
+   \   00000048   F4FFFF2A           BCS      ??CopyFName_1
+   \   0000004C   060195E7           LDR      R0,[R5, +R6, LSL #+2]
+   \   00000050   000050E3           CMP      R0,#+0
+   \   00000054   F9FFFF0A           BEQ      ??CopyFName_3
+   \   00000058   068184E0           ADD      R8,R4,R6, LSL #+2
+   \   0000005C   000098E5           LDR      R0,[R8, #+0]
+   \   00000060   402FA0E3           MOV      R2,#+256
+   \   00000064   04108DE2           ADD      R1,SP,#+4
+   \   00000068   A30000EF           SWI      +163
+   \   0000006C   0D10A0E1           MOV      R1,SP
+   \   00000070   04008DE2           ADD      R0,SP,#+4
+   \   00000074   910000EF           SWI      +145
+   \   00000078   000050E3           CMP      R0,#+0
+   \   0000007C   0400000A           BEQ      ??CopyFName_4
+   \   00000080   0120A0E3           MOV      R2,#+1
+   \   00000084   0110A0E3           MOV      R1,#+1
+   \   00000088   04008DE2           ADD      R0,SP,#+4
+   \   0000008C   ........           BL       LoadDaemonList
+   \   00000090   EAFFFFEA           B        ??CopyFName_3
+   \                     ??CopyFName_4:
+   \   00000094   04108DE2           ADD      R1,SP,#+4
+   \   00000098   0100A0E3           MOV      R0,#+1
+   \   0000009C   ........           BL       IsExt
+   \   000000A0   000050E3           CMP      R0,#+0
+   \   000000A4   E2FFFF0A           BEQ      ??CopyFName_2
+   \   000000A8   04008DE2           ADD      R0,SP,#+4
+   \   000000AC   ........           _BLF     LoadPlaylist,??LoadPlaylist??rA
+   \   000000B0   E2FFFFEA           B        ??CopyFName_3
+    248          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    249          void GO()
+    250          {
+   \                     GO:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+    251            char pn[128];
+    252            WSHDR* ws=AllocWS(256);
+    253            zeromem(MarkLines, sizeof(MarkLines));
+    254          if(strlen(nowpath)>3)
+   \   00000004   ........           LDR      R5,??DataTable25  ;; nowpath
+   \   00000008   80D04DE2           SUB      SP,SP,#+128
+   \   0000000C   400FA0E3           MOV      R0,#+256
+   \   00000010   250100EF           SWI      +293
+   \   00000014   0040A0E1           MOV      R4,R0
+   \   00000018   ........           LDR      R0,??DataTable26  ;; MarkLines
+   \   0000001C   401EA0E3           MOV      R1,#+1024
+   \   00000020   1D0100EF           SWI      +285
+   \   00000024   0500A0E1           MOV      R0,R5
+   \   00000028   1B0000EF           SWI      +27
+   \   0000002C   040050E3           CMP      R0,#+4
+   \   00000030   1500003A           BCC      ??GO_0
+    255          {
+    256            nowpath[strlen(nowpath)-1]=0;
+   \   00000034   0060A0E3           MOV      R6,#+0
+   \   00000038   0500A0E1           MOV      R0,R5
+   \   0000003C   1B0000EF           SWI      +27
+   \   00000040   050080E0           ADD      R0,R0,R5
+   \   00000044   016040E5           STRB     R6,[R0, #-1]
+    257            const char *p=strrchr(nowpath,'\\')+1;
+   \   00000048   5C10A0E3           MOV      R1,#+92
+   \   0000004C   0500A0E1           MOV      R0,R5
+   \   00000050   170100EF           SWI      +279
+   \   00000054   010080E2           ADD      R0,R0,#+1
+    258            strncpy(pn,nowpath,p-nowpath);
+   \   00000058   057040E0           SUB      R7,R0,R5
+   \   0000005C   0720A0E1           MOV      R2,R7
+   \   00000060   0510A0E1           MOV      R1,R5
+   \   00000064   0D00A0E1           MOV      R0,SP
+   \   00000068   160100EF           SWI      +278
+    259            pn[p-nowpath]='\0';
+   \   0000006C   0D00A0E1           MOV      R0,SP
+   \   00000070   0060C7E7           STRB     R6,[R7, +R0]
+    260            LoadingDaemonList(pn, 0, 0);
+   \   00000074   ........           BL       DeleteFiles
+   \   00000078   0020A0E3           MOV      R2,#+0
+   \   0000007C   0210A0E1           MOV      R1,R2
+   \   00000080   0D00A0E1           MOV      R0,SP
+   \   00000084   ........           BL       LoadDaemonList
+   \   00000088   110000EA           B        ??GO_1
+    261          }else{
+    262            zeromem(nowpath,128);
+   \                     ??GO_0:
+   \   0000008C   8010A0E3           MOV      R1,#+128
+   \   00000090   0500A0E1           MOV      R0,R5
+   \   00000094   1D0100EF           SWI      +285
+    263            DeleteFiles();
+   \   00000098   ........           BL       DeleteFiles
+    264            for(unsigned short i=0; i<5; i++)
+   \   0000009C   0050A0E3           MOV      R5,#+0
+   \   000000A0   010000EA           B        ??GO_2
+    265            {
+    266              if(i!=3){
+   \                     ??GO_3:
+   \   000000A4   030055E3           CMP      R5,#+3
+   \   000000A8   0600000A           BEQ      ??GO_4
+    267                wsprintf(ws, "%d:\\", i);
+   \                     ??GO_2:
+   \   000000AC   30109FE5           LDR      R1,??GO_5        ;; `?<Constant "%d:\\\\">`
+   \   000000B0   0520A0E1           MOV      R2,R5
+   \   000000B4   0400A0E1           MOV      R0,R4
+   \   000000B8   240100EF           SWI      +292
+    268                PastFile(ws, 0);
+   \   000000BC   0010A0E3           MOV      R1,#+0
+   \   000000C0   0400A0E1           MOV      R0,R4
+   \   000000C4   ........           BL       PastFile
+    269              }}}
+   \                     ??GO_4:
+   \   000000C8   015085E2           ADD      R5,R5,#+1
+   \   000000CC   050055E3           CMP      R5,#+5
+   \   000000D0   F3FFFF3A           BCC      ??GO_3
+    270          FreeWS(ws);
+   \                     ??GO_1:
+   \   000000D4   0400A0E1           MOV      R0,R4
+   \   000000D8   290100EF           SWI      +297
+    271          }
+   \   000000DC   80D08DE2           ADD      SP,SP,#+128
+   \   000000E0   F080BDE8           POP      {R4-R7,PC}       ;; return
+   \                     ??GO_5:
+   \   000000E4   ........           DC32     `?<Constant "%d:\\\\">`
+    272          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    273          static void OnRedraw(SHOW_FM_GUI *data)
+    274          {
+   \                     OnRedraw:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   40DF4DE2           SUB      SP,SP,#+256
+    275            if (data->gui.state==2)//это нужно для того, чтобы действия происходили только в этом гуе
+   \   00000008   0C00D0E5           LDRB     R0,[R0, #+12]
+   \   0000000C   020050E3           CMP      R0,#+2
+   \   00000010   2F00001A           BNE      ??OnRedraw_0
+    276            {
+    277              #ifdef ELKA
+    278              unsigned short top = 24;
+    279              #else
+    280              unsigned short top = 0;
+    281              #endif
+    282              DrawRoundedFrame(0,top,ScreenW()-1,ScreenH()-1,0,0,0,GetPaletteAdrByColorIndex(1),COLOR[2]);
+   \   00000014   0100A0E3           MOV      R0,#+1
+   \   00000018   2E0100EF           SWI      +302
+   \   0000001C   0040A0E1           MOV      R4,R0
+   \   00000020   898100EF           SWI      +33161
+   \   00000024   0050A0E1           MOV      R5,R0
+   \   00000028   888100EF           SWI      +33160
+   \   0000002C   A8109FE5           LDR      R1,??OnRedraw_1  ;; COLOR + 8
+   \   00000030   013045E2           SUB      R3,R5,#+1
+   \   00000034   02002DE9           PUSH     {R1}
+   \   00000038   10002DE9           PUSH     {R4}
+   \   0000003C   012040E2           SUB      R2,R0,#+1
+   \   00000040   0010A0E3           MOV      R1,#+0
+   \   00000044   02002DE9           PUSH     {R1}
+   \   00000048   02002DE9           PUSH     {R1}
+   \   0000004C   02002DE9           PUSH     {R1}
+   \   00000050   0000A0E3           MOV      R0,#+0
+   \   00000054   1810A0E3           MOV      R1,#+24
+   \   00000058   500100EF           SWI      +336
+    283              #ifndef NO_PNG
+    284              char sfname1[256];
+    285              sprintf(sfname1,p_3s,PIC_DIR,items1[0],PNGEXT);
+   \   0000005C   7C009FE5           LDR      R0,??OnRedraw_1+0x4  ;; `?<Constant ".png">`
+   \   00000060   7C309FE5           LDR      R3,??OnRedraw_1+0x8  ;; `?<Constant "background">`
+   \   00000064   7C209FE5           LDR      R2,??OnRedraw_1+0xC  ;; PIC_DIR
+   \   00000068   7C109FE5           LDR      R1,??OnRedraw_1+0x10  ;; p_3s
+   \   0000006C   01002DE9           PUSH     {R0}
+   \   00000070   18008DE2           ADD      R0,SP,#+24
+   \   00000074   160000EF           SWI      +22
+    286              DrawImg(0,top,(int)sfname1);  // Рисуем фон
+   \   00000078   18208DE2           ADD      R2,SP,#+24
+   \   0000007C   1810A0E3           MOV      R1,#+24
+   \   00000080   0000A0E3           MOV      R0,#+0
+   \   00000084   230000EF           SWI      +35
+    287              #else
+    288              #endif
+    289              if(strlen(nowpath)) {ShowNamesNoConst=3;}
+   \   00000088   ........           LDR      R0,??DataTable25  ;; nowpath
+   \   0000008C   1B0000EF           SWI      +27
+    290              else {ShowNamesNoConst=1;}
+   \   00000090   ........           LDR      R1,??DataTable23  ;; ShowNamesNoConst
+   \   00000094   000050E3           CMP      R0,#+0
+   \   00000098   18D08DE2           ADD      SP,SP,#+24
+   \   0000009C   0300A013           MOVNE    R0,#+3
+    291              PL_Redraw(Files ,&CurFile, 0, MarkLines, &TCFM, 0, 0);  // MarkLines тут не совсем подходит... Надо будет подкорректировать...   AAA
+   \   000000A0   ........           LDR      R3,??DataTable26  ;; MarkLines
+   \   000000A4   0100A003           MOVEQ    R0,#+1
+   \   000000A8   B000C1E1           STRH     R0,[R1, #+0]
+   \   000000AC   ........           LDR      R1,??DataTable20  ;; CurFile
+   \   000000B0   0000A0E3           MOV      R0,#+0
+   \   000000B4   01002DE9           PUSH     {R0}
+   \   000000B8   01002DE9           PUSH     {R0}
+   \   000000BC   ........           LDR      R0,??DataTable16  ;; TCFM
+   \   000000C0   0020A0E3           MOV      R2,#+0
+   \   000000C4   01002DE9           PUSH     {R0}
+   \   000000C8   ........           LDR      R0,??DataTable17  ;; Files
+   \   000000CC   ........           _BLF     PL_Redraw,??PL_Redraw??rA
+   \   000000D0   0CD08DE2           ADD      SP,SP,#+12
+    292              
+    293            }
+    294          }
+   \                     ??OnRedraw_0:
+   \   000000D4   40DF8DE2           ADD      SP,SP,#+256      ;; stack cleaning
+   \   000000D8   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??OnRedraw_1:
+   \   000000DC   ........           DC32     COLOR + 8
+   \   000000E0   ........           DC32     `?<Constant ".png">`
+   \   000000E4   ........           DC32     `?<Constant "background">`
+   \   000000E8   ........           DC32     PIC_DIR
+   \   000000EC   ........           DC32     p_3s
+    295          
+    296          void FreeMemFM();
+    297          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    298          static int OnKeyFM(SHOW_FM_GUI *data, GUI_MSG *msg)//горячо любимый онкей
+    299          {
+   \                     OnKeyFM:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+   \   00000004   04D04DE2           SUB      SP,SP,#+4
+   \   00000008   0150A0E1           MOV      R5,R1
+    300            unsigned int err;
+    301            char* p=malloc(256);
+   \   0000000C   400FA0E3           MOV      R0,#+256
+   \   00000010   140000EF           SWI      +20
+    302           int sh=msg->gbsmsg->msg;
+    303            switch(sh)
+   \   00000014   04E095E5           LDR      LR,[R5, #+4]
+   \   00000018   0040A0E1           MOV      R4,R0
+   \   0000001C   04009EE5           LDR      R0,[LR, #+4]
+   \   00000020   9310A0E3           MOV      R1,#+147
+   \   00000024   401F81E3           ORR      R1,R1,#0x100
+   \   00000028   010050E1           CMP      R0,R1
+   \   0000002C   2800001A           BNE      ??OnKeyFM_1
+    304            {
+    305             case KEY_DOWN:
+    306              switch(msg->gbsmsg->submess)
+   \   00000030   ........           LDR      R5,??DataTable20  ;; CurFile
+   \   00000034   ........           LDR      R6,??DataTable16  ;; TCFM
+   \   00000038   000095E5           LDR      R0,[R5, #+0]
+   \   0000003C   001096E5           LDR      R1,[R6, #+0]
+   \   00000040   08E09EE5           LDR      LR,[LR, #+8]
+   \   00000044   ........           LDR      R7,??DataTable17  ;; Files
+   \   00000048   ........           LDR      R8,??DataTable25  ;; nowpath
+   \   0000004C   ........           LDR      R9,??DataTable26  ;; MarkLines
+   \   00000050   01A080E2           ADD      R10,R0,#+1
+   \   00000054   013081E2           ADD      R3,R1,#+1
+   \   00000058   0120A0E3           MOV      R2,#+1
+   \   0000005C   01E04EE2           SUB      LR,LR,#+1
+   \   00000060   3B005EE3           CMP      LR,#+59
+   \   00000064   1A00008A           BHI      ??OnKeyFM_1
+   \   00000068   01BF8FE2           ADR      R11,??OnKeyFM_0
+   \   0000006C   0EB0DBE7           LDRB     R11,[R11, LR]
+   \   00000070   0BF18FE0           ADD      PC,PC,R11, LSL #+2
+   \                     ??OnKeyFM_0:
+   \   00000074   0E171711           DC8      +14,+23,+23,+17
+   \   00000078   17171717           DC8      +23,+23,+23,+23
+   \   0000007C   17171C17           DC8      +23,+23,+28,+23
+   \   00000080   17171717           DC8      +23,+23,+23,+23
+   \   00000084   17171717           DC8      +23,+23,+23,+23
+   \   00000088   17171717           DC8      +23,+23,+23,+23
+   \   0000008C   17221717           DC8      +23,+34,+23,+23
+   \   00000090   17171717           DC8      +23,+23,+23,+23
+   \   00000094   17171717           DC8      +23,+23,+23,+23
+   \   00000098   17171717           DC8      +23,+23,+23,+23
+   \   0000009C   17641717           DC8      +23,+100,+23,+23
+   \   000000A0   1717175C           DC8      +23,+23,+23,+92
+   \   000000A4   50541717           DC8      +80,+84,+23,+23
+   \   000000A8   17171758           DC8      +23,+23,+23,+88
+   \   000000AC   1717434A           DC8      +23,+23,+67,+74
+    307              {
+    308              case LEFT_SOFT:
+    309                FreeMemFM();
+   \                     ??OnKeyFM_2:
+   \   000000B0   ........           BL       FreeMemFM
+    310                return (1);
+   \   000000B4   0100A0E3           MOV      R0,#+1
+   \   000000B8   F28FBDE8           POP      {R1,R4-R11,PC}
+    311              case RIGHT_SOFT:
+    312                if(strlen(nowpath))
+   \                     ??OnKeyFM_3:
+   \   000000BC   0800A0E1           MOV      R0,R8
+   \   000000C0   1B0000EF           SWI      +27
+   \   000000C4   000050E3           CMP      R0,#+0
+   \   000000C8   F8FFFF0A           BEQ      ??OnKeyFM_2
+    313                {
+    314                  GO();
+   \                     ??OnKeyFM_4:
+   \   000000CC   ........           BL       GO
+    315                  OpenAnim();
+   \                     ??OnKeyFM_5:
+   \   000000D0   ........           _BLF     OpenAnim,??OpenAnim??rA
+    316                  }else{
+    317                FreeMemFM();
+    318                return (1);
+    319                }
+    320                break;
+    321              case GREEN_BUTTON:
+    322                CTtoFirst();
+    323                CopyFName(Files, MarkLines, TCFM);
+    324                break;
+    325              case ENTER_BUTTON:
+    326                if(TCFM>0){
+    327                  ws_2str(Files[CurFile], p, 256);
+    328                  if(strlen(nowpath)){
+    329                    if (isdir(p, &err)) // Проверка папка или нет AAA
+    330                    {
+    331                      zeromem(MarkLines, sizeof(MarkLines));
+    332                      LoadingDaemonList(p, 0, 0);
+    333                      OpenAnim();
+    334                    }else{
+    335                      if(IsExt(0, p)){   // Перерываем форматы   AAA
+    336                           StopAllPlayback();
+    337                           PlayMP3File(Files[CurFile]);
+    338                         }
+    339                    }
+    340                  }else{
+    341                    zeromem(MarkLines, sizeof(MarkLines));
+    342                    LoadingDaemonList(p, 0, 0);
+    343                    OpenAnim();
+    344                  }
+    345                }
+    346                break;
+    347              case UP_BUTTON:
+    348                if(CurFile>1) {CurFile--;}
+    349                else {CurFile=TCFM;}
+    350                break;
+    351              case DOWN_BUTTON:
+    352                if(CurFile<TCFM) {CurFile++;}
+    353                else {CurFile=1;}
+    354                break;
+    355              case RIGHT_BUTTON:
+    356                
+    357                break;
+    358              case '1':
+    359                zeromem(nowpath,128);
+    360                GO();
+    361                OpenAnim();
+    362                break;
+    363              case '2':
+    364                if(CurFile-6>0) {CurFile-=6;}
+    365                else {CurFile=1;}
+    366                break;
+    367              case '8':
+    368                if(CurFile+6<TCFM+1) {CurFile+=6;}
+    369                else {CurFile=TCFM;}
+    370                break;
+    371              case '0':
+    372                MarkLines[CurFile]=!MarkLines[CurFile];
+    373                if(CurFile<TCFM) {CurFile++;}
+    374                break;
+    375              case '*':
+    376                for(unsigned int i=1; i<TCFM+1; i++) {MarkLines[i]=!MarkLines[i];}
+    377                break;
+    378              }
+    379              break;
+    380            }
+    381            mfree(p);
+   \                     ??OnKeyFM_1:
+   \   000000D4   0400A0E1           MOV      R0,R4
+   \   000000D8   150000EF           SWI      +21
+    382          DirectRedrawGUI();//это тоже нужно
+   \   000000DC   3F0100EF           SWI      +319
+    383          return 0;
+   \   000000E0   0000A0E3           MOV      R0,#+0
+   \   000000E4   F28FBDE8           POP      {R1,R4-R11,PC}   ;; return
+   \                     ??OnKeyFM_6:
+   \   000000E8   ........           _BLF     CTtoFirst,??CTtoFirst??rA
+   \   000000EC   002096E5           LDR      R2,[R6, #+0]
+   \   000000F0   0910A0E1           MOV      R1,R9
+   \   000000F4   0700A0E1           MOV      R0,R7
+   \   000000F8   ........           BL       CopyFName
+   \   000000FC   F4FFFFEA           B        ??OnKeyFM_1
+   \                     ??OnKeyFM_7:
+   \   00000100   000051E3           CMP      R1,#+0
+   \   00000104   F2FFFF0A           BEQ      ??OnKeyFM_1
+   \   00000108   000197E7           LDR      R0,[R7, +R0, LSL #+2]
+   \   0000010C   402FA0E3           MOV      R2,#+256
+   \   00000110   0410A0E1           MOV      R1,R4
+   \   00000114   A30000EF           SWI      +163
+   \   00000118   0800A0E1           MOV      R0,R8
+   \   0000011C   1B0000EF           SWI      +27
+   \   00000120   000050E3           CMP      R0,#+0
+   \   00000124   0400000A           BEQ      ??OnKeyFM_8
+   \   00000128   0D10A0E1           MOV      R1,SP
+   \   0000012C   0400A0E1           MOV      R0,R4
+   \   00000130   910000EF           SWI      +145
+   \   00000134   000050E3           CMP      R0,#+0
+   \   00000138   0800000A           BEQ      ??OnKeyFM_9
+   \                     ??OnKeyFM_8:
+   \   0000013C   401EA0E3           MOV      R1,#+1024
+   \   00000140   0900A0E1           MOV      R0,R9
+   \   00000144   1D0100EF           SWI      +285
+   \   00000148   ........           BL       DeleteFiles
+   \   0000014C   0020A0E3           MOV      R2,#+0
+   \   00000150   0010A0E3           MOV      R1,#+0
+   \   00000154   0400A0E1           MOV      R0,R4
+   \   00000158   ........           BL       LoadDaemonList
+   \   0000015C   DBFFFFEA           B        ??OnKeyFM_5
+   \                     ??OnKeyFM_9:
+   \   00000160   0410A0E1           MOV      R1,R4
+   \   00000164   ........           BL       IsExt
+   \   00000168   000050E3           CMP      R0,#+0
+   \   0000016C   D8FFFF0A           BEQ      ??OnKeyFM_1
+   \   00000170   ........           _BLF     StopAllPlayback,??StopAllPlayback??rA
+   \   00000174   000095E5           LDR      R0,[R5, #+0]
+   \   00000178   000197E7           LDR      R0,[R7, +R0, LSL #+2]
+   \   0000017C   ........           _BLF     PlayMP3File,??PlayMP3File??rA
+   \   00000180   D3FFFFEA           B        ??OnKeyFM_1
+   \                     ??OnKeyFM_10:
+   \   00000184   020050E3           CMP      R0,#+2
+   \   00000188   020000BA           BLT      ??OnKeyFM_11
+   \   0000018C   010040E2           SUB      R0,R0,#+1
+   \                     ??OnKeyFM_12:
+   \   00000190   000085E5           STR      R0,[R5, #+0]
+   \   00000194   CEFFFFEA           B        ??OnKeyFM_1
+   \                     ??OnKeyFM_11:
+   \   00000198   001085E5           STR      R1,[R5, #+0]
+   \   0000019C   CCFFFFEA           B        ??OnKeyFM_1
+   \                     ??OnKeyFM_13:
+   \   000001A0   010050E1           CMP      R0,R1
+   \   000001A4   0100002A           BCS      ??OnKeyFM_14
+   \                     ??OnKeyFM_15:
+   \   000001A8   00A085E5           STR      R10,[R5, #+0]
+   \   000001AC   C8FFFFEA           B        ??OnKeyFM_1
+   \                     ??OnKeyFM_14:
+   \   000001B0   002085E5           STR      R2,[R5, #+0]
+   \   000001B4   C6FFFFEA           B        ??OnKeyFM_1
+   \                     ??OnKeyFM_16:
+   \   000001B8   8010A0E3           MOV      R1,#+128
+   \   000001BC   0800A0E1           MOV      R0,R8
+   \   000001C0   1D0100EF           SWI      +285
+   \   000001C4   C0FFFFEA           B        ??OnKeyFM_4
+   \                     ??OnKeyFM_17:
+   \   000001C8   060040E2           SUB      R0,R0,#+6
+   \   000001CC   010050E3           CMP      R0,#+1
+   \   000001D0   F6FFFFBA           BLT      ??OnKeyFM_14
+   \   000001D4   EDFFFFEA           B        ??OnKeyFM_12
+   \                     ??OnKeyFM_18:
+   \   000001D8   060080E2           ADD      R0,R0,#+6
+   \   000001DC   030050E1           CMP      R0,R3
+   \   000001E0   ECFFFF2A           BCS      ??OnKeyFM_11
+   \   000001E4   E9FFFFEA           B        ??OnKeyFM_12
+   \                     ??OnKeyFM_19:
+   \   000001E8   003189E0           ADD      R3,R9,R0, LSL #+2
+   \   000001EC   006093E5           LDR      R6,[R3, #+0]
+   \   000001F0   000056E3           CMP      R6,#+0
+   \   000001F4   0020A013           MOVNE    R2,#+0
+   \   000001F8   002083E5           STR      R2,[R3, #+0]
+   \   000001FC   010050E1           CMP      R0,R1
+   \   00000200   B3FFFF2A           BCS      ??OnKeyFM_1
+   \   00000204   E7FFFFEA           B        ??OnKeyFM_15
+   \                     ??OnKeyFM_20:
+   \   00000208   0100A0E3           MOV      R0,#+1
+   \   0000020C   020053E3           CMP      R3,#+2
+   \   00000210   0200002A           BCS      ??OnKeyFM_21
+   \   00000214   AEFFFFEA           B        ??OnKeyFM_1
+   \                     ??OnKeyFM_22:
+   \   00000218   001085E5           STR      R1,[R5, #+0]
+   \   0000021C   010080E2           ADD      R0,R0,#+1
+   \                     ??OnKeyFM_21:
+   \   00000220   030050E1           CMP      R0,R3
+   \   00000224   AAFFFF2A           BCS      ??OnKeyFM_1
+   \   00000228   005189E0           ADD      R5,R9,R0, LSL #+2
+   \   0000022C   001095E5           LDR      R1,[R5, #+0]
+   \   00000230   000051E3           CMP      R1,#+0
+   \   00000234   0010A013           MOVNE    R1,#+0
+   \   00000238   0110A003           MOVEQ    R1,#+1
+   \   0000023C   F5FFFFEA           B        ??OnKeyFM_22
+    384          }
+    385          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    386          void FreeMemFM()
+    387          {
+   \                     FreeMemFM:
+   \   00000000   00402DE9           PUSH     {LR}
+    388            DeleteFiles();
+   \   00000004   ........           BL       DeleteFiles
+    389            CurFile=1;
+   \   00000008   ........           LDR      R0,??DataTable20  ;; CurFile
+   \   0000000C   0110A0E3           MOV      R1,#+1
+   \   00000010   001080E5           STR      R1,[R0, #+0]
+    390            FM_o=0;
+   \   00000014   ........           LDR      R0,??DataTable24  ;; FM_o
+   \   00000018   0010A0E3           MOV      R1,#+0
+   \   0000001C   0010C0E5           STRB     R1,[R0, #+0]
+    391            zeromem(MarkLines, sizeof(MarkLines));
+   \   00000020   ........           LDR      R0,??DataTable26  ;; MarkLines
+   \   00000024   401EA0E3           MOV      R1,#+1024
+   \   00000028   1D0100EF           SWI      +285
+    392            ShowNamesNoConst=SHOW_NAMES;
+   \   0000002C   0C109FE5           LDR      R1,??FreeMemFM_0  ;; SHOW_NAMES
+   \   00000030   ........           LDR      R0,??DataTable23  ;; ShowNamesNoConst
+   \   00000034   001091E5           LDR      R1,[R1, #+0]
+   \   00000038   B010C0E1           STRH     R1,[R0, #+0]
+    393          }
+   \   0000003C   0080BDE8           POP      {PC}             ;; return
+   \                     ??FreeMemFM_0:
+   \   00000040   ........           DC32     SHOW_NAMES
+    394          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    395          static void OnCreate(SHOW_FM_GUI *data,void *(*malloc_adr)(int))
+    396          {
+    397                 data->gui.state=1;
+   \                     OnCreate:
+   \   00000000   0110A0E3           MOV      R1,#+1
+   \   00000004   0C10C0E5           STRB     R1,[R0, #+12]
+    398          }
+   \   00000008   1EFF2FE1           BX       LR               ;; return
+
+   \                                 In segment CODE, align 4, keep-with-next
+    399          static void OnClose(SHOW_FM_GUI *data,void (*mfree_adr)(void *))
+    400          {
+    401              data->gui.state=0;
+   \                     OnClose:
+   \   00000000   0010A0E3           MOV      R1,#+0
+   \   00000004   0C10C0E5           STRB     R1,[R0, #+12]
+    402          }
+   \   00000008   1EFF2FE1           BX       LR               ;; return
+    403          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    404          static void OnFocus(SHOW_FM_GUI *data,void *(*malloc_adr)(int),void (*mfree_adr)(void *))
+    405          {
+   \                     OnFocus:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    406            // #ifdef ELKA
+    407            //  DisableIconBar(1);//эт убить иконбар,можно и убрать
+    408            //  #endif
+    409              DisableIDLETMR();
+   \   00000008   7F0100EF           SWI      +383
+    410              data->gui.state=2;
+   \   0000000C   0200A0E3           MOV      R0,#+2
+   \   00000010   0C00C4E5           STRB     R0,[R4, #+12]
+    411          }
+   \   00000014   1080BDE8           POP      {R4,PC}          ;; return
+    412          
+    413          //Unfocus
+
+   \                                 In segment CODE, align 4, keep-with-next
+    414          static void OnUnfocus(SHOW_FM_GUI *data,void (*mfree_adr)(void *))
+    415          {
+    416            //  #ifdef ELKA
+    417            //  DisableIconBar(0);
+    418            //  #endif
+    419                  if (data->gui.state!=2) return;
+   \                     OnUnfocus:
+   \   00000000   0C10D0E5           LDRB     R1,[R0, #+12]
+   \   00000004   020051E3           CMP      R1,#+2
+    420                  data->gui.state=1;
+   \   00000008   0110A003           MOVEQ    R1,#+1
+   \   0000000C   0C10C005           STRBEQ   R1,[R0, #+12]
+    421          }
+   \   00000010   1EFF2FE1           BX       LR               ;; return
+    422          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    423          static int met0(void){return(0);}
+   \                     met0:
+   \   00000000   0000A0E3           MOV      R0,#+0
+   \   00000004   1EFF2FE1           BX       LR               ;; return
+
+   \                                 In segment DATA_C, align 4, align-sorted
+    424          static const void * const SHOW_FM_gui_methods[11]={
+   \                     SHOW_FM_gui_methods:
+   \   00000000   ............       DC32 OnRedraw, OnCreate, OnClose, OnFocus, OnUnfocus, OnKeyFM, 0H
+   \              ............
+   \              ............
+   \              ............
+   \              00000000    
+   \   0000001C   ............       DC32 kill_data, met0, met0, 0H
+   \              ............
+   \              00000000    
+    425            (void *)OnRedraw,
+    426            (void *)OnCreate,
+    427            (void *)OnClose,
+    428            (void *)OnFocus,
+    429            (void *)OnUnfocus,
+    430            (void *)OnKeyFM,
+    431            0,
+    432            (void *)kill_data, //method7, //Destroy
+    433            (void *)met0,
+    434            (void *)met0,
+    435            0
+    436          };
+    437          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    438          void ShowFM()
+    439          {
+   \                     ShowFM:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+    440          static const RECT Canvas={0,0,0,0};
+    441            patch_rect((RECT*)&Canvas,0,0,ScreenW()-1,ScreenH()-1);
+   \   00000004   898100EF           SWI      +33161
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   888100EF           SWI      +33160
+   \   00000010   011044E2           SUB      R1,R4,#+1
+   \   00000014   CC409FE5           LDR      R4,??ShowFM_0    ;; ??Canvas
+   \   00000018   010040E2           SUB      R0,R0,#+1
+   \   0000001C   0020A0E3           MOV      R2,#+0
+   \   00000020   002084E5           STR      R2,[R4, #+0]
+   \   00000024   B400C4E1           STRH     R0,[R4, #+4]
+   \   00000028   B610C4E1           STRH     R1,[R4, #+6]
+    442            StoreXYXYtoRECT((RECT*)&Canvas,0,0,ScreenW()-1,ScreenH()-1);
+   \   0000002C   898100EF           SWI      +33161
+   \   00000030   0050A0E1           MOV      R5,R0
+   \   00000034   888100EF           SWI      +33160
+   \   00000038   011045E2           SUB      R1,R5,#+1
+   \   0000003C   02002DE9           PUSH     {R1}
+   \   00000040   013040E2           SUB      R3,R0,#+1
+   \   00000044   0020A0E3           MOV      R2,#+0
+   \   00000048   0400A0E1           MOV      R0,R4
+   \   0000004C   0010A0E3           MOV      R1,#+0
+   \   00000050   340100EF           SWI      +308
+    443            SHOW_FM_GUI *main_gui=malloc(sizeof(SHOW_FM_GUI));
+   \   00000054   3400A0E3           MOV      R0,#+52
+   \   00000058   140000EF           SWI      +20
+   \   0000005C   0050A0E1           MOV      R5,R0
+    444            zeromem(main_gui,sizeof(SHOW_FM_GUI));
+   \   00000060   3410A0E3           MOV      R1,#+52
+   \   00000064   1D0100EF           SWI      +285
+    445            main_gui->gui.canvas=(void *)(&Canvas);
+    446            main_gui->gui.methods=(void *)SHOW_FM_gui_methods;
+   \   00000068   7C009FE5           LDR      R0,??ShowFM_0+0x4  ;; SHOW_FM_gui_methods
+   \   0000006C   004085E5           STR      R4,[R5, #+0]
+    447            main_gui->gui.item_ll.data_mfree=(void (*)(void *))mfree_adr();
+    448            
+    449            CreateGUI(main_gui);
+    450            
+    451            FM_o=1;
+    452            zeromem(nowpath,128);
+    453            zeromem(MarkLines, sizeof(MarkLines));
+    454            if(strlen(MUSIC)) {LoadingDaemonList(MUSIC, 0, 0); OpenAnim();}
+   \   00000070   78409FE5           LDR      R4,??ShowFM_0+0x8  ;; MUSIC
+   \   00000074   040085E5           STR      R0,[R5, #+4]
+   \   00000078   158000EF           SWI      +32789
+   \   0000007C   200085E5           STR      R0,[R5, #+32]
+   \   00000080   0500A0E1           MOV      R0,R5
+   \   00000084   370100EF           SWI      +311
+   \   00000088   ........           LDR      R0,??DataTable24  ;; FM_o
+   \   0000008C   0110A0E3           MOV      R1,#+1
+   \   00000090   0010C0E5           STRB     R1,[R0, #+0]
+   \   00000094   ........           LDR      R0,??DataTable25  ;; nowpath
+   \   00000098   8010A0E3           MOV      R1,#+128
+   \   0000009C   1D0100EF           SWI      +285
+   \   000000A0   ........           LDR      R0,??DataTable26  ;; MarkLines
+   \   000000A4   401EA0E3           MOV      R1,#+1024
+   \   000000A8   1D0100EF           SWI      +285
+   \   000000AC   0400A0E1           MOV      R0,R4
+   \   000000B0   1B0000EF           SWI      +27
+   \   000000B4   000050E3           CMP      R0,#+0
+   \   000000B8   04D08DE2           ADD      SP,SP,#+4
+   \   000000BC   0600000A           BEQ      ??ShowFM_1
+   \   000000C0   ........           BL       DeleteFiles
+   \   000000C4   0020A0E3           MOV      R2,#+0
+   \   000000C8   0010A0E3           MOV      R1,#+0
+   \   000000CC   0400A0E1           MOV      R0,R4
+   \   000000D0   ........           BL       LoadDaemonList
+   \   000000D4   ........           _BLF     OpenAnim,??OpenAnim??rA
+   \   000000D8   3080BDE8           POP      {R4,R5,PC}
+    455            else {GO(); OpenAnim();}
+   \                     ??ShowFM_1:
+   \   000000DC   ........           BL       GO
+   \   000000E0   ........           _BLF     OpenAnim,??OpenAnim??rA
+    456          }
+   \   000000E4   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??ShowFM_0:
+   \   000000E8   ........           DC32     ??Canvas
+   \   000000EC   ........           DC32     SHOW_FM_gui_methods
+   \   000000F0   ........           DC32     MUSIC
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     ??Canvas:
+   \   00000000   000000000000       DC16 0, 0, 0, 0
+   \              0000        
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable16:
+   \   00000000   ........           DC32     TCFM
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable17:
+   \   00000000   ........           DC32     Files
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable20:
+   \   00000000   ........           DC32     CurFile
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable23:
+   \   00000000   ........           DC32     ShowNamesNoConst
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable24:
+   \   00000000   ........           DC32     FM_o
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable25:
+   \   00000000   ........           DC32     nowpath
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable26:
+   \   00000000   ........           DC32     MarkLines
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for CurFile>`:
+   \   00000000   01000000           DC32 1
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "mp3">`:
+   \   00000000   6D703300           DC8 "mp3"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "background">`:
+   \   00000000   6261636B6772       DC8 "background"
+   \              6F756E6400  
+   \   0000000B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "wav">`:
+   \   00000000   77617600           DC8 "wav"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "amr">`:
+   \   00000000   616D7200           DC8 "amr"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "aac">`:
+   \   00000000   61616300           DC8 "aac"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "mid">`:
+   \   00000000   6D696400           DC8 "mid"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant {&"mp3", &"wav", &"amr", &"aac", &"`:
+   \   00000000   ............       DC32 `?<Constant "mp3">`, `?<Constant "wav">`, `?<Constant "amr">`
+   \              ............
+   \   0000000C   ............       DC32 `?<Constant "aac">`, `?<Constant "mid">`
+   \              ....        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "spl">`:
+   \   00000000   73706C00           DC8 "spl"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "m3u">`:
+   \   00000000   6D337500           DC8 "m3u"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant {&"spl", &"m3u"}>`:
+   \   00000000   ............       DC32 `?<Constant "spl">`, `?<Constant "m3u">`
+   \              ....        
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \   00000000   2A00               DC8 "*"
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \   00000000   5C00               DC8 "\\"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "%d:\\\\">`:
+   \   00000000   25643A5C00         DC8 "%d:\\"
+   \   00000005   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant ".png">`:
+   \   00000000   2E706E6700         DC8 ".png"
+   \   00000005   000000             DC8 0, 0, 0
+
+   Maximum stack usage in bytes:
+
+     Function          CSTACK
+     --------          ------
+     CopyFName           284
+     DeleteFiles          20
+     FreeMemFM             4
+     GO                  148
+     IsExt                52
+     LoadDaemonList     1124
+     LoadingDaemonList    16
+     OnClose               0
+     OnCreate              0
+     OnFocus               8
+     OnKeyFM              40
+     OnRedraw            292
+     OnUnfocus             0
+     PastFile             20
+     ShowFM               16
+     met0                  0
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     Files                          1024
+     MarkLines                      1024
+     CurFile                           4
+     TCFM                              4
+     nowpath                         128
+     PastFile                        112
+     DeleteFiles                      80
+     IsExt                           244
+     LoadDaemonList                  464
+     LoadingDaemonList                48
+     CopyFName                       180
+     GO                              232
+     OnRedraw                        240
+     OnKeyFM                         576
+     FreeMemFM                        68
+     OnCreate                         12
+     OnClose                          12
+     OnFocus                          24
+     OnUnfocus                        20
+     met0                              8
+     SHOW_FM_gui_methods              44
+     ShowFM                          244
+     Canvas                            8
+     ??DataTable16                     4
+     ??DataTable17                     4
+     ??DataTable20                     4
+     ??DataTable23                     4
+     ??DataTable24                     4
+     ??DataTable25                     4
+     ??DataTable26                     4
+     ?<Initializer for CurFile>        4
+     ?<Constant "mp3">                 4
+     ?<Constant "background">         12
+     ?<Constant "wav">                 4
+     ?<Constant "amr">                 4
+     ?<Constant "aac">                 4
+     ?<Constant "mid">                 4
+     ?<Constant {&"mp3", &"wav", &"amr", &"aac", &"
+                                      20
+     ?<Constant "spl">                 4
+     ?<Constant "m3u">                 4
+     ?<Constant {&"spl", &"m3u"}>      8
+     ?<Constant "*">                   2
+     ?<Constant "\\">                  2
+     ?<Constant "%d:\\">               8
+     ?<Constant ".png">                8
+      Others                         208
+
+ 
+ 2 776 bytes in segment CODE
+   140 bytes in segment DATA_C
+     4 bytes in segment DATA_I
+     4 bytes in segment DATA_ID
+ 2 180 bytes in segment DATA_Z
+    24 bytes in segment INITTAB
+ 
+ 2 592 bytes of CODE  memory (+ 208 bytes shared)
+   144 bytes of CONST memory
+ 2 184 bytes of DATA  memory
+
+Errors: none
+Warnings: none

@@ -1,0 +1,396 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    19/Jan/2011  13:21:01 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\grabber\jpeg-7\jdatasrc.c                     #
+#    Command line    =  C:\arm\grabber\jpeg-7\jdatasrc.c -lC                 #
+#                       C:\arm\grabber\Release_SGOLD\List\ -o                #
+#                       C:\arm\grabber\Release_SGOLD\Obj\ -s9 --no_unroll    #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\grabber\Release_SGOLD\List\jdatasrc.lst       #
+#    Object file     =  C:\arm\grabber\Release_SGOLD\Obj\jdatasrc.r79        #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\grabber\jpeg-7\jdatasrc.c
+      1          /*
+      2           * jdatasrc.c
+      3           *
+      4           * Copyright (C) 1994-1996, Thomas G. Lane.
+      5           * This file is part of the Independent JPEG Group's software.
+      6           * For conditions of distribution and use, see the accompanying README file.
+      7           *
+      8           * This file contains decompression data source routines for the case of
+      9           * reading JPEG data from a file (or any stdio stream).  While these routines
+     10           * are sufficient for most applications, some will want to use a different
+     11           * source manager.
+     12           * IMPORTANT: we assume that fread() will correctly transcribe an array of
+     13           * JOCTETs from 8-bit-wide elements on external storage.  If char is wider
+     14           * than 8 bits on your machine, you may need to do some tweaking.
+     15           */
+     16          
+     17          /* this is not a core library module, so it doesn't define JPEG_INTERNALS */
+     18          #include "jinclude.h"
+     19          #include "jpeglib.h"
+     20          #include "jerror.h"
+     21          
+     22          
+     23          /* Expanded data source object for stdio input */
+     24          
+     25          typedef struct {
+     26            struct jpeg_source_mgr pub;	/* public fields */
+     27          
+     28            int infile;		/* source stream */
+     29            JOCTET * buffer;		/* start of buffer */
+     30            boolean start_of_file;	/* have we gotten any data yet? */
+     31          } my_source_mgr;
+     32          
+     33          typedef my_source_mgr * my_src_ptr;
+     34          
+     35          #define INPUT_BUF_SIZE  4096	/* choose an efficiently fread'able size */
+     36          
+     37          
+     38          /*
+     39           * Initialize source --- called by jpeg_read_header
+     40           * before any data is actually read.
+     41           */
+     42          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     43          METHODDEF(void)
+     44          init_source (j_decompress_ptr cinfo)
+     45          {
+     46            my_src_ptr src = (my_src_ptr) cinfo->src;
+     47          
+     48            /* We reset the empty-input-file flag for each image,
+     49             * but we don't clear the input buffer.
+     50             * This is correct behavior for reading a series of images from one source.
+     51             */
+     52            src->start_of_file = TRUE;
+   \                     init_source:
+   \   00000000   180090E5           LDR      R0,[R0, #+24]
+   \   00000004   0110A0E3           MOV      R1,#+1
+   \   00000008   241080E5           STR      R1,[R0, #+36]
+     53          }
+   \   0000000C   1EFF2FE1           BX       LR               ;; return
+     54          
+     55          
+     56          /*
+     57           * Fill the input buffer --- called whenever buffer is emptied.
+     58           *
+     59           * In typical applications, this should read fresh data into the buffer
+     60           * (ignoring the current state of next_input_byte & bytes_in_buffer),
+     61           * reset the pointer & count to the start of the buffer, and return TRUE
+     62           * indicating that the buffer has been reloaded.  It is not necessary to
+     63           * fill the buffer entirely, only to obtain at least one more byte.
+     64           *
+     65           * There is no such thing as an EOF return.  If the end of the file has been
+     66           * reached, the routine has a choice of ERREXIT() or inserting fake data into
+     67           * the buffer.  In most cases, generating a warning message and inserting a
+     68           * fake EOI marker is the best course of action --- this will allow the
+     69           * decompressor to output however much of the image is there.  However,
+     70           * the resulting error message is misleading if the real problem is an empty
+     71           * input file, so we handle that case specially.
+     72           *
+     73           * In applications that need to be able to suspend compression due to input
+     74           * not being available yet, a FALSE return indicates that no more data can be
+     75           * obtained right now, but more may be forthcoming later.  In this situation,
+     76           * the decompressor will return to its caller (with an indication of the
+     77           * number of scanlines it has read, if any).  The application should resume
+     78           * decompression after it has loaded more data into the input buffer.  Note
+     79           * that there are substantial restrictions on the use of suspension --- see
+     80           * the documentation.
+     81           *
+     82           * When suspending, the decompressor will back up to a convenient restart point
+     83           * (typically the start of the current MCU). next_input_byte & bytes_in_buffer
+     84           * indicate where the restart point will be if the current call returns FALSE.
+     85           * Data beyond this point must be rescanned after resumption, so move it to
+     86           * the front of the buffer rather than discarding it.
+     87           */
+     88          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     89          METHODDEF(boolean)
+     90          fill_input_buffer (j_decompress_ptr cinfo)
+     91          {
+   \                     fill_input_buffer:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+     92            my_src_ptr src = (my_src_ptr) cinfo->src;
+     93            size_t nbytes;
+     94          
+     95            nbytes = JFREAD(src->infile, src->buffer, INPUT_BUF_SIZE);
+   \   00000004   0030A0E3           MOV      R3,#+0
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   185094E5           LDR      R5,[R4, #+24]
+   \   00000010   402DA0E3           MOV      R2,#+4096
+   \   00000014   1C0095E5           LDR      R0,[R5, #+28]
+   \   00000018   201095E5           LDR      R1,[R5, #+32]
+   \   0000001C   0B0000EF           SWI      +11
+     96          
+     97            if (nbytes <= 0) {
+   \   00000020   000050E3           CMP      R0,#+0
+   \   00000024   1800001A           BNE      ??fill_input_buffer_0
+     98              if (src->start_of_file)	/* Treat empty input file as fatal error */
+   \   00000028   240095E5           LDR      R0,[R5, #+36]
+   \   0000002C   000050E3           CMP      R0,#+0
+   \   00000030   0600000A           BEQ      ??fill_input_buffer_1
+     99                ERREXIT(cinfo, JERR_INPUT_EMPTY);
+   \   00000034   000094E5           LDR      R0,[R4, #+0]
+   \   00000038   2B10A0E3           MOV      R1,#+43
+   \   0000003C   141080E5           STR      R1,[R0, #+20]
+   \   00000040   001094E5           LDR      R1,[R4, #+0]
+   \   00000044   0400A0E1           MOV      R0,R4
+   \   00000048   001091E5           LDR      R1,[R1, #+0]
+   \   0000004C   31FF2FE1           BLX      R1
+    100              WARNMS(cinfo, JWRN_JPEG_EOF);
+   \                     ??fill_input_buffer_1:
+   \   00000050   000094E5           LDR      R0,[R4, #+0]
+   \   00000054   7B10A0E3           MOV      R1,#+123
+   \   00000058   141080E5           STR      R1,[R0, #+20]
+   \   0000005C   002094E5           LDR      R2,[R4, #+0]
+   \   00000060   0010E0E3           MVN      R1,#+0
+   \   00000064   042092E5           LDR      R2,[R2, #+4]
+   \   00000068   0400A0E1           MOV      R0,R4
+   \   0000006C   32FF2FE1           BLX      R2
+    101              /* Insert a fake EOI marker */
+    102              src->buffer[0] = (JOCTET) 0xFF;
+   \   00000070   200095E5           LDR      R0,[R5, #+32]
+   \   00000074   FF10A0E3           MOV      R1,#+255
+   \   00000078   0010C0E5           STRB     R1,[R0, #+0]
+    103              src->buffer[1] = (JOCTET) JPEG_EOI;
+   \   0000007C   200095E5           LDR      R0,[R5, #+32]
+   \   00000080   D910A0E3           MOV      R1,#+217
+   \   00000084   0110C0E5           STRB     R1,[R0, #+1]
+    104              nbytes = 2;
+   \   00000088   0200A0E3           MOV      R0,#+2
+    105            }
+    106          
+    107            src->pub.next_input_byte = src->buffer;
+   \                     ??fill_input_buffer_0:
+   \   0000008C   201095E5           LDR      R1,[R5, #+32]
+   \   00000090   001085E5           STR      R1,[R5, #+0]
+    108            src->pub.bytes_in_buffer = nbytes;
+   \   00000094   040085E5           STR      R0,[R5, #+4]
+    109            src->start_of_file = FALSE;
+   \   00000098   0000A0E3           MOV      R0,#+0
+   \   0000009C   240085E5           STR      R0,[R5, #+36]
+    110          
+    111            return TRUE;
+   \   000000A0   0100A0E3           MOV      R0,#+1
+   \   000000A4   3080BDE8           POP      {R4,R5,PC}       ;; return
+    112          }
+    113          
+    114          
+    115          /*
+    116           * Skip data --- used to skip over a potentially large amount of
+    117           * uninteresting data (such as an APPn marker).
+    118           *
+    119           * Writers of suspendable-input applications must note that skip_input_data
+    120           * is not granted the right to give a suspension return.  If the skip extends
+    121           * beyond the data currently in the buffer, the buffer can be marked empty so
+    122           * that the next read will cause a fill_input_buffer call that can suspend.
+    123           * Arranging for additional bytes to be discarded before reloading the input
+    124           * buffer is the application writer's problem.
+    125           */
+    126          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    127          METHODDEF(void)
+    128          skip_input_data (j_decompress_ptr cinfo, long num_bytes)
+    129          {
+   \                     skip_input_data:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    130            my_src_ptr src = (my_src_ptr) cinfo->src;
+   \   00000008   186094E5           LDR      R6,[R4, #+24]
+   \   0000000C   0150A0E1           MOV      R5,R1
+    131          
+    132            /* Just a dumb implementation for now.  Could use fseek() except
+    133             * it doesn't work on pipes.  Not clear that being smart is worth
+    134             * any trouble anyway --- large skips are infrequent.
+    135             */
+    136            if (num_bytes > 0) {
+   \   00000010   010055E3           CMP      R5,#+1
+   \   00000014   7080BDB8           POPLT    {R4-R6,PC}
+   \   00000018   020000EA           B        ??skip_input_data_0
+    137              while (num_bytes > (long) src->pub.bytes_in_buffer) {
+    138                num_bytes -= (long) src->pub.bytes_in_buffer;
+   \                     ??skip_input_data_1:
+   \   0000001C   005045E0           SUB      R5,R5,R0
+    139                (void) fill_input_buffer(cinfo);
+   \   00000020   0400A0E1           MOV      R0,R4
+   \   00000024   ........           BL       fill_input_buffer
+    140                /* note we assume that fill_input_buffer will never return FALSE,
+    141                 * so suspension need not be handled.
+    142                 */
+    143              }
+   \                     ??skip_input_data_0:
+   \   00000028   040096E5           LDR      R0,[R6, #+4]
+   \   0000002C   050050E1           CMP      R0,R5
+   \   00000030   F9FFFFBA           BLT      ??skip_input_data_1
+    144              src->pub.next_input_byte += (size_t) num_bytes;
+   \   00000034   001096E5           LDR      R1,[R6, #+0]
+    145              src->pub.bytes_in_buffer -= (size_t) num_bytes;
+   \   00000038   050040E0           SUB      R0,R0,R5
+   \   0000003C   011085E0           ADD      R1,R5,R1
+   \   00000040   001086E5           STR      R1,[R6, #+0]
+   \   00000044   040086E5           STR      R0,[R6, #+4]
+    146            }
+    147          }
+   \   00000048   7080BDE8           POP      {R4-R6,PC}       ;; return
+    148          
+    149          
+    150          /*
+    151           * An additional method that can be provided by data source modules is the
+    152           * resync_to_restart method for error recovery in the presence of RST markers.
+    153           * For the moment, this source module just uses the default resync method
+    154           * provided by the JPEG library.  That method assumes that no backtracking
+    155           * is possible.
+    156           */
+    157          
+    158          
+    159          /*
+    160           * Terminate source --- called by jpeg_finish_decompress
+    161           * after all data has been read.  Often a no-op.
+    162           *
+    163           * NB: *not* called by jpeg_abort or jpeg_destroy; surrounding
+    164           * application must deal with any cleanup that should happen even
+    165           * for error exit.
+    166           */
+    167          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    168          METHODDEF(void)
+    169          term_source (j_decompress_ptr cinfo)
+    170          {
+    171            /* no work necessary here */
+    172          }
+   \                     term_source:
+   \   00000000   1EFF2FE1           BX       LR               ;; return
+    173          
+    174          
+    175          /*
+    176           * Prepare for input from a stdio stream.
+    177           * The caller must have already opened the stream, and is responsible
+    178           * for closing it after finishing decompression.
+    179           */
+    180          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    181          GLOBAL(void)
+    182          jpeg_stdio_src (j_decompress_ptr cinfo, int infile)
+    183          {
+   \                     jpeg_stdio_src:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0140A0E1           MOV      R4,R1
+   \   00000008   0050A0E1           MOV      R5,R0
+    184            my_src_ptr src;
+    185          
+    186            /* The source object and input buffer are made permanent so that a series
+    187             * of JPEG images can be read from the same file by calling jpeg_stdio_src
+    188             * only before the first one.  (If we discarded the buffer at the end of
+    189             * one image, we'd likely lose the start of the next one.)
+    190             * This makes it unsafe to use this manager and a different source
+    191             * manager serially with the same JPEG object.  Caveat programmer.
+    192             */
+    193            if (cinfo->src == NULL) {	/* first time for this JPEG object? */
+   \   0000000C   180095E5           LDR      R0,[R5, #+24]
+   \   00000010   000050E3           CMP      R0,#+0
+   \   00000014   0E00001A           BNE      ??jpeg_stdio_src_0
+    194              cinfo->src = (struct jpeg_source_mgr *)
+    195                (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_PERMANENT,
+    196          				  SIZEOF(my_source_mgr));
+   \   00000018   043095E5           LDR      R3,[R5, #+4]
+   \   0000001C   2820A0E3           MOV      R2,#+40
+   \   00000020   003093E5           LDR      R3,[R3, #+0]
+   \   00000024   0010A0E3           MOV      R1,#+0
+   \   00000028   0500A0E1           MOV      R0,R5
+   \   0000002C   33FF2FE1           BLX      R3
+   \   00000030   180085E5           STR      R0,[R5, #+24]
+    197              src = (my_src_ptr) cinfo->src;
+    198              src->buffer = (JOCTET *)
+    199                (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_PERMANENT,
+    200          				  INPUT_BUF_SIZE * SIZEOF(JOCTET));
+   \   00000034   043095E5           LDR      R3,[R5, #+4]
+   \   00000038   0060A0E1           MOV      R6,R0
+   \   0000003C   003093E5           LDR      R3,[R3, #+0]
+   \   00000040   402DA0E3           MOV      R2,#+4096
+   \   00000044   0010A0E3           MOV      R1,#+0
+   \   00000048   0500A0E1           MOV      R0,R5
+   \   0000004C   33FF2FE1           BLX      R3
+   \   00000050   200086E5           STR      R0,[R6, #+32]
+    201            }
+    202          
+    203            src = (my_src_ptr) cinfo->src;
+   \                     ??jpeg_stdio_src_0:
+   \   00000054   180095E5           LDR      R0,[R5, #+24]
+    204            src->pub.init_source = init_source;
+   \   00000058   34109FE5           LDR      R1,??jpeg_stdio_src_1  ;; init_source
+   \   0000005C   081080E5           STR      R1,[R0, #+8]
+    205            src->pub.fill_input_buffer = fill_input_buffer;
+   \   00000060   30109FE5           LDR      R1,??jpeg_stdio_src_1+0x4  ;; fill_input_buffer
+   \   00000064   0C1080E5           STR      R1,[R0, #+12]
+    206            src->pub.skip_input_data = skip_input_data;
+   \   00000068   2C109FE5           LDR      R1,??jpeg_stdio_src_1+0x8  ;; skip_input_data
+   \   0000006C   101080E5           STR      R1,[R0, #+16]
+    207            src->pub.resync_to_restart = jpeg_resync_to_restart; /* use default method */
+   \   00000070   28109FE5           LDR      R1,??jpeg_stdio_src_1+0xC  ;; jpeg_resync_to_restart
+   \   00000074   141080E5           STR      R1,[R0, #+20]
+    208            src->pub.term_source = term_source;
+   \   00000078   24109FE5           LDR      R1,??jpeg_stdio_src_1+0x10  ;; term_source
+   \   0000007C   181080E5           STR      R1,[R0, #+24]
+    209            src->infile = infile;
+   \   00000080   1C4080E5           STR      R4,[R0, #+28]
+    210            src->pub.bytes_in_buffer = 0; /* forces fill_input_buffer on first read */
+   \   00000084   0010A0E3           MOV      R1,#+0
+   \   00000088   041080E5           STR      R1,[R0, #+4]
+    211            src->pub.next_input_byte = NULL; /* until buffer loaded */
+   \   0000008C   001080E5           STR      R1,[R0, #+0]
+    212          }
+   \   00000090   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??jpeg_stdio_src_1:
+   \   00000094   ........           DC32     init_source
+   \   00000098   ........           DC32     fill_input_buffer
+   \   0000009C   ........           DC32     skip_input_data
+   \   000000A0   ........           DC32     jpeg_resync_to_restart
+   \   000000A4   ........           DC32     term_source
+
+   Maximum stack usage in bytes:
+
+     Function          CSTACK
+     --------          ------
+     fill_input_buffer    12
+     init_source           0
+     jpeg_stdio_src       16
+     skip_input_data      16
+     term_source           0
+
+
+   Segment part sizes:
+
+     Function/Label    Bytes
+     --------------    -----
+     init_source         16
+     fill_input_buffer  168
+     skip_input_data     76
+     term_source          4
+     jpeg_stdio_src     168
+      Others             20
+
+ 
+ 452 bytes in segment CODE
+ 
+ 432 bytes of CODE memory (+ 20 bytes shared)
+
+Errors: none
+Warnings: none

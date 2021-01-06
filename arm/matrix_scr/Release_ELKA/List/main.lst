@@ -1,0 +1,363 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    15/Apr/2011  23:54:51 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\matrix_scr\main.c                             #
+#    Command line    =  C:\arm\matrix_scr\main.c -D NEWSGOLD -D ELKA -lC     #
+#                       C:\arm\matrix_scr\Release_ELKA\List\ -o              #
+#                       C:\arm\matrix_scr\Release_ELKA\Obj\ -s9 --cpu_mode   #
+#                       arm --endian little --cpu ARM926EJ-S --stack_align   #
+#                       4 --interwork -e --fpu None --dlib_config            #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\LIB\dl5tpainl8n.h" -I                 #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\matrix_scr\Release_ELKA\List\main.lst         #
+#    Object file     =  C:\arm\matrix_scr\Release_ELKA\Obj\main.r79          #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\matrix_scr\main.c
+      1          #include "..\inc\swilib.h"
+      2          #include "..\inc\cfg_items.h"
+      3          #include "random.h"
+      4          #include "conf_loader.h"
+      5          #include "local_ipc.h"
+      6          
+      7          const char ipc_my_name[]=IPC_TEXTINFO_NAME;
+      8          const IPC_REQ my_ipc={
+      9            ipc_my_name,
+     10            ipc_my_name,
+     11            NULL
+     12          };
+     13          
+     14          #define TMR_SECOND 216
+     15          GBSTMR mytmr;
+     16          
+     17          void TimerProc(void)
+     18          {  
+     19            GBS_SendMessage(MMI_CEPID,MSG_IPC,IPC_UPDATE_STAT,&my_ipc);
+     20          }
+     21          
+     22          const int minus11=-11;
+     23          
+     24          extern const int cfg_time;
+     25          extern const int cfg_sec;
+     26          extern const unsigned int cfg_tx;
+     27          extern const unsigned int cfg_ty;
+     28          
+     29          unsigned short maincsm_name_body[140];
+     30          
+     31          unsigned int MAINCSM_ID = 0;
+     32          unsigned int MAINGUI_ID = 0;
+     33          
+     34          typedef struct
+     35          {
+     36            CSM_RAM csm;
+     37            int gui_id;
+     38          }MAIN_CSM;
+     39          
+     40          typedef struct
+     41          {
+     42            GUI gui;
+     43            WSHDR *ws1;
+     44            WSHDR *ws2;
+     45            int i1;
+     46          }MAIN_GUI;
+     47          
+     48          int speed=50;
+     49          int rnd=5,y=-10,rx,i,n=1;
+     50          int yy[66];
+     51          int xx[66],spd[66];
+     52          char OBLACK[]={0,0,0,8};
+     53          char OOBLACK[]={0,0,0,20};
+     54          char WHITE[]={255,255,255,100};
+     55          char GREEN[]={30,240,30,100};
+     56          char RED[]={255,0,0,100};
+     57          char *buf;
+     58          int bufsize=256;
+     59          int yy[66];
+     60          int xx[66];
+     61          
+     62          void window(void)
+     63          {
+     64            DrawRoundedFrame(0,0,131,175,0,0,0,OBLACK,OBLACK);
+     65          }
+     66          
+     67          void line(int xpos,int y)
+     68          {
+     69            DrawRoundedFrame(xpos,y,xpos,y+5,0,0,0,GREEN,GREEN);
+     70            DrawRoundedFrame(xpos,y+5,xpos,y+7,0,0,0,WHITE,WHITE);
+     71          }
+     72          
+     73          void time(void)
+     74          {
+     75            WSHDR *ws=AllocWS(256);
+     76            TDate date; TTime time; 
+     77            GetDateTime(&date,&time); 
+     78            if(cfg_sec!=1)
+     79            {
+     80              sprintf(buf,"%d:%02d",time.hour,time.min);
+     81              wsprintf(ws,buf);
+     82              DrawString(ws,cfg_tx+5,cfg_ty,cfg_tx+66,cfg_ty+22,0,2,WHITE,OOBLACK);
+     83            }
+     84            else
+     85            {
+     86              sprintf(buf,"%d:%02d:%02d",time.hour,time.min,time.sec);
+     87              wsprintf(ws,buf);
+     88              DrawString(ws,cfg_tx,cfg_ty,cfg_tx+72,cfg_ty+22,0,2,WHITE,OOBLACK);
+     89            }
+     90            FreeWS(ws);
+     91          }
+     92          
+     93          GBSTMR matrix,chk;
+     94          void UpdateCSMname(void);
+     95          
+     96          void timer(void)
+     97          {wsprintf((WSHDR *)(&MAINCSM.maincsm_name),"the ");
+                                      ^
+Error[Pe020]: identifier "MAINCSM" is undefined
+     98            window();
+     99            if(cfg_time==1)
+    100             time();
+    101            for(i=0;i<=65;i++)
+    102            { 
+    103              line(xx[i],yy[i]+=spd[i]);
+    104              if(yy[i]>176) 
+    105              {
+    106                yy[i]-=186;
+    107                spd[i]=random()/50;
+    108                if (spd[i]>5) spd[i]=5;
+    109                if (spd[i]<=0) spd[i]=1;
+    110              } 
+    111            }
+    112            GBS_StartTimerProc(&matrix,262/speed,timer);
+    113          }
+    114            
+    115          void OnRedraw(MAIN_GUI *data) // OnRedraw
+    116          {
+    117          }
+    118          
+    119          void onCreate(MAIN_GUI *data, void *(*malloc_adr)(int)) //Create
+    120          {
+    121            // Тут можно создать переменные
+    122            
+    123            data->gui.state=1;
+    124          }
+    125          
+    126          void onClose(MAIN_GUI *data, void (*mfree_adr)(void *)) //Close
+    127          {
+    128            // Тут можно освободить выделяемую память
+    129            if(buf) mfree(buf); // Освобождаем память
+    130            GBS_DelTimer(&matrix);
+    131            data->gui.state=1;
+    132          }
+    133          
+    134          void onFocus(MAIN_GUI *data, void *(*malloc_adr)(int), void (*mfree_adr)(void *))//Focus
+    135          {
+    136            DisableIDLETMR();
+    137            data->gui.state=2;
+    138          }
+    139          
+    140          void onUnfocus(MAIN_GUI *data, void (*mfree_adr)(void *)) //Unfocus
+    141          {
+    142            
+    143            GBS_DelTimer(&matrix);
+    144            if (data->gui.state!=2) return;
+    145            RestartIDLETMR();
+    146            data->gui.state=1;
+    147          }
+    148          
+    149          int OnKey(MAIN_GUI *data, GUI_MSG *msg) //OnKey
+    150          {
+    151            if (msg->gbsmsg->msg==KEY_DOWN)
+    152            {
+    153              int bt=msg->gbsmsg->submess;
+    154              switch(bt)
+    155              {
+    156              case '#':
+    157                GBS_DelTimer(&matrix);
+    158                RestartIDLETMR();
+    159                DirectRedrawGUI();
+    160              }      
+    161            }
+    162            return(0);
+    163          }
+    164          
+    165          /*
+    166          #ifdef NEWSGOLD
+    167          void onDestroy(MAIN_GUI *data, void (*mfree_adr)(void *))
+    168          {
+    169            mfree_adr(data);
+    170          }
+    171          #else*/
+    172          extern void kill_data(void *p, void (*func_p)(void *));
+    173          /*
+    174          void method7(MAIN_GUI *data, void (*mfree_adr)(void *))
+    175          {
+    176            kill_data(data,mfree_adr);
+    177            mfree_adr(data);
+    178          }
+    179          #endif
+    180          */
+    181          
+    182          int method8(void){return(0);}
+    183          
+    184          
+    185          int method9(void){return(0);}
+    186          
+    187          // Массив с методами, чтобы дать ОС информацию, какие когда вызывать
+    188          const void * const gui_methods[11]={
+    189            (void *)OnRedraw,	//Redraw
+    190            (void *)onCreate,	//Create
+    191            (void *)onClose,	//Close
+    192            (void *)onFocus,	//Focus
+    193            (void *)onUnfocus,	//Unfocus
+    194            (void *)OnKey,	//OnKey
+    195            0,
+    196            (void *)kill_data,	//Destroy
+    197            (void *)method8,
+    198            (void *)method9,
+    199            0
+    200          };
+    201          
+    202          // Канвас для основного GUI
+    203          const RECT Canvas={0,0,129,129};
+    204          
+    205          // Вызывается при создании главного CSM. В данном примере
+    206          // создаётся GUI, его ID записывается в MAINGUI_ID
+    207          // на всякий случай - вдруг понадобится ;)
+    208          void maincsm_oncreate(CSM_RAM *data)
+    209          {
+    210            MAIN_GUI *main_gui=malloc(sizeof(MAIN_GUI));
+    211            MAIN_CSM*csm=(MAIN_CSM*)data;
+    212            zeromem(main_gui,sizeof(MAIN_GUI));
+    213            main_gui->gui.canvas=(void *)(&Canvas);
+    214            main_gui->gui.flag30=2;
+    215            main_gui->gui.methods=(void *)gui_methods;
+    216            main_gui->gui.item_ll.data_mfree=(void (*)(void *))mfree_adr();
+    217            csm->csm.state=0;
+    218            csm->csm.unk1=0;
+    219            csm->gui_id=CreateGUI(main_gui);
+    220            MAINGUI_ID=csm->gui_id;
+    221             GBS_SendMessage(MMI_CEPID,MSG_IPC,IPC_UPDATE_STAT,&my_ipc);
+    222          }
+    223          /*
+    224          // Всё ясно из названия ;) оставить как есть
+    225          void ElfKiller(void)
+    226          {
+    227            extern void kill_data(void *p, void (*func_p)(void *));
+    228            extern void *ELF_BEGIN;
+    229            kill_data(&ELF_BEGIN,(void (*)(void *))mfree_adr());
+    230          }*/
+    231          void ElfKiller(void)
+    232          { 
+    233            extern void *ELF_BEGIN;
+    234            kill_data(&ELF_BEGIN,(void (*)(void *))mfree_adr());
+    235          }
+    236          
+    237          // Вызывается при закрытии главного CSM. Тут и вызывается киллер
+    238          void maincsm_onclose(CSM_RAM *csm)
+    239          {
+    240            SUBPROC((void *)ElfKiller);
+    241          }
+    242          
+    243          // Обработчик событий главного CSM
+    244          int maincsm_onmessage(CSM_RAM *data, GBS_MSG *msg)
+    245          {
+    246            MAIN_CSM *csm=(MAIN_CSM*)data;
+    247             if ((msg->msg==MSG_GUI_DESTROYED)&&((int)msg->data0==csm->gui_id))
+    248            {
+    249              csm->csm.state=-3;
+    250            } 
+    251            return(1); 
+    252          }
+    253          
+    254          // Инициализация структуры MAINCSM
+    255          const struct
+    256          {
+    257            CSM_DESC maincsm;
+    258            WSHDR maincsm_name;
+    259          }MAINCSM =
+    260          {
+    261            {
+    262            maincsm_onmessage,
+    263            maincsm_oncreate,
+    264          #ifdef NEWSGOLD
+    265            0,
+    266            0,
+    267            0,
+    268            0,
+    269          #endif
+    270            maincsm_onclose,
+    271            sizeof(MAIN_CSM),
+    272            1,
+    273            &minus11
+    274            },
+    275            {
+    276              maincsm_name_body,
+    277              NAMECSM_MAGIC1,
+    278              NAMECSM_MAGIC2,
+    279              0x0,
+    280              139
+    281            }
+    282          };
+    283          
+    284          // Функция, которая устанавливает название этого CSM для X-Task.
+    285          /*void UpdateCSMname(void)
+    286          {
+    287            WSHDR *ws=AllocWS(256);
+    288            wsprintf((WSHDR *)(&MAINCSM.maincsm_name),"THE MATRIX");
+    289            FreeWS(ws);
+    290          }
+    291          */
+    292          static void UpdateCSMname(void)
+    293          {
+    294            wsprintf((WSHDR *)(&MAINCSM.maincsm_name),"the matrix");
+    295          }
+    296          
+    297          void check(void)
+    298          {
+    299          //  if(!IsUnlocked())
+    300              GBS_StartTimerProc(&matrix,262/speed,timer);
+    301            //GBS_StartTimerProc(&chk,262*10,check);
+    302          }
+    303          
+    304          
+    305          // Основная процедура. Она первой получает управление при старте эльфа.
+    306          int main()
+    307          {
+    308            ShowMSG(1,(int)"Matrix has you!");
+    309            CSMROOT *csmr;
+    310            CSM_RAM *save_cmpc;
+    311            CSM_RAM main_csm;
+    312            InitConfig();
+    313            UpdateCSMname();
+    314            LockSched();
+    315            csmr=CSM_root();
+    316            save_cmpc=csmr->csm_q->current_msg_processing_csm;
+    317            csmr->csm_q->current_msg_processing_csm=csmr->csm_q->csm.first;
+    318            CreateCSM(&MAINCSM.maincsm,&main_csm,0);
+    319            csmr->csm_q->current_msg_processing_csm=save_cmpc;
+    320            UnlockSched();
+    321            for(i=0;i<=65;i++)
+    322            {
+    323              spd[i]=3;
+    324              rx=random();
+    325              yy[i]=rx;
+    326              xx[i]=n;
+    327              n+=2;
+    328            }
+    329            buf=(char *)malloc(bufsize); // Выделяем память и т.п.
+    330            if(!buf) SUBPROC((void *)onClose); // Не получилось - выходим
+    331            SUBPROC((void *)check);
+    332            return 0;
+    333          }
+
+Errors: 1
+Warnings: none

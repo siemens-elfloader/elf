@@ -1,0 +1,1309 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    05/Aug/2009  15:40:01 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\CBN\Arc\LzmaDecode.c                          #
+#    Command line    =  C:\arm\CBN\Arc\LzmaDecode.c -D NEWSGOLD -D           #
+#                       HIGHCOLOR -D GRAPH -D UNPACK -D NOZIP -D NORAR -lC   #
+#                       C:\arm\CBN\UltraVix\Release\List\ -o                 #
+#                       C:\arm\CBN\UltraVix\Release\Obj\ -s9 --no_unroll     #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --char_is_signed --fpu None -I "C:\arm2\Embedded     #
+#                       Workbench 4.0 Evaluation\ARM\INC\"                   #
+#                       --inline_threshold=2                                 #
+#    List file       =  C:\arm\CBN\UltraVix\Release\List\LzmaDecode.lst      #
+#    Object file     =  C:\arm\CBN\UltraVix\Release\Obj\LzmaDecode.r79       #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\CBN\Arc\LzmaDecode.c
+      1          /*
+      2            LzmaDecode.c
+      3            LZMA Decoder (optimized for Speed version)
+      4            
+      5            LZMA SDK 4.40 Copyright (c) 1999-2006 Igor Pavlov (2006-05-01)
+      6            http://www.7-zip.org/
+      7          
+      8            LZMA SDK is licensed under two licenses:
+      9            1) GNU Lesser General Public License (GNU LGPL)
+     10            2) Common Public License (CPL)
+     11            It means that you can select one of these two licenses and 
+     12            follow rules of that license.
+     13          
+     14            SPECIAL EXCEPTION:
+     15            Igor Pavlov, as the author of this Code, expressly permits you to 
+     16            statically or dynamically link your Code (or bind by name) to the 
+     17            interfaces of this file without subjecting your linked Code to the 
+     18            terms of the CPL or GNU LGPL. Any modifications or additions 
+     19            to this file, however, are subject to the LGPL or CPL terms.
+     20          */
+     21          
+     22          #include "LzmaDecode.h"
+     23          
+     24          #define kNumTopBits 24
+     25          #define kTopValue ((UInt32)1 << kNumTopBits)
+     26          
+     27          #define kNumBitModelTotalBits 11
+     28          #define kBitModelTotal (1 << kNumBitModelTotalBits)
+     29          #define kNumMoveBits 5
+     30          
+     31          #define RC_READ_BYTE (*Buffer++)
+     32          
+     33          #define RC_INIT2 Code = 0; Range = 0xFFFFFFFF; \
+     34            { int i; for(i = 0; i < 5; i++) { RC_TEST; Code = (Code << 8) | RC_READ_BYTE; }}
+     35          
+     36          #ifdef _LZMA_IN_CB
+     37          
+     38          #define RC_TEST { if (Buffer == BufferLim) \
+     39            { SizeT size; int result = InCallback->Read(InCallback, &Buffer, &size); if (result != LZMA_RESULT_OK) return result; \
+     40            BufferLim = Buffer + size; if (size == 0) return LZMA_RESULT_DATA_ERROR; }}
+     41          
+     42          #define RC_INIT Buffer = BufferLim = 0; RC_INIT2
+     43          
+     44          #else
+     45          
+     46          #define RC_TEST { if (Buffer == BufferLim) return LZMA_RESULT_DATA_ERROR; }
+     47          
+     48          #define RC_INIT(buffer, bufferSize) Buffer = buffer; BufferLim = buffer + bufferSize; RC_INIT2
+     49           
+     50          #endif
+     51          
+     52          #define RC_NORMALIZE if (Range < kTopValue) { RC_TEST; Range <<= 8; Code = (Code << 8) | RC_READ_BYTE; }
+     53          
+     54          #define IfBit0(p) RC_NORMALIZE; bound = (Range >> kNumBitModelTotalBits) * *(p); if (Code < bound)
+     55          #define UpdateBit0(p) Range = bound; *(p) += (kBitModelTotal - *(p)) >> kNumMoveBits;
+     56          #define UpdateBit1(p) Range -= bound; Code -= bound; *(p) -= (*(p)) >> kNumMoveBits;
+     57          
+     58          #define RC_GET_BIT2(p, mi, A0, A1) IfBit0(p) \
+     59            { UpdateBit0(p); mi <<= 1; A0; } else \
+     60            { UpdateBit1(p); mi = (mi + mi) + 1; A1; } 
+     61            
+     62          #define RC_GET_BIT(p, mi) RC_GET_BIT2(p, mi, ; , ;)               
+     63          
+     64          #define RangeDecoderBitTreeDecode(probs, numLevels, res) \
+     65            { int i = numLevels; res = 1; \
+     66            do { CProb *p = probs + res; RC_GET_BIT(p, res) } while(--i != 0); \
+     67            res -= (1 << numLevels); }
+     68          
+     69          
+     70          #define kNumPosBitsMax 4
+     71          #define kNumPosStatesMax (1 << kNumPosBitsMax)
+     72          
+     73          #define kLenNumLowBits 3
+     74          #define kLenNumLowSymbols (1 << kLenNumLowBits)
+     75          #define kLenNumMidBits 3
+     76          #define kLenNumMidSymbols (1 << kLenNumMidBits)
+     77          #define kLenNumHighBits 8
+     78          #define kLenNumHighSymbols (1 << kLenNumHighBits)
+     79          
+     80          #define LenChoice 0
+     81          #define LenChoice2 (LenChoice + 1)
+     82          #define LenLow (LenChoice2 + 1)
+     83          #define LenMid (LenLow + (kNumPosStatesMax << kLenNumLowBits))
+     84          #define LenHigh (LenMid + (kNumPosStatesMax << kLenNumMidBits))
+     85          #define kNumLenProbs (LenHigh + kLenNumHighSymbols) 
+     86          
+     87          
+     88          #define kNumStates 12
+     89          #define kNumLitStates 7
+     90          
+     91          #define kStartPosModelIndex 4
+     92          #define kEndPosModelIndex 14
+     93          #define kNumFullDistances (1 << (kEndPosModelIndex >> 1))
+     94          
+     95          #define kNumPosSlotBits 6
+     96          #define kNumLenToPosStates 4
+     97          
+     98          #define kNumAlignBits 4
+     99          #define kAlignTableSize (1 << kNumAlignBits)
+    100          
+    101          #define kMatchMinLen 2
+    102          
+    103          #define IsMatch 0
+    104          #define IsRep (IsMatch + (kNumStates << kNumPosBitsMax))
+    105          #define IsRepG0 (IsRep + kNumStates)
+    106          #define IsRepG1 (IsRepG0 + kNumStates)
+    107          #define IsRepG2 (IsRepG1 + kNumStates)
+    108          #define IsRep0Long (IsRepG2 + kNumStates)
+    109          #define PosSlot (IsRep0Long + (kNumStates << kNumPosBitsMax))
+    110          #define SpecPos (PosSlot + (kNumLenToPosStates << kNumPosSlotBits))
+    111          #define Align (SpecPos + kNumFullDistances - kEndPosModelIndex)
+    112          #define LenCoder (Align + kAlignTableSize)
+    113          #define RepLenCoder (LenCoder + kNumLenProbs)
+    114          #define Literal (RepLenCoder + kNumLenProbs)
+    115          
+    116          #if Literal != LZMA_BASE_SIZE
+    117          StopCompilingDueBUG
+    118          #endif
+    119          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    120          int LzmaDecodeProperties(CLzmaProperties *propsRes, const unsigned char *propsData, int size)
+    121          {
+    122            unsigned char prop0;
+    123            if (size < LZMA_PROPERTIES_SIZE)
+   \                     LzmaDecodeProperties:
+   \   00000000   050052E3           CMP      R2,#+5
+   \   00000004   010000AA           BGE      ??LzmaDecodeProperties_0
+    124              return LZMA_RESULT_DATA_ERROR;
+   \                     ??LzmaDecodeProperties_1:
+   \   00000008   0100A0E3           MOV      R0,#+1
+   \   0000000C   1EFF2FE1           BX       LR
+    125            prop0 = propsData[0];
+   \                     ??LzmaDecodeProperties_0:
+   \   00000010   0010D1E5           LDRB     R1,[R1, #+0]
+    126            if (prop0 >= (9 * 5 * 5))
+   \   00000014   E10051E3           CMP      R1,#+225
+   \   00000018   FAFFFF2A           BCS      ??LzmaDecodeProperties_1
+    127              return LZMA_RESULT_DATA_ERROR;
+    128            {
+    129              for (propsRes->pb = 0; prop0 >= (9 * 5); propsRes->pb++, prop0 -= (9 * 5));
+   \   0000001C   0020A0E3           MOV      R2,#+0
+   \   00000020   082080E5           STR      R2,[R0, #+8]
+   \   00000024   2D0051E3           CMP      R1,#+45
+   \   00000028   0600003A           BCC      ??LzmaDecodeProperties_2
+   \                     ??LzmaDecodeProperties_3:
+   \   0000002C   083090E5           LDR      R3,[R0, #+8]
+   \   00000030   D31081E2           ADD      R1,R1,#+211
+   \   00000034   013083E2           ADD      R3,R3,#+1
+   \   00000038   083080E5           STR      R3,[R0, #+8]
+   \   0000003C   FF1001E2           AND      R1,R1,#0xFF
+   \   00000040   2D0051E3           CMP      R1,#+45
+   \   00000044   F8FFFF2A           BCS      ??LzmaDecodeProperties_3
+    130              for (propsRes->lp = 0; prop0 >= 9; propsRes->lp++, prop0 -= 9);
+   \                     ??LzmaDecodeProperties_2:
+   \   00000048   042080E5           STR      R2,[R0, #+4]
+   \   0000004C   090051E3           CMP      R1,#+9
+   \   00000050   0600003A           BCC      ??LzmaDecodeProperties_4
+   \                     ??LzmaDecodeProperties_5:
+   \   00000054   042090E5           LDR      R2,[R0, #+4]
+   \   00000058   F71081E2           ADD      R1,R1,#+247
+   \   0000005C   012082E2           ADD      R2,R2,#+1
+   \   00000060   042080E5           STR      R2,[R0, #+4]
+   \   00000064   FF1001E2           AND      R1,R1,#0xFF
+   \   00000068   090051E3           CMP      R1,#+9
+   \   0000006C   F8FFFF2A           BCS      ??LzmaDecodeProperties_5
+    131              propsRes->lc = prop0;
+   \                     ??LzmaDecodeProperties_4:
+   \   00000070   001080E5           STR      R1,[R0, #+0]
+    132              /*
+    133              unsigned char remainder = (unsigned char)(prop0 / 9);
+    134              propsRes->lc = prop0 % 9;
+    135              propsRes->pb = remainder / 5;
+    136              propsRes->lp = remainder % 5;
+    137              */
+    138            }
+    139          
+    140            #ifdef _LZMA_OUT_READ
+    141            {
+    142              int i;
+    143              propsRes->DictionarySize = 0;
+    144              for (i = 0; i < 4; i++)
+    145                propsRes->DictionarySize += (UInt32)(propsData[1 + i]) << (i * 8);
+    146              if (propsRes->DictionarySize == 0)
+    147                propsRes->DictionarySize = 1;
+    148            }
+    149            #endif
+    150            return LZMA_RESULT_OK;
+   \   00000074   0000A0E3           MOV      R0,#+0
+   \   00000078   1EFF2FE1           BX       LR               ;; return
+    151          }
+    152          
+    153          #define kLzmaStreamWasFinishedId (-1)
+    154          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    155          int LzmaDecode(CLzmaDecoderState *vs,
+    156              #ifdef _LZMA_IN_CB
+    157              ILzmaInCallback *InCallback,
+    158              #else
+    159              const unsigned char *inStream, SizeT inSize, SizeT *inSizeProcessed,
+    160              #endif
+    161              unsigned char *outStream, SizeT outSize, SizeT *outSizeProcessed)
+    162          {
+   \                     LzmaDecode:
+   \   00000000   FA4F2DE9           PUSH     {R1,R3-R11,LR}
+   \   00000004   24D04DE2           SUB      SP,SP,#+36
+   \   00000008   0050A0E1           MOV      R5,R0
+    163            CProb *p = vs->Probs;
+   \   0000000C   0C1095E5           LDR      R1,[R5, #+12]
+    164            SizeT nowPos = 0;
+    165            Byte previousByte = 0;
+   \   00000010   0130A0E3           MOV      R3,#+1
+   \   00000014   08108DE5           STR      R1,[SP, #+8]
+   \   00000018   086095E5           LDR      R6,[R5, #+8]
+   \   0000001C   0080A0E3           MOV      R8,#+0
+   \   00000020   1336A0E1           LSL      R3,R3,R6
+   \   00000024   013043E2           SUB      R3,R3,#+1
+   \   00000028   1C308DE5           STR      R3,[SP, #+28]
+    166            UInt32 posStateMask = (1 << (vs->Properties.pb)) - 1;
+    167            UInt32 literalPosMask = (1 << (vs->Properties.lp)) - 1;
+   \   0000002C   046095E5           LDR      R6,[R5, #+4]
+   \   00000030   0130A0E3           MOV      R3,#+1
+   \   00000034   1336A0E1           LSL      R3,R3,R6
+    168            int lc = vs->Properties.lc;
+    169          
+    170            #ifdef _LZMA_OUT_READ
+    171            
+    172            UInt32 Range = vs->Range;
+    173            UInt32 Code = vs->Code;
+    174            #ifdef _LZMA_IN_CB
+    175            const Byte *Buffer = vs->Buffer;
+    176            const Byte *BufferLim = vs->BufferLim;
+    177            #else
+    178            const Byte *Buffer = inStream;
+    179            const Byte *BufferLim = inStream + inSize;
+    180            #endif
+    181            int state = vs->State;
+    182            UInt32 rep0 = vs->Reps[0], rep1 = vs->Reps[1], rep2 = vs->Reps[2], rep3 = vs->Reps[3];
+    183            int len = vs->RemainLen;
+    184            UInt32 globalPos = vs->GlobalPos;
+    185            UInt32 distanceLimit = vs->DistanceLimit;
+    186          
+    187            Byte *dictionary = vs->Dictionary;
+    188            UInt32 dictionarySize = vs->Properties.DictionarySize;
+    189            UInt32 dictionaryPos = vs->DictionaryPos;
+    190          
+    191            Byte tempDictionary[4];
+    192          
+    193            #ifndef _LZMA_IN_CB
+    194            *inSizeProcessed = 0;
+    195            #endif
+    196            *outSizeProcessed = 0;
+    197            if (len == kLzmaStreamWasFinishedId)
+    198              return LZMA_RESULT_OK;
+    199          
+    200            if (dictionarySize == 0)
+    201            {
+    202              dictionary = tempDictionary;
+    203              dictionarySize = 1;
+    204              tempDictionary[0] = vs->TempDictionary[0];
+    205            }
+    206          
+    207            if (len == kLzmaNeedInitId)
+    208            {
+    209              {
+    210                UInt32 numProbs = Literal + ((UInt32)LZMA_LIT_SIZE << (lc + vs->Properties.lp));
+    211                UInt32 i;
+    212                for (i = 0; i < numProbs; i++)
+    213                  p[i] = kBitModelTotal >> 1; 
+    214                rep0 = rep1 = rep2 = rep3 = 1;
+    215                state = 0;
+    216                globalPos = 0;
+    217                distanceLimit = 0;
+    218                dictionaryPos = 0;
+    219                dictionary[dictionarySize - 1] = 0;
+    220                #ifdef _LZMA_IN_CB
+    221                RC_INIT;
+    222                #else
+    223                RC_INIT(inStream, inSize);
+    224                #endif
+    225              }
+    226              len = 0;
+    227            }
+    228            while(len != 0 && nowPos < outSize)
+    229            {
+    230              UInt32 pos = dictionaryPos - rep0;
+    231              if (pos >= dictionarySize)
+    232                pos += dictionarySize;
+    233              outStream[nowPos++] = dictionary[dictionaryPos] = dictionary[pos];
+    234              if (++dictionaryPos == dictionarySize)
+    235                dictionaryPos = 0;
+    236              len--;
+    237            }
+    238            if (dictionaryPos == 0)
+    239              previousByte = dictionary[dictionarySize - 1];
+    240            else
+    241              previousByte = dictionary[dictionaryPos - 1];
+    242          
+    243            #else /* if !_LZMA_OUT_READ */
+    244          
+    245            int state = 0;
+    246            UInt32 rep0 = 1, rep1 = 1, rep2 = 1, rep3 = 1;
+    247            int len = 0;
+    248            const Byte *Buffer;
+    249            const Byte *BufferLim;
+    250            UInt32 Range;
+    251            UInt32 Code;
+    252          
+    253            #ifndef _LZMA_IN_CB
+    254            *inSizeProcessed = 0;
+   \   00000038   28609DE5           LDR      R6,[SP, #+40]
+   \   0000003C   013043E2           SUB      R3,R3,#+1
+   \   00000040   20308DE5           STR      R3,[SP, #+32]
+   \   00000044   003095E5           LDR      R3,[R5, #+0]
+   \   00000048   0240A0E1           MOV      R4,R2
+   \   0000004C   14308DE5           STR      R3,[SP, #+20]
+   \   00000050   0130A0E3           MOV      R3,#+1
+   \   00000054   0370A0E1           MOV      R7,R3
+   \   00000058   0C708DE5           STR      R7,[SP, #+12]
+   \   0000005C   10708DE5           STR      R7,[SP, #+16]
+   \   00000060   18708DE5           STR      R7,[SP, #+24]
+   \   00000064   008086E5           STR      R8,[R6, #+0]
+    255            #endif
+    256            *outSizeProcessed = 0;
+   \   00000068   58609DE5           LDR      R6,[SP, #+88]
+   \   0000006C   0000A0E3           MOV      R0,#+0
+   \   00000070   008086E5           STR      R8,[R6, #+0]
+    257          
+    258            {
+    259              UInt32 i;
+    260              UInt32 numProbs = Literal + ((UInt32)LZMA_LIT_SIZE << (lc + vs->Properties.lp));
+   \   00000074   14709DE5           LDR      R7,[SP, #+20]
+   \   00000078   045095E5           LDR      R5,[R5, #+4]
+   \   0000007C   0010A0E1           MOV      R1,R0
+   \   00000080   0020A0E1           MOV      R2,R0
+   \   00000084   C06FA0E3           MOV      R6,#+768
+   \   00000088   075085E0           ADD      R5,R5,R7
+   \   0000008C   3670A0E3           MOV      R7,#+54
+   \   00000090   707E87E3           ORR      R7,R7,#0x700
+   \   00000094   165587E0           ADD      R5,R7,R6, LSL R5
+    261              for (i = 0; i < numProbs; i++)
+   \   00000098   0860A0E1           MOV      R6,R8
+   \   0000009C   000055E3           CMP      R5,#+0
+   \   000000A0   409EA0E3           MOV      R9,#+1024
+   \   000000A4   0400001A           BNE      ??LzmaDecode_0
+   \   000000A8   050000EA           B        ??LzmaDecode_1
+    262                p[i] = kBitModelTotal >> 1;
+   \                     ??LzmaDecode_2:
+   \   000000AC   08709DE5           LDR      R7,[SP, #+8]
+   \   000000B0   867087E0           ADD      R7,R7,R6, LSL #+1
+   \   000000B4   B090C7E1           STRH     R9,[R7, #+0]
+   \   000000B8   016086E2           ADD      R6,R6,#+1
+   \                     ??LzmaDecode_0:
+   \   000000BC   050056E1           CMP      R6,R5
+   \   000000C0   F9FFFF3A           BCC      ??LzmaDecode_2
+    263            }
+    264            
+    265            #ifdef _LZMA_IN_CB
+    266            RC_INIT;
+    267            #else
+    268            RC_INIT(inStream, inSize);
+   \                     ??LzmaDecode_1:
+   \   000000C4   24C09DE5           LDR      R12,[SP, #+36]
+   \   000000C8   0070E0E1           MVN      R7,R0
+   \   000000CC   0C4084E0           ADD      R4,R4,R12
+   \   000000D0   0050A0E3           MOV      R5,#+0
+   \                     ??LzmaDecode_3:
+   \   000000D4   04005CE1           CMP      R12,R4
+   \   000000D8   0200001A           BNE      ??LzmaDecode_4
+   \                     ??LzmaDecode_5:
+   \   000000DC   0100A0E3           MOV      R0,#+1
+   \   000000E0   2CD08DE2           ADD      SP,SP,#+44
+   \   000000E4   F08FBDE8           POP      {R4-R11,PC}
+   \                     ??LzmaDecode_4:
+   \   000000E8   ........           LDRB     R6,[R12], #+1
+   \   000000EC   015085E2           ADD      R5,R5,#+1
+   \   000000F0   050055E3           CMP      R5,#+5
+   \   000000F4   088486E1           ORR      R8,R6,R8, LSL #+8
+   \   000000F8   F5FFFFBA           BLT      ??LzmaDecode_3
+    269            #endif
+    270          
+    271            #endif /* _LZMA_OUT_READ */
+    272          
+    273            while(nowPos < outSize)
+   \                     ??LzmaDecode_6:
+   \   000000FC   54509DE5           LDR      R5,[SP, #+84]
+   \   00000100   050050E1           CMP      R0,R5
+   \   00000104   EC01002A           BCS      ??LzmaDecode_7
+    274            {
+    275              CProb *prob;
+    276              UInt32 bound;
+    277              int posState = (int)(
+    278                  (nowPos 
+    279                  #ifdef _LZMA_OUT_READ
+    280                  + globalPos
+    281                  #endif
+    282                  )
+    283                  & posStateMask);
+   \   00000108   1C509DE5           LDR      R5,[SP, #+28]
+    284          
+    285              prob = p + IsMatch + (state << kNumPosBitsMax) + posState;
+   \   0000010C   08609DE5           LDR      R6,[SP, #+8]
+   \   00000110   005005E0           AND      R5,R5,R0
+   \   00000114   826286E0           ADD      R6,R6,R2, LSL #+5
+   \   00000118   856086E0           ADD      R6,R6,R5, LSL #+1
+    286              IfBit0(prob)
+   \   0000011C   400757E3           CMP      R7,#+16777216
+   \   00000120   0400002A           BCS      ??LzmaDecode_8
+   \   00000124   04005CE1           CMP      R12,R4
+   \   00000128   EBFFFF0A           BEQ      ??LzmaDecode_5
+   \   0000012C   ........           LDRB     R9,[R12], #+1
+   \   00000130   0774A0E1           LSL      R7,R7,#+8
+   \   00000134   088489E1           ORR      R8,R9,R8, LSL #+8
+   \                     ??LzmaDecode_8:
+   \   00000138   B090D6E1           LDRH     R9,[R6, #+0]
+   \   0000013C   50E09DE5           LDR      LR,[SP, #+80]
+   \   00000140   A7A5A0E1           LSR      R10,R7,#+11
+   \   00000144   990A0AE0           MUL      R10,R9,R10
+   \   00000148   03B040E0           SUB      R11,R0,R3
+   \   0000014C   0EB08BE0           ADD      R11,R11,LR
+   \   00000150   0EE080E0           ADD      LR,R0,LR
+   \   00000154   00E08DE5           STR      LR,[SP, #+0]
+   \   00000158   0A0058E1           CMP      R8,R10
+   \   0000015C   5F00002A           BCS      ??LzmaDecode_9
+    287              {
+    288                int symbol = 1;
+    289                UpdateBit0(prob)
+   \   00000160   0A70A0E1           MOV      R7,R10
+   \   00000164   80AE69E2           RSB      R10,R9,#+2048
+   \   00000168   CA9289E0           ADD      R9,R9,R10, ASR #+5
+   \   0000016C   B090C6E1           STRH     R9,[R6, #+0]
+    290                prob = p + Literal + (LZMA_LIT_SIZE * 
+    291                  (((
+    292                  (nowPos 
+    293                  #ifdef _LZMA_OUT_READ
+    294                  + globalPos
+    295                  #endif
+    296                  )
+    297                  & literalPosMask) << lc) + (previousByte >> (8 - lc))));
+   \   00000170   20909DE5           LDR      R9,[SP, #+32]
+   \   00000174   14A09DE5           LDR      R10,[SP, #+20]
+   \   00000178   009009E0           AND      R9,R9,R0
+   \   0000017C   0AE0A0E1           MOV      LR,R10
+   \   00000180   08E06EE2           RSB      LR,LR,#+8
+   \   00000184   511EA0E1           ASR      R1,R1,LR
+   \   00000188   199A81E0           ADD      R9,R1,R9, LSL R10
+   \   0000018C   08A09DE5           LDR      R10,[SP, #+8]
+   \   00000190   601EA0E3           MOV      R1,#+1536
+   \   00000194   91A929E0           MLA      R9,R1,R9,R10
+   \   00000198   0150A0E3           MOV      R5,#+1
+   \   0000019C   6C60A0E3           MOV      R6,#+108
+   \   000001A0   E06E86E3           ORR      R6,R6,#0xE00
+   \   000001A4   096086E0           ADD      R6,R6,R9
+    298          
+    299                if (state >= kNumLitStates)
+   \   000001A8   070052E3           CMP      R2,#+7
+   \   000001AC   270000BA           BLT      ??LzmaDecode_10
+    300                {
+    301                  int matchByte;
+    302                  #ifdef _LZMA_OUT_READ
+    303                  UInt32 pos = dictionaryPos - rep0;
+    304                  if (pos >= dictionarySize)
+    305                    pos += dictionarySize;
+    306                  matchByte = dictionary[pos];
+    307                  #else
+    308                  matchByte = outStream[nowPos - rep0];
+   \   000001B0   0090DBE5           LDRB     R9,[R11, #+0]
+   \   000001B4   04908DE5           STR      R9,[SP, #+4]
+    309                  #endif
+    310                  do
+    311                  {
+    312                    int bit;
+    313                    CProb *probLit;
+    314                    matchByte <<= 1;
+   \                     ??LzmaDecode_11:
+   \   000001B8   04909DE5           LDR      R9,[SP, #+4]
+    315                    bit = (matchByte & 0x100);
+    316                    probLit = prob + 0x100 + bit + symbol;
+    317                    RC_GET_BIT2(probLit, symbol, if (bit != 0) break, if (bit == 0) break)
+   \   000001BC   400757E3           CMP      R7,#+16777216
+   \   000001C0   8990A0E1           LSL      R9,R9,#+1
+   \   000001C4   04908DE5           STR      R9,[SP, #+4]
+   \   000001C8   401F09E2           AND      R1,R9,#0x100
+   \   000001CC   809F86E2           ADD      R9,R6,#+512
+   \   000001D0   859089E0           ADD      R9,R9,R5, LSL #+1
+   \   000001D4   819089E0           ADD      R9,R9,R1, LSL #+1
+   \   000001D8   0400002A           BCS      ??LzmaDecode_12
+   \   000001DC   04005CE1           CMP      R12,R4
+   \   000001E0   BDFFFF0A           BEQ      ??LzmaDecode_5
+   \   000001E4   ........           LDRB     R10,[R12], #+1
+   \   000001E8   0774A0E1           LSL      R7,R7,#+8
+   \   000001EC   08848AE1           ORR      R8,R10,R8, LSL #+8
+   \                     ??LzmaDecode_12:
+   \   000001F0   B0B0D9E1           LDRH     R11,[R9, #+0]
+   \   000001F4   A7A5A0E1           LSR      R10,R7,#+11
+   \   000001F8   8550A0E1           LSL      R5,R5,#+1
+   \   000001FC   9B0A0AE0           MUL      R10,R11,R10
+   \   00000200   0A0058E1           CMP      R8,R10
+   \   00000204   0600002A           BCS      ??LzmaDecode_13
+   \   00000208   0A70A0E1           MOV      R7,R10
+   \   0000020C   80AE6BE2           RSB      R10,R11,#+2048
+   \   00000210   CAA28BE0           ADD      R10,R11,R10, ASR #+5
+   \   00000214   B0A0C9E1           STRH     R10,[R9, #+0]
+   \   00000218   000051E3           CMP      R1,#+0
+   \   0000021C   0900001A           BNE      ??LzmaDecode_14
+   \   00000220   060000EA           B        ??LzmaDecode_15
+   \                     ??LzmaDecode_13:
+   \   00000224   0A7047E0           SUB      R7,R7,R10
+   \   00000228   0A8048E0           SUB      R8,R8,R10
+   \   0000022C   ABA24BE0           SUB      R10,R11,R11, LSR #+5
+   \   00000230   B0A0C9E1           STRH     R10,[R9, #+0]
+   \   00000234   015085E2           ADD      R5,R5,#+1
+   \   00000238   000051E3           CMP      R1,#+0
+   \   0000023C   0100000A           BEQ      ??LzmaDecode_14
+    318                  }
+    319                  while (symbol < 0x100);
+   \                     ??LzmaDecode_15:
+   \   00000240   400F55E3           CMP      R5,#+256
+   \   00000244   DBFFFFBA           BLT      ??LzmaDecode_11
+    320                }
+    321                while (symbol < 0x100)
+   \                     ??LzmaDecode_14:
+   \   00000248   400F55E3           CMP      R5,#+256
+   \   0000024C   180000AA           BGE      ??LzmaDecode_16
+    322                {
+    323                  CProb *probLit = prob + symbol;
+   \                     ??LzmaDecode_10:
+   \   00000250   851086E0           ADD      R1,R6,R5, LSL #+1
+    324                  RC_GET_BIT(probLit, symbol)
+   \   00000254   400757E3           CMP      R7,#+16777216
+   \   00000258   0400002A           BCS      ??LzmaDecode_17
+   \   0000025C   04005CE1           CMP      R12,R4
+   \   00000260   9DFFFF0A           BEQ      ??LzmaDecode_5
+   \   00000264   ........           LDRB     R9,[R12], #+1
+   \   00000268   0774A0E1           LSL      R7,R7,#+8
+   \   0000026C   088489E1           ORR      R8,R9,R8, LSL #+8
+   \                     ??LzmaDecode_17:
+   \   00000270   B090D1E1           LDRH     R9,[R1, #+0]
+   \   00000274   A7A5A0E1           LSR      R10,R7,#+11
+   \   00000278   8550A0E1           LSL      R5,R5,#+1
+   \   0000027C   990A0AE0           MUL      R10,R9,R10
+   \   00000280   0A0058E1           CMP      R8,R10
+   \   00000284   0400002A           BCS      ??LzmaDecode_18
+   \   00000288   0A70A0E1           MOV      R7,R10
+   \   0000028C   80AE69E2           RSB      R10,R9,#+2048
+   \   00000290   CA9289E0           ADD      R9,R9,R10, ASR #+5
+   \   00000294   B090C1E1           STRH     R9,[R1, #+0]
+   \   00000298   EAFFFFEA           B        ??LzmaDecode_14
+   \                     ??LzmaDecode_18:
+   \   0000029C   0A7047E0           SUB      R7,R7,R10
+   \   000002A0   0A8048E0           SUB      R8,R8,R10
+   \   000002A4   A99249E0           SUB      R9,R9,R9, LSR #+5
+   \   000002A8   B090C1E1           STRH     R9,[R1, #+0]
+   \   000002AC   015085E2           ADD      R5,R5,#+1
+   \   000002B0   E4FFFFEA           B        ??LzmaDecode_14
+    325                }
+    326                previousByte = (Byte)symbol;
+   \                     ??LzmaDecode_16:
+   \   000002B4   FF1005E2           AND      R1,R5,#0xFF
+    327          
+    328                outStream[nowPos++] = previousByte;
+   \   000002B8   00509DE5           LDR      R5,[SP, #+0]
+   \   000002BC   010080E2           ADD      R0,R0,#+1
+   \   000002C0   0010C5E5           STRB     R1,[R5, #+0]
+    329                #ifdef _LZMA_OUT_READ
+    330                if (distanceLimit < dictionarySize)
+    331                  distanceLimit++;
+    332          
+    333                dictionary[dictionaryPos] = previousByte;
+    334                if (++dictionaryPos == dictionarySize)
+    335                  dictionaryPos = 0;
+    336                #endif
+    337                if (state < 4) state = 0;
+   \   000002C4   040052E3           CMP      R2,#+4
+   \   000002C8   0020A0B3           MOVLT    R2,#+0
+   \   000002CC   8AFFFFBA           BLT      ??LzmaDecode_6
+    338                else if (state < 10) state -= 3;
+   \   000002D0   0A0052E3           CMP      R2,#+10
+   \   000002D4   062042A2           SUBGE    R2,R2,#+6
+   \   000002D8   032042B2           SUBLT    R2,R2,#+3
+   \   000002DC   86FFFFEA           B        ??LzmaDecode_6
+    339                else state -= 6;
+    340              }
+    341              else             
+    342              {
+    343                UpdateBit1(prob);
+   \                     ??LzmaDecode_9:
+   \   000002E0   A91249E0           SUB      R1,R9,R9, LSR #+5
+   \   000002E4   B010C6E1           STRH     R1,[R6, #+0]
+    344                prob = p + IsRep + state;
+   \   000002E8   08109DE5           LDR      R1,[SP, #+8]
+   \   000002EC   0A7047E0           SUB      R7,R7,R10
+   \   000002F0   0A8048E0           SUB      R8,R8,R10
+   \   000002F4   821081E0           ADD      R1,R1,R2, LSL #+1
+   \   000002F8   606F81E2           ADD      R6,R1,#+384
+    345                IfBit0(prob)
+   \   000002FC   400757E3           CMP      R7,#+16777216
+   \   00000300   0400002A           BCS      ??LzmaDecode_19
+   \   00000304   04005CE1           CMP      R12,R4
+   \   00000308   73FFFF0A           BEQ      ??LzmaDecode_5
+   \   0000030C   ........           LDRB     R9,[R12], #+1
+   \   00000310   0774A0E1           LSL      R7,R7,#+8
+   \   00000314   088489E1           ORR      R8,R9,R8, LSL #+8
+   \                     ??LzmaDecode_19:
+   \   00000318   B090D6E1           LDRH     R9,[R6, #+0]
+   \   0000031C   A7A5A0E1           LSR      R10,R7,#+11
+   \   00000320   990A0AE0           MUL      R10,R9,R10
+   \   00000324   0A0058E1           CMP      R8,R10
+   \   00000328   0E00002A           BCS      ??LzmaDecode_20
+    346                {
+    347                  UpdateBit0(prob);
+   \   0000032C   801E69E2           RSB      R1,R9,#+2048
+   \   00000330   C11289E0           ADD      R1,R9,R1, ASR #+5
+   \   00000334   B010C6E1           STRH     R1,[R6, #+0]
+    348                  rep3 = rep2;
+   \   00000338   10609DE5           LDR      R6,[SP, #+16]
+   \   0000033C   0A70A0E1           MOV      R7,R10
+   \   00000340   18608DE5           STR      R6,[SP, #+24]
+    349                  rep2 = rep1;
+   \   00000344   0C609DE5           LDR      R6,[SP, #+12]
+    350                  rep1 = rep0;
+   \   00000348   0C308DE5           STR      R3,[SP, #+12]
+   \   0000034C   10608DE5           STR      R6,[SP, #+16]
+    351                  state = state < kNumLitStates ? 0 : 3;
+   \   00000350   070052E3           CMP      R2,#+7
+   \   00000354   0020A0B3           MOVLT    R2,#+0
+   \   00000358   0320A0A3           MOVGE    R2,#+3
+    352                  prob = p + LenCoder;
+   \   0000035C   6410A0E3           MOV      R1,#+100
+   \   00000360   601E81E3           ORR      R1,R1,#0x600
+   \   00000364   750000EA           B        ??LzmaDecode_21
+    353                }
+    354                else
+    355                {
+    356                  UpdateBit1(prob);
+   \                     ??LzmaDecode_20:
+   \   00000368   0A7047E0           SUB      R7,R7,R10
+   \   0000036C   0A8048E0           SUB      R8,R8,R10
+   \   00000370   A99249E0           SUB      R9,R9,R9, LSR #+5
+   \   00000374   B090C6E1           STRH     R9,[R6, #+0]
+    357                  prob = p + IsRepG0 + state;
+   \   00000378   666F81E2           ADD      R6,R1,#+408
+    358                  IfBit0(prob)
+   \   0000037C   400757E3           CMP      R7,#+16777216
+   \   00000380   0400002A           BCS      ??LzmaDecode_22
+   \   00000384   04005CE1           CMP      R12,R4
+   \   00000388   53FFFF0A           BEQ      ??LzmaDecode_5
+   \   0000038C   ........           LDRB     R9,[R12], #+1
+   \   00000390   0774A0E1           LSL      R7,R7,#+8
+   \   00000394   088489E1           ORR      R8,R9,R8, LSL #+8
+   \                     ??LzmaDecode_22:
+   \   00000398   B090D6E1           LDRH     R9,[R6, #+0]
+   \   0000039C   A7A5A0E1           LSR      R10,R7,#+11
+   \   000003A0   990A0AE0           MUL      R10,R9,R10
+   \   000003A4   0A0058E1           CMP      R8,R10
+   \   000003A8   2600002A           BCS      ??LzmaDecode_23
+    359                  {
+    360                    UpdateBit0(prob);
+   \   000003AC   801E69E2           RSB      R1,R9,#+2048
+   \   000003B0   C11289E0           ADD      R1,R9,R1, ASR #+5
+   \   000003B4   B010C6E1           STRH     R1,[R6, #+0]
+    361                    prob = p + IsRep0Long + (state << kNumPosBitsMax) + posState;
+   \   000003B8   08109DE5           LDR      R1,[SP, #+8]
+   \   000003BC   0A70A0E1           MOV      R7,R10
+   \   000003C0   851081E0           ADD      R1,R1,R5, LSL #+1
+   \   000003C4   821281E0           ADD      R1,R1,R2, LSL #+5
+   \   000003C8   786F81E2           ADD      R6,R1,#+480
+    362                    IfBit0(prob)
+   \   000003CC   400757E3           CMP      R7,#+16777216
+   \   000003D0   0400002A           BCS      ??LzmaDecode_24
+   \   000003D4   04005CE1           CMP      R12,R4
+   \   000003D8   3FFFFF0A           BEQ      ??LzmaDecode_5
+   \   000003DC   ........           LDRB     R1,[R12], #+1
+   \   000003E0   0774A0E1           LSL      R7,R7,#+8
+   \   000003E4   088481E1           ORR      R8,R1,R8, LSL #+8
+   \                     ??LzmaDecode_24:
+   \   000003E8   B010D6E1           LDRH     R1,[R6, #+0]
+   \   000003EC   A795A0E1           LSR      R9,R7,#+11
+   \   000003F0   91090AE0           MUL      R10,R1,R9
+   \   000003F4   0A0058E1           CMP      R8,R10
+   \   000003F8   0D00002A           BCS      ??LzmaDecode_25
+    363                    {
+    364                      #ifdef _LZMA_OUT_READ
+    365                      UInt32 pos;
+    366                      #endif
+    367                      UpdateBit0(prob);
+   \   000003FC   0A70A0E1           MOV      R7,R10
+   \   00000400   805E61E2           RSB      R5,R1,#+2048
+   \   00000404   C51281E0           ADD      R1,R1,R5, ASR #+5
+   \   00000408   B010C6E1           STRH     R1,[R6, #+0]
+    368                      
+    369                      #ifdef _LZMA_OUT_READ
+    370                      if (distanceLimit == 0)
+    371                      #else
+    372                      if (nowPos == 0)
+   \   0000040C   000050E3           CMP      R0,#+0
+   \   00000410   31FFFF0A           BEQ      ??LzmaDecode_5
+    373                      #endif
+    374                        return LZMA_RESULT_DATA_ERROR;
+    375                      
+    376                      state = state < kNumLitStates ? 9 : 11;
+    377                      #ifdef _LZMA_OUT_READ
+    378                      pos = dictionaryPos - rep0;
+    379                      if (pos >= dictionarySize)
+    380                        pos += dictionarySize;
+    381                      previousByte = dictionary[pos];
+    382                      dictionary[dictionaryPos] = previousByte;
+    383                      if (++dictionaryPos == dictionarySize)
+    384                        dictionaryPos = 0;
+    385                      #else
+    386                      previousByte = outStream[nowPos - rep0];
+   \   00000414   0010DBE5           LDRB     R1,[R11, #+0]
+    387                      #endif
+    388                      outStream[nowPos++] = previousByte;
+   \   00000418   00509DE5           LDR      R5,[SP, #+0]
+   \   0000041C   070052E3           CMP      R2,#+7
+   \   00000420   0920A0B3           MOVLT    R2,#+9
+   \   00000424   0B20A0A3           MOVGE    R2,#+11
+   \   00000428   0010C5E5           STRB     R1,[R5, #+0]
+   \   0000042C   010080E2           ADD      R0,R0,#+1
+    389                      #ifdef _LZMA_OUT_READ
+    390                      if (distanceLimit < dictionarySize)
+    391                        distanceLimit++;
+    392                      #endif
+    393          
+    394                      continue;
+   \   00000430   31FFFFEA           B        ??LzmaDecode_6
+    395                    }
+    396                    else
+    397                    {
+    398                      UpdateBit1(prob);
+   \                     ??LzmaDecode_25:
+   \   00000434   0A7047E0           SUB      R7,R7,R10
+   \   00000438   0A8048E0           SUB      R8,R8,R10
+   \   0000043C   A11241E0           SUB      R1,R1,R1, LSR #+5
+   \   00000440   B010C6E1           STRH     R1,[R6, #+0]
+   \   00000444   380000EA           B        ??LzmaDecode_26
+    399                    }
+    400                  }
+    401                  else
+    402                  {
+    403                    UInt32 distance;
+    404                    UpdateBit1(prob);
+   \                     ??LzmaDecode_23:
+   \   00000448   0A7047E0           SUB      R7,R7,R10
+   \   0000044C   0A8048E0           SUB      R8,R8,R10
+   \   00000450   A99249E0           SUB      R9,R9,R9, LSR #+5
+   \   00000454   B090C6E1           STRH     R9,[R6, #+0]
+    405                    prob = p + IsRepG1 + state;
+   \   00000458   6C6F81E2           ADD      R6,R1,#+432
+    406                    IfBit0(prob)
+   \   0000045C   400757E3           CMP      R7,#+16777216
+   \   00000460   0400002A           BCS      ??LzmaDecode_27
+   \   00000464   04005CE1           CMP      R12,R4
+   \   00000468   1BFFFF0A           BEQ      ??LzmaDecode_5
+   \   0000046C   ........           LDRB     R9,[R12], #+1
+   \   00000470   0774A0E1           LSL      R7,R7,#+8
+   \   00000474   088489E1           ORR      R8,R9,R8, LSL #+8
+   \                     ??LzmaDecode_27:
+   \   00000478   B090D6E1           LDRH     R9,[R6, #+0]
+   \   0000047C   A7A5A0E1           LSR      R10,R7,#+11
+   \   00000480   990A0AE0           MUL      R10,R9,R10
+   \   00000484   0A0058E1           CMP      R8,R10
+   \   00000488   0500002A           BCS      ??LzmaDecode_28
+    407                    {
+    408                      UpdateBit0(prob);
+   \   0000048C   0A70A0E1           MOV      R7,R10
+   \   00000490   801E69E2           RSB      R1,R9,#+2048
+   \   00000494   C11289E0           ADD      R1,R9,R1, ASR #+5
+   \   00000498   B010C6E1           STRH     R1,[R6, #+0]
+    409                      distance = rep1;
+   \   0000049C   0C109DE5           LDR      R1,[SP, #+12]
+   \   000004A0   1F0000EA           B        ??LzmaDecode_29
+    410                    }
+    411                    else 
+    412                    {
+    413                      UpdateBit1(prob);
+   \                     ??LzmaDecode_28:
+   \   000004A4   0A7047E0           SUB      R7,R7,R10
+   \   000004A8   0A8048E0           SUB      R8,R8,R10
+   \   000004AC   A99249E0           SUB      R9,R9,R9, LSR #+5
+   \   000004B0   B090C6E1           STRH     R9,[R6, #+0]
+    414                      prob = p + IsRepG2 + state;
+   \   000004B4   726F81E2           ADD      R6,R1,#+456
+    415                      IfBit0(prob)
+   \   000004B8   400757E3           CMP      R7,#+16777216
+   \   000004BC   0400002A           BCS      ??LzmaDecode_30
+   \   000004C0   04005CE1           CMP      R12,R4
+   \   000004C4   04FFFF0A           BEQ      ??LzmaDecode_5
+   \   000004C8   ........           LDRB     R1,[R12], #+1
+   \   000004CC   0774A0E1           LSL      R7,R7,#+8
+   \   000004D0   088481E1           ORR      R8,R1,R8, LSL #+8
+   \                     ??LzmaDecode_30:
+   \   000004D4   B010D6E1           LDRH     R1,[R6, #+0]
+   \   000004D8   A795A0E1           LSR      R9,R7,#+11
+   \   000004DC   91090AE0           MUL      R10,R1,R9
+   \   000004E0   0A0058E1           CMP      R8,R10
+   \   000004E4   0500002A           BCS      ??LzmaDecode_31
+    416                      {
+    417                        UpdateBit0(prob);
+   \   000004E8   0A70A0E1           MOV      R7,R10
+   \   000004EC   809E61E2           RSB      R9,R1,#+2048
+   \   000004F0   C91281E0           ADD      R1,R1,R9, ASR #+5
+   \   000004F4   B010C6E1           STRH     R1,[R6, #+0]
+    418                        distance = rep2;
+   \   000004F8   10109DE5           LDR      R1,[SP, #+16]
+   \   000004FC   060000EA           B        ??LzmaDecode_32
+    419                      }
+    420                      else
+    421                      {
+    422                        UpdateBit1(prob);
+   \                     ??LzmaDecode_31:
+   \   00000500   A11241E0           SUB      R1,R1,R1, LSR #+5
+   \   00000504   B010C6E1           STRH     R1,[R6, #+0]
+    423                        distance = rep3;
+    424                        rep3 = rep2;
+   \   00000508   10909DE5           LDR      R9,[SP, #+16]
+   \   0000050C   18109DE5           LDR      R1,[SP, #+24]
+   \   00000510   0A7047E0           SUB      R7,R7,R10
+   \   00000514   0A8048E0           SUB      R8,R8,R10
+   \   00000518   18908DE5           STR      R9,[SP, #+24]
+    425                      }
+    426                      rep2 = rep1;
+   \                     ??LzmaDecode_32:
+   \   0000051C   0C909DE5           LDR      R9,[SP, #+12]
+   \   00000520   10908DE5           STR      R9,[SP, #+16]
+    427                    }
+    428                    rep1 = rep0;
+   \                     ??LzmaDecode_29:
+   \   00000524   0C308DE5           STR      R3,[SP, #+12]
+    429                    rep0 = distance;
+   \   00000528   0130A0E1           MOV      R3,R1
+    430                  }
+    431                  state = state < kNumLitStates ? 8 : 11;
+   \                     ??LzmaDecode_26:
+   \   0000052C   070052E3           CMP      R2,#+7
+   \   00000530   0820A0B3           MOVLT    R2,#+8
+   \   00000534   0B20A0A3           MOVGE    R2,#+11
+    432                  prob = p + RepLenCoder;
+   \   00000538   6810A0E3           MOV      R1,#+104
+   \   0000053C   A01E81E3           ORR      R1,R1,#0xA00
+   \                     ??LzmaDecode_21:
+   \   00000540   08609DE5           LDR      R6,[SP, #+8]
+    433                }
+    434                {
+    435                  int numBits, offset;
+    436                  CProb *probLen = prob + LenChoice;
+    437                  IfBit0(probLen)
+   \   00000544   400757E3           CMP      R7,#+16777216
+   \   00000548   066081E0           ADD      R6,R1,R6
+   \   0000054C   0400002A           BCS      ??LzmaDecode_33
+   \   00000550   04005CE1           CMP      R12,R4
+   \   00000554   E0FEFF0A           BEQ      ??LzmaDecode_5
+   \   00000558   ........           LDRB     R1,[R12], #+1
+   \   0000055C   0774A0E1           LSL      R7,R7,#+8
+   \   00000560   088481E1           ORR      R8,R1,R8, LSL #+8
+   \                     ??LzmaDecode_33:
+   \   00000564   B010D6E1           LDRH     R1,[R6, #+0]
+   \   00000568   A795A0E1           LSR      R9,R7,#+11
+   \   0000056C   055286E0           ADD      R5,R6,R5, LSL #+4
+   \   00000570   91090AE0           MUL      R10,R1,R9
+   \   00000574   0A0058E1           CMP      R8,R10
+   \   00000578   0800002A           BCS      ??LzmaDecode_34
+    438                  {
+    439                    UpdateBit0(probLen);
+   \   0000057C   0A70A0E1           MOV      R7,R10
+   \   00000580   809E61E2           RSB      R9,R1,#+2048
+   \   00000584   C91281E0           ADD      R1,R1,R9, ASR #+5
+   \   00000588   B010C6E1           STRH     R1,[R6, #+0]
+    440                    probLen = prob + LenLow + (posState << kLenNumLowBits);
+   \   0000058C   041085E2           ADD      R1,R5,#+4
+    441                    offset = 0;
+   \   00000590   0060A0E3           MOV      R6,#+0
+   \                     ??LzmaDecode_35:
+   \   00000594   04608DE5           STR      R6,[SP, #+4]
+    442                    numBits = kLenNumLowBits;
+   \   00000598   0360A0E3           MOV      R6,#+3
+   \   0000059C   1F0000EA           B        ??LzmaDecode_36
+    443                  }
+    444                  else
+    445                  {
+    446                    UpdateBit1(probLen);
+   \                     ??LzmaDecode_34:
+   \   000005A0   0A7047E0           SUB      R7,R7,R10
+   \   000005A4   0A8048E0           SUB      R8,R8,R10
+   \   000005A8   A11241E0           SUB      R1,R1,R1, LSR #+5
+   \   000005AC   B010C6E1           STRH     R1,[R6, #+0]
+    447                    probLen = prob + LenChoice2;
+   \   000005B0   021086E2           ADD      R1,R6,#+2
+    448                    IfBit0(probLen)
+   \   000005B4   400757E3           CMP      R7,#+16777216
+   \   000005B8   0400002A           BCS      ??LzmaDecode_37
+   \   000005BC   04005CE1           CMP      R12,R4
+   \   000005C0   C5FEFF0A           BEQ      ??LzmaDecode_5
+   \   000005C4   ........           LDRB     R9,[R12], #+1
+   \   000005C8   0774A0E1           LSL      R7,R7,#+8
+   \   000005CC   088489E1           ORR      R8,R9,R8, LSL #+8
+   \                     ??LzmaDecode_37:
+   \   000005D0   B090D1E1           LDRH     R9,[R1, #+0]
+   \   000005D4   A7A5A0E1           LSR      R10,R7,#+11
+   \   000005D8   990A0AE0           MUL      R10,R9,R10
+   \   000005DC   0A0058E1           CMP      R8,R10
+   \   000005E0   0600002A           BCS      ??LzmaDecode_38
+    449                    {
+    450                      UpdateBit0(probLen);
+   \   000005E4   0A70A0E1           MOV      R7,R10
+   \   000005E8   806E69E2           RSB      R6,R9,#+2048
+   \   000005EC   C66289E0           ADD      R6,R9,R6, ASR #+5
+   \   000005F0   B060C1E1           STRH     R6,[R1, #+0]
+    451                      probLen = prob + LenMid + (posState << kLenNumMidBits);
+   \   000005F4   411F85E2           ADD      R1,R5,#+260
+    452                      offset = kLenNumLowSymbols;
+   \   000005F8   0860A0E3           MOV      R6,#+8
+   \   000005FC   E4FFFFEA           B        ??LzmaDecode_35
+    453                      numBits = kLenNumMidBits;
+    454                    }
+    455                    else
+    456                    {
+    457                      UpdateBit1(probLen);
+   \                     ??LzmaDecode_38:
+   \   00000600   0A7047E0           SUB      R7,R7,R10
+   \   00000604   0A8048E0           SUB      R8,R8,R10
+   \   00000608   A95249E0           SUB      R5,R9,R9, LSR #+5
+   \   0000060C   B050C1E1           STRH     R5,[R1, #+0]
+    458                      probLen = prob + LenHigh;
+   \   00000610   811F86E2           ADD      R1,R6,#+516
+    459                      offset = kLenNumLowSymbols + kLenNumMidSymbols;
+   \   00000614   1060A0E3           MOV      R6,#+16
+   \   00000618   04608DE5           STR      R6,[SP, #+4]
+    460                      numBits = kLenNumHighBits;
+   \   0000061C   0860A0E3           MOV      R6,#+8
+   \                     ??LzmaDecode_36:
+   \   00000620   00608DE5           STR      R6,[SP, #+0]
+    461                    }
+    462                  }
+    463                  RangeDecoderBitTreeDecode(probLen, numBits, len);
+   \   00000624   00609DE5           LDR      R6,[SP, #+0]
+   \   00000628   0150A0E3           MOV      R5,#+1
+   \                     ??LzmaDecode_39:
+   \   0000062C   859081E0           ADD      R9,R1,R5, LSL #+1
+   \   00000630   400757E3           CMP      R7,#+16777216
+   \   00000634   0400002A           BCS      ??LzmaDecode_40
+   \   00000638   04005CE1           CMP      R12,R4
+   \   0000063C   A6FEFF0A           BEQ      ??LzmaDecode_5
+   \   00000640   ........           LDRB     R10,[R12], #+1
+   \   00000644   0774A0E1           LSL      R7,R7,#+8
+   \   00000648   08848AE1           ORR      R8,R10,R8, LSL #+8
+   \                     ??LzmaDecode_40:
+   \   0000064C   B0B0D9E1           LDRH     R11,[R9, #+0]
+   \   00000650   A7A5A0E1           LSR      R10,R7,#+11
+   \   00000654   8550A0E1           LSL      R5,R5,#+1
+   \   00000658   9B0A0AE0           MUL      R10,R11,R10
+   \   0000065C   0A0058E1           CMP      R8,R10
+   \   00000660   0400002A           BCS      ??LzmaDecode_41
+   \   00000664   0A70A0E1           MOV      R7,R10
+   \   00000668   80AE6BE2           RSB      R10,R11,#+2048
+   \   0000066C   CAA28BE0           ADD      R10,R11,R10, ASR #+5
+   \   00000670   B0A0C9E1           STRH     R10,[R9, #+0]
+   \   00000674   040000EA           B        ??LzmaDecode_42
+   \                     ??LzmaDecode_41:
+   \   00000678   0A7047E0           SUB      R7,R7,R10
+   \   0000067C   0A8048E0           SUB      R8,R8,R10
+   \   00000680   ABA24BE0           SUB      R10,R11,R11, LSR #+5
+   \   00000684   B0A0C9E1           STRH     R10,[R9, #+0]
+   \   00000688   015085E2           ADD      R5,R5,#+1
+   \                     ??LzmaDecode_42:
+   \   0000068C   016056E2           SUBS     R6,R6,#+1
+   \   00000690   E5FFFF1A           BNE      ??LzmaDecode_39
+    464                  len += offset;
+   \   00000694   00609DE5           LDR      R6,[SP, #+0]
+   \   00000698   0110A0E3           MOV      R1,#+1
+   \   0000069C   111645E0           SUB      R1,R5,R1, LSL R6
+   \   000006A0   04509DE5           LDR      R5,[SP, #+4]
+    465                }
+    466          
+    467                if (state < 4)
+   \   000006A4   040052E3           CMP      R2,#+4
+   \   000006A8   015085E0           ADD      R5,R5,R1
+   \   000006AC   730000AA           BGE      ??LzmaDecode_43
+    468                {
+    469                  int posSlot;
+    470                  state += kNumLitStates;
+    471                  prob = p + PosSlot +
+    472                      ((len < kNumLenToPosStates ? len : kNumLenToPosStates - 1) << 
+    473                      kNumPosSlotBits);
+   \   000006B0   08309DE5           LDR      R3,[SP, #+8]
+   \   000006B4   072082E2           ADD      R2,R2,#+7
+   \   000006B8   040055E3           CMP      R5,#+4
+   \   000006BC   0510A0B1           MOVLT    R1,R5
+   \   000006C0   0310A0A3           MOVGE    R1,#+3
+   \   000006C4   811383E0           ADD      R1,R3,R1, LSL #+7
+   \   000006C8   D86F81E2           ADD      R6,R1,#+864
+    474                  RangeDecoderBitTreeDecode(prob, kNumPosSlotBits, posSlot);
+   \   000006CC   0630A0E3           MOV      R3,#+6
+   \   000006D0   0110A0E3           MOV      R1,#+1
+   \                     ??LzmaDecode_44:
+   \   000006D4   819086E0           ADD      R9,R6,R1, LSL #+1
+   \   000006D8   400757E3           CMP      R7,#+16777216
+   \   000006DC   0400002A           BCS      ??LzmaDecode_45
+   \   000006E0   04005CE1           CMP      R12,R4
+   \   000006E4   7CFEFF0A           BEQ      ??LzmaDecode_5
+   \   000006E8   ........           LDRB     R10,[R12], #+1
+   \   000006EC   0774A0E1           LSL      R7,R7,#+8
+   \   000006F0   08848AE1           ORR      R8,R10,R8, LSL #+8
+   \                     ??LzmaDecode_45:
+   \   000006F4   B0B0D9E1           LDRH     R11,[R9, #+0]
+   \   000006F8   A7A5A0E1           LSR      R10,R7,#+11
+   \   000006FC   8110A0E1           LSL      R1,R1,#+1
+   \   00000700   9B0A0AE0           MUL      R10,R11,R10
+   \   00000704   0A0058E1           CMP      R8,R10
+   \   00000708   0400002A           BCS      ??LzmaDecode_46
+   \   0000070C   0A70A0E1           MOV      R7,R10
+   \   00000710   80AE6BE2           RSB      R10,R11,#+2048
+   \   00000714   CAA28BE0           ADD      R10,R11,R10, ASR #+5
+   \   00000718   B0A0C9E1           STRH     R10,[R9, #+0]
+   \   0000071C   040000EA           B        ??LzmaDecode_47
+   \                     ??LzmaDecode_46:
+   \   00000720   0A7047E0           SUB      R7,R7,R10
+   \   00000724   0A8048E0           SUB      R8,R8,R10
+   \   00000728   ABA24BE0           SUB      R10,R11,R11, LSR #+5
+   \   0000072C   B0A0C9E1           STRH     R10,[R9, #+0]
+   \   00000730   011081E2           ADD      R1,R1,#+1
+   \                     ??LzmaDecode_47:
+   \   00000734   013053E2           SUBS     R3,R3,#+1
+   \   00000738   E5FFFF1A           BNE      ??LzmaDecode_44
+   \   0000073C   401041E2           SUB      R1,R1,#+64
+    475                  if (posSlot >= kStartPosModelIndex)
+   \   00000740   040051E3           CMP      R1,#+4
+   \   00000744   4A0000BA           BLT      ??LzmaDecode_48
+    476                  {
+    477                    int numDirectBits = ((posSlot >> 1) - 1);
+   \   00000748   C130A0E1           ASR      R3,R1,#+1
+   \   0000074C   019043E2           SUB      R9,R3,#+1
+    478                    rep0 = (2 | ((UInt32)posSlot & 1));
+   \   00000750   013001E2           AND      R3,R1,#0x1
+   \   00000754   023083E3           ORR      R3,R3,#0x2
+    479                    if (posSlot < kEndPosModelIndex)
+   \   00000758   0E0051E3           CMP      R1,#+14
+   \   0000075C   090000AA           BGE      ??LzmaDecode_49
+    480                    {
+    481                      rep0 <<= numDirectBits;
+    482                      prob = p + SpecPos + rep0 - posSlot - 1;
+   \   00000760   08A09DE5           LDR      R10,[SP, #+8]
+   \   00000764   1339A0E1           LSL      R3,R3,R9
+   \   00000768   5E60A0E3           MOV      R6,#+94
+   \   0000076C   506E86E3           ORR      R6,R6,#0x500
+   \   00000770   8110A0E1           LSL      R1,R1,#+1
+   \   00000774   001061E2           RSB      R1,R1,#+0
+   \   00000778   0A1081E0           ADD      R1,R1,R10
+   \   0000077C   831081E0           ADD      R1,R1,R3, LSL #+1
+   \   00000780   016086E0           ADD      R6,R6,R1
+   \   00000784   140000EA           B        ??LzmaDecode_50
+    483                    }
+    484                    else
+    485                    {
+    486                      numDirectBits -= kNumAlignBits;
+   \                     ??LzmaDecode_49:
+   \   00000788   049049E2           SUB      R9,R9,#+4
+    487                      do
+    488                      {
+    489                        RC_NORMALIZE
+   \                     ??LzmaDecode_51:
+   \   0000078C   400757E3           CMP      R7,#+16777216
+   \   00000790   0400002A           BCS      ??LzmaDecode_52
+   \   00000794   04005CE1           CMP      R12,R4
+   \   00000798   4FFEFF0A           BEQ      ??LzmaDecode_5
+   \   0000079C   ........           LDRB     R1,[R12], #+1
+   \   000007A0   0774A0E1           LSL      R7,R7,#+8
+   \   000007A4   088481E1           ORR      R8,R1,R8, LSL #+8
+    490                        Range >>= 1;
+   \                     ??LzmaDecode_52:
+   \   000007A8   A770A0E1           LSR      R7,R7,#+1
+    491                        rep0 <<= 1;
+   \   000007AC   8330A0E1           LSL      R3,R3,#+1
+    492                        if (Code >= Range)
+   \   000007B0   070058E1           CMP      R8,R7
+    493                        {
+    494                          Code -= Range;
+   \   000007B4   07804820           SUBCS    R8,R8,R7
+    495                          rep0 |= 1;
+   \   000007B8   01308323           ORRCS    R3,R3,#0x1
+    496                        }
+    497                      }
+    498                      while (--numDirectBits != 0);
+   \   000007BC   019059E2           SUBS     R9,R9,#+1
+   \   000007C0   F1FFFF1A           BNE      ??LzmaDecode_51
+    499                      prob = p + Align;
+   \   000007C4   08609DE5           LDR      R6,[SP, #+8]
+   \   000007C8   4410A0E3           MOV      R1,#+68
+   \   000007CC   601E81E3           ORR      R1,R1,#0x600
+   \   000007D0   066081E0           ADD      R6,R1,R6
+    500                      rep0 <<= kNumAlignBits;
+   \   000007D4   0332A0E1           LSL      R3,R3,#+4
+    501                      numDirectBits = kNumAlignBits;
+   \   000007D8   0490A0E3           MOV      R9,#+4
+    502                    }
+    503                    {
+    504                      int i = 1;
+   \                     ??LzmaDecode_50:
+   \   000007DC   01A0A0E3           MOV      R10,#+1
+   \   000007E0   04A08DE5           STR      R10,[SP, #+4]
+    505                      int mi = 1;
+   \   000007E4   0110A0E3           MOV      R1,#+1
+   \   000007E8   0C0000EA           B        ??LzmaDecode_53
+    506                      do
+    507                      {
+    508                        CProb *prob3 = prob + mi;
+    509                        RC_GET_BIT2(prob3, mi, ; , rep0 |= i);
+   \                     ??LzmaDecode_54:
+   \   000007EC   0A7047E0           SUB      R7,R7,R10
+   \   000007F0   0A8048E0           SUB      R8,R8,R10
+   \   000007F4   00A09DE5           LDR      R10,[SP, #+0]
+   \   000007F8   ABB24BE0           SUB      R11,R11,R11, LSR #+5
+   \   000007FC   B0B0CAE1           STRH     R11,[R10, #+0]
+   \   00000800   04A09DE5           LDR      R10,[SP, #+4]
+   \   00000804   011081E2           ADD      R1,R1,#+1
+   \   00000808   03308AE1           ORR      R3,R10,R3
+    510                        i <<= 1;
+   \                     ??LzmaDecode_55:
+   \   0000080C   04B09DE5           LDR      R11,[SP, #+4]
+    511                      }
+    512                      while(--numDirectBits != 0);
+   \   00000810   019059E2           SUBS     R9,R9,#+1
+   \   00000814   8BB0A0E1           LSL      R11,R11,#+1
+   \   00000818   04B08DE5           STR      R11,[SP, #+4]
+   \   0000081C   1500000A           BEQ      ??LzmaDecode_56
+   \                     ??LzmaDecode_53:
+   \   00000820   81B086E0           ADD      R11,R6,R1, LSL #+1
+   \   00000824   00B08DE5           STR      R11,[SP, #+0]
+   \   00000828   400757E3           CMP      R7,#+16777216
+   \   0000082C   0400002A           BCS      ??LzmaDecode_57
+   \   00000830   04005CE1           CMP      R12,R4
+   \   00000834   28FEFF0A           BEQ      ??LzmaDecode_5
+   \   00000838   ........           LDRB     R10,[R12], #+1
+   \   0000083C   0774A0E1           LSL      R7,R7,#+8
+   \   00000840   08848AE1           ORR      R8,R10,R8, LSL #+8
+   \                     ??LzmaDecode_57:
+   \   00000844   B0B0DBE1           LDRH     R11,[R11, #+0]
+   \   00000848   A7A5A0E1           LSR      R10,R7,#+11
+   \   0000084C   8110A0E1           LSL      R1,R1,#+1
+   \   00000850   9B0A0AE0           MUL      R10,R11,R10
+   \   00000854   0A0058E1           CMP      R8,R10
+   \   00000858   E3FFFF2A           BCS      ??LzmaDecode_54
+   \   0000085C   0A70A0E1           MOV      R7,R10
+   \   00000860   00A09DE5           LDR      R10,[SP, #+0]
+   \   00000864   80EE6BE2           RSB      LR,R11,#+2048
+   \   00000868   CEB28BE0           ADD      R11,R11,LR, ASR #+5
+   \   0000086C   B0B0CAE1           STRH     R11,[R10, #+0]
+   \   00000870   E5FFFFEA           B        ??LzmaDecode_55
+    513                    }
+    514                  }
+    515                  else
+    516                    rep0 = posSlot;
+   \                     ??LzmaDecode_48:
+   \   00000874   0130A0E1           MOV      R3,R1
+    517                  if (++rep0 == (UInt32)(0))
+   \                     ??LzmaDecode_56:
+   \   00000878   013093E2           ADDS     R3,R3,#+1
+   \   0000087C   0E00000A           BEQ      ??LzmaDecode_7
+    518                  {
+    519                    /* it's for stream version */
+    520                    len = kLzmaStreamWasFinishedId;
+    521                    break;
+    522                  }
+    523                }
+    524          
+    525                len += kMatchMinLen;
+   \                     ??LzmaDecode_43:
+   \   00000880   025085E2           ADD      R5,R5,#+2
+    526                #ifdef _LZMA_OUT_READ
+    527                if (rep0 > distanceLimit) 
+    528                #else
+    529                if (rep0 > nowPos)
+   \   00000884   030050E1           CMP      R0,R3
+   \   00000888   13FEFF3A           BCC      ??LzmaDecode_5
+    530                #endif
+    531                  return LZMA_RESULT_DATA_ERROR;
+    532          
+    533                #ifdef _LZMA_OUT_READ
+    534                if (dictionarySize - distanceLimit > (UInt32)len)
+    535                  distanceLimit += len;
+    536                else
+    537                  distanceLimit = dictionarySize;
+    538                #endif
+    539          
+    540                do
+    541                {
+    542                  #ifdef _LZMA_OUT_READ
+    543                  UInt32 pos = dictionaryPos - rep0;
+    544                  if (pos >= dictionarySize)
+    545                    pos += dictionarySize;
+    546                  previousByte = dictionary[pos];
+    547                  dictionary[dictionaryPos] = previousByte;
+    548                  if (++dictionaryPos == dictionarySize)
+    549                    dictionaryPos = 0;
+    550                  #else
+    551                  previousByte = outStream[nowPos - rep0];
+   \                     ??LzmaDecode_58:
+   \   0000088C   50609DE5           LDR      R6,[SP, #+80]
+   \   00000890   031040E0           SUB      R1,R0,R3
+   \   00000894   0610D1E7           LDRB     R1,[R1, +R6]
+    552                  #endif
+    553                  len--;
+   \   00000898   015045E2           SUB      R5,R5,#+1
+    554                  outStream[nowPos++] = previousByte;
+    555                }
+    556                while(len != 0 && nowPos < outSize);
+   \   0000089C   000055E3           CMP      R5,#+0
+   \   000008A0   0610C0E7           STRB     R1,[R0, +R6]
+   \   000008A4   010080E2           ADD      R0,R0,#+1
+   \   000008A8   13FEFF0A           BEQ      ??LzmaDecode_6
+   \   000008AC   54609DE5           LDR      R6,[SP, #+84]
+   \   000008B0   060050E1           CMP      R0,R6
+   \   000008B4   F4FFFF3A           BCC      ??LzmaDecode_58
+   \   000008B8   0FFEFFEA           B        ??LzmaDecode_6
+    557              }
+    558            }
+    559            RC_NORMALIZE;
+   \                     ??LzmaDecode_7:
+   \   000008BC   400757E3           CMP      R7,#+16777216
+   \   000008C0   0200002A           BCS      ??LzmaDecode_59
+   \   000008C4   04005CE1           CMP      R12,R4
+   \   000008C8   03FEFF0A           BEQ      ??LzmaDecode_5
+   \   000008CC   01C08CE2           ADD      R12,R12,#+1
+    560          
+    561            #ifdef _LZMA_OUT_READ
+    562            vs->Range = Range;
+    563            vs->Code = Code;
+    564            vs->DictionaryPos = dictionaryPos;
+    565            vs->GlobalPos = globalPos + (UInt32)nowPos;
+    566            vs->DistanceLimit = distanceLimit;
+    567            vs->Reps[0] = rep0;
+    568            vs->Reps[1] = rep1;
+    569            vs->Reps[2] = rep2;
+    570            vs->Reps[3] = rep3;
+    571            vs->State = state;
+    572            vs->RemainLen = len;
+    573            vs->TempDictionary[0] = tempDictionary[0];
+    574            #endif
+    575          
+    576            #ifdef _LZMA_IN_CB
+    577            vs->Buffer = Buffer;
+    578            vs->BufferLim = BufferLim;
+    579            #else
+    580            *inSizeProcessed = (SizeT)(Buffer - inStream);
+   \                     ??LzmaDecode_59:
+   \   000008D0   28109DE5           LDR      R1,[SP, #+40]
+   \   000008D4   24209DE5           LDR      R2,[SP, #+36]
+   \   000008D8   02204CE0           SUB      R2,R12,R2
+   \   000008DC   002081E5           STR      R2,[R1, #+0]
+    581            #endif
+    582            *outSizeProcessed = nowPos;
+   \   000008E0   58109DE5           LDR      R1,[SP, #+88]
+   \   000008E4   000081E5           STR      R0,[R1, #+0]
+    583            return LZMA_RESULT_OK;
+   \   000008E8   0000A0E3           MOV      R0,#+0
+   \   000008EC   2CD08DE2           ADD      SP,SP,#+44
+   \   000008F0   F08FBDE8           POP      {R4-R11,PC}      ;; return
+    584          }
+
+   Maximum stack usage in bytes:
+
+     Function             CSTACK
+     --------             ------
+     LzmaDecode              80
+     LzmaDecodeProperties     0
+
+
+   Segment part sizes:
+
+     Function/Label       Bytes
+     --------------       -----
+     LzmaDecodeProperties  124
+     LzmaDecode           2292
+      Others                 8
+
+ 
+ 2 424 bytes in segment CODE
+ 
+ 2 416 bytes of CODE memory (+ 8 bytes shared)
+
+Errors: none
+Warnings: none

@@ -1,0 +1,447 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    07/May/2009  10:45:34 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\AdrList.cpp         #
+#    Command line    =  D:\pasha\elf\SieELF\MySMSYS\Mss3\AdrList.cpp -D      #
+#                       NEWSGOLD -D ELKA -D LANG_CN -lcN                     #
+#                       D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\List\  #
+#                       -o D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\Obj #
+#                       \ -s9 --no_unroll --cpu_mode arm --endian little     #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --eec++ --dlib_config "D:\pasha\Embedded  #
+#                       Workbench 4.0 Evaluation2\ARM\LIB\dl5tpainl8n.h" -I  #
+#                       "D:\pasha\Embedded Workbench 4.0                     #
+#                       Evaluation2\ARM\INC\" --inline_threshold=2           #
+#    List file       =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\List\A #
+#                       drList.lst                                           #
+#    Object file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\Obj\Ad #
+#                       rList.r79                                            #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\pasha\elf\SieELF\MySMSYS\Mss3\AdrList.cpp
+      1          #include "include.h"
+      2          #include "AdrList.h"
+      3          
+      4          AdrList *ADRLST=NULL;
+      5          
+      6          AdrList::AdrList()
+      7          {
+      8            this->cltop=NULL;
+      9            SUBPROC((void *)this->ConstructListCHK, this);
+     10          }
+     11          
+     12          AdrList::~AdrList()
+     13          {
+     14            this->FreeCLIST();
+     15          }
+     16          
+     17          void AdrList::FreeCLIST()
+     18          {
+     19            CLIST *cl0;
+     20            LockSched();
+     21            cl0=(CLIST*)cltop;
+     22            cltop=NULL;
+     23            UnlockSched();
+     24            while(cl0)
+     25            {
+     26              CLIST *p;
+     27              if(cl0->name) FreeWS(cl0->name);
+     28              for(int i=0;i<NUMBERS_MAX;i++) 
+     29              {
+     30                if(cl0->num[i])
+     31          	delete (cl0->num[i]);
+     32              }
+     33              if(cl0->sms_melody_filepath) delete (cl0->sms_melody_filepath);
+     34              p=cl0;
+     35              cl0=(CLIST*)(cl0->next);
+     36              delete (p);
+     37            }
+     38          }
+     39          
+     40          void AdrList::ConstructList()
+     41          {
+     42            int fin;
+     43            unsigned int ul;
+     44            char recname[128];
+     45            char s_ab_main[128];
+     46            char s_ab_entry[128];
+     47            
+     48            AB_UNPRES ur;
+     49            void *buffer;
+     50          #pragma pack(1)
+     51            struct {
+     52          #ifdef NEWSGOLD
+     53              long dummy1;
+     54              short dummy2;
+     55              char bitmap[MAX_RECORDS/8];
+     56          #else
+     57              long dummy1;
+     58              char bitmap[MAX_RECORDS/8];
+     59          #endif
+     60            } ABmain;
+     61          #pragma pack()
+     62          
+     63            unsigned int rec=0;
+     64            int fsz;
+     65            int x, xl;
+     66            CLIST contact;
+     67            
+     68            FreeCLIST();
+     69            strcpy(s_ab_main, CFG_SYSTEM_FOLDER);
+     70            if((xl=strlen(s_ab_main))>0)
+     71              x=s_ab_main[xl-1];
+     72            if((x!='\\')&&(x!='/'))
+     73              strcat(s_ab_main, "\\");
+     74            strcat(s_ab_main, "apo\\addr\\main");
+     75            strcpy(s_ab_entry, CFG_SYSTEM_FOLDER);
+     76            if((xl=strlen(s_ab_entry))>0)
+     77              x=s_ab_entry[xl-1];
+     78            if((x!='\\')&&(x!='/'))
+     79              strcat(s_ab_entry, "\\");
+     80          #ifdef NEWSGOLD
+     81            strcat(s_ab_entry, "apo\\addr\\data\\%02d\\%02d\\%02d");
+     82          #else
+     83            strcat(s_ab_entry, "apo\\addr\\%02x\\%02x");
+     84          #endif
+     85            zeromem(&contact,sizeof(contact));
+     86            if ((buffer=malloc(65536)))
+     87            {
+     88              zeromem(&ABmain,sizeof(ABmain));
+     89              if ((fin=fopen(s_ab_main, A_ReadOnly+A_BIN, P_READ, &ul))!=-1)
+     90              {
+     91          #ifdef ELKA
+     92                if (fread(fin,&ABmain,sizeof(ABmain),&ul)>=194)
+     93          #else
+     94          	if (fread(fin,&ABmain,sizeof(ABmain),&ul)==sizeof(ABmain))
+     95          #endif
+     96          	{
+     97          	  fclose(fin,&ul);
+     98          	  do
+     99          	  {
+    100          #ifdef NEWSGOLD
+    101          	    if (ABmain.bitmap[rec>>3]&(0x80>>(rec&7)))
+    102          #else
+    103          	      if (ABmain.bitmap[rec>>3]&(1<<(rec&7)))
+    104          #endif
+    105          	      {
+    106          #ifdef NEWSGOLD
+    107          		unsigned int rl1;
+    108          		unsigned int rl2;
+    109          		unsigned int rl3;
+    110          		rl1=rec/LEVEL1_RN;
+    111          		rl2=(rec%LEVEL1_RN)/LEVEL2_RN;
+    112          		rl3=rec%LEVEL2_RN;
+    113          		snprintf(recname, 128, s_ab_entry, rl1, rl2, rl3);
+    114          #else
+    115          		unsigned int rl1=rec/LEVEL1_RN;
+    116          		unsigned int r12=rec%LEVEL1_RN;
+    117          		snprintf(recname, 128, s_ab_entry, rl1, r12);
+    118          #endif
+    119          		if ((fin=fopen(recname,A_ReadOnly+A_BIN,P_READ,&ul))!=-1)
+    120          		{
+    121          		  zeromem(&ur,sizeof(AB_UNPRES));
+    122          		  fsz=lseek(fin,0,S_END,&ul,&ul);
+    123          		  lseek(fin,0,S_SET,&ul,&ul);
+    124          		  fread(fin,buffer,fsz,&ul);
+    125          		  fclose(fin,&ul);
+    126          #ifdef NEWSGOLD
+    127          		  UnpackABentry(&ur,((char *)buffer+8),fsz,0x28);
+    128          #else
+    129          		  UnpackABentry(&ur,((char *)buffer+4),fsz-4,0x28);
+    130          #endif
+    131          		  int i=0;
+    132          		  zeromem(&contact,sizeof(contact));
+    133          		  while(i<ur.number_of_records)
+    134          		  {
+    135          		    AB_UNPRES_ITEM *r=ur.record_list+i;
+    136          		    if (r->no_data!=1)
+    137          		    {
+    138          		      switch(GetTypeOfAB_UNPRES_ITEM(r->item_type))
+    139          		      {
+    140          		      case 0x05:
+    141          #ifdef NEWSGOLD
+    142          			if (
+    143          			    r->item_type==LAST_NAME||
+    144          			      r->item_type==FIRST_NAME||
+    145          				r->item_type==DISPLAY_NAME
+    146          				  )
+    147          #else
+    148          			  if (
+    149          			      r->item_type==LAST_NAME||
+    150          				r->item_type==FIRST_NAME||
+    151          				  r->item_type==COMPANY_NAME
+    152          				    )
+    153          #endif
+    154          			  {
+    155          			    if (r->data)
+    156          			    {
+    157          			      if (!contact.name)
+    158          			      {
+    159          				wstrcpy(contact.name=AllocWS(150),(WSHDR *)(r->data));
+    160          			      }
+    161          			      else
+    162          			      {
+    163          				wsAppendChar(contact.name,',');
+    164          				wsAppendChar(contact.name,' ');
+    165          				wstrcat(contact.name, (WSHDR*)(r->data));
+    166          			      }
+    167          			      contact.next = (void*)1;
+    168          			    }
+    169          			  }
+    170          			else if(r->item_type==SMS_MELODY)
+    171          			{
+    172          			  if(r->data)
+    173          			  {
+    174          			    if(!contact.sms_melody_filepath)
+    175          			      contact.sms_melody_filepath=new char[128];
+    176          			    ws_2str((WSHDR *)(r->data), contact.sms_melody_filepath, 127);
+    177          			  }
+    178          			}
+    179          			break;
+    180          		      case 0x01:
+    181          			{
+    182          			  PKT_NUM *p=(PKT_NUM*)r->data;
+    183          			  unsigned int n=r->item_type;
+    184          			  //int j;
+    185          			  //unsigned int c;
+    186          			  //char *nump;
+    187          #ifdef NEWSGOLD
+    188          			  if (n!=106) n-=0x62;
+    189          			  else n=4;
+    190          			  if (n<5)
+    191          #else
+    192          			    switch(r->item_type)
+    193          			    {
+    194          			    case PHONE_NUMBER:
+    195          			      n=0;    break;
+    196          			    case PHONE_OFFICE:
+    197          			      n=1;    break;
+    198          			    case PHONE_MOBILE:
+    199          			      n=2;    break;
+    200          			    case PHONE_FAX:
+    201          			      n=3;    break;
+    202          			    case PHONE_FAX2:
+    203          			      n=4;    break;
+    204          			    default:
+    205          			      continue;
+    206          			    }
+    207          #endif
+    208          			  {
+    209          			    if (p)
+    210          			    {
+    211          			      /*unsigned int c1;
+    212          			      int m;
+    213          			      nump=contact.num[n]=new char[50];
+    214          			      
+    215          			      j=0;
+    216          			      m=0;
+    217          			      if (p->format==0x91)
+    218          				*nump++='+';
+    219          			      while(j<p->data_size)
+    220          			      {
+    221          				if (m&1) {c1=c>>4; j++;}
+    222          				else c1=(c=p->data[j])&0x0F;
+    223          				if (c1==0x0F) break;
+    224          
+    225          				if (c1==0xA) c1='*';
+    226          				else if (c1==0xB) c1='#';
+    227          				else if (c1==0xC) c1='+';
+    228          				else if (c1==0xD) c1='?';
+    229          				else c1+='0';
+    230          				*nump++=c1;
+    231          				m++;
+    232          			      }
+    233          			      *nump=0;*/
+    234          			      contact.num[n]=new char[50];
+    235          			      UnpackNumPkt(p, contact.num[n], 49);
+    236          			      contact.next = (void*)1;
+    237          			    }
+    238          			  }
+    239          			  break;
+    240          			}
+    241          		      }
+    242          		    }
+    243          		    i++;
+    244          		  }
+    245          		  if (!contact.next)
+    246          		  {
+    247          		    if(contact.name) FreeWS(contact.name);
+    248          		    for(int i=0;i<NUMBERS_MAX;i++)
+    249          		    {
+    250          		      if(contact.num[i])
+    251          			mfree(contact.num[i]);
+    252          		    }
+    253          		  }
+    254          		  FreeUnpackABentry(&ur,mfree_adr());
+    255          		  /**/ //ÅÅÐò¼ÓÈëÁ´±í
+    256          		  LockSched();
+    257          		  if (contact.next)
+    258          		  {
+    259          		    CLIST *p=new CLIST;
+    260          		    contact.next=0;
+    261          		    memcpy(p,&contact,sizeof(contact));
+    262          		    p->next=(CLIST *)cltop;
+    263          		    cltop=p;
+    264          		  }
+    265          		  UnlockSched();
+    266          		}
+    267          	      }
+    268          	    rec++;
+    269          	  }
+    270          	  while(rec<MAX_RECORDS);
+    271          	}
+    272          	else
+    273          	{
+    274          	  fclose(fin,&ul);
+    275          	}
+    276              }
+    277              mfree(buffer);
+    278            }
+    279            if (contact.next)
+    280            {
+    281              if(contact.name) FreeWS(contact.name);
+    282              for(int i=0;i<NUMBERS_MAX;i++) 
+    283              {
+    284                if(contact.num[i])
+    285          	mfree(contact.num[i]);
+    286              }
+    287            }
+    288          }
+    289          
+    290          void AdrList::ConstructListCHK(AdrList *adrlist)
+    291          {
+    292            if(!adrlist->cltop) adrlist->ConstructList();
+    293          }
+    294          
+    295          void AdrList::ConstructListFRC(AdrList *adrlist)
+    296          {
+    297            adrlist->ConstructList();
+    298          }
+    299          
+    300          void AdrList::ConstructListCFGUPD(void)
+    301          {
+    302            if(!this->cltop) SUBPROC((void *)ConstructListCHK, this); 
+    303          }
+    304          
+    305          #define MAX(A, B) ((A>B)?A:B)
+    306          #define MIN(A, B) ((A<B)?A:B)
+    307          int AdrList::FindName(WSHDR *name, const char *num)
+    308          {
+    309            int i, match_res;
+    310            CLIST *cl=(CLIST *)this->cltop;
+    311            if((!num)||(!name)||(strlen(num)<=3))
+    312              return 0;
+    313            while(cl)
+    314            {
+    315              for(i=0;i<NUMBERS_MAX;i++)
+    316              {
+    317                if(cl->num[i])
+    318                {
+    319          	if((match_res=NumberMatch(cl->num[i], num)))
+    320          	{
+    321          	  if(cl->name)
+    322          	  {
+    323          	    if(match_res==MATCH_FETION)
+    324          	      wsprintf(name, "%w(%t)", cl->name, LGP->lgp.LGP_FETION);
+    325          	    else wstrcpy(name, cl->name);
+    326          	    return 1;
+    327          	  }
+    328          	}
+    329                }
+    330              }
+    331              cl=(CLIST *)cl->next;
+    332            }
+    333            return 0;
+    334          }
+    335          
+    336          CLIST *AdrList::FindCList(const char *num)
+    337          {
+    338            int i;
+    339            CLIST *cl=(CLIST *)this->cltop;
+    340            if((!num)||(strlen(num)<=3))
+    341              return 0;
+    342            while(cl)
+    343            {
+    344              for(i=0;i<NUMBERS_MAX;i++)
+    345              {
+    346                if(cl->num[i])
+    347                {
+    348          	if(NumberMatch(cl->num[i], num))
+    349          	  return cl;
+    350                }
+    351              }
+    352              cl=(CLIST *)cl->next;
+    353            }
+    354            return 0;
+    355          }
+    356          
+    357          
+
+   Maximum stack usage in bytes:
+
+     Function                       CSTACK
+     --------                       ------
+     AdrList::AdrList()                 8
+     AdrList::ConstructList()        1124
+     AdrList::ConstructListCFGUPD()     4
+     AdrList::ConstructListCHK(AdrList *)
+                                        4
+     AdrList::ConstructListFRC(AdrList *)
+                                        4
+     AdrList::FindCList(char const *)
+                                       16
+     AdrList::FindName(WSHDR *, char const *)
+                                       20
+     AdrList::FreeCLIST()              12
+     AdrList::delete ~AdrList(AdrList *)
+                                        8
+     AdrList::new AdrList()             4
+     AdrList::~AdrList()                4
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     ADRLST                            4
+     AdrList::AdrList()               36
+     AdrList::~AdrList()               4
+     AdrList::FreeCLIST()            132
+     AdrList::ConstructList()       1232
+     AdrList::ConstructListCHK(AdrList *)
+                                      24
+     AdrList::ConstructListFRC(AdrList *)
+                                       4
+     AdrList::ConstructListCFGUPD()   32
+     AdrList::FindName(WSHDR *, char const *)
+                                     188
+     AdrList::FindCList(char const *)
+                                     112
+     ?<Constant "\\">                  2
+     ?<Constant "apo\\addr\\main">    48
+     ?<Constant "%w(%t)">              8
+     AdrList::new AdrList()           28
+     AdrList::delete ~AdrList(AdrList *)
+                                      28
+     ??DataTable1                      4
+      Others                         104
+
+ 
+ 1 916 bytes in segment CODE
+    58 bytes in segment DATA_C
+     4 bytes in segment DATA_Z
+    12 bytes in segment INITTAB
+ 
+ 1 824 bytes of CODE  memory (+ 104 bytes shared)
+    58 bytes of CONST memory
+     4 bytes of DATA  memory
+
+Errors: none
+Warnings: none

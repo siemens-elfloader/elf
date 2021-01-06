@@ -1,0 +1,212 @@
+// istream standard header
+#ifndef _ISTREAM_
+#define _ISTREAM_
+
+#ifndef _SYSTEM_BUILD
+#pragma system_include
+#endif
+
+#include <ostream>
+_STD_BEGIN
+
+// CLASS istream
+class istream
+  : public ios
+{       // control extractions from a stream buffer
+public:
+  typedef char _Elem;
+  typedef char_traits _Traits;
+  typedef istream _Myt;
+  typedef ios _Myios;
+  typedef streambuf _Mysb;
+  typedef _Istrit _Iter;
+  typedef ctype _Ctype;
+  typedef num_get _Nget;
+
+  explicit istream(_Mysb *_Strbuf, bool _Isstd = false)
+    : _Chcount(0)
+  {     // construct from stream buffer pointer
+    init(_Strbuf, _Isstd);
+  }
+
+  istream(_Uninitialized)
+  {     // construct uninitialized
+    _Addstd();
+  }
+
+  virtual ~istream()
+  {     // destroy the object
+  }
+
+  typedef _Traits::int_type int_type;
+  typedef _Traits::pos_type pos_type;
+  typedef _Traits::off_type off_type;
+
+  // TEMPLATE CLASS sentry
+  class _Sentry_base
+  {     // stores thread lock and reference to input stream
+  public:
+    _Sentry_base(_Myt& _Istr)
+      : _Myistr(_Istr)
+    {   // lock the stream buffer, if there
+      if (_Myistr.rdbuf() != 0)
+        _Myistr.rdbuf()->_Lock();
+    }
+
+    ~_Sentry_base()
+    {   // destroy after unlocking
+      if (_Myistr.rdbuf() != 0)
+        _Myistr.rdbuf()->_Unlock();
+    }
+
+    _Myt& _Myistr;      // the input stream, for _Unlock call at destruction
+  };
+
+  class sentry
+    : public _Sentry_base
+  {     // stores thread lock and result of _Ipfx call
+  public:
+    explicit sentry(_Myt& _Istr, bool _Noskip = false)
+      : _Sentry_base(_Istr)
+    {   // construct locking and calling _Ipfx
+      _Ok = this->_Myistr._Ipfx(_Noskip);
+    }
+
+    operator bool() const
+    {   // test if _Ipfx succeeded
+      return (_Ok);
+    }
+
+  private:
+    sentry(const sentry&);      // not defined
+    sentry& operator=(const sentry&);   // not defined
+
+    bool _Ok;   // true if _Ipfx succeeded at construction
+  };
+
+  bool _Ipfx(bool _Noskip = false);
+
+  bool ipfx(bool _Noskip = false)
+  {     // test stream state and skip whitespace as needed (retained)
+    return _Ipfx(_Noskip);
+  }
+
+  void isfx()
+  {     // perform any wrapup (retained)
+  }
+
+  _Myt& operator>>(_Myt& (*_Pfn)(_Myt&))
+  {     // call istream manipulator
+    return ((*_Pfn)(*this));
+  }
+
+  _Myt& operator>>(_Myios& (*_Pfn)(_Myios&))
+  {     // call ios manipulator
+    (*_Pfn)(*(_Myios *)this);
+    return (*this);
+  }
+
+  _Myt& operator>>(ios_base& (*_Pfn)(ios_base&))
+  {     // call ios_base manipulator
+    (*_Pfn)(*(ios_base *)this);
+    return (*this);
+  }
+
+  _Myt& operator>>(_Bool& _Val);
+  _Myt& operator>>(short& _Val);
+  _Myt& operator>>(unsigned short& _Val);
+  _Myt& operator>>(int& _Val);
+  _Myt& operator>>(unsigned int& _Val);
+  _Myt& operator>>(long& _Val);
+  _Myt& operator>>(unsigned long& _Val);
+
+#ifdef _LONGLONG
+
+  _Myt& operator>>(_LONGLONG& _Val);
+  _Myt& operator>>(_ULONGLONG& _Val);
+
+#endif /* _LONGLONG */
+
+  _Myt& operator>>(float& _Val);
+  _Myt& operator>>(double& _Val);
+  _Myt& operator>>(long double& _Val);
+  _Myt& operator>>(void *& _Val);
+  _Myt& operator>>(_Mysb *_Strbuf);
+
+  int_type get();
+
+  _Myt& get(_Elem *_Str, streamsize _Count)
+  {     // get up to _Count characters into NTCS
+    return (get(_Str, _Count, _Myios::widen('\n')));
+  }
+
+  _Myt& get(_Elem *_Str, streamsize _Count, _Elem _Delim);
+  _Myt& get(_Elem& _Ch);
+
+  _Myt& get(_Mysb& _Strbuf)
+  {     // extract up to newline and insert into stream buffer
+    return (get(_Strbuf, _Myios::widen('\n')));
+  }
+
+  _Myt& get(_Mysb& _Strbuf, _Elem _Delim);
+
+  _Myt& getline(_Elem *_Str, streamsize _Count)
+  {     // get up to _Count characters into NTCS, discard newline
+    return (getline(_Str, _Count, _Myios::widen('\n')));
+  }
+
+  _Myt& getline(_Elem *_Str, streamsize _Count, _Elem _Delim);
+  _Myt& ignore(streamsize _Count = 1, int_type _Metadelim = _Traits::eof());
+  _Myt& read(_Elem *_Str, streamsize _Count);
+  streamsize readsome(_Elem *_Str, streamsize _Count);
+  int_type peek();
+  _Myt& putback(_Elem _Ch);
+  _Myt& unget();
+  streamsize gcount() const
+  {     // get count from last extraction
+    return (_Chcount);
+  }
+
+  int sync();
+  _Myt& seekg(pos_type _Pos);
+  _Myt& seekg(off_type _Off, ios_base::seekdir _Way);
+  pos_type tellg();
+
+private:
+  streamsize _Chcount;  // the character count
+};
+
+// EXTRACTORS
+istream& operator>>(istream& _Istr, char *_Str);
+
+istream& operator>>(istream& _Istr, char& _Ch);
+
+inline istream& operator>>(istream& _Istr, signed char *_Str)
+{       // extract a signed char NTBS
+  return (_Istr >> (char *)_Str);
+}
+
+inline istream& operator>>(istream& _Istr, signed char& _Ch)
+{       // extract a signed char
+  return (_Istr >> (char&)_Ch);
+}
+
+inline istream& operator>>(istream& _Istr, unsigned char *_Str)
+{       // extract an unsigned char NTBS
+  return (_Istr >> (char *)_Str);
+}
+
+inline istream& operator>>(istream& _Istr, unsigned char& _Ch)
+{       // extract an unsigned char
+  return (_Istr >> (char&)_Ch);
+}
+
+// MANIPULATORS
+istream& ws(istream& _Istr);
+_STD_END
+#endif /* _ISTREAM_ */
+
+/*
+ * Copyright (c) 1992-2002 by P.J. Plauger.  ALL RIGHTS RESERVED.
+ * Consult your license regarding permissions and restrictions.
+ V3.12:0576 */

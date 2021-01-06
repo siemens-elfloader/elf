@@ -1,0 +1,172 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    19/Jan/2011  13:20:52 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\grabber\jpeg-7\jcinit.c                       #
+#    Command line    =  C:\arm\grabber\jpeg-7\jcinit.c -lC                   #
+#                       C:\arm\grabber\Release_SGOLD\List\ -o                #
+#                       C:\arm\grabber\Release_SGOLD\Obj\ -s9 --no_unroll    #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\grabber\Release_SGOLD\List\jcinit.lst         #
+#    Object file     =  C:\arm\grabber\Release_SGOLD\Obj\jcinit.r79          #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\grabber\jpeg-7\jcinit.c
+      1          /*
+                  ^
+Warning[Pa050]: non-native end of line sequence detected (this diagnostic is
+          only issued once)
+      2           * jcinit.c
+      3           *
+      4           * Copyright (C) 1991-1997, Thomas G. Lane.
+      5           * This file is part of the Independent JPEG Group's software.
+      6           * For conditions of distribution and use, see the accompanying README file.
+      7           *
+      8           * This file contains initialization logic for the JPEG compressor.
+      9           * This routine is in charge of selecting the modules to be executed and
+     10           * making an initialization call to each one.
+     11           *
+     12           * Logically, this code belongs in jcmaster.c.  It's split out because
+     13           * linking this routine implies linking the entire compression library.
+     14           * For a transcoding-only application, we want to be able to use jcmaster.c
+     15           * without linking in the whole library.
+     16           */
+     17          
+     18          #define JPEG_INTERNALS
+     19          #include "jinclude.h"
+     20          #include "jpeglib.h"
+     21          
+     22          
+     23          /*
+     24           * Master selection of compression modules.
+     25           * This is done once at the start of processing an image.  We determine
+     26           * which modules will be used and give them appropriate initialization calls.
+     27           */
+     28          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     29          GLOBAL(void)
+     30          jinit_compress_master (j_compress_ptr cinfo)
+     31          {
+   \                     jinit_compress_master:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+     32            /* Initialize master control (includes parameter checking/processing) */
+     33            jinit_c_master_control(cinfo, FALSE /* full compression */);
+   \   00000004   0010A0E3           MOV      R1,#+0
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   ........           _BLF     jinit_c_master_control,??jinit_c_master_control??rA
+     34          
+     35            /* Preprocessing */
+     36            if (! cinfo->raw_data_in) {
+   \   00000010   CC0094E5           LDR      R0,[R4, #+204]
+   \   00000014   000050E3           CMP      R0,#+0
+   \   00000018   0600001A           BNE      ??jinit_compress_master_0
+     37              jinit_color_converter(cinfo);
+   \   0000001C   0400A0E1           MOV      R0,R4
+   \   00000020   ........           _BLF     jinit_color_converter,??jinit_color_converter??rA
+     38              jinit_downsampler(cinfo);
+   \   00000024   0400A0E1           MOV      R0,R4
+   \   00000028   ........           _BLF     jinit_downsampler,??jinit_downsampler??rA
+     39              jinit_c_prep_controller(cinfo, FALSE /* never need full buffer here */);
+   \   0000002C   0010A0E3           MOV      R1,#+0
+   \   00000030   0400A0E1           MOV      R0,R4
+   \   00000034   ........           _BLF     jinit_c_prep_controller,??jinit_c_prep_controller??rA
+     40            }
+     41            /* Forward DCT */
+     42            jinit_forward_dct(cinfo);
+   \                     ??jinit_compress_master_0:
+   \   00000038   0400A0E1           MOV      R0,R4
+   \   0000003C   ........           _BLF     jinit_forward_dct,??jinit_forward_dct??rA
+     43            /* Entropy encoding: either Huffman or arithmetic coding. */
+     44            if (cinfo->arith_code)
+   \   00000040   D00094E5           LDR      R0,[R4, #+208]
+   \   00000044   000050E3           CMP      R0,#+0
+   \   00000048   0400A0E1           MOV      R0,R4
+   \   0000004C   0100000A           BEQ      ??jinit_compress_master_1
+     45              jinit_arith_encoder(cinfo);
+   \   00000050   ........           _BLF     jinit_arith_encoder,??jinit_arith_encoder??rA
+   \   00000054   000000EA           B        ??jinit_compress_master_2
+     46            else {
+     47              jinit_huff_encoder(cinfo);
+   \                     ??jinit_compress_master_1:
+   \   00000058   ........           _BLF     jinit_huff_encoder,??jinit_huff_encoder??rA
+     48            }
+     49          
+     50            /* Need a full-image coefficient buffer in any multi-pass mode. */
+     51            jinit_c_coef_controller(cinfo,
+     52          		(boolean) (cinfo->num_scans > 1 || cinfo->optimize_coding));
+   \                     ??jinit_compress_master_2:
+   \   0000005C   C40094E5           LDR      R0,[R4, #+196]
+   \   00000060   020050E3           CMP      R0,#+2
+   \   00000064   020000AA           BGE      ??jinit_compress_master_3
+   \   00000068   D40094E5           LDR      R0,[R4, #+212]
+   \   0000006C   000050E3           CMP      R0,#+0
+   \   00000070   0100000A           BEQ      ??jinit_compress_master_4
+   \                     ??jinit_compress_master_3:
+   \   00000074   0110A0E3           MOV      R1,#+1
+   \   00000078   000000EA           B        ??jinit_compress_master_5
+   \                     ??jinit_compress_master_4:
+   \   0000007C   0010A0E3           MOV      R1,#+0
+   \                     ??jinit_compress_master_5:
+   \   00000080   0400A0E1           MOV      R0,R4
+   \   00000084   ........           _BLF     jinit_c_coef_controller,??jinit_c_coef_controller??rA
+     53            jinit_c_main_controller(cinfo, FALSE /* never need full buffer here */);
+   \   00000088   0010A0E3           MOV      R1,#+0
+   \   0000008C   0400A0E1           MOV      R0,R4
+   \   00000090   ........           _BLF     jinit_c_main_controller,??jinit_c_main_controller??rA
+     54          
+     55            jinit_marker_writer(cinfo);
+   \   00000094   0400A0E1           MOV      R0,R4
+   \   00000098   ........           _BLF     jinit_marker_writer,??jinit_marker_writer??rA
+     56          
+     57            /* We can now tell the memory manager to allocate virtual arrays. */
+     58            (*cinfo->mem->realize_virt_arrays) ((j_common_ptr) cinfo);
+   \   0000009C   041094E5           LDR      R1,[R4, #+4]
+   \   000000A0   0400A0E1           MOV      R0,R4
+   \   000000A4   181091E5           LDR      R1,[R1, #+24]
+   \   000000A8   31FF2FE1           BLX      R1
+     59          
+     60            /* Write the datastream header (SOI) immediately.
+     61             * Frame and scan headers are postponed till later.
+     62             * This lets application insert special markers after the SOI.
+     63             */
+     64            (*cinfo->marker->write_file_header) (cinfo);
+   \   000000AC   841194E5           LDR      R1,[R4, #+388]
+   \   000000B0   0400A0E1           MOV      R0,R4
+   \   000000B4   001091E5           LDR      R1,[R1, #+0]
+   \   000000B8   31FF2FE1           BLX      R1
+     65          }
+   \   000000BC   1080BDE8           POP      {R4,PC}          ;; return
+
+   Maximum stack usage in bytes:
+
+     Function              CSTACK
+     --------              ------
+     jinit_compress_master     8
+
+
+   Segment part sizes:
+
+     Function/Label        Bytes
+     --------------        -----
+     jinit_compress_master  192
+      Others                124
+
+ 
+ 316 bytes in segment CODE
+ 
+ 192 bytes of CODE memory (+ 124 bytes shared)
+
+Errors: none
+Warnings: 1

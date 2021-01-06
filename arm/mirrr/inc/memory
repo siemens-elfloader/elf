@@ -1,0 +1,583 @@
+// memory standard header -*-c++-*-
+#ifndef _MEMORY_
+#define _MEMORY_
+
+#ifndef _SYSTEM_BUILD
+#pragma system_include
+#endif
+
+#include <iterator>
+#include <xmemory>
+_STD_BEGIN
+
+// TEMPLATE FUNCTION get_temporary_buffer
+template<class _Ty> inline
+pair<_Ty *, typename _TypeUtil::_PointerInfo<_Ty *>::_IndexType>
+get_temporary_buffer(typename _TypeUtil::_PointerInfo<_Ty *>::_IndexType _Count)
+{       // get raw temporary buffer of up to _Count elements
+  _Ty *_Pbuf;
+  allocator<_Ty> _Alloc;
+
+  for (_Pbuf = 0; 0 < _Count; _Count /= 2)
+  {
+    _Pbuf = _Alloc.allocate(_Count);
+    if (_Pbuf != 0)
+      break;
+  }
+
+  return (pair<_Ty *,
+          typename _TypeUtil::_PointerInfo<_Ty *>::_IndexType>(_Pbuf, _Count)); 
+}
+
+// TEMPLATE FUNCTION return_temporary_buffer
+#pragma basic_template_matching
+template<class _Ty> inline
+void return_temporary_buffer(_Ty *_Pbuf)
+{       // delete raw temporary buffer
+  allocator<_Ty> _Alloc;
+  _Alloc.deallocate(_Pbuf, 0);
+}
+
+#pragma basic_template_matching
+template<class _InIt,
+  class _FwdIt> inline
+_FwdIt _Uninit_copy0(_InIt _First, _InIt _Last, _FwdIt _Dest)
+{       // copy [_First, _Last) to raw _Dest, arbitrary type
+  _FwdIt _Next = _Dest;
+
+  _TRY_BEGIN
+  for (; _First != _Last; ++_Dest, ++_First)
+    _Construct(&*_Dest, *_First);
+  _CATCH_ALL
+  for (; _Next != _Dest; ++_Next)
+    _Destroy(&*_Next);
+  _RERAISE;
+  _CATCH_END
+  return (_Dest); 
+}
+
+#pragma basic_template_matching
+template<class _InIt,
+  class _FwdIt> inline
+_FwdIt _Uninit_copy(_InIt _First, _InIt _Last, _FwdIt _Dest)
+{       // copy [_First, _Last) to raw _Dest, arbitrary type
+  return _Uninit_copy0(_First, _Last, _Dest);
+}
+
+inline
+char *_Uninit_copy(const char *_First, const char *_Last, char *_Dest)
+{
+  size_t _Count = (size_t)(_Last - _First);
+  return (char *)memmove(_Dest, _First, _Count) + _Count;
+}
+
+// Default copy, not using library call
+template<typename _Ty, bool _UseLibCall>
+struct _Uninit_copier
+{
+  static _Ty * _Copy(_Ty const * _First, _Ty const * _Last, _Ty * _Dest)
+  {
+    return _Uninit_copy0(_First, _Last, _Dest);
+  }
+};
+
+// Use a library routine to copy
+template<typename _Ty>
+struct _Uninit_copier<_Ty, true>
+{
+  static _Ty * _Copy(_Ty const * _First, _Ty const * _Last, _Ty * _Dest)
+  {
+    if (__ALIGNOF__(_Ty) == 2)
+      return (_Ty *)_CSTD _Copy_a2(_First, _Last, _Dest);
+    else if (__ALIGNOF__(_Ty) == 4)
+      return (_Ty *)_CSTD _Copy_a4(_First, _Last, _Dest);
+    else if (__ALIGNOF__(_Ty) == 8)
+      return (_Ty *)_CSTD _Copy_a8(_First, _Last, _Dest);
+    else
+      return (_Ty *)_Uninit_copy((const char *)_First, (const char *)_Last,
+                                 (char *)_Dest);
+  }
+};
+
+#pragma basic_template_matching
+template<class _Ty>
+inline
+_Ty *_Uninit_copy(const _Ty *_First, const _Ty *_Last, _Ty *_Dest)
+{       // copy [_First, _Last) to raw _Dest, scalar type
+  // Use a library routine to copy if bitwise is okay, and we're using
+  // default pointers.
+  typedef _Uninit_copier<_Ty,
+                              __construction_by_bitwise_copy_allowed(*_First)
+                           && _TypeUtil::_IsDefaultPointer<_Ty *>::_Result>
+          _Copier;
+  return _Copier::_Copy(_First, _Last, _Dest);
+}
+
+// This will match when _Ty1 != _Ty2
+#pragma basic_template_matching
+template<class _Ty1, class _Ty2>
+inline
+_Ty2 *_Uninit_copy(_Ty1 const *_First, _Ty1 const *_Last, _Ty2 *_Dest)
+{
+  return _Uninit_copy0(_First, _Last, _Dest);
+}
+
+// This override is needed in order to be a better match than the
+// general case when the pointers are not pointers to const.
+#pragma basic_template_matching
+template<class _Ty1, class _Ty2>
+inline
+_Ty2 *_Uninit_copy(_Ty1 *_First, _Ty1 *_Last, _Ty2 *_Dest)
+{
+  return _Uninit_copy(const_cast<_Ty1 const *>(_First),
+                      const_cast<_Ty1 const *>(_Last),
+                      _Dest);
+}
+
+// TEMPLATE FUNCTION uninitialized_copy
+#pragma basic_template_matching
+template<class _InIt,
+  class _FwdIt> inline
+_FwdIt uninitialized_copy(_InIt _First, _InIt _Last, _FwdIt _Dest)
+{       // copy [_First, _Last) to raw _Dest
+  return _Uninit_copy(_First, _Last, _Dest); 
+}
+
+#pragma basic_template_matching
+template<class _InIt,
+         class _FwdIt,
+         class _Alloc> inline
+_FwdIt _Uninit_copy(_InIt _First, _InIt _Last, _FwdIt _Dest, _Alloc& _Al)
+{       // copy [_First, _Last) to raw _Dest, using _Al, arbitrary type
+  if (_IsStdAlloc<_Alloc>::_Result)
+    return _Uninit_copy(_First, _Last, _Dest);
+  else
+  {
+    _FwdIt _Next = _Dest;
+
+    _TRY_BEGIN
+      for (; _First != _Last; ++_Dest, ++_First)
+        _Al.construct(_Dest, *_First);
+    _CATCH_ALL
+      for (; _Next != _Dest; ++_Next)
+        _Al.destroy(_Next);
+      _RERAISE;
+    _CATCH_END
+    return (_Dest); 
+  }
+}
+
+// TEMPLATE FUNCTION _Uninitialized_copy WITH ALLOCATOR
+#pragma basic_template_matching
+template<class _InIt,
+         class _FwdIt,
+         class _Alloc> inline
+_FwdIt _Uninitialized_copy(_InIt _First, _InIt _Last, _FwdIt _Dest,
+                           _Alloc& _Al)
+{       // copy [_First, _Last) to raw _Dest, using _Al
+  return _Uninit_copy(_First, _Last, _Dest, _Al);
+}
+
+#pragma basic_template_matching
+template<class _FwdIt,
+         class _Tval> inline
+void _Uninit_fill0(_FwdIt _First, _FwdIt _Last, const _Tval& _Val)
+{       // copy _Val throughout raw [_First, _Last), arbitrary type
+  _FwdIt _Next = _First;
+
+  _TRY_BEGIN
+  for (; _First != _Last; ++_First)
+    _Construct(&*_First, _Val);
+  _CATCH_ALL
+  for (; _Next != _First; ++_Next)
+    _Destroy(&*_Next);
+  _RERAISE;
+  _CATCH_END
+}
+
+#pragma basic_template_matching
+template<class _FwdIt,
+         class _Tval> inline
+void _Uninit_fill(_FwdIt _First, _FwdIt _Last, const _Tval& _Val)
+{       // copy _Val throughout raw [_First, _Last), arbitrary type
+  _Uninit_fill0(_First, _Last, _Val);
+}
+
+#pragma basic_template_matching
+template<class _Ty,
+         class _Tval> inline
+void _Uninit_fill(_Ty *_First, _Ty *_Last, const _Tval& _Val)
+{       // copy _Val throughout raw [_First, _Last), pointers
+  if (__construction_by_bitwise_copy_allowed(_Ty))
+    _STD fill(_First, _Last, _Val); 
+  else
+    _Uninit_fill0(_First, _Last, _Val); 
+}
+
+// TEMPLATE FUNCTION uninitialized_fill
+#pragma basic_template_matching
+template<class _FwdIt,
+         class _Tval> inline
+void uninitialized_fill(_FwdIt _First, _FwdIt _Last, const _Tval& _Val)
+{       // copy _Val throughout raw [_First, _Last)
+  _Uninit_fill(_First, _Last, _Val); 
+}
+
+#pragma basic_template_matching
+template<class _FwdIt,
+         class _Diff,
+         class _Tval> inline
+void _Uninit_fill_n0(_FwdIt _First, _Diff _Count, const _Tval& _Val)
+{       // copy _Count *_Val to raw _First, arbitrary type
+  _FwdIt _Next = _First;
+
+  _TRY_BEGIN
+  for (; 0 < _Count; --_Count, ++_First)
+    _Construct(&*_First, _Val);
+  _CATCH_ALL
+  for (; _Next != _First; ++_Next)
+    _Destroy(&*_Next);
+  _RERAISE;
+  _CATCH_END
+}
+
+#pragma basic_template_matching
+template<class _FwdIt,
+         class _Diff,
+         class _Tval> inline
+void _Uninit_fill_n(_FwdIt _First, _Diff _Count, const _Tval& _Val)
+{       // copy _Count *_Val to raw _First, arbitrary type
+  _Uninit_fill_n0(_First, _Count, _Val);
+}
+
+#pragma basic_template_matching
+template<class _Ty,
+         class _Diff,
+         class _Tval> inline
+void _Uninit_fill_n(_Ty *_First, _Diff _Count, const _Tval& _Val)
+{       // copy _Count *_Val to raw _First, scalar type
+  if (__construction_by_bitwise_copy_allowed(_Ty))
+    _STD fill_n(_First, _Count, _Val);
+  else
+    _Uninit_fill_n0(_First, _Count, _Val);
+}
+
+// TEMPLATE FUNCTION uninitialized_fill_n
+#pragma basic_template_matching
+template<class _FwdIt,
+         class _Diff,
+         class _Tval> inline
+void uninitialized_fill_n(_FwdIt _First, _Diff _Count, const _Tval& _Val)
+{       // copy _Count *_Val to raw _First
+  _Uninit_fill_n(_First, _Count, _Val);
+}
+
+// TEMPLATE FUNCTION _Uninitialized_fill_n WITH ALLOCATOR
+#pragma basic_template_matching
+template<class _FwdIt,
+         class _Diff,
+         class _Tval,
+         class _Alloc> inline
+void _Uninitialized_fill_n(_FwdIt _First, _Diff _Count,
+                           const _Tval& _Val, _Alloc& _Al)
+{       // copy _Count *_Val to raw _First, using _Al
+  if (__construction_by_bitwise_copy_allowed(*_First) &&
+      __assignment_by_bitwise_copy_allowed(*_First))
+  {
+    for (; 0 < _Count; --_Count, ++_First)
+      *_First = _Val;
+  }
+  else
+  {
+    _FwdIt _Next = _First;
+
+    _TRY_BEGIN
+    for (; 0 < _Count; --_Count, ++_First)
+      _Al.construct(_First, _Val);
+    _CATCH_ALL
+    for (; _Next != _First; ++_Next)
+      _Al.destroy(_Next);
+    _RERAISE;
+    _CATCH_END
+  }
+}
+
+// TEMPLATE CLASS raw_storage_iterator
+template<class _FwdIt,
+         class _Ty>
+class raw_storage_iterator
+  : public _Outit
+{       // wrap stores to raw buffer as output iterator
+public:
+  typedef _FwdIt iterator_type;   // retained
+  typedef _FwdIt iter_type;       // retained
+  typedef _Ty element_type;       // retained
+  typedef typename _TypeUtil::_ParameterType<_Ty>::_Type _ParamTy;
+
+  explicit raw_storage_iterator(_FwdIt _First)
+    : _Next(_First)
+  {}      // construct with iterator
+
+  raw_storage_iterator<_FwdIt, _Ty>& operator*()
+  {       // pretend to return designated value
+    return (*this); 
+  }
+
+  raw_storage_iterator<_FwdIt, _Ty>& operator=(_ParamTy _Val)
+  {       // construct value designated by stored iterator
+    _Construct(&*_Next, _Val);
+    return (*this); 
+  }
+
+  raw_storage_iterator<_FwdIt, _Ty>& operator++()
+  {       // preincrement
+    ++_Next;
+    return (*this); 
+  }
+
+  raw_storage_iterator<_FwdIt, _Ty> operator++(int)
+  {       // postincrement
+    raw_storage_iterator<_FwdIt, _Ty> _Ans = *this;
+    ++_Next;
+    return (_Ans); 
+  }
+
+private:
+  _FwdIt _Next;   // the stored iterator
+};
+
+// TEMPLATE CLASS _Temp_iterator
+template<class _Ty>
+class _Temp_iterator
+  : public _Outit
+{       // wrap stores to temporary buffer as output iterator
+public:
+  typedef _Ty *_Pty;
+  typedef typename _TypeUtil::_PointerInfo<_Ty *>::_IndexType _Pdft;
+  typedef typename _TypeUtil::_ParameterType<_Ty>::_Type _ParamTy;
+
+  _Temp_iterator(_Pdft _Count = 0)
+  {       // construct from desired temporary buffer size
+    pair<_Pty, _Pdft> _Pair =
+      _STD get_temporary_buffer<_Ty>(_Count);
+    _Buf._Begin = _Pair.first;
+    _Buf._Current = _Pair.first;
+    _Buf._Hiwater = _Pair.first;
+    _Buf._Size = _Pair.second;
+    _Pbuf = &_Buf; 
+  }
+
+  _Temp_iterator(const _Temp_iterator<_Ty>& _Right)
+  {       // construct from _Right (share active buffer)
+    _Buf._Begin = 0;        // clear stored buffer, to be tidy
+    _Buf._Current = 0;
+    _Buf._Hiwater = 0;
+    _Buf._Size = 0;
+    *this = _Right; 
+  }
+
+  ~_Temp_iterator()
+  {       // destroy the object
+    if (_Buf._Begin != 0)
+    {       // destroy any constructed elements in buffer
+      for (_Pty _Next = _Buf._Begin;
+           _Next != _Buf._Hiwater; ++_Next)
+        _Destroy(&*_Next);
+      _STD return_temporary_buffer(_Buf._Begin); 
+    }
+  }
+
+  _Temp_iterator<_Ty>& operator=(const _Temp_iterator<_Ty>& _Right)
+  {       // assign _Right (share active buffer)
+    _Pbuf = _Right._Pbuf;
+    return (*this); 
+  }
+
+  _Temp_iterator<_Ty>& operator=(_ParamTy _Val)
+  {       // assign or construct value into active buffer, and increment
+    if (_Pbuf->_Current < _Pbuf->_Hiwater)
+      *_Pbuf->_Current++ = _Val;      // below high water mark, assign
+    else
+    {       // above high water mark, construct
+      _Construct(&*_Pbuf->_Current, _Val);
+      _Pbuf->_Hiwater = ++_Pbuf->_Current; }
+    return (*this); 
+  }
+
+  _Temp_iterator<_Ty>& operator*()
+  {       // pretend to return designated value
+    return (*this); 
+  }
+
+  _Temp_iterator<_Ty>& operator++()
+  {       // pretend to preincrement
+    return (*this); 
+  }
+
+  _Temp_iterator<_Ty>& operator++(int)
+  {       // pretend to postincrement
+    return (*this); 
+  }
+
+  _Temp_iterator<_Ty>& _Init()
+  {       // set pointer at beginning of buffer
+    _Pbuf->_Current = _Pbuf->_Begin;
+    return (*this); 
+  }
+
+  _Pty _First() const
+  {       // return pointer to beginning of buffer
+    return (_Pbuf->_Begin); 
+  }
+
+  _Pty _Last() const
+  {       // return pointer past end of buffer contents
+    return (_Pbuf->_Current); 
+  }
+
+  _Pdft _Maxlen() const
+  {       // return size of buffer
+    return (_Pbuf->_Size); 
+  }
+
+private:
+  struct _Bufpar
+  {       // control information for a temporary buffer
+    _Pty _Begin;    // pointer to beginning of buffer
+    _Pty _Current;  // pointer to next available element
+    _Pty _Hiwater;  // pointer to first unconstructed element
+    _Pdft _Size;    // length of buffer
+  };
+  _Bufpar _Buf;   // buffer control stored in iterator
+  _Bufpar *_Pbuf; // pointer to active buffer control
+};
+
+// TEMPLATE CLASS auto_ptr
+template<class _Ty>
+class auto_ptr;
+
+template<class _Ty>
+struct auto_ptr_ref
+{       // proxy reference for auto_ptr copying
+  auto_ptr_ref(auto_ptr<_Ty>& _Right)
+    : _Ref(_Right)
+  {}      // construct from compatible auto_ptr
+
+  auto_ptr<_Ty>& _Ref;    // reference to constructor argument
+};
+
+template<class _Ty>
+class auto_ptr
+{       // wrap an object pointer to ensure destruction
+public:
+  typedef _Ty element_type;
+
+  explicit auto_ptr(_Ty *_Ptr = 0) _THROW0()
+    : _Myptr(_Ptr)
+  {}      // construct from object pointer
+
+  auto_ptr(auto_ptr<_Ty>& _Right) _THROW0()
+    : _Myptr(_Right.release())
+  {}      // construct by assuming pointer from _Right auto_ptr
+
+  auto_ptr(auto_ptr_ref<_Ty> _Right) _THROW0()
+    : _Myptr(_Right._Ref.release())
+  {}      // construct by assuming pointer from _Right auto_ptr_ref
+
+  template<class _Other>
+  operator auto_ptr<_Other>() _THROW0()
+  {       // convert to compatible auto_ptr
+    return (auto_ptr<_Other>(*this)); 
+  }
+
+  template<class _Other>
+  operator auto_ptr_ref<_Other>() _THROW0()
+  {       // convert to compatible auto_ptr_ref
+    return (auto_ptr_ref<_Other>(*this)); 
+  }
+
+  template<class _Other>
+  auto_ptr<_Ty>& operator=(auto_ptr<_Other>& _Right) _THROW0()
+  {       // assign compatible _Right (assume pointer)
+    reset(_Right.release());
+    return (*this); 
+  }
+
+  template<class _Other>
+  auto_ptr(auto_ptr<_Other>& _Right) _THROW0()
+    : _Myptr(_Right.release())
+  {}      // construct by assuming pointer from _Right
+
+  auto_ptr<_Ty>& operator=(auto_ptr<_Ty>& _Right) _THROW0()
+  {       // assign compatible _Right (assume pointer)
+    reset(_Right.release());
+    return (*this); 
+  }
+
+        auto_ptr<_Ty>& operator=(auto_ptr_ref<_Ty>& _Right) _THROW0()
+  {       // assign compatible _Right._Ref (assume pointer)
+    reset(_Right._Ref.release());
+    return (*this); 
+  }
+
+  ~auto_ptr()
+  {       // destroy the object
+    delete _Myptr; 
+  }
+
+  _Ty& operator*() const _THROW0()
+  {       // return designated value
+    return (*get()); 
+  }
+
+  _Ty *operator->() const _THROW0()
+  {       // return pointer to class object
+    return (get()); 
+  }
+
+  _Ty *get() const _THROW0()
+  {       // return wrapped pointer
+    return (_Myptr); 
+  }
+
+  _Ty *release() _THROW0()
+  {       // return wrapped pointer and give up ownership
+    _Ty *_Tmp = _Myptr;
+    _Myptr = 0;
+    return (_Tmp); 
+  }
+
+  void reset(_Ty* _Ptr = 0)
+  {       // destroy designated object and store new pointer
+    if (_Ptr != _Myptr)
+      delete _Myptr;
+    _Myptr = _Ptr; 
+  }
+
+private:
+  _Ty *_Myptr;    // the wrapped object pointer
+};
+_STD_END
+#endif /* _MEMORY_ */
+
+/*
+ * Copyright (c) 1992-2002 by P.J. Plauger.  ALL RIGHTS RESERVED.
+ * Consult your license regarding permissions and restrictions.
+ */
+
+/*
+ * This file is derived from software bearing the following
+ * restrictions:
+ *
+ * Copyright (c) 1994
+ * Hewlett-Packard Company
+ *
+ * Permission to use, copy, modify, distribute and sell this
+ * software and its documentation for any purpose is hereby
+ * granted without fee, provided that the above copyright notice
+ * appear in all copies and that both that copyright notice and
+ * this permission notice appear in supporting documentation.
+ * Hewlett-Packard Company makes no representations about the
+ * suitability of this software for any purpose. It is provided
+ * "as is" without express or implied warranty.
+V3.12:0576 */

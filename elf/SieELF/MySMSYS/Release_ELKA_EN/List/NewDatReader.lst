@@ -1,0 +1,3135 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    14/Jan/2009  12:36:22 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  K:\Pasha\elf\SieELF\MySMSYS\NewDatReader.c           #
+#    Command line    =  K:\Pasha\elf\SieELF\MySMSYS\NewDatReader.c -D        #
+#                       NEWSGOLD -D ELKA -D LANG_EN -D NO_CS -lC             #
+#                       K:\Pasha\elf\SieELF\MySMSYS\Release_ELKA_EN\List\    #
+#                       -o K:\Pasha\elf\SieELF\MySMSYS\Release_ELKA_EN\Obj\  #
+#                       -s9 --no_unroll --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "K:\Pasha\Embedded          #
+#                       Workbench 4.0 Evaluation2\ARM\LIB\dl5tpainl8n.h" -I  #
+#                       "K:\Pasha\Embedded Workbench 4.0                     #
+#                       Evaluation2\ARM\INC\" --inline_threshold=2           #
+#    List file       =  K:\Pasha\elf\SieELF\MySMSYS\Release_ELKA_EN\List\New #
+#                       DatReader.lst                                        #
+#    Object file     =  K:\Pasha\elf\SieELF\MySMSYS\Release_ELKA_EN\Obj\NewD #
+#                       atReader.r79                                         #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+K:\Pasha\elf\SieELF\MySMSYS\NewDatReader.c
+      1          #include "..\inc\swilib.h"
+      2          #include "config_data.h"
+      3          #include "sms_dat.h"
+      4          #include "language.h"
+      5          #include "main.h"
+      6          #include "MySMSYS_ipc.h"
+      7          #define MAX_SMS 100
+      8          typedef struct
+      9          {
+     10            char unk0;
+     11            char unk1;
+     12            unsigned short index_id; //0xFFFF, no
+     13            char num[12]; //hex, num[0],len
+     14            short txt_len;
+     15            short w_char[7]; //
+     16            char unk2;
+     17            char unk3;
+     18            short unk_0x160F;
+     19            char unk4[8];
+     20            int opmsg_id;
+     21            unsigned short data_id;//SMS: (data_id-0x2A)*sizeof(PDU)= the position of this sms in sms.dat, EMS: 0xFFF4 ?
+     22            short unk5; //0xA800 ?
+     23          }EMS_ADM;
+     24          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     25          void Add2WS_NEW(char *data, unsigned short *wsbody, int len)
+     26          {
+   \                     Add2WS_NEW:
+   \   00000000   10002DE9           PUSH     {R4}
+     27            int i;
+     28            char *p=(char *)wsbody;
+     29            for(i=0;i<len;i+=2)
+   \   00000004   0030A0E3           MOV      R3,#+0
+   \   00000008   010052E3           CMP      R2,#+1
+   \   0000000C   080000AA           BGE      ??Add2WS_NEW_0
+   \   00000010   090000EA           B        ??Add2WS_NEW_1
+     30            {
+     31              p[i+2]=data[i+1];
+   \                     ??Add2WS_NEW_2:
+   \   00000014   004083E0           ADD      R4,R3,R0
+   \   00000018   0140D4E5           LDRB     R4,[R4, #+1]
+   \   0000001C   01C083E0           ADD      R12,R3,R1
+   \   00000020   0240CCE5           STRB     R4,[R12, #+2]
+     32              p[i+3]=data[i];
+   \   00000024   00C0D3E7           LDRB     R12,[R3, +R0]
+   \   00000028   014083E0           ADD      R4,R3,R1
+     33            }
+   \   0000002C   023083E2           ADD      R3,R3,#+2
+   \   00000030   03C0C4E5           STRB     R12,[R4, #+3]
+   \                     ??Add2WS_NEW_0:
+   \   00000034   020053E1           CMP      R3,R2
+   \   00000038   F5FFFFBA           BLT      ??Add2WS_NEW_2
+     34            wsbody[0]=len/2;
+   \                     ??Add2WS_NEW_1:
+   \   0000003C   A20F82E0           ADD      R0,R2,R2, LSR #+31
+   \   00000040   C000A0E1           ASR      R0,R0,#+1
+   \   00000044   B000C1E1           STRH     R0,[R1, #+0]
+     35          }
+   \   00000048   1000BDE8           POP      {R4}
+   \   0000004C   1EFF2FE1           BX       LR               ;; return
+     36          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     37          void Hex2Num_NEW(char *hex, char *num, int len)
+     38          {
+   \                     Hex2Num_NEW:
+   \   00000000   10002DE9           PUSH     {R4}
+     39            char *p=hex;
+     40            char *pp=num;
+     41            int m=0;
+   \   00000004   0030A0E3           MOV      R3,#+0
+     42            int c=0;
+   \   00000008   00C0A0E3           MOV      R12,#+0
+     43            int c1;
+     44            if((c1=*p++)==0x91) {*pp='+'; pp++;}
+   \   0000000C   014080E2           ADD      R4,R0,#+1
+   \   00000010   0000D0E5           LDRB     R0,[R0, #+0]
+   \   00000014   910050E3           CMP      R0,#+145
+   \   00000018   2B00A003           MOVEQ    R0,#+43
+   \   0000001C   ........           STRBEQ   R0,[R1], #+1
+   \   00000020   1E00000A           BEQ      ??Hex2Num_NEW_0
+     45            else if(c1==0xD0) //7bit ?
+   \   00000024   D00050E3           CMP      R0,#+208
+   \   00000028   1C00001A           BNE      ??Hex2Num_NEW_0
+     46            {
+     47              len=((len&1)?1:0) + (len>>1);
+   \   0000002C   01C002E2           AND      R12,R2,#0x1
+   \   00000030   C2209CE0           ADDS     R2,R12,R2, ASR #+1
+   \   00000034   1200000A           BEQ      ??Hex2Num_NEW_1
+     48              while(len)
+     49              {
+     50                c=0x80;
+   \                     ??Hex2Num_NEW_2:
+   \   00000038   80C0A0E3           MOV      R12,#+128
+     51                do
+     52                {
+     53          	if(!m) {c1=*p++; m=8;}
+   \                     ??Hex2Num_NEW_3:
+   \   0000003C   000053E3           CMP      R3,#+0
+   \   00000040   ........           LDRBEQ   R0,[R4], #+1
+   \   00000044   0830A003           MOVEQ    R3,#+8
+     54          	c>>=1;
+   \   00000048   CCC0A0E1           ASR      R12,R12,#+1
+     55          	if(c1&1) c|=0x80;
+   \   0000004C   010010E3           TST      R0,#0x1
+   \   00000050   80C08C13           ORRNE    R12,R12,#0x80
+     56          	c1>>=1; m--;
+   \   00000054   C000A0E1           ASR      R0,R0,#+1
+   \   00000058   013043E2           SUB      R3,R3,#+1
+     57                }while(!(c&1));
+   \   0000005C   01001CE3           TST      R12,#0x1
+   \   00000060   F5FFFF0A           BEQ      ??Hex2Num_NEW_3
+     58                c>>=1;
+   \   00000064   CCC0B0E1           ASRS     R12,R12,#+1
+     59                if(!c) c='@';
+   \   00000068   40C0A003           MOVEQ    R12,#+64
+   \   0000006C   0100000A           BEQ      ??Hex2Num_NEW_4
+     60                if(c==2) c='$';
+   \   00000070   02005CE3           CMP      R12,#+2
+   \   00000074   24C0A003           MOVEQ    R12,#+36
+     61                *pp=c;
+   \                     ??Hex2Num_NEW_4:
+   \   00000078   ........           STRB     R12,[R1], #+1
+     62                pp++;
+     63                len--;
+   \   0000007C   012052E2           SUBS     R2,R2,#+1
+     64              }
+   \   00000080   ECFFFF1A           BNE      ??Hex2Num_NEW_2
+     65              *pp=0;
+   \                     ??Hex2Num_NEW_1:
+   \   00000084   0000A0E3           MOV      R0,#+0
+   \   00000088   0000C1E5           STRB     R0,[R1, #+0]
+     66              return;
+   \   0000008C   1000BDE8           POP      {R4}
+   \   00000090   1EFF2FE1           BX       LR               ;; return
+     67            }
+     68            while(m<len)
+     69            {
+     70              if(m&1) c1=c>>4;
+     71              else c1=(c=(*p++))&0x0F;
+     72              *pp=c1+0x30; pp++;
+   \                     ??Hex2Num_NEW_5:
+   \   00000094   300080E2           ADD      R0,R0,#+48
+   \   00000098   ........           STRB     R0,[R1], #+1
+     73              m++;
+   \   0000009C   013083E2           ADD      R3,R3,#+1
+   \                     ??Hex2Num_NEW_0:
+   \   000000A0   020053E1           CMP      R3,R2
+   \   000000A4   F6FFFFAA           BGE      ??Hex2Num_NEW_1
+   \   000000A8   010013E3           TST      R3,#0x1
+   \   000000AC   ........           LDRBEQ   R12,[R4], #+1
+   \   000000B0   0F000C02           ANDEQ    R0,R12,#0xF
+   \   000000B4   4C02A011           ASRNE    R0,R12,#+4
+   \   000000B8   F5FFFFEA           B        ??Hex2Num_NEW_5
+     74            }
+     75            *pp=0;
+     76          }
+     77          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     78          void Bit7Decode(WSHDR *ws, char *pdata, int skip, int len) //big respect to Rst7(LogSms),
+     79          {
+   \                     Bit7Decode:
+   \   00000000   F0432DE9           PUSH     {R4-R9,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+   \   0000000C   0260A0E1           MOV      R6,R2
+   \   00000010   0370B0E1           MOVS     R7,R3
+     80            char *p=pdata;
+     81            int c, c2, i=0;
+   \   00000014   0090A0E3           MOV      R9,#+0
+   \   00000018   F083BD08           POPEQ    {R4-R9,PC}
+     82            while(len)
+     83            {
+     84              c=0x80;
+   \                     ??Bit7Decode_0:
+   \   0000001C   8000A0E3           MOV      R0,#+128
+     85              do
+     86              {
+     87                if(!i) {c2=*p++; i=8;}
+   \                     ??Bit7Decode_1:
+   \   00000020   000059E3           CMP      R9,#+0
+   \   00000024   ........           LDRBEQ   R8,[R5], #+1
+   \   00000028   0890A003           MOVEQ    R9,#+8
+     88                c>>=1;
+   \   0000002C   C000A0E1           ASR      R0,R0,#+1
+     89                if(c2&1) c|=0x80;
+   \   00000030   010018E3           TST      R8,#0x1
+   \   00000034   80008013           ORRNE    R0,R0,#0x80
+     90                c2>>=1; i--;
+   \   00000038   C880A0E1           ASR      R8,R8,#+1
+   \   0000003C   019049E2           SUB      R9,R9,#+1
+     91              }while(!(c&1));
+   \   00000040   010010E3           TST      R0,#0x1
+   \   00000044   F5FFFF0A           BEQ      ??Bit7Decode_1
+     92              c>>=1;
+   \   00000048   C010B0E1           ASRS     R1,R0,#+1
+     93              if(!c) c='@';
+   \   0000004C   4010A003           MOVEQ    R1,#+64
+   \   00000050   0100000A           BEQ      ??Bit7Decode_2
+     94              if(c==2) c='$';
+   \   00000054   020051E3           CMP      R1,#+2
+   \   00000058   2410A003           MOVEQ    R1,#+36
+     95              if(skip) skip--;
+   \                     ??Bit7Decode_2:
+   \   0000005C   000056E3           CMP      R6,#+0
+   \   00000060   01604612           SUBNE    R6,R6,#+1
+   \   00000064   0100001A           BNE      ??Bit7Decode_3
+     96              else wsAppendChar(ws, c);
+   \   00000068   0400A0E1           MOV      R0,R4
+   \   0000006C   1C0000EF           SWI      +28
+     97              len--;
+   \                     ??Bit7Decode_3:
+   \   00000070   017057E2           SUBS     R7,R7,#+1
+     98            }
+   \   00000074   E8FFFF1A           BNE      ??Bit7Decode_0
+     99          }
+   \   00000078   F083BDE8           POP      {R4-R9,PC}       ;; return
+    100          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    101          int PduDecodeTxt(SMS_DATA *sd, char *data) //0: fail, 1: successful, //2: unktype
+    102          {
+   \                     PduDecodeTxt:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   9BDF4DE2           SUB      SP,SP,#+620
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   0170A0E1           MOV      R7,R1
+    103            int c;
+    104            int ttype;
+    105            int isplus, wlen, isems, skip=0;
+    106            char *p;
+    107            WSHDR *ws, wsn, *wst;
+    108            unsigned short wsb[300];
+    109            ws=CreateLocalWS(&wsn, wsb, 300);
+   \   00000010   4B2FA0E3           MOV      R2,#+300
+   \   00000014   0D10A0E1           MOV      R1,SP
+   \   00000018   960F8DE2           ADD      R0,SP,#+600
+   \   0000001C   270100EF           SWI      +295
+   \   00000020   0060A0E1           MOV      R6,R0
+    110            p=data;
+    111            if(*p++!=0x11)
+   \   00000024   0000D7E5           LDRB     R0,[R7, #+0]
+   \   00000028   0050A0E3           MOV      R5,#+0
+   \   0000002C   110050E3           CMP      R0,#+17
+   \   00000030   0100000A           BEQ      ??PduDecodeTxt_0
+    112              return 0;
+   \                     ??PduDecodeTxt_1:
+   \   00000034   0000A0E3           MOV      R0,#+0
+   \   00000038   670000EA           B        ??PduDecodeTxt_2
+    113            if(*p++!=0x11)
+   \                     ??PduDecodeTxt_0:
+   \   0000003C   011087E2           ADD      R1,R7,#+1
+   \   00000040   010081E2           ADD      R0,R1,#+1
+   \   00000044   0010D1E5           LDRB     R1,[R1, #+0]
+   \   00000048   110051E3           CMP      R1,#+17
+   \   0000004C   F8FFFF1A           BNE      ??PduDecodeTxt_1
+    114              return 0;
+    115            c=*p++;
+   \   00000050   ........           LDRB     R7,[R0], #+1
+    116            if(!c)
+   \   00000054   000057E3           CMP      R7,#+0
+   \   00000058   F5FFFF0A           BEQ      ??PduDecodeTxt_1
+    117              return 0;
+    118            c=*p++; //sms center
+   \   0000005C   ........           LDRB     R1,[R0], #+1
+    119            p+=c;
+    120            c=*p++;
+    121            if((c>>4)%2) isplus=1;
+    122            else isplus=0;
+    123            if((c>>6)%2) isems=1;
+    124            else isems=0;
+    125            if((sd->type==TYPE_OUT)||(sd->type==TYPE_DRAFT)) //out
+   \   00000060   087094E5           LDR      R7,[R4, #+8]
+   \   00000064   000081E0           ADD      R0,R1,R0
+   \   00000068   ........           LDRB     R2,[R0], #+1
+   \   0000006C   4212A0E1           ASR      R1,R2,#+4
+   \   00000070   A13F81E0           ADD      R3,R1,R1, LSR #+31
+   \   00000074   C330A0E1           ASR      R3,R3,#+1
+   \   00000078   831051E0           SUBS     R1,R1,R3, LSL #+1
+   \   0000007C   0110A013           MOVNE    R1,#+1
+   \   00000080   4223A0E1           ASR      R2,R2,#+6
+   \   00000084   A23F82E0           ADD      R3,R2,R2, LSR #+31
+   \   00000088   C330A0E1           ASR      R3,R3,#+1
+   \   0000008C   832052E0           SUBS     R2,R2,R3, LSL #+1
+   \   00000090   0130A013           MOVNE    R3,#+1
+   \   00000094   0030A003           MOVEQ    R3,#+0
+   \   00000098   010057E3           CMP      R7,#+1
+   \   0000009C   04005713           CMPNE    R7,#+4
+    126            {
+    127              p++;
+   \   000000A0   01008002           ADDEQ    R0,R0,#+1
+    128            }
+    129            c=*p++;
+   \   000000A4   ........           LDRB     R2,[R0], #+1
+    130            c=((c&1)?1:0) + (c>>1) +1;
+    131          /*  if(c)
+    132            {
+    133              if(c%2)
+    134                c=c/2+2;
+    135              else
+    136                c=c/2+1;
+    137            }
+    138            else
+    139            {
+    140              c=1;
+    141              //sd->Number[0]=0;
+    142            }*/
+    143            p+=c+1; //num
+    144            ttype=*p++;
+    145            if((sd->type==TYPE_IN_R)||(sd->type==TYPE_IN_N))
+   \   000000A8   020057E3           CMP      R7,#+2
+   \   000000AC   03005713           CMPNE    R7,#+3
+   \   000000B0   01C002E2           AND      R12,R2,#0x1
+   \   000000B4   C2208CE0           ADD      R2,R12,R2, ASR #+1
+   \   000000B8   000082E0           ADD      R0,R2,R0
+   \   000000BC   020080E2           ADD      R0,R0,#+2
+   \   000000C0   ........           LDRB     R2,[R0], #+1
+    146            {
+    147              p+=7; //time
+   \   000000C4   07008002           ADDEQ    R0,R0,#+7
+    148            }
+    149            if(isplus&&((sd->type==TYPE_OUT)||(sd->type==TYPE_DRAFT))) p++; //
+   \   000000C8   000051E3           CMP      R1,#+0
+   \   000000CC   0200000A           BEQ      ??PduDecodeTxt_3
+   \   000000D0   010057E3           CMP      R7,#+1
+   \   000000D4   04005713           CMPNE    R7,#+4
+   \   000000D8   01008002           ADDEQ    R0,R0,#+1
+    150            c=*p++;
+   \                     ??PduDecodeTxt_3:
+   \   000000DC   ........           LDRB     R7,[R0], #+1
+    151            //...text,
+    152            if(isems)
+   \   000000E0   000053E3           CMP      R3,#+0
+   \   000000E4   1C00000A           BEQ      ??PduDecodeTxt_4
+    153            {
+    154              skip=(*p)+1;
+   \   000000E8   0010D0E5           LDRB     R1,[R0, #+0]
+    155              if(ttype!=8) skip=((skip*8)+6)/7;
+   \   000000EC   080052E3           CMP      R2,#+8
+   \   000000F0   015081E2           ADD      R5,R1,#+1
+   \   000000F4   1500000A           BEQ      ??PduDecodeTxt_5
+   \   000000F8   ........           LDR      R3,??DataTable2  ;; 0xffffffff92492493
+   \   000000FC   0610A0E3           MOV      R1,#+6
+   \   00000100   851181E0           ADD      R1,R1,R5, LSL #+3
+   \   00000104   9351CCE0           SMULL    R5,R12,R3,R1
+   \   00000108   01C08CE0           ADD      R12,R12,R1
+   \   0000010C   4CC1A0E1           ASR      R12,R12,#+2
+   \   00000110   A15F8CE0           ADD      R5,R12,R1, LSR #+31
+    156              else
+    157              {
+    158                p+=skip;
+    159                c-=skip;
+    160              }
+    161            }
+    162            if(ttype==0x8)
+    163            {
+    164              Add2WS_NEW(p, ws->wsbody, c);
+    165            }
+    166            else if(ttype==0x0) //7bit
+   \                     ??PduDecodeTxt_6:
+   \   00000114   000052E3           CMP      R2,#+0
+   \   00000118   1500001A           BNE      ??PduDecodeTxt_7
+    167            {
+    168              //GSMTXT_Decode(ws,(void*)p,c*7/8+1, ttype, (void*(*)(int))malloc_adr(),(void(*)(void))mfree_adr());
+    169              Bit7Decode(ws, p, skip, c);
+   \   0000011C   0730A0E1           MOV      R3,R7
+   \   00000120   0520A0E1           MOV      R2,R5
+   \   00000124   0010A0E1           MOV      R1,R0
+   \   00000128   0600A0E1           MOV      R0,R6
+   \   0000012C   ........           BL       Bit7Decode
+    170              if(wstrlen(ws)>c)
+   \   00000130   0600A0E1           MOV      R0,R6
+   \   00000134   230100EF           SWI      +291
+   \   00000138   000057E1           CMP      R7,R0
+   \   0000013C   120000AA           BGE      ??PduDecodeTxt_8
+    171              {
+    172                CutWSTR(ws, c);
+   \   00000140   0710A0E1           MOV      R1,R7
+   \   00000144   0600A0E1           MOV      R0,R6
+   \   00000148   260100EF           SWI      +294
+   \   0000014C   0E0000EA           B        ??PduDecodeTxt_8
+    173              }
+    174            }
+   \                     ??PduDecodeTxt_5:
+   \   00000150   000085E0           ADD      R0,R5,R0
+   \   00000154   057047E0           SUB      R7,R7,R5
+   \   00000158   010000EA           B        ??PduDecodeTxt_9
+   \                     ??PduDecodeTxt_4:
+   \   0000015C   080052E3           CMP      R2,#+8
+   \   00000160   EBFFFF1A           BNE      ??PduDecodeTxt_6
+   \                     ??PduDecodeTxt_9:
+   \   00000164   001096E5           LDR      R1,[R6, #+0]
+   \   00000168   0720A0E1           MOV      R2,R7
+   \   0000016C   ........           BL       Add2WS_NEW
+   \   00000170   050000EA           B        ??PduDecodeTxt_8
+    175            else 
+    176            {
+    177              sd->msg_type=sd->msg_type|ISUNKE;
+   \                     ??PduDecodeTxt_7:
+   \   00000174   180094E5           LDR      R0,[R4, #+24]
+    178              wsprintf(ws, STR_UNK_TXTT, ttype);
+   \   00000178   ........           LDR      R1,??DataTable3  ;; STR_UNK_TXTT
+   \   0000017C   100080E3           ORR      R0,R0,#0x10
+   \   00000180   180084E5           STR      R0,[R4, #+24]
+   \   00000184   0600A0E1           MOV      R0,R6
+   \   00000188   240100EF           SWI      +292
+    179            }
+    180            wst=sd->SMS_TEXT;
+   \                     ??PduDecodeTxt_8:
+   \   0000018C   645094E5           LDR      R5,[R4, #+100]
+    181            wlen=wstrlen(ws);
+   \   00000190   0600A0E1           MOV      R0,R6
+   \   00000194   230100EF           SWI      +291
+   \   00000198   0070B0E1           MOVS     R7,R0
+    182            if(wlen)
+   \   0000019C   1400000A           BEQ      ??PduDecodeTxt_10
+    183            {
+    184              if(wst)
+   \   000001A0   000055E3           CMP      R5,#+0
+   \   000001A4   0E00000A           BEQ      ??PduDecodeTxt_11
+    185              {
+    186                wlen+=wstrlen(wst);
+   \   000001A8   0500A0E1           MOV      R0,R5
+   \   000001AC   230100EF           SWI      +291
+   \   000001B0   070080E0           ADD      R0,R0,R7
+    187                sd->SMS_TEXT=AllocWS(wlen);
+   \   000001B4   250100EF           SWI      +293
+   \   000001B8   640084E5           STR      R0,[R4, #+100]
+    188                wstrcpy(sd->SMS_TEXT, wst);
+   \   000001BC   0510A0E1           MOV      R1,R5
+   \   000001C0   1F0100EF           SWI      +287
+    189                wstrcat(sd->SMS_TEXT, ws);
+   \   000001C4   640094E5           LDR      R0,[R4, #+100]
+   \   000001C8   0610A0E1           MOV      R1,R6
+   \   000001CC   210100EF           SWI      +289
+    190                FreeWS(wst);
+   \   000001D0   0500A0E1           MOV      R0,R5
+   \   000001D4   290100EF           SWI      +297
+   \   000001D8   0100A0E3           MOV      R0,#+1
+   \                     ??PduDecodeTxt_2:
+   \   000001DC   9BDF8DE2           ADD      SP,SP,#+620
+   \   000001E0   F080BDE8           POP      {R4-R7,PC}
+    191              }
+    192              else
+    193              {
+    194                sd->SMS_TEXT=AllocWS(wlen);
+   \                     ??PduDecodeTxt_11:
+   \   000001E4   250100EF           SWI      +293
+   \   000001E8   640084E5           STR      R0,[R4, #+100]
+    195                wstrcpy(sd->SMS_TEXT, ws);
+   \   000001EC   0610A0E1           MOV      R1,R6
+   \   000001F0   1F0100EF           SWI      +287
+    196              }
+    197            }
+    198            return 1;
+   \                     ??PduDecodeTxt_10:
+   \   000001F4   0100A0E3           MOV      R0,#+1
+   \   000001F8   9BDF8DE2           ADD      SP,SP,#+620
+   \   000001FC   F080BDE8           POP      {R4-R7,PC}       ;; return
+    199          }
+    200          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    201          void DoMsgReport(SMS_DATA *sd, char *data, WSHDR *ws)
+    202          {
+   \                     DoMsgReport:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   20D04DE2           SUB      SP,SP,#+32
+   \   00000008   0200A0E1           MOV      R0,R2
+    203            char time[32];
+    204            int status, i;
+    205            char *pp=time, *p=data;
+   \   0000000C   0D20A0E1           MOV      R2,SP
+    206            for(i=0;i<6;i++) //time
+   \   00000010   0030A0E3           MOV      R3,#+0
+    207            {
+    208              *pp++=p[i]%0x10+'0';
+   \                     ??DoMsgReport_0:
+   \   00000014   01C0D3E7           LDRB     R12,[R3, +R1]
+    209              *pp++=p[i]/0x10+'0';
+    210              if(i<2)
+   \   00000018   020053E3           CMP      R3,#+2
+   \   0000001C   0C40A0E1           MOV      R4,R12
+   \   00000020   2442A0E1           LSR      R4,R4,#+4
+   \   00000024   04424CE0           SUB      R4,R12,R4, LSL #+4
+   \   00000028   304084E2           ADD      R4,R4,#+48
+   \   0000002C   ........           STRB     R4,[R2], #+1
+   \   00000030   0140D3E7           LDRB     R4,[R3, +R1]
+   \   00000034   30C0A0E3           MOV      R12,#+48
+   \   00000038   24428CE0           ADD      R4,R12,R4, LSR #+4
+   \   0000003C   ........           STRB     R4,[R2], #+1
+    211                *pp++='-';
+   \   00000040   2D40A0B3           MOVLT    R4,#+45
+   \   00000044   040000BA           BLT      ??DoMsgReport_1
+    212              if(i==2)
+    213                *pp++=' ';
+   \   00000048   2040A003           MOVEQ    R4,#+32
+   \   0000004C   0200000A           BEQ      ??DoMsgReport_1
+    214              if(i>2&&i<5)
+   \   00000050   050053E3           CMP      R3,#+5
+   \   00000054   010000AA           BGE      ??DoMsgReport_2
+    215                *pp++=':';
+   \   00000058   3A40A0E3           MOV      R4,#+58
+   \                     ??DoMsgReport_1:
+   \   0000005C   ........           STRB     R4,[R2], #+1
+    216            }
+   \                     ??DoMsgReport_2:
+   \   00000060   013083E2           ADD      R3,R3,#+1
+   \   00000064   060053E3           CMP      R3,#+6
+   \   00000068   E9FFFFBA           BLT      ??DoMsgReport_0
+    217            *pp=0;
+    218            p+=7; //time 
+    219            status=*p;
+    220            if(status==0)
+   \   0000006C   64C09FE5           LDR      R12,??DoMsgReport_3  ;; lgp
+   \   00000070   0030A0E3           MOV      R3,#+0
+   \   00000074   0030C2E5           STRB     R3,[R2, #+0]
+   \   00000078   0720D1E5           LDRB     R2,[R1, #+7]
+   \   0000007C   58109FE5           LDR      R1,??DoMsgReport_3+0x4  ;; `?<Constant "%t\\r%t: 20%s">`
+   \   00000080   000052E3           CMP      R2,#+0
+   \   00000084   0700001A           BNE      ??DoMsgReport_4
+    221              wsprintf(ws, "%t\r%t: 20%s", lgp.LGP_MSG_REPORT, lgp.LGP_MSG_REVEICED, time);
+   \   00000088   0D20A0E1           MOV      R2,SP
+   \   0000008C   04002DE9           PUSH     {R2}
+   \   00000090   E0309CE5           LDR      R3,[R12, #+224]
+   \   00000094   DC209CE5           LDR      R2,[R12, #+220]
+   \   00000098   240100EF           SWI      +292
+   \   0000009C   04D08DE2           ADD      SP,SP,#+4
+   \   000000A0   20D08DE2           ADD      SP,SP,#+32
+   \   000000A4   1080BDE8           POP      {R4,PC}
+    222            else
+    223              wsprintf(ws, "%t\r%t: 20%s\r%s (%d)!", lgp.LGP_MSG_REPORT, lgp.LGP_TIME, time, lgp.LGP_UNK_RP_STATUS, status);
+   \                     ??DoMsgReport_4:
+   \   000000A8   04002DE9           PUSH     {R2}
+   \   000000AC   E4209CE5           LDR      R2,[R12, #+228]
+   \   000000B0   0C1081E2           ADD      R1,R1,#+12
+   \   000000B4   04002DE9           PUSH     {R2}
+   \   000000B8   08208DE2           ADD      R2,SP,#+8
+   \   000000BC   04002DE9           PUSH     {R2}
+   \   000000C0   0C319CE5           LDR      R3,[R12, #+268]
+   \   000000C4   DC209CE5           LDR      R2,[R12, #+220]
+   \   000000C8   240100EF           SWI      +292
+   \   000000CC   0CD08DE2           ADD      SP,SP,#+12
+    224          }
+   \   000000D0   20D08DE2           ADD      SP,SP,#+32
+   \   000000D4   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??DoMsgReport_3:
+   \   000000D8   ........           DC32     lgp
+   \   000000DC   ........           DC32     `?<Constant "%t\\r%t: 20%s">`
+    225          
+    226          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    227          int PduDecodeAll(SMS_DATA *sd, char *data) //0: fail, 1: successful, //2: unktype
+    228          {
+   \                     PduDecodeAll:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+   \   00000004   9CDF4DE2           SUB      SP,SP,#+624
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   0190A0E1           MOV      R9,R1
+    229            int c;
+    230            int ttype, wlen;
+    231            int isplus, isems, skip=0, isreport=0;
+    232            char *p;
+    233            WSHDR *ws, wsn;
+    234            unsigned short wsb[300];
+    235            ws=CreateLocalWS(&wsn, wsb, 300);
+   \   00000010   4B2FA0E3           MOV      R2,#+300
+   \   00000014   04108DE2           ADD      R1,SP,#+4
+   \   00000018   970F8DE2           ADD      R0,SP,#+604
+   \   0000001C   270100EF           SWI      +295
+   \   00000020   0080A0E1           MOV      R8,R0
+    236            p=data;
+    237            if(*p++!=0x11)
+   \   00000024   0000D9E5           LDRB     R0,[R9, #+0]
+   \   00000028   0060A0E3           MOV      R6,#+0
+   \   0000002C   0070A0E3           MOV      R7,#+0
+   \   00000030   110050E3           CMP      R0,#+17
+   \   00000034   0200000A           BEQ      ??PduDecodeAll_0
+    238              return 0;
+   \                     ??PduDecodeAll_1:
+   \   00000038   0000A0E3           MOV      R0,#+0
+   \   0000003C   9CDF8DE2           ADD      SP,SP,#+624
+   \   00000040   F08FBDE8           POP      {R4-R11,PC}
+    239            if(*p++!=0x11)
+   \                     ??PduDecodeAll_0:
+   \   00000044   011089E2           ADD      R1,R9,#+1
+   \   00000048   010081E2           ADD      R0,R1,#+1
+   \   0000004C   0010D1E5           LDRB     R1,[R1, #+0]
+   \   00000050   110051E3           CMP      R1,#+17
+   \   00000054   F7FFFF1A           BNE      ??PduDecodeAll_1
+    240              return 0;
+    241            c=*p++;
+   \   00000058   ........           LDRB     R10,[R0], #+1
+    242            if(!c)
+   \   0000005C   00005AE3           CMP      R10,#+0
+   \   00000060   F4FFFF0A           BEQ      ??PduDecodeAll_1
+   \   00000064   01105AE2           SUBS     R1,R10,#+1
+   \   00000068   0600000A           BEQ      ??PduDecodeAll_2
+   \   0000006C   021051E2           SUBS     R1,R1,#+2
+   \   00000070   1300000A           BEQ      ??PduDecodeAll_3
+   \   00000074   021051E2           SUBS     R1,R1,#+2
+   \   00000078   1300000A           BEQ      ??PduDecodeAll_4
+   \   0000007C   021051E2           SUBS     R1,R1,#+2
+   \   00000080   1300000A           BEQ      ??PduDecodeAll_5
+   \   00000084   140000EA           B        ??PduDecodeAll_6
+    243              return 0;
+    244            switch(c)
+    245            {
+    246            case 0x01:
+    247              sd->type=TYPE_IN_R;
+   \                     ??PduDecodeAll_2:
+   \   00000088   0210A0E3           MOV      R1,#+2
+   \                     ??PduDecodeAll_7:
+   \   0000008C   081084E5           STR      R1,[R4, #+8]
+    248              break;
+    249            case 0x03:
+    250              sd->type=TYPE_IN_N;
+    251              break;
+    252            case 0x05:
+    253              sd->type=TYPE_OUT;
+    254              break;
+    255            case 0x07:
+    256              sd->type=TYPE_DRAFT;
+    257              break;
+    258            default:
+    259              sd->type=TYPE_UNK;
+    260              sd->msg_type=sd->msg_type|ISUNKT;
+    261              wsprintf(ws, STR_UNK_TYPE, c);
+    262              goto TEND;
+    263              //return 2; //back 
+    264            }
+    265            c=*p++; //sms center
+   \   00000090   ........           LDRB     R1,[R0], #+1
+    266            p+=c;
+   \   00000094   00B081E0           ADD      R11,R1,R0
+    267            c=*p++;
+   \   00000098   ........           LDRB     R0,[R11], #+1
+    268            if(c==0x6)
+   \   0000009C   060050E3           CMP      R0,#+6
+    269            {
+    270              isreport=1;
+   \   000000A0   0170A003           MOVEQ    R7,#+1
+    271              p++;
+   \   000000A4   01B08B02           ADDEQ    R11,R11,#+1
+    272            }
+    273            if((c>>4)%2) isplus=1;
+   \   000000A8   4012A0E1           ASR      R1,R0,#+4
+   \   000000AC   A12F81E0           ADD      R2,R1,R1, LSR #+31
+   \   000000B0   C220A0E1           ASR      R2,R2,#+1
+   \   000000B4   821051E0           SUBS     R1,R1,R2, LSL #+1
+   \   000000B8   0020A003           MOVEQ    R2,#+0
+   \   000000BC   0120A013           MOVNE    R2,#+1
+   \   000000C0   0D0000EA           B        ??PduDecodeAll_8
+   \                     ??PduDecodeAll_3:
+   \   000000C4   0310A0E3           MOV      R1,#+3
+   \   000000C8   EFFFFFEA           B        ??PduDecodeAll_7
+   \                     ??PduDecodeAll_4:
+   \   000000CC   0110A0E3           MOV      R1,#+1
+   \   000000D0   EDFFFFEA           B        ??PduDecodeAll_7
+   \                     ??PduDecodeAll_5:
+   \   000000D4   0410A0E3           MOV      R1,#+4
+   \   000000D8   EBFFFFEA           B        ??PduDecodeAll_7
+   \                     ??PduDecodeAll_6:
+   \   000000DC   34129FE5           LDR      R1,??PduDecodeAll_9  ;; STR_UNK_TYPE
+   \   000000E0   0000A0E3           MOV      R0,#+0
+   \   000000E4   080084E5           STR      R0,[R4, #+8]
+   \   000000E8   180094E5           LDR      R0,[R4, #+24]
+   \   000000EC   0A20A0E1           MOV      R2,R10
+   \   000000F0   200080E3           ORR      R0,R0,#0x20
+   \   000000F4   180084E5           STR      R0,[R4, #+24]
+   \   000000F8   790000EA           B        ??PduDecodeAll_10
+   \                     ??PduDecodeAll_8:
+   \   000000FC   00208DE5           STR      R2,[SP, #+0]
+    274            else isplus=0;
+    275            if((c>>6)%2) isems=1;
+   \   00000100   4003A0E1           ASR      R0,R0,#+6
+   \   00000104   A01F80E0           ADD      R1,R0,R0, LSR #+31
+   \   00000108   C110A0E1           ASR      R1,R1,#+1
+   \   0000010C   810050E0           SUBS     R0,R0,R1, LSL #+1
+    276            else isems=0;
+    277            if((sd->type==TYPE_OUT)||(sd->type==TYPE_DRAFT)) //out
+   \   00000110   080094E5           LDR      R0,[R4, #+8]
+   \   00000114   0190A013           MOVNE    R9,#+1
+   \   00000118   0090A003           MOVEQ    R9,#+0
+   \   0000011C   010050E3           CMP      R0,#+1
+   \   00000120   04005013           CMPNE    R0,#+4
+    278            {
+    279              p++;
+   \   00000124   01B08B02           ADDEQ    R11,R11,#+1
+    280            }
+    281            c=*p++;
+   \   00000128   ........           LDRB     R10,[R11], #+1
+    282            if(c)
+   \   0000012C   00005AE3           CMP      R10,#+0
+   \   00000130   0700000A           BEQ      ??PduDecodeAll_11
+    283            {
+    284              Hex2Num_NEW(p, sd->Number, c);
+   \   00000134   0A20A0E1           MOV      R2,R10
+   \   00000138   241084E2           ADD      R1,R4,#+36
+   \   0000013C   0B00A0E1           MOV      R0,R11
+   \   00000140   ........           BL       Hex2Num_NEW
+    285              c=((c&1)?1:0) + (c>>1) +1;
+   \   00000144   01000AE2           AND      R0,R10,#0x1
+   \   00000148   CA0080E0           ADD      R0,R0,R10, ASR #+1
+   \   0000014C   01A080E2           ADD      R10,R0,#+1
+   \   00000150   020000EA           B        ??PduDecodeAll_12
+    286            }
+    287            else
+    288            {
+    289              c=1;
+   \                     ??PduDecodeAll_11:
+   \   00000154   01A0A0E3           MOV      R10,#+1
+    290              sd->Number[0]=0;
+   \   00000158   0000A0E3           MOV      R0,#+0
+   \   0000015C   2400C4E5           STRB     R0,[R4, #+36]
+    291            }
+    292            if(isreport)
+    293              p+=c;
+    294            else
+    295            {
+    296              p+=c+1; //num
+    297              ttype=*p++;
+    298            }
+    299            if((sd->type==TYPE_IN_R)||(sd->type==TYPE_IN_N))
+   \                     ??PduDecodeAll_12:
+   \   00000160   081094E5           LDR      R1,[R4, #+8]
+   \   00000164   000057E3           CMP      R7,#+0
+   \   00000168   0B008AE0           ADD      R0,R10,R11
+   \   0000016C   01008002           ADDEQ    R0,R0,#+1
+   \   00000170   ........           LDRBEQ   R5,[R0], #+1
+   \   00000174   020051E3           CMP      R1,#+2
+   \   00000178   03005113           CMPNE    R1,#+3
+   \   0000017C   1A00001A           BNE      ??PduDecodeAll_13
+    300            {
+    301              char *pp=sd->Time;
+   \   00000180   441084E2           ADD      R1,R4,#+68
+    302              int i;
+    303              for(i=0;i<6;i++) //time
+   \   00000184   0020A0E3           MOV      R2,#+0
+    304              {
+    305                *pp++=p[i]%0x10+'0';
+   \                     ??PduDecodeAll_14:
+   \   00000188   0030D2E7           LDRB     R3,[R2, +R0]
+    306                *pp++=p[i]/0x10+'0';
+    307                if(i<2)
+   \   0000018C   020052E3           CMP      R2,#+2
+   \   00000190   03A0A0E1           MOV      R10,R3
+   \   00000194   2AA2A0E1           LSR      R10,R10,#+4
+   \   00000198   0A3243E0           SUB      R3,R3,R10, LSL #+4
+   \   0000019C   303083E2           ADD      R3,R3,#+48
+   \   000001A0   ........           STRB     R3,[R1], #+1
+   \   000001A4   0030D2E7           LDRB     R3,[R2, +R0]
+   \   000001A8   30A0A0E3           MOV      R10,#+48
+   \   000001AC   23328AE0           ADD      R3,R10,R3, LSR #+4
+   \   000001B0   ........           STRB     R3,[R1], #+1
+    308          	*pp++='-';
+   \   000001B4   2D30A0B3           MOVLT    R3,#+45
+   \   000001B8   040000BA           BLT      ??PduDecodeAll_15
+    309                if(i==2)
+    310          	*pp++=' ';
+   \   000001BC   2030A003           MOVEQ    R3,#+32
+   \   000001C0   0200000A           BEQ      ??PduDecodeAll_15
+    311                if(i>2&&i<5)
+   \   000001C4   050052E3           CMP      R2,#+5
+   \   000001C8   010000AA           BGE      ??PduDecodeAll_16
+    312          	*pp++=':';
+   \   000001CC   3A30A0E3           MOV      R3,#+58
+   \                     ??PduDecodeAll_15:
+   \   000001D0   ........           STRB     R3,[R1], #+1
+    313              }
+   \                     ??PduDecodeAll_16:
+   \   000001D4   012082E2           ADD      R2,R2,#+1
+   \   000001D8   060052E3           CMP      R2,#+6
+   \   000001DC   E9FFFFBA           BLT      ??PduDecodeAll_14
+    314              *pp=0;
+   \   000001E0   0020A0E3           MOV      R2,#+0
+   \   000001E4   0020C1E5           STRB     R2,[R1, #+0]
+    315              p+=7; //time
+   \   000001E8   070080E2           ADD      R0,R0,#+7
+    316            }
+    317            if(isreport)
+   \                     ??PduDecodeAll_13:
+   \   000001EC   181094E5           LDR      R1,[R4, #+24]
+   \   000001F0   000057E3           CMP      R7,#+0
+   \   000001F4   0600000A           BEQ      ??PduDecodeAll_17
+    318            {
+    319              sd->msg_type=sd->msg_type|ISREPORT;
+   \   000001F8   021081E3           ORR      R1,R1,#0x2
+   \   000001FC   181084E5           STR      R1,[R4, #+24]
+    320              DoMsgReport(sd, p, ws);
+   \   00000200   0820A0E1           MOV      R2,R8
+   \   00000204   0010A0E1           MOV      R1,R0
+   \   00000208   0400A0E1           MOV      R0,R4
+   \   0000020C   ........           BL       DoMsgReport
+    321              goto TEND;
+   \   00000210   350000EA           B        ??PduDecodeAll_18
+    322            }
+    323            if(isplus&&((sd->type==TYPE_OUT)||(sd->type==TYPE_DRAFT))) p++; //
+   \                     ??PduDecodeAll_17:
+   \   00000214   00209DE5           LDR      R2,[SP, #+0]
+   \   00000218   000052E3           CMP      R2,#+0
+   \   0000021C   0300000A           BEQ      ??PduDecodeAll_19
+   \   00000220   082094E5           LDR      R2,[R4, #+8]
+   \   00000224   010052E3           CMP      R2,#+1
+   \   00000228   04005213           CMPNE    R2,#+4
+   \   0000022C   01008002           ADDEQ    R0,R0,#+1
+    324            c=*p++;
+   \                     ??PduDecodeAll_19:
+   \   00000230   ........           LDRB     R10,[R0], #+1
+    325            //...text,
+    326            if(isems)
+   \   00000234   000059E3           CMP      R9,#+0
+   \   00000238   1F00000A           BEQ      ??PduDecodeAll_20
+    327            {
+    328              skip=(*p)+1;
+   \   0000023C   0020D0E5           LDRB     R2,[R0, #+0]
+    329              if(ttype!=8) skip=((skip*8)+6)/7;
+   \   00000240   080055E3           CMP      R5,#+8
+   \   00000244   016082E2           ADD      R6,R2,#+1
+   \   00000248   1800000A           BEQ      ??PduDecodeAll_21
+   \   0000024C   ........           LDR      R3,??DataTable2  ;; 0xffffffff92492493
+   \   00000250   0620A0E3           MOV      R2,#+6
+   \   00000254   862182E0           ADD      R2,R2,R6, LSL #+3
+   \   00000258   9362C7E0           SMULL    R6,R7,R3,R2
+   \   0000025C   027087E0           ADD      R7,R7,R2
+   \   00000260   4771A0E1           ASR      R7,R7,#+2
+   \   00000264   A26F87E0           ADD      R6,R7,R2, LSR #+31
+    330              else
+    331              {
+    332                p+=skip;
+    333                c-=skip;
+    334              }
+    335            }
+    336            if(ttype==0x8)
+    337            {
+    338              Add2WS_NEW(p, ws->wsbody, c);
+    339            }
+    340            else if(ttype==0x0) //7bit
+   \                     ??PduDecodeAll_22:
+   \   00000268   000055E3           CMP      R5,#+0
+   \   0000026C   1800001A           BNE      ??PduDecodeAll_23
+    341            {
+    342              //GSMTXT_Decode(ws,(void*)p, c, ttype, (void*(*)(int))malloc_adr(),(void(*)(void))mfree_adr());
+    343              Bit7Decode(ws, p, skip, c);
+   \   00000270   0A30A0E1           MOV      R3,R10
+   \   00000274   0620A0E1           MOV      R2,R6
+   \   00000278   0010A0E1           MOV      R1,R0
+   \   0000027C   0800A0E1           MOV      R0,R8
+   \   00000280   ........           BL       Bit7Decode
+    344              sd->msg_type=sd->msg_type|IS7BIT;
+   \   00000284   180094E5           LDR      R0,[R4, #+24]
+   \   00000288   080080E3           ORR      R0,R0,#0x8
+   \   0000028C   180084E5           STR      R0,[R4, #+24]
+    345              if(wstrlen(ws)>c)
+   \   00000290   0800A0E1           MOV      R0,R8
+   \   00000294   230100EF           SWI      +291
+   \   00000298   00005AE1           CMP      R10,R0
+   \   0000029C   120000AA           BGE      ??PduDecodeAll_18
+    346              {
+    347                CutWSTR(ws, c);
+   \   000002A0   0A10A0E1           MOV      R1,R10
+   \   000002A4   0800A0E1           MOV      R0,R8
+   \   000002A8   260100EF           SWI      +294
+   \   000002AC   0E0000EA           B        ??PduDecodeAll_18
+    348              }
+    349            }
+   \                     ??PduDecodeAll_21:
+   \   000002B0   000086E0           ADD      R0,R6,R0
+   \   000002B4   06A04AE0           SUB      R10,R10,R6
+   \   000002B8   010000EA           B        ??PduDecodeAll_24
+   \                     ??PduDecodeAll_20:
+   \   000002BC   080055E3           CMP      R5,#+8
+   \   000002C0   E8FFFF1A           BNE      ??PduDecodeAll_22
+   \                     ??PduDecodeAll_24:
+   \   000002C4   001098E5           LDR      R1,[R8, #+0]
+   \   000002C8   0A20A0E1           MOV      R2,R10
+   \   000002CC   ........           BL       Add2WS_NEW
+   \   000002D0   050000EA           B        ??PduDecodeAll_18
+    350            else 
+    351            {
+    352              sd->msg_type=sd->msg_type|ISUNKE;
+   \                     ??PduDecodeAll_23:
+   \   000002D4   100081E3           ORR      R0,R1,#0x10
+    353              wsprintf(ws, STR_UNK_TXTT, ttype);
+   \   000002D8   ........           LDR      R1,??DataTable3  ;; STR_UNK_TXTT
+   \   000002DC   180084E5           STR      R0,[R4, #+24]
+   \   000002E0   0520A0E1           MOV      R2,R5
+   \                     ??PduDecodeAll_10:
+   \   000002E4   0800A0E1           MOV      R0,R8
+   \   000002E8   240100EF           SWI      +292
+    354            }
+    355          TEND:
+    356            wlen=wstrlen(ws);
+   \                     ??PduDecodeAll_18:
+   \   000002EC   0800A0E1           MOV      R0,R8
+   \   000002F0   230100EF           SWI      +291
+    357            if(!wlen)
+   \   000002F4   000050E3           CMP      R0,#+0
+    358              wlen=1;
+   \   000002F8   0100A003           MOVEQ    R0,#+1
+    359            sd->SMS_TEXT=AllocWS(wlen);
+   \   000002FC   250100EF           SWI      +293
+   \   00000300   640084E5           STR      R0,[R4, #+100]
+    360            wstrcpy(sd->SMS_TEXT, ws);
+   \   00000304   0810A0E1           MOV      R1,R8
+   \   00000308   1F0100EF           SWI      +287
+    361            return 1;
+   \   0000030C   0100A0E3           MOV      R0,#+1
+   \   00000310   9CDF8DE2           ADD      SP,SP,#+624
+   \   00000314   F08FBDE8           POP      {R4-R11,PC}      ;; return
+   \                     ??PduDecodeAll_9:
+   \   00000318   ........           DC32     STR_UNK_TYPE
+    362          }
+    363          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    364          int DoMsgList(SMS_DATA_LIST *lst, char *sms_buf, char *ems_admin_buf, int sms_size, int ems_admin_size)
+    365          {
+   \                     DoMsgList:
+   \   00000000   F24F2DE9           PUSH     {R1,R4-R11,LR}
+   \   00000004   04D04DE2           SUB      SP,SP,#+4
+    366            extern void AddToSdlByTime(SMS_DATA *sd);
+    367            extern void FreeSdOne(SMS_DATA *sd);
+    368            SMS_POS_INDEX_DATA sid;
+    369            SMS_DATA *sdx;
+    370            char *sms_buf_end=sms_buf+sms_size-sizeof(PDU);
+    371            char *ems_admin_buf_end=ems_admin_buf+ems_admin_size-sizeof(EMS_ADM);
+    372            EMS_ADM *pea;
+    373            INDEX_ID_DATA *idd;
+    374            unsigned short *pid;
+    375            char *pd;
+    376            int cnt, index, i, msg_type=0;
+    377            if(!(idd=lst->index_id_data))
+   \   00000008   086090E5           LDR      R6,[R0, #+8]
+   \   0000000C   2C109DE5           LDR      R1,[SP, #+44]
+   \   00000010   04509DE5           LDR      R5,[SP, #+4]
+   \   00000014   000056E3           CMP      R6,#+0
+    378              return 0;
+    379            if(!(pid=idd->data_id))
+   \   00000018   14709615           LDRNE    R7,[R6, #+20]
+   \   0000001C   B140E0E3           MVN      R4,#+177
+   \   00000020   00005713           CMPNE    R7,#+0
+    380              return 0;
+    381            if(!(cnt=idd->cnt_all))
+   \   00000024   1280D615           LDRBNE   R8,[R6, #+18]
+   \   00000028   053083E0           ADD      R3,R3,R5
+   \   0000002C   034084E0           ADD      R4,R4,R3
+   \   00000030   021081E0           ADD      R1,R1,R2
+   \   00000034   341041E2           SUB      R1,R1,#+52
+   \   00000038   0050A0E3           MOV      R5,#+0
+   \   0000003C   00005813           CMPNE    R8,#+0
+   \   00000040   4000000A           BEQ      ??DoMsgList_0
+    382              return 0;
+    383            if(cnt!=idd->cnt_received)
+   \   00000044   1300D6E5           LDRB     R0,[R6, #+19]
+    384              msg_type=msg_type|ISDES;
+    385              //return 0;
+    386            index=idd->index;
+   \   00000048   F890D6E1           LDRSH    R9,[R6, #+8]
+   \   0000004C   000058E1           CMP      R8,R0
+   \   00000050   0450A013           MOVNE    R5,#+4
+    387            if(!index || index>MAX_SMS)
+   \   00000054   000059E3           CMP      R9,#+0
+   \   00000058   3A00000A           BEQ      ??DoMsgList_0
+   \   0000005C   650059E3           CMP      R9,#+101
+   \   00000060   380000AA           BGE      ??DoMsgList_0
+    388              return 0;
+    389            pea=(EMS_ADM *)(ems_admin_buf+(index-1)*sizeof(EMS_ADM));
+   \   00000064   3400A0E3           MOV      R0,#+52
+   \   00000068   902922E0           MLA      R2,R0,R9,R2
+   \   0000006C   34A042E2           SUB      R10,R2,#+52
+    390            if(pea>(EMS_ADM *)ems_admin_buf_end)
+   \   00000070   0A0051E1           CMP      R1,R10
+   \   00000074   3300003A           BCC      ??DoMsgList_0
+    391              return 0;
+    392            sdx=AllocSD();
+   \   00000078   ........           _BLF     AllocSD,??AllocSD??rA
+   \   0000007C   00B0A0E1           MOV      R11,R0
+    393            sdx->msg_type=msg_type;
+   \   00000080   18508BE5           STR      R5,[R11, #+24]
+    394            for(i=0;i<cnt;i++)
+   \   00000084   0050A0E3           MOV      R5,#+0
+   \   00000088   010058E3           CMP      R8,#+1
+   \   0000008C   130000AA           BGE      ??DoMsgList_1
+    395            {
+    396              if(pid[i]==0xFFF4) continue;
+    397              if(!GetSmsPosIndex(&sid, pid[i])) continue;
+    398              if((pd=sms_buf+sid.pos_index*sizeof(PDU))>sms_buf_end) continue;
+    399              if(!sdx->SMS_TEXT) PduDecodeAll(sdx, pd);
+    400              else PduDecodeTxt(sdx, pd);
+    401            }
+    402            if(sdx->SMS_TEXT)
+   \                     ??DoMsgList_2:
+   \   00000090   64009BE5           LDR      R0,[R11, #+100]
+   \   00000094   000050E3           CMP      R0,#+0
+   \   00000098   2800000A           BEQ      ??DoMsgList_3
+    403            {
+    404              if(i>1) sdx->msg_type=sdx->msg_type|ISEMS;
+   \   0000009C   020055E3           CMP      R5,#+2
+   \   000000A0   18009BA5           LDRGE    R0,[R11, #+24]
+   \   000000A4   010080A3           ORRGE    R0,R0,#0x1
+   \   000000A8   18008BA5           STRGE    R0,[R11, #+24]
+    405              sdx->opmsg_id=pea->opmsg_id;
+   \   000000AC   2C009AE5           LDR      R0,[R10, #+44]
+   \   000000B0   10008BE5           STR      R0,[R11, #+16]
+    406              sdx->id=index;
+   \   000000B4   0C908BE5           STR      R9,[R11, #+12]
+    407              sdx->cnt_r=idd->cnt_received;
+   \   000000B8   1300D6E5           LDRB     R0,[R6, #+19]
+   \   000000BC   1C008BE5           STR      R0,[R11, #+28]
+    408              LockSched();
+   \   000000C0   460100EF           SWI      +326
+    409              AddToSdlByTime(sdx);
+   \   000000C4   0B00A0E1           MOV      R0,R11
+   \   000000C8   ........           _BLF     AddToSdlByTime,??AddToSdlByTime??rA
+    410              UnlockSched();
+   \   000000CC   470100EF           SWI      +327
+    411            }
+    412            else
+    413            {
+    414              FreeSdOne(sdx);
+    415              return 0;
+    416            }
+    417            return 1;
+   \   000000D0   0100A0E3           MOV      R0,#+1
+   \   000000D4   F68FBDE8           POP      {R1,R2,R4-R11,PC}
+   \                     ??DoMsgList_4:
+   \   000000D8   ........           BL       PduDecodeTxt
+   \                     ??DoMsgList_5:
+   \   000000DC   015085E2           ADD      R5,R5,#+1
+   \                     ??DoMsgList_1:
+   \   000000E0   080055E1           CMP      R5,R8
+   \   000000E4   E9FFFFAA           BGE      ??DoMsgList_2
+   \   000000E8   850087E0           ADD      R0,R7,R5, LSL #+1
+   \   000000EC   B010D0E1           LDRH     R1,[R0, #+0]
+   \   000000F0   F420A0E3           MOV      R2,#+244
+   \   000000F4   FF2C82E3           ORR      R2,R2,#0xFF00
+   \   000000F8   020051E1           CMP      R1,R2
+   \   000000FC   F6FFFF0A           BEQ      ??DoMsgList_5
+   \   00000100   0D00A0E1           MOV      R0,SP
+   \   00000104   B20200EF           SWI      +690
+   \   00000108   000050E3           CMP      R0,#+0
+   \   0000010C   F2FFFF0A           BEQ      ??DoMsgList_5
+   \   00000110   F200DDE1           LDRSH    R0,[SP, #+2]
+   \   00000114   04109DE5           LDR      R1,[SP, #+4]
+   \   00000118   B220A0E3           MOV      R2,#+178
+   \   0000011C   921021E0           MLA      R1,R2,R0,R1
+   \   00000120   010054E1           CMP      R4,R1
+   \   00000124   ECFFFF3A           BCC      ??DoMsgList_5
+   \   00000128   64009BE5           LDR      R0,[R11, #+100]
+   \   0000012C   000050E3           CMP      R0,#+0
+   \   00000130   0B00A0E1           MOV      R0,R11
+   \   00000134   E7FFFF1A           BNE      ??DoMsgList_4
+   \   00000138   ........           BL       PduDecodeAll
+   \   0000013C   E6FFFFEA           B        ??DoMsgList_5
+   \                     ??DoMsgList_3:
+   \   00000140   0B00A0E1           MOV      R0,R11
+   \   00000144   ........           _BLF     FreeSdOne,??FreeSdOne??rA
+   \                     ??DoMsgList_0:
+   \   00000148   0000A0E3           MOV      R0,#+0
+   \   0000014C   F68FBDE8           POP      {R1,R2,R4-R11,PC}  ;; return
+    418          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+    419          int DoAllDatMsg(char *sms_buf, char *ems_admin_buf, int sms_size, int ems_admin_size)
+    420          {
+   \                     DoAllDatMsg:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+   \   0000000C   0260A0E1           MOV      R6,R2
+   \   00000010   0370A0E1           MOV      R7,R3
+    421            SMS_DATA_ROOT *sdroot=SmsDataRoot();
+   \   00000014   B18200EF           SWI      +33457
+    422            SMS_DATA_LLIST inll=sdroot->in_msg;
+    423            SMS_DATA_LLIST outll=sdroot->out_msg;
+    424            SMS_DATA_LIST *lst;
+    425            int res=0;
+    426            lst=inll.first;
+   \   00000018   00A090E5           LDR      R10,[R0, #+0]
+   \   0000001C   0C8090E5           LDR      R8,[R0, #+12]
+   \   00000020   0090A0E3           MOV      R9,#+0
+   \   00000024   01B0A0E3           MOV      R11,#+1
+   \   00000028   40BF8BE3           ORR      R11,R11,#0x100
+   \   0000002C   00005AE3           CMP      R10,#+0
+   \   00000030   1400000A           BEQ      ??DoAllDatMsg_0
+    427            while(lst)
+    428            {
+    429              if(DoMsgList(lst, sms_buf, ems_admin_buf, sms_size, ems_admin_size))
+   \                     ??DoAllDatMsg_1:
+   \   00000034   0700A0E1           MOV      R0,R7
+   \   00000038   01002DE9           PUSH     {R0}
+   \   0000003C   0630A0E1           MOV      R3,R6
+   \   00000040   0520A0E1           MOV      R2,R5
+   \   00000044   0410A0E1           MOV      R1,R4
+   \   00000048   0A00A0E1           MOV      R0,R10
+   \   0000004C   ........           BL       DoMsgList
+   \   00000050   000050E3           CMP      R0,#+0
+   \   00000054   04D08DE2           ADD      SP,SP,#+4
+   \   00000058   0700000A           BEQ      ??DoAllDatMsg_2
+    430              {
+    431                res++;
+   \   0000005C   019089E2           ADD      R9,R9,#+1
+    432                if(!(res%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+   \   00000060   C900A0E1           ASR      R0,R9,#+1
+   \   00000064   200F89E0           ADD      R0,R9,R0, LSR #+30
+   \   00000068   4001A0E1           ASR      R0,R0,#+2
+   \   0000006C   000159E0           SUBS     R0,R9,R0, LSL #+2
+   \   00000070   0100001A           BNE      ??DoAllDatMsg_2
+   \   00000074   0B00A0E1           MOV      R0,R11
+   \   00000078   ........           _BLF     SendSimpleIpcMsg,??SendSimpleIpcMsg??rA
+    433              }
+    434              lst=lst->next;
+   \                     ??DoAllDatMsg_2:
+   \   0000007C   00A09AE5           LDR      R10,[R10, #+0]
+    435            }
+   \   00000080   00005AE3           CMP      R10,#+0
+   \   00000084   EAFFFF1A           BNE      ??DoAllDatMsg_1
+    436            lst=outll.first;
+   \                     ??DoAllDatMsg_0:
+   \   00000088   000058E3           CMP      R8,#+0
+   \   0000008C   1400000A           BEQ      ??DoAllDatMsg_3
+    437            while(lst)
+    438            {
+    439              if(DoMsgList(lst, sms_buf, ems_admin_buf, sms_size, ems_admin_size))
+   \                     ??DoAllDatMsg_4:
+   \   00000090   0700A0E1           MOV      R0,R7
+   \   00000094   01002DE9           PUSH     {R0}
+   \   00000098   0630A0E1           MOV      R3,R6
+   \   0000009C   0520A0E1           MOV      R2,R5
+   \   000000A0   0410A0E1           MOV      R1,R4
+   \   000000A4   0800A0E1           MOV      R0,R8
+   \   000000A8   ........           BL       DoMsgList
+   \   000000AC   000050E3           CMP      R0,#+0
+   \   000000B0   04D08DE2           ADD      SP,SP,#+4
+   \   000000B4   0700000A           BEQ      ??DoAllDatMsg_5
+    440              {
+    441                res++;
+   \   000000B8   019089E2           ADD      R9,R9,#+1
+    442                if(!(res%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+   \   000000BC   C900A0E1           ASR      R0,R9,#+1
+   \   000000C0   200F89E0           ADD      R0,R9,R0, LSR #+30
+   \   000000C4   4001A0E1           ASR      R0,R0,#+2
+   \   000000C8   000159E0           SUBS     R0,R9,R0, LSL #+2
+   \   000000CC   0100001A           BNE      ??DoAllDatMsg_5
+   \   000000D0   0B00A0E1           MOV      R0,R11
+   \   000000D4   ........           _BLF     SendSimpleIpcMsg,??SendSimpleIpcMsg??rA
+    443              }
+    444              lst=lst->next;
+   \                     ??DoAllDatMsg_5:
+   \   000000D8   008098E5           LDR      R8,[R8, #+0]
+    445            }
+   \   000000DC   000058E3           CMP      R8,#+0
+   \   000000E0   EAFFFF1A           BNE      ??DoAllDatMsg_4
+    446            if((res%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+   \                     ??DoAllDatMsg_3:
+   \   000000E4   C900A0E1           ASR      R0,R9,#+1
+   \   000000E8   200F89E0           ADD      R0,R9,R0, LSR #+30
+   \   000000EC   4001A0E1           ASR      R0,R0,#+2
+   \   000000F0   000159E0           SUBS     R0,R9,R0, LSL #+2
+   \   000000F4   0100000A           BEQ      ??DoAllDatMsg_6
+   \   000000F8   0B00A0E1           MOV      R0,R11
+   \   000000FC   ........           _BLF     SendSimpleIpcMsg,??SendSimpleIpcMsg??rA
+    447            return res;
+   \                     ??DoAllDatMsg_6:
+   \   00000100   0900A0E1           MOV      R0,R9
+   \   00000104   F08FBDE8           POP      {R4-R11,PC}      ;; return
+    448          }
+    449          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    450          int NewMsgReader(void)
+    451          {
+    452          //  char sms_dat[128];
+    453          //  char ems_admin_dat[128];
+    454            int fin;
+    455            unsigned int err;
+    456            char *sms_buf;
+    457            char *ems_admin_buf;
+    458            int res=0, sms_size, ems_admin_size/*, x, xl*/;
+    459          /*  strcpy(sms_dat, CFG_SYSTEM_FOLDER);
+    460            if((xl=strlen(sms_dat))>0)
+    461              x=sms_dat[xl-1];
+    462            if((x!='\\')&&(x!='/'))
+    463            {
+    464              sms_dat[xl]='\\';
+    465              sms_dat[xl+1]=0;
+    466            }
+    467            strcat(sms_dat, "SMS\\SMS.dat");
+    468            strcpy(ems_admin_dat, CFG_SYSTEM_FOLDER);
+    469            if((xl=strlen(ems_admin_dat))>0)
+    470              x=ems_admin_dat[xl-1];
+    471            if((x!='\\')&&(x!='/'))
+    472            {
+    473              ems_admin_dat[xl]='\\';
+    474              ems_admin_dat[xl+1]=0;
+    475            }
+    476            strcat(ems_admin_dat, "SMS\\EMS_Admin.dat");*/
+    477            if((fin=fopen(sms_dat, A_BIN+A_ReadOnly, P_READ, &err))<0)
+   \                     NewMsgReader:
+   \   00000000   ........           LDR      R0,??DataTable8  ;; sms_dat
+   \   00000004   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000008   04D04DE2           SUB      SP,SP,#+4
+   \   0000000C   0D30A0E1           MOV      R3,SP
+   \   00000010   8020A0E3           MOV      R2,#+128
+   \   00000014   801CA0E3           MOV      R1,#+32768
+   \   00000018   0A0000EF           SWI      +10
+   \   0000001C   0050B0E1           MOVS     R5,R0
+    478              return 0;
+   \   00000020   0000A043           MOVMI    R0,#+0
+   \   00000024   F281BD48           POPMI    {R1,R4-R8,PC}
+    479            sms_size=lseek(fin, 0, S_END, &err, &err)-2;
+   \   00000028   0D00A0E1           MOV      R0,SP
+   \   0000002C   01002DE9           PUSH     {R0}
+   \   00000030   04308DE2           ADD      R3,SP,#+4
+   \   00000034   0220A0E3           MOV      R2,#+2
+   \   00000038   0010A0E3           MOV      R1,#+0
+   \   0000003C   0500A0E1           MOV      R0,R5
+   \   00000040   0F0000EF           SWI      +15
+   \   00000044   026040E2           SUB      R6,R0,#+2
+    480            sms_buf=malloc(sms_size);
+   \   00000048   0600A0E1           MOV      R0,R6
+   \   0000004C   140000EF           SWI      +20
+   \   00000050   0040A0E1           MOV      R4,R0
+    481            lseek(fin, 2, S_SET, &err, &err);
+   \   00000054   04008DE2           ADD      R0,SP,#+4
+   \   00000058   01002DE9           PUSH     {R0}
+   \   0000005C   08308DE2           ADD      R3,SP,#+8
+   \   00000060   0020A0E3           MOV      R2,#+0
+   \   00000064   0210A0E3           MOV      R1,#+2
+   \   00000068   0500A0E1           MOV      R0,R5
+   \   0000006C   0F0000EF           SWI      +15
+    482            if(fread(fin, sms_buf, sms_size, &err)!=sms_size)
+   \   00000070   08308DE2           ADD      R3,SP,#+8
+   \   00000074   0620A0E1           MOV      R2,R6
+   \   00000078   0410A0E1           MOV      R1,R4
+   \   0000007C   0500A0E1           MOV      R0,R5
+   \   00000080   0B0000EF           SWI      +11
+   \   00000084   060050E1           CMP      R0,R6
+   \   00000088   08D08DE2           ADD      SP,SP,#+8
+   \   0000008C   0D10A0E1           MOV      R1,SP
+   \   00000090   0500A0E1           MOV      R0,R5
+   \   00000094   0200000A           BEQ      ??NewMsgReader_0
+    483            {
+    484              fclose(fin, &err);
+   \   00000098   0D0000EF           SWI      +13
+    485              res=0;
+   \                     ??NewMsgReader_1:
+   \   0000009C   0050A0E3           MOV      R5,#+0
+    486              goto EXIT0;
+   \   000000A0   320000EA           B        ??NewMsgReader_2
+    487            }
+    488            fclose(fin, &err);
+   \                     ??NewMsgReader_0:
+   \   000000A4   0D0000EF           SWI      +13
+    489            if((fin=fopen(ems_admin_dat, A_BIN+A_ReadOnly, P_READ, &err))<0)
+   \   000000A8   ........           LDR      R0,??DataTable9  ;; ems_admin_dat
+   \   000000AC   0D30A0E1           MOV      R3,SP
+   \   000000B0   8020A0E3           MOV      R2,#+128
+   \   000000B4   801CA0E3           MOV      R1,#+32768
+   \   000000B8   0A0000EF           SWI      +10
+   \   000000BC   0050B0E1           MOVS     R5,R0
+   \   000000C0   F5FFFF4A           BMI      ??NewMsgReader_1
+    490            {
+    491              res=0;
+    492              goto EXIT0;
+    493            }
+    494            ems_admin_size=lseek(fin, 0, S_END, &err, &err)-0x9A4;
+   \   000000C4   0D00A0E1           MOV      R0,SP
+   \   000000C8   01002DE9           PUSH     {R0}
+   \   000000CC   04308DE2           ADD      R3,SP,#+4
+   \   000000D0   0220A0E3           MOV      R2,#+2
+   \   000000D4   0010A0E3           MOV      R1,#+0
+   \   000000D8   0500A0E1           MOV      R0,R5
+   \   000000DC   0F0000EF           SWI      +15
+   \   000000E0   A310E0E3           MVN      R1,#+163
+   \   000000E4   901EC1E3           BIC      R1,R1,#0x900
+   \   000000E8   007081E0           ADD      R7,R1,R0
+    495            ems_admin_buf=malloc(ems_admin_size);
+   \   000000EC   0700A0E1           MOV      R0,R7
+   \   000000F0   140000EF           SWI      +20
+   \   000000F4   0080A0E1           MOV      R8,R0
+    496            lseek(fin, 0x9A4, S_SET, &err, &err);
+   \   000000F8   04008DE2           ADD      R0,SP,#+4
+   \   000000FC   01002DE9           PUSH     {R0}
+   \   00000100   08308DE2           ADD      R3,SP,#+8
+   \   00000104   0020A0E3           MOV      R2,#+0
+   \   00000108   A410A0E3           MOV      R1,#+164
+   \   0000010C   901E81E3           ORR      R1,R1,#0x900
+   \   00000110   0500A0E1           MOV      R0,R5
+   \   00000114   0F0000EF           SWI      +15
+    497            if(fread(fin, ems_admin_buf, ems_admin_size, &err)!=ems_admin_size)
+   \   00000118   08308DE2           ADD      R3,SP,#+8
+   \   0000011C   0720A0E1           MOV      R2,R7
+   \   00000120   0810A0E1           MOV      R1,R8
+   \   00000124   0500A0E1           MOV      R0,R5
+   \   00000128   0B0000EF           SWI      +11
+   \   0000012C   070050E1           CMP      R0,R7
+   \   00000130   08D08DE2           ADD      SP,SP,#+8
+   \   00000134   0D10A0E1           MOV      R1,SP
+   \   00000138   0500A0E1           MOV      R0,R5
+   \   0000013C   0200000A           BEQ      ??NewMsgReader_3
+    498            {
+    499              fclose(fin, &err);
+   \   00000140   0D0000EF           SWI      +13
+    500              res=0;
+   \   00000144   0050A0E3           MOV      R5,#+0
+    501              goto EXIT1;
+   \   00000148   060000EA           B        ??NewMsgReader_4
+    502            }
+    503            fclose(fin, &err);
+   \                     ??NewMsgReader_3:
+   \   0000014C   0D0000EF           SWI      +13
+    504            res=DoAllDatMsg(sms_buf, ems_admin_buf, sms_size, ems_admin_size);
+   \   00000150   0730A0E1           MOV      R3,R7
+   \   00000154   0620A0E1           MOV      R2,R6
+   \   00000158   0810A0E1           MOV      R1,R8
+   \   0000015C   0400A0E1           MOV      R0,R4
+   \   00000160   ........           BL       DoAllDatMsg
+   \   00000164   0050A0E1           MOV      R5,R0
+    505          EXIT1:
+    506            mfree(ems_admin_buf);
+   \                     ??NewMsgReader_4:
+   \   00000168   0800A0E1           MOV      R0,R8
+   \   0000016C   150000EF           SWI      +21
+    507          EXIT0:
+    508            mfree(sms_buf);
+   \                     ??NewMsgReader_2:
+   \   00000170   0400A0E1           MOV      R0,R4
+   \   00000174   150000EF           SWI      +21
+    509            return res;
+   \   00000178   0500A0E1           MOV      R0,R5
+   \   0000017C   F281BDE8           POP      {R1,R4-R8,PC}    ;; return
+    510          }
+    511          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    512          int IsHaveNewSMS(void)
+    513          {
+   \                     IsHaveNewSMS:
+   \   00000000   00402DE9           PUSH     {LR}
+    514            SMS_DATA_ROOT *sdroot=SmsDataRoot();
+   \   00000004   B18200EF           SWI      +33457
+    515            SMS_DATA_LLIST inll;
+    516            SMS_DATA_LIST *lst;
+    517            INDEX_ID_DATA *idd;
+    518            if(!sdroot->cnt_in_new_sms_dat)
+   \   00000008   FE11D0E1           LDRSH    R1,[R0, #+30]
+   \   0000000C   000051E3           CMP      R1,#+0
+   \   00000010   0100001A           BNE      ??IsHaveNewSMS_0
+    519              return 0;
+   \                     ??IsHaveNewSMS_1:
+   \   00000014   0000A0E3           MOV      R0,#+0
+   \   00000018   0080BDE8           POP      {PC}
+    520            inll=sdroot->in_msg;
+    521            if(!(lst=inll.last))
+   \                     ??IsHaveNewSMS_0:
+   \   0000001C   040090E5           LDR      R0,[R0, #+4]
+   \   00000020   000050E3           CMP      R0,#+0
+    522              return 0;
+    523            if(!(idd=lst->index_id_data))
+   \   00000024   08009015           LDRNE    R0,[R0, #+8]
+   \   00000028   00005013           CMPNE    R0,#+0
+   \   0000002C   0080BD08           POPEQ    {PC}
+    524              return 0;
+    525            if(idd->cnt_all != idd->cnt_received)
+   \   00000030   1210D0E5           LDRB     R1,[R0, #+18]
+   \   00000034   1320D0E5           LDRB     R2,[R0, #+19]
+   \   00000038   020051E1           CMP      R1,R2
+   \   0000003C   F4FFFF1A           BNE      ??IsHaveNewSMS_1
+    526              return 0;
+    527            if(idd->type==1)
+   \   00000040   0100A0E3           MOV      R0,#+1
+    528              return 1;
+    529            return 1;
+   \   00000044   0080BDE8           POP      {PC}             ;; return
+    530          }
+    531          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    532          SMS_DATA *GetTheLastNew(int reload) //1, reload, 0, no
+    533          {
+   \                     GetTheLastNew:
+   \   00000000   00402DE9           PUSH     {LR}
+    534            SMS_DATA *sdl;
+    535            if(reload)
+   \   00000004   000050E3           CMP      R0,#+0
+   \   00000008   0100000A           BEQ      ??GetTheLastNew_0
+    536            {
+    537              freeSDList();
+   \   0000000C   ........           _BLF     freeSDList,??freeSDList??rA
+    538              NewMsgReader();
+   \   00000010   ........           BL       NewMsgReader
+    539            }
+    540            sdl=sdltop;
+   \                     ??GetTheLastNew_0:
+   \   00000014   ........           LDR      R0,??DataTable11  ;; sdltop
+    541            while(sdl)
+    542            {
+    543              if(sdl->type==TYPE_IN_N)
+    544                return sdl;
+    545              sdl=sdl->next;
+   \                     ??GetTheLastNew_1:
+   \   00000018   000090E5           LDR      R0,[R0, #+0]
+   \   0000001C   000050E3           CMP      R0,#+0
+   \   00000020   08109015           LDRNE    R1,[R0, #+8]
+   \   00000024   03005113           CMPNE    R1,#+3
+   \   00000028   FAFFFF1A           BNE      ??GetTheLastNew_1
+    546            }
+    547            return 0;
+   \   0000002C   0080BDE8           POP      {PC}             ;; return
+    548          }
+    549          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    550          SMS_DATA *FindSmsByIndex(int index)
+    551          {
+    552            SMS_DATA *sdl=sdltop;
+   \                     FindSmsByIndex:
+   \   00000000   ........           LDR      R1,??DataTable11  ;; sdltop
+    553            while(sdl)
+    554            {
+    555              if(sdl->id==index)
+    556                return sdl;
+    557              sdl=sdl->next;
+   \                     ??FindSmsByIndex_0:
+   \   00000004   001091E5           LDR      R1,[R1, #+0]
+   \   00000008   000051E3           CMP      R1,#+0
+   \   0000000C   0400000A           BEQ      ??FindSmsByIndex_1
+   \   00000010   0C2091E5           LDR      R2,[R1, #+12]
+   \   00000014   000052E1           CMP      R2,R0
+   \   00000018   F9FFFF1A           BNE      ??FindSmsByIndex_0
+   \   0000001C   0100A0E1           MOV      R0,R1
+   \   00000020   1EFF2FE1           BX       LR
+    558            }
+    559            return 0;
+   \                     ??FindSmsByIndex_1:
+   \   00000024   0000A0E3           MOV      R0,#+0
+   \   00000028   1EFF2FE1           BX       LR               ;; return
+    560          }
+    561          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    562          int CheckThisSMS(int index) //return, 0:do nothing, 1:need to reload all, 2:need to refresh gui
+    563          {
+   \                     CheckThisSMS:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0050A0E1           MOV      R5,R0
+    564            SMS_DATA *sd;
+    565            SMS_DATA_ROOT *sdroot=SmsDataRoot();
+   \   00000008   B18200EF           SWI      +33457
+    566            SMS_DATA_LLIST inll=sdroot->in_msg;
+    567            SMS_DATA_LLIST outll=sdroot->out_msg;
+   \   0000000C   0C1090E5           LDR      R1,[R0, #+12]
+    568            SMS_DATA_LIST *lst;
+    569            INDEX_ID_DATA *idd;
+    570            //int exist=0;
+    571            if(!index)
+   \   00000010   000055E3           CMP      R5,#+0
+   \   00000014   1E00000A           BEQ      ??CheckThisSMS_0
+    572              return 0;
+    573            lst=inll.first;
+    574            while(lst)
+    575            {
+    576              if((idd=lst->index_id_data))
+    577              {
+    578                if(idd->index==index)
+    579                {
+    580          	//exist=1;
+    581          	//if(idd->cnt_all != idd->cnt_received) //not full received or not full deleted
+    582          	//  return 0;
+    583          	  //goto FindAndDel;
+    584          	if((sd=FindSmsByIndex(index)))
+    585          	{
+    586          	  if(sd->cnt_r < idd->cnt_received) return 1;
+    587          	  if(idd->type==1)
+    588          	  {
+    589          	    if(sd->type!=TYPE_IN_N)
+    590          	    {
+    591          	      sd->type=TYPE_IN_N;
+    592          	      return 2;
+    593          	    }
+    594          	  }
+    595          	  else
+    596          	  {
+    597          	    if(sd->type==TYPE_IN_N)
+    598          	    {
+    599          	      sd->type=TYPE_IN_R;
+    600          	      return 2;
+    601          	    }
+    602          	  }
+    603          	}
+    604          	else return 1;
+    605          	return 0;
+    606                }
+    607              }
+    608              lst=lst->next;
+   \                     ??CheckThisSMS_1:
+   \   00000018   000090E5           LDR      R0,[R0, #+0]
+   \   0000001C   000050E3           CMP      R0,#+0
+   \   00000020   1F00000A           BEQ      ??CheckThisSMS_2
+   \   00000024   084090E5           LDR      R4,[R0, #+8]
+   \   00000028   000054E3           CMP      R4,#+0
+   \   0000002C   F9FFFF0A           BEQ      ??CheckThisSMS_1
+   \   00000030   F820D4E1           LDRSH    R2,[R4, #+8]
+   \   00000034   050052E1           CMP      R2,R5
+   \   00000038   F6FFFF1A           BNE      ??CheckThisSMS_1
+   \   0000003C   0500A0E1           MOV      R0,R5
+   \   00000040   ........           BL       FindSmsByIndex
+   \   00000044   000050E3           CMP      R0,#+0
+   \   00000048   1300000A           BEQ      ??CheckThisSMS_3
+   \   0000004C   1320D4E5           LDRB     R2,[R4, #+19]
+   \   00000050   1C1090E5           LDR      R1,[R0, #+28]
+   \   00000054   020051E1           CMP      R1,R2
+   \   00000058   0F0000BA           BLT      ??CheckThisSMS_3
+   \   0000005C   1E20D4E5           LDRB     R2,[R4, #+30]
+   \   00000060   081090E5           LDR      R1,[R0, #+8]
+   \   00000064   010052E3           CMP      R2,#+1
+   \   00000068   0300001A           BNE      ??CheckThisSMS_4
+   \   0000006C   030051E3           CMP      R1,#+3
+   \   00000070   0700000A           BEQ      ??CheckThisSMS_0
+   \   00000074   0310A0E3           MOV      R1,#+3
+   \   00000078   020000EA           B        ??CheckThisSMS_5
+   \                     ??CheckThisSMS_4:
+   \   0000007C   030051E3           CMP      R1,#+3
+   \   00000080   0300001A           BNE      ??CheckThisSMS_0
+   \   00000084   0210A0E3           MOV      R1,#+2
+   \                     ??CheckThisSMS_5:
+   \   00000088   081080E5           STR      R1,[R0, #+8]
+   \                     ??CheckThisSMS_6:
+   \   0000008C   0200A0E3           MOV      R0,#+2
+   \   00000090   3080BDE8           POP      {R4,R5,PC}
+   \                     ??CheckThisSMS_0:
+   \   00000094   0000A0E3           MOV      R0,#+0
+   \   00000098   3080BDE8           POP      {R4,R5,PC}
+   \                     ??CheckThisSMS_3:
+   \   0000009C   0100A0E3           MOV      R0,#+1
+   \   000000A0   3080BDE8           POP      {R4,R5,PC}
+    609            }
+    610            lst=outll.first;
+   \                     ??CheckThisSMS_2:
+   \   000000A4   0100A0E1           MOV      R0,R1
+   \   000000A8   000000EA           B        ??CheckThisSMS_7
+    611            while(lst)
+    612            {
+    613              if((idd=lst->index_id_data))
+    614              {
+    615                if(idd->index==index)
+    616                {
+    617          	//exist=1;
+    618          	//if(idd->cnt_all != idd->cnt_received) //not full received or not full deleted
+    619          	//  return 0;
+    620          	  //goto FindAndDel;
+    621          	if(!(sd=FindSmsByIndex(index))) return 1;
+    622          	else if(sd->cnt_r < idd->cnt_received) return 1;
+    623          	return 0;
+    624                }
+    625              }
+    626              lst=lst->next;
+   \                     ??CheckThisSMS_8:
+   \   000000AC   000090E5           LDR      R0,[R0, #+0]
+   \                     ??CheckThisSMS_7:
+   \   000000B0   000050E3           CMP      R0,#+0
+   \   000000B4   0F00000A           BEQ      ??CheckThisSMS_9
+   \   000000B8   084090E5           LDR      R4,[R0, #+8]
+   \   000000BC   000054E3           CMP      R4,#+0
+   \   000000C0   F9FFFF0A           BEQ      ??CheckThisSMS_8
+   \   000000C4   F810D4E1           LDRSH    R1,[R4, #+8]
+   \   000000C8   050051E1           CMP      R1,R5
+   \   000000CC   F6FFFF1A           BNE      ??CheckThisSMS_8
+   \   000000D0   0500A0E1           MOV      R0,R5
+   \   000000D4   ........           BL       FindSmsByIndex
+   \   000000D8   000050E3           CMP      R0,#+0
+   \   000000DC   EEFFFF0A           BEQ      ??CheckThisSMS_3
+   \   000000E0   1310D4E5           LDRB     R1,[R4, #+19]
+   \   000000E4   1C0090E5           LDR      R0,[R0, #+28]
+   \   000000E8   010050E1           CMP      R0,R1
+   \   000000EC   E8FFFFAA           BGE      ??CheckThisSMS_0
+   \   000000F0   0100A0E3           MOV      R0,#+1
+   \   000000F4   3080BDE8           POP      {R4,R5,PC}
+    627            }
+    628            //is not exist, del form list
+    629          //FindAndDel:
+    630            if((sd=FindSmsByIndex(index)))
+   \                     ??CheckThisSMS_9:
+   \   000000F8   0500A0E1           MOV      R0,R5
+   \   000000FC   ........           BL       FindSmsByIndex
+   \   00000100   000050E3           CMP      R0,#+0
+   \   00000104   3080BD08           POPEQ    {R4,R5,PC}
+    631            {
+    632              delSDList(sd);
+   \   00000108   ........           _BLF     delSDList,??delSDList??rA
+    633              return 2;
+   \   0000010C   DEFFFFEA           B        ??CheckThisSMS_6
+    634            }
+    635            return 0;
+    636          }
+    637          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    638          int IsThisSmsNewIn(int index)
+    639          {
+   \                     IsThisSmsNewIn:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    640            SMS_DATA_ROOT *sdroot=SmsDataRoot();
+   \   00000008   B18200EF           SWI      +33457
+    641            SMS_DATA_LLIST inll=sdroot->in_msg;
+    642            SMS_DATA_LIST *lst;
+    643            INDEX_ID_DATA *idd;
+    644            //int exist=0;
+    645            if(!index)
+   \   0000000C   000054E3           CMP      R4,#+0
+   \   00000010   0100001A           BNE      ??IsThisSmsNewIn_0
+    646              return 0;
+   \                     ??IsThisSmsNewIn_1:
+   \   00000014   0000A0E3           MOV      R0,#+0
+   \   00000018   1080BDE8           POP      {R4,PC}
+    647            lst=inll.last;
+    648            while(lst)
+    649            {
+    650              if((idd=lst->index_id_data))
+    651              {
+    652                if(idd->index == index)
+    653                {
+    654          	if(idd->cnt_all != idd->cnt_received)
+    655          	  return 0;
+    656          	if(idd->type==1)
+    657          	  return 1;
+    658                }
+    659              }
+    660              lst=lst->prev;
+   \                     ??IsThisSmsNewIn_0:
+   \   0000001C   040090E5           LDR      R0,[R0, #+4]
+   \   00000020   000050E3           CMP      R0,#+0
+   \   00000024   1080BD08           POPEQ    {R4,PC}
+   \   00000028   081090E5           LDR      R1,[R0, #+8]
+   \   0000002C   000051E3           CMP      R1,#+0
+   \   00000030   F9FFFF0A           BEQ      ??IsThisSmsNewIn_0
+   \   00000034   F820D1E1           LDRSH    R2,[R1, #+8]
+   \   00000038   040052E1           CMP      R2,R4
+   \   0000003C   F6FFFF1A           BNE      ??IsThisSmsNewIn_0
+   \   00000040   1220D1E5           LDRB     R2,[R1, #+18]
+   \   00000044   1330D1E5           LDRB     R3,[R1, #+19]
+   \   00000048   030052E1           CMP      R2,R3
+   \   0000004C   F0FFFF1A           BNE      ??IsThisSmsNewIn_1
+   \   00000050   1E10D1E5           LDRB     R1,[R1, #+30]
+   \   00000054   010051E3           CMP      R1,#+1
+   \   00000058   EFFFFF1A           BNE      ??IsThisSmsNewIn_0
+   \   0000005C   0100A0E3           MOV      R0,#+1
+   \   00000060   1080BDE8           POP      {R4,PC}          ;; return
+    661            }
+    662            return 0;
+    663          }
+    664          
+    665          /*
+    666          int GetSmsDat(char **sms_buf, char **ems_admin_buf, int *sms_size, int *ems_admin_size)
+    667          {
+    668            char sms_dat[128];
+    669            char ems_admin_dat[128];
+    670            int fin;
+    671            unsigned int err;
+    672            char *sms_buf_2;
+    673            char *ems_admin_buf_2;
+    674            int sms_size_2, ems_admin_size_2, x, xl;
+    675            strcpy(sms_dat, CFG_SYSTEM_FOLDER);
+    676            if((xl=strlen(sms_dat))>0)
+    677              x=sms_dat[xl-1];
+    678            if((x!='\\')&&(x!='/'))
+    679            {
+    680              sms_dat[xl]='\\';
+    681              sms_dat[xl+1]=0;
+    682            }
+    683            strcat(sms_dat, "SMS\\SMS.dat");
+    684            strcpy(ems_admin_dat, CFG_SYSTEM_FOLDER);
+    685            if((xl=strlen(ems_admin_dat))>0)
+    686              x=ems_admin_dat[xl-1];
+    687            if((x!='\\')&&(x!='/'))
+    688            {
+    689              ems_admin_dat[xl]='\\';
+    690              ems_admin_dat[xl+1]=0;
+    691            }
+    692            strcat(ems_admin_dat, "SMS\\EMS_Admin.dat");
+    693            if((fin=fopen(sms_dat, A_BIN+A_ReadOnly, P_READ, &err))<0)
+    694              return 0;
+    695            sms_size_2=lseek(fin, 0, S_END, &err, &err)-2;
+    696            sms_buf_2=malloc(sms_size_2);
+    697            lseek(fin, 2, S_SET, &err, &err);
+    698            if(fread(fin, sms_buf_2, sms_size_2, &err)!=sms_size_2)
+    699            {
+    700              fclose(fin, &err);
+    701              return 0;
+    702            }
+    703            fclose(fin, &err);
+    704            *sms_buf=sms_buf_2;
+    705            *sms_size=sms_size_2;
+    706            if((fin=fopen(ems_admin_dat, A_BIN+A_ReadOnly, P_READ, &err))<0)
+    707            {
+    708              return 0;
+    709            }
+    710            ems_admin_size_2=lseek(fin, 0, S_END, &err, &err)-0x9A4;
+    711            ems_admin_buf_2=malloc(ems_admin_size_2);
+    712            lseek(fin, 0x9A4, S_SET, &err, &err);
+    713            if(fread(fin, ems_admin_buf_2, ems_admin_size_2, &err)!=ems_admin_size_2)
+    714            {
+    715              fclose(fin, &err);
+    716              return 0;
+    717            }
+    718            fclose(fin, &err);
+    719            *ems_admin_buf=ems_admin_buf_2;
+    720            *ems_admin_size=ems_admin_size_2;
+    721            return 1;
+    722          }
+    723          */
+    724          //int DoMsgList(SMS_DATA_LIST *lst, char *sms_buf, char *ems_admin_buf, int sms_size, int ems_admin_size)
+    725          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    726          int ReadThisSms(int index, int saf) //saf,0:do nothing,1:save as file
+    727          {
+   \                     ReadThisSms:
+   \   00000000   F24F2DE9           PUSH     {R1,R4-R11,LR}
+   \   00000004   F0D04DE2           SUB      SP,SP,#+240
+   \   00000008   0060A0E1           MOV      R6,R0
+    728            SMS_DATA_ROOT *sdroot=SmsDataRoot();
+    729            SMS_DATA_LLIST inll=sdroot->in_msg;
+    730            SMS_DATA_LLIST outll=sdroot->out_msg;
+    731            SMS_DATA_LIST *lst;
+    732            INDEX_ID_DATA *idd;
+    733            SMS_DATA *sdx;
+    734            //char *sms_buf=0;
+    735            //char *ems_admin_buf=0;
+    736            int /*sms_size=0, ems_admin_size=0, res=0,*/ msg_type=0, cnt;
+   \   0000000C   0070A0E3           MOV      R7,#+0
+   \   00000010   B18200EF           SWI      +33457
+   \   00000014   004090E5           LDR      R4,[R0, #+0]
+   \   00000018   0C9090E5           LDR      R9,[R0, #+12]
+    737            unsigned short *pid;
+    738            if(!index) return 0;
+   \   0000001C   000056E3           CMP      R6,#+0
+   \   00000020   C400000A           BEQ      ??ReadThisSms_0
+    739            if((sdx=FindSmsByIndex(index))) delSDList(sdx);
+   \   00000024   0600A0E1           MOV      R0,R6
+   \   00000028   ........           BL       FindSmsByIndex
+   \   0000002C   0050B0E1           MOVS     R5,R0
+   \   00000030   0800000A           BEQ      ??ReadThisSms_1
+   \   00000034   ........           _BLF     delSDList,??delSDList??rA
+    740            lst=inll.first;
+   \   00000038   060000EA           B        ??ReadThisSms_1
+    741            while(lst)
+    742            {
+    743              if((idd=lst->index_id_data))
+   \                     ??ReadThisSms_2:
+   \   0000003C   088094E5           LDR      R8,[R4, #+8]
+   \   00000040   000058E3           CMP      R8,#+0
+   \   00000044   0200000A           BEQ      ??ReadThisSms_3
+    744              {
+    745                if(idd->index==index)
+   \   00000048   F800D8E1           LDRSH    R0,[R8, #+8]
+   \   0000004C   060050E1           CMP      R0,R6
+   \   00000050   0500000A           BEQ      ??ReadThisSms_4
+    746                {
+    747          	/*if(GetSmsDat(&sms_buf, &ems_admin_buf, &sms_size, &ems_admin_size))
+    748          	{
+    749          	  if(DoMsgList(lst, sms_buf, ems_admin_buf, sms_size, ems_admin_size))
+    750          	    res=1;
+    751          	}
+    752          	if(sms_buf) mfree(sms_buf);
+    753          	if(ems_admin_buf) mfree(ems_admin_buf);
+    754          	return res;*/
+    755          	break;
+    756                }
+    757              }
+    758              lst=lst->next;
+   \                     ??ReadThisSms_3:
+   \   00000054   004094E5           LDR      R4,[R4, #+0]
+    759            }
+   \                     ??ReadThisSms_1:
+   \   00000058   000054E3           CMP      R4,#+0
+   \   0000005C   F6FFFF1A           BNE      ??ReadThisSms_2
+    760            if(!lst) lst=outll.first;
+   \   00000060   0940A0E1           MOV      R4,R9
+    761            while(lst)
+   \                     ??ReadThisSms_5:
+   \   00000064   000054E3           CMP      R4,#+0
+   \   00000068   B200000A           BEQ      ??ReadThisSms_0
+    762            {
+    763              if((idd=lst->index_id_data))
+   \                     ??ReadThisSms_4:
+   \   0000006C   088094E5           LDR      R8,[R4, #+8]
+   \   00000070   000058E3           CMP      R8,#+0
+   \   00000074   0200000A           BEQ      ??ReadThisSms_6
+    764              {
+    765                if(idd->index==index)
+   \   00000078   F800D8E1           LDRSH    R0,[R8, #+8]
+   \   0000007C   060050E1           CMP      R0,R6
+   \   00000080   0100000A           BEQ      ??ReadThisSms_7
+    766                {
+    767          	/*if(GetSmsDat(&sms_buf, &ems_admin_buf, &sms_size, &ems_admin_size))
+    768          	{
+    769          	  if(DoMsgList(lst, sms_buf, ems_admin_buf, sms_size, ems_admin_size))
+    770          	    res=1;
+    771          	}
+    772          	if(sms_buf) mfree(sms_buf);
+    773          	if(ems_admin_buf) mfree(ems_admin_buf);
+    774          	return res;*/
+    775          	break;
+    776                }
+    777              }
+    778              lst=lst->next;
+   \                     ??ReadThisSms_6:
+   \   00000084   004094E5           LDR      R4,[R4, #+0]
+   \   00000088   F5FFFFEA           B        ??ReadThisSms_5
+    779            }
+    780            if(!lst) return 0;
+    781            if(!(idd=lst->index_id_data)) return 0;
+    782            if(!(pid=idd->data_id)) return 0;
+   \                     ??ReadThisSms_7:
+   \   0000008C   149098E5           LDR      R9,[R8, #+20]
+   \   00000090   000059E3           CMP      R9,#+0
+    783            if(!(cnt=idd->cnt_all)) return 0;
+   \   00000094   12A0D815           LDRBNE   R10,[R8, #+18]
+   \   00000098   00005A13           CMPNE    R10,#+0
+   \   0000009C   A500000A           BEQ      ??ReadThisSms_0
+    784            if(cnt!=idd->cnt_received) msg_type=msg_type|ISDES;
+   \   000000A0   1300D8E5           LDRB     R0,[R8, #+19]
+    785            
+    786            //-----------------------open read dat-------------------
+    787            
+    788          //  char sms_dat[128];
+    789          //  char ems_admin_dat[128];
+    790            int fsd, fea;
+    791            unsigned int err;
+    792            int sms_size, ems_admin_size,/* x,*/ xl, i;
+    793            char pdu[sizeof(PDU)];
+    794            EMS_ADM pea;
+    795            SMS_POS_INDEX_DATA sid;
+    796          /*  strcpy(sms_dat, CFG_SYSTEM_FOLDER);
+    797            if((xl=strlen(sms_dat))>0)
+    798              x=sms_dat[xl-1];
+    799            if((x!='\\')&&(x!='/'))
+    800            {
+    801              sms_dat[xl]='\\';
+    802              sms_dat[xl+1]=0;
+    803            }
+    804            strcat(sms_dat, "SMS\\SMS.dat");
+    805            strcpy(ems_admin_dat, CFG_SYSTEM_FOLDER);
+    806            if((xl=strlen(ems_admin_dat))>0)
+    807              x=ems_admin_dat[xl-1];
+    808            if((x!='\\')&&(x!='/'))
+    809            {
+    810              ems_admin_dat[xl]='\\';
+    811              ems_admin_dat[xl+1]=0;
+    812            }
+    813            strcat(ems_admin_dat, "SMS\\EMS_Admin.dat");*/
+    814            if((fsd=fopen(sms_dat, A_BIN+A_ReadOnly, P_READ, &err))<0)
+   \   000000A4   0D30A0E1           MOV      R3,SP
+   \   000000A8   8020A0E3           MOV      R2,#+128
+   \   000000AC   00005AE1           CMP      R10,R0
+   \   000000B0   ........           LDR      R0,??DataTable8  ;; sms_dat
+   \   000000B4   0470A013           MOVNE    R7,#+4
+   \   000000B8   801CA0E3           MOV      R1,#+32768
+   \   000000BC   0A0000EF           SWI      +10
+   \   000000C0   0040B0E1           MOVS     R4,R0
+   \   000000C4   9B00004A           BMI      ??ReadThisSms_0
+    815              return 0;
+    816            sms_size=lseek(fsd, 0, S_END, &err, &err)/*-2*/;
+   \   000000C8   0D00A0E1           MOV      R0,SP
+   \   000000CC   01002DE9           PUSH     {R0}
+   \   000000D0   04308DE2           ADD      R3,SP,#+4
+   \   000000D4   0220A0E3           MOV      R2,#+2
+   \   000000D8   0010A0E3           MOV      R1,#+0
+   \   000000DC   0400A0E1           MOV      R0,R4
+   \   000000E0   0F0000EF           SWI      +15
+   \   000000E4   00B0A0E1           MOV      R11,R0
+    817            if((fea=fopen(ems_admin_dat, A_BIN+A_ReadOnly, P_READ, &err))<0)
+   \   000000E8   ........           LDR      R0,??DataTable9  ;; ems_admin_dat
+   \   000000EC   04308DE2           ADD      R3,SP,#+4
+   \   000000F0   8020A0E3           MOV      R2,#+128
+   \   000000F4   801CA0E3           MOV      R1,#+32768
+   \   000000F8   0A0000EF           SWI      +10
+   \   000000FC   0050B0E1           MOVS     R5,R0
+   \   00000100   04D08DE2           ADD      SP,SP,#+4
+   \   00000104   0200005A           BPL      ??ReadThisSms_8
+    818            {
+    819              fclose(fsd, &err);
+   \   00000108   0D10A0E1           MOV      R1,SP
+   \   0000010C   0400A0E1           MOV      R0,R4
+   \   00000110   120000EA           B        ??ReadThisSms_9
+    820              return 0;
+    821            }
+    822            ems_admin_size=lseek(fea, 0, S_END, &err, &err)/*-0x9A4*/;
+   \                     ??ReadThisSms_8:
+   \   00000114   0D00A0E1           MOV      R0,SP
+   \   00000118   01002DE9           PUSH     {R0}
+   \   0000011C   04308DE2           ADD      R3,SP,#+4
+   \   00000120   0220A0E3           MOV      R2,#+2
+   \   00000124   0010A0E3           MOV      R1,#+0
+   \   00000128   0500A0E1           MOV      R0,R5
+   \   0000012C   0F0000EF           SWI      +15
+    823            if((xl=(index-1)*sizeof(EMS_ADM)+0x9A4)>(ems_admin_size-sizeof(EMS_ADM)))
+   \   00000130   3410A0E3           MOV      R1,#+52
+   \   00000134   910602E0           MUL      R2,R1,R6
+   \   00000138   340040E2           SUB      R0,R0,#+52
+   \   0000013C   971E82E2           ADD      R1,R2,#+2416
+   \   00000140   010050E1           CMP      R0,R1
+   \   00000144   04D08DE2           ADD      SP,SP,#+4
+   \   00000148   0800002A           BCS      ??ReadThisSms_10
+    824            {
+    825              fclose(fsd, &err);
+   \                     ??ReadThisSms_11:
+   \   0000014C   0D10A0E1           MOV      R1,SP
+   \   00000150   0400A0E1           MOV      R0,R4
+   \   00000154   0D0000EF           SWI      +13
+    826              fclose(fea, &err);
+   \   00000158   0D10A0E1           MOV      R1,SP
+   \   0000015C   0500A0E1           MOV      R0,R5
+   \                     ??ReadThisSms_9:
+   \   00000160   0D0000EF           SWI      +13
+    827              return 0;
+   \   00000164   0000A0E3           MOV      R0,#+0
+   \                     ??ReadThisSms_12:
+   \   00000168   F4D08DE2           ADD      SP,SP,#+244
+   \   0000016C   F08FBDE8           POP      {R4-R11,PC}
+    828            }
+    829            lseek(fea, xl, S_SET, &err, &err);
+   \                     ??ReadThisSms_10:
+   \   00000170   0D00A0E1           MOV      R0,SP
+   \   00000174   01002DE9           PUSH     {R0}
+   \   00000178   04308DE2           ADD      R3,SP,#+4
+   \   0000017C   0020A0E3           MOV      R2,#+0
+   \   00000180   0500A0E1           MOV      R0,R5
+   \   00000184   0F0000EF           SWI      +15
+    830            if(fread(fea, &pea, sizeof(EMS_ADM), &err)!=sizeof(EMS_ADM))
+   \   00000188   04308DE2           ADD      R3,SP,#+4
+   \   0000018C   3420A0E3           MOV      R2,#+52
+   \   00000190   C0108DE2           ADD      R1,SP,#+192
+   \   00000194   0500A0E1           MOV      R0,R5
+   \   00000198   0B0000EF           SWI      +11
+   \   0000019C   340050E3           CMP      R0,#+52
+   \   000001A0   04D08DE2           ADD      SP,SP,#+4
+   \   000001A4   E8FFFF1A           BNE      ??ReadThisSms_11
+    831            {
+    832              fclose(fsd, &err);
+    833              fclose(fea, &err);
+    834              return 0;
+    835            }
+    836            fclose(fea, &err);
+   \   000001A8   0D10A0E1           MOV      R1,SP
+   \   000001AC   0500A0E1           MOV      R0,R5
+   \   000001B0   0D0000EF           SWI      +13
+    837            
+    838            sdx=AllocSD();
+   \   000001B4   ........           _BLF     AllocSD,??AllocSD??rA
+   \   000001B8   0050A0E1           MOV      R5,R0
+    839            sdx->msg_type=msg_type;
+   \   000001BC   187085E5           STR      R7,[R5, #+24]
+    840            for(i=0;i<cnt;i++)
+   \   000001C0   0070A0E3           MOV      R7,#+0
+   \   000001C4   01005AE3           CMP      R10,#+1
+   \   000001C8   290000AA           BGE      ??ReadThisSms_13
+    841            {
+    842              if(pid[i]==0xFFF4) continue;
+    843              if(!GetSmsPosIndex(&sid, pid[i])) continue;
+    844              if((xl=sid.pos_index*sizeof(PDU)+2)>(sms_size-sizeof(PDU))) continue;
+    845              lseek(fsd, xl, S_SET, &err, &err);
+    846              if(fread(fsd, &pdu, sizeof(pdu), &err)!=sizeof(PDU)) continue;
+    847              if(!sdx->SMS_TEXT) PduDecodeAll(sdx, (char *)(&pdu));
+    848              else PduDecodeTxt(sdx, (char *)(&pdu));
+    849            }
+    850            fclose(fsd, &err);
+   \                     ??ReadThisSms_14:
+   \   000001CC   0D10A0E1           MOV      R1,SP
+   \   000001D0   0400A0E1           MOV      R0,R4
+   \   000001D4   0D0000EF           SWI      +13
+    851            if(sdx->SMS_TEXT)
+   \   000001D8   640095E5           LDR      R0,[R5, #+100]
+   \   000001DC   000050E3           CMP      R0,#+0
+   \   000001E0   5200000A           BEQ      ??ReadThisSms_15
+    852            {
+    853              if(i>1) sdx->msg_type=sdx->msg_type|ISEMS;
+   \   000001E4   020057E3           CMP      R7,#+2
+   \   000001E8   181095A5           LDRGE    R1,[R5, #+24]
+   \   000001EC   011081A3           ORRGE    R1,R1,#0x1
+   \   000001F0   181085A5           STRGE    R1,[R5, #+24]
+    854              sdx->opmsg_id=pea.opmsg_id;
+   \   000001F4   E8109DE5           LDR      R1,[SP, #+232]
+   \   000001F8   101085E5           STR      R1,[R5, #+16]
+    855              sdx->id=index;
+   \   000001FC   0C6085E5           STR      R6,[R5, #+12]
+    856              sdx->cnt_r=idd->cnt_received;
+   \   00000200   1310D8E5           LDRB     R1,[R8, #+19]
+   \   00000204   1C1085E5           STR      R1,[R5, #+28]
+    857              if(CFG_ENA_AUTO_SAF_RT && !(sdx->msg_type&ISDES) && saf==1 && saveFile(sdx->SMS_TEXT, sdx->Number, sdx, sdx->type, 2))
+   \   00000208   34119FE5           LDR      R1,??ReadThisSms_16  ;; CFG_ENA_AUTO_SAF_RT
+   \   0000020C   001091E5           LDR      R1,[R1, #+0]
+   \   00000210   000051E3           CMP      R1,#+0
+   \   00000214   3F00000A           BEQ      ??ReadThisSms_17
+   \   00000218   181095E5           LDR      R1,[R5, #+24]
+   \   0000021C   040011E3           TST      R1,#0x4
+   \   00000220   F0109D05           LDREQ    R1,[SP, #+240]
+   \   00000224   01005103           CMPEQ    R1,#+1
+   \   00000228   3A00001A           BNE      ??ReadThisSms_17
+   \   0000022C   0210A0E3           MOV      R1,#+2
+   \   00000230   02002DE9           PUSH     {R1}
+   \   00000234   083095E5           LDR      R3,[R5, #+8]
+   \   00000238   0520A0E1           MOV      R2,R5
+   \   0000023C   241085E2           ADD      R1,R5,#+36
+   \   00000240   ........           _BLF     saveFile,??saveFile??rA
+   \   00000244   000050E3           CMP      R0,#+0
+   \   00000248   04D08DE2           ADD      SP,SP,#+4
+   \   0000024C   3100000A           BEQ      ??ReadThisSms_17
+    858              {
+    859                deleteDat(sdx, 0);
+   \   00000250   0010A0E3           MOV      R1,#+0
+   \   00000254   0500A0E1           MOV      R0,R5
+   \   00000258   ........           _BLF     deleteDat,??deleteDat??rA
+    860                FreeSdOne(sdx);
+   \   0000025C   0500A0E1           MOV      R0,R5
+   \   00000260   ........           _BLF     FreeSdOne,??FreeSdOne??rA
+    861                return 1;
+   \   00000264   0100A0E3           MOV      R0,#+1
+   \   00000268   BEFFFFEA           B        ??ReadThisSms_12
+    862              }
+   \                     ??ReadThisSms_18:
+   \   0000026C   ........           BL       PduDecodeTxt
+   \                     ??ReadThisSms_19:
+   \   00000270   017087E2           ADD      R7,R7,#+1
+   \                     ??ReadThisSms_13:
+   \   00000274   0A0057E1           CMP      R7,R10
+   \   00000278   D3FFFFAA           BGE      ??ReadThisSms_14
+   \   0000027C   870089E0           ADD      R0,R9,R7, LSL #+1
+   \   00000280   B010D0E1           LDRH     R1,[R0, #+0]
+   \   00000284   F420A0E3           MOV      R2,#+244
+   \   00000288   FF2C82E3           ORR      R2,R2,#0xFF00
+   \   0000028C   020051E1           CMP      R1,R2
+   \   00000290   F6FFFF0A           BEQ      ??ReadThisSms_19
+   \   00000294   04008DE2           ADD      R0,SP,#+4
+   \   00000298   B20200EF           SWI      +690
+   \   0000029C   000050E3           CMP      R0,#+0
+   \   000002A0   F2FFFF0A           BEQ      ??ReadThisSms_19
+   \   000002A4   F600DDE1           LDRSH    R0,[SP, #+6]
+   \   000002A8   B210A0E3           MOV      R1,#+178
+   \   000002AC   910000E0           MUL      R0,R1,R0
+   \   000002B0   021080E2           ADD      R1,R0,#+2
+   \   000002B4   B100E0E3           MVN      R0,#+177
+   \   000002B8   0B0080E0           ADD      R0,R0,R11
+   \   000002BC   010050E1           CMP      R0,R1
+   \   000002C0   EAFFFF3A           BCC      ??ReadThisSms_19
+   \   000002C4   0D00A0E1           MOV      R0,SP
+   \   000002C8   01002DE9           PUSH     {R0}
+   \   000002CC   04308DE2           ADD      R3,SP,#+4
+   \   000002D0   0020A0E3           MOV      R2,#+0
+   \   000002D4   0400A0E1           MOV      R0,R4
+   \   000002D8   0F0000EF           SWI      +15
+   \   000002DC   04308DE2           ADD      R3,SP,#+4
+   \   000002E0   B220A0E3           MOV      R2,#+178
+   \   000002E4   0C108DE2           ADD      R1,SP,#+12
+   \   000002E8   0400A0E1           MOV      R0,R4
+   \   000002EC   0B0000EF           SWI      +11
+   \   000002F0   B20050E3           CMP      R0,#+178
+   \   000002F4   04D08DE2           ADD      SP,SP,#+4
+   \   000002F8   DCFFFF1A           BNE      ??ReadThisSms_19
+   \   000002FC   640095E5           LDR      R0,[R5, #+100]
+   \   00000300   08108DE2           ADD      R1,SP,#+8
+   \   00000304   000050E3           CMP      R0,#+0
+   \   00000308   0500A0E1           MOV      R0,R5
+   \   0000030C   D6FFFF1A           BNE      ??ReadThisSms_18
+   \   00000310   ........           BL       PduDecodeAll
+   \   00000314   D5FFFFEA           B        ??ReadThisSms_19
+    863              LockSched();
+   \                     ??ReadThisSms_17:
+   \   00000318   460100EF           SWI      +326
+    864              AddToSdlByTime(sdx);
+   \   0000031C   0500A0E1           MOV      R0,R5
+   \   00000320   ........           _BLF     AddToSdlByTime,??AddToSdlByTime??rA
+    865              UnlockSched();
+   \   00000324   470100EF           SWI      +327
+    866            }
+    867            else 
+    868            {
+    869              FreeSdOne(sdx);
+    870              return 0;
+    871            }
+    872            return 1;
+   \   00000328   0100A0E3           MOV      R0,#+1
+   \   0000032C   8DFFFFEA           B        ??ReadThisSms_12
+   \                     ??ReadThisSms_15:
+   \   00000330   0500A0E1           MOV      R0,R5
+   \   00000334   ........           _BLF     FreeSdOne,??FreeSdOne??rA
+   \                     ??ReadThisSms_0:
+   \   00000338   0000A0E3           MOV      R0,#+0
+   \   0000033C   F4D08DE2           ADD      SP,SP,#+244
+   \   00000340   F08FBDE8           POP      {R4-R11,PC}      ;; return
+   \                     ??ReadThisSms_16:
+   \   00000344   ........           DC32     CFG_ENA_AUTO_SAF_RT
+    873          }
+    874          
+    875          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    876          SMS_DATA *FindSdByFileName(char *filename)
+    877          {
+   \                     FindSdByFileName:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    878            SMS_DATA *sdl=sdltop;
+   \   00000008   ........           LDR      R0,??DataTable11  ;; sdltop
+   \   0000000C   005090E5           LDR      R5,[R0, #+0]
+   \   00000010   000000EA           B        ??FindSdByFileName_0
+    879            while(sdl)
+    880            {
+    881              if(sdl->isfile && sdl->fname && !strcmp(filename, sdl->fname))
+    882                return sdl;
+    883              sdl=sdl->next;
+   \                     ??FindSdByFileName_1:
+   \   00000014   005095E5           LDR      R5,[R5, #+0]
+   \                     ??FindSdByFileName_0:
+   \   00000018   000055E3           CMP      R5,#+0
+   \   0000001C   0A00000A           BEQ      ??FindSdByFileName_2
+   \   00000020   140095E5           LDR      R0,[R5, #+20]
+   \   00000024   000050E3           CMP      R0,#+0
+   \   00000028   20109515           LDRNE    R1,[R5, #+32]
+   \   0000002C   00005113           CMPNE    R1,#+0
+   \   00000030   F7FFFF0A           BEQ      ??FindSdByFileName_1
+   \   00000034   0400A0E1           MOV      R0,R4
+   \   00000038   190000EF           SWI      +25
+   \   0000003C   000050E3           CMP      R0,#+0
+   \   00000040   F3FFFF1A           BNE      ??FindSdByFileName_1
+   \   00000044   0500A0E1           MOV      R0,R5
+   \   00000048   3080BDE8           POP      {R4,R5,PC}
+    884            }
+    885            return 0;
+   \                     ??FindSdByFileName_2:
+   \   0000004C   0000A0E3           MOV      R0,#+0
+   \   00000050   3080BDE8           POP      {R4,R5,PC}       ;; return
+    886          }
+    887          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    888          int CheckFile(int type)
+    889          {
+   \                     CheckFile:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   48D04DE2           SUB      SP,SP,#+72
+   \   00000008   40DE4DE2           SUB      SP,SP,#+1024
+    890            char filepath[128];
+    891            const char *folder;
+    892            char dir[128];
+    893            int x, len, res=0;
+   \   0000000C   0040A0E3           MOV      R4,#+0
+    894            unsigned int err;
+    895            DIR_ENTRY de;
+    896            SMS_DATA *sdx;
+    897            switch(type)
+   \   00000010   010050E2           SUBS     R0,R0,#+1
+   \   00000014   0900000A           BEQ      ??CheckFile_0
+   \   00000018   010040E2           SUB      R0,R0,#+1
+   \   0000001C   010050E3           CMP      R0,#+1
+   \   00000020   0800009A           BLS      ??CheckFile_1
+   \   00000024   020050E2           SUBS     R0,R0,#+2
+   \   00000028   0200000A           BEQ      ??CheckFile_2
+   \   0000002C   010050E2           SUBS     R0,R0,#+1
+   \   00000030   0400000A           BEQ      ??CheckFile_1
+   \   00000034   050000EA           B        ??CheckFile_3
+    898            {
+    899            case TYPE_DRAFT:
+    900              folder=FLDR_DRAFT;
+   \                     ??CheckFile_2:
+   \   00000038   AC719FE5           LDR      R7,??CheckFile_4  ;; FLDR_DRAFT
+   \   0000003C   040000EA           B        ??CheckFile_5
+    901              break;
+    902            case TYPE_OUT:
+    903              folder=FLDR_OUT;
+   \                     ??CheckFile_0:
+   \   00000040   A8719FE5           LDR      R7,??CheckFile_4+0x4  ;; FLDR_OUT
+   \   00000044   020000EA           B        ??CheckFile_5
+    904              break;
+    905            case TYPE_IN_N:
+    906            case TYPE_IN_R:
+    907            case TYPE_IN_ALL:
+    908              folder=FLDR_IN;
+   \                     ??CheckFile_1:
+   \   00000048   A4719FE5           LDR      R7,??CheckFile_4+0x8  ;; FLDR_IN
+   \   0000004C   000000EA           B        ??CheckFile_5
+    909              break;
+    910            default:
+    911              folder=FLDR_UNK;
+   \                     ??CheckFile_3:
+   \   00000050   A0719FE5           LDR      R7,??CheckFile_4+0xC  ;; FLDR_UNK
+    912              break;
+    913            }
+    914            if(!isdir(CFG_MAIN_FOLDER, &err)) return 0;
+   \                     ??CheckFile_5:
+   \   00000054   A0519FE5           LDR      R5,??CheckFile_4+0x10  ;; CFG_MAIN_FOLDER
+   \   00000058   0D10A0E1           MOV      R1,SP
+   \   0000005C   0500A0E1           MOV      R0,R5
+   \   00000060   910000EF           SWI      +145
+   \   00000064   000050E3           CMP      R0,#+0
+   \   00000068   5B00000A           BEQ      ??CheckFile_6
+    915            strcpy(dir, CFG_MAIN_FOLDER);
+   \   0000006C   0510A0E1           MOV      R1,R5
+   \   00000070   F20F8DE2           ADD      R0,SP,#+968
+   \   00000074   1A0000EF           SWI      +26
+    916            if((len=strlen(dir))<=0) return 0;
+   \   00000078   F20F8DE2           ADD      R0,SP,#+968
+   \   0000007C   1B0000EF           SWI      +27
+   \   00000080   010050E3           CMP      R0,#+1
+   \   00000084   540000BA           BLT      ??CheckFile_6
+    917            x=dir[len-1];
+   \   00000088   F21F8DE2           ADD      R1,SP,#+968
+   \   0000008C   010080E0           ADD      R0,R0,R1
+   \   00000090   011050E5           LDRB     R1,[R0, #-1]
+    918            if((x!='\\')&&(x!='/'))
+   \   00000094   5C50A0E3           MOV      R5,#+92
+   \   00000098   0060A0E3           MOV      R6,#+0
+   \   0000009C   5C0051E3           CMP      R1,#+92
+   \   000000A0   2F005113           CMPNE    R1,#+47
+    919            {
+    920              dir[len]='\\';
+   \   000000A4   0050C015           STRBNE   R5,[R0, #+0]
+    921              dir[len+1]=0;
+   \   000000A8   0160C015           STRBNE   R6,[R0, #+1]
+    922            }
+    923            strcat(dir, folder);
+   \   000000AC   0710A0E1           MOV      R1,R7
+   \   000000B0   F20F8DE2           ADD      R0,SP,#+968
+   \   000000B4   170000EF           SWI      +23
+    924            if(!isdir(dir, &err)) return 0;
+   \   000000B8   0D10A0E1           MOV      R1,SP
+   \   000000BC   F20F8DE2           ADD      R0,SP,#+968
+   \   000000C0   910000EF           SWI      +145
+   \   000000C4   000050E3           CMP      R0,#+0
+   \   000000C8   4400000A           BEQ      ??CheckFile_7
+    925            strcat(dir, "*.mss");
+   \   000000CC   2C119FE5           LDR      R1,??CheckFile_4+0x14  ;; `?<Constant "*.mss">`
+   \   000000D0   F20F8DE2           ADD      R0,SP,#+968
+   \   000000D4   170000EF           SWI      +23
+    926            if(FindFirstFile(&de, dir, &err))
+   \   000000D8   A57085E2           ADD      R7,R5,#+165
+   \   000000DC   0D20A0E1           MOV      R2,SP
+   \   000000E0   F21F8DE2           ADD      R1,SP,#+968
+   \   000000E4   04008DE2           ADD      R0,SP,#+4
+   \   000000E8   6B0000EF           SWI      +107
+   \   000000EC   000050E3           CMP      R0,#+0
+   \   000000F0   2F00000A           BEQ      ??CheckFile_8
+    927            {
+    928              do
+    929              {
+    930                strcpy(filepath, de.folder_name);
+   \                     ??CheckFile_9:
+   \   000000F4   38108DE2           ADD      R1,SP,#+56
+   \   000000F8   D20F8DE2           ADD      R0,SP,#+840
+   \   000000FC   1A0000EF           SWI      +26
+    931                if((len=strlen(filepath))<=0) continue;
+   \   00000100   D20F8DE2           ADD      R0,SP,#+840
+   \   00000104   1B0000EF           SWI      +27
+   \   00000108   010050E3           CMP      R0,#+1
+   \   0000010C   230000BA           BLT      ??CheckFile_10
+    932                x=filepath[len-1];
+   \   00000110   D21F8DE2           ADD      R1,SP,#+840
+   \   00000114   010080E0           ADD      R0,R0,R1
+   \   00000118   011050E5           LDRB     R1,[R0, #-1]
+    933                if((x!='\\')&&(x!='/'))
+   \   0000011C   5C0051E3           CMP      R1,#+92
+   \   00000120   2F005113           CMPNE    R1,#+47
+    934                {
+    935          	filepath[len]='\\';
+   \   00000124   0050C015           STRBNE   R5,[R0, #+0]
+    936          	filepath[len+1]=0;
+   \   00000128   0160C015           STRBNE   R6,[R0, #+1]
+    937                }
+    938                strcat(filepath, de.file_name);
+   \   0000012C   B9108DE2           ADD      R1,SP,#+185
+   \   00000130   D20F8DE2           ADD      R0,SP,#+840
+   \   00000134   170000EF           SWI      +23
+    939                if(!(sdx=FindSdByFileName(filepath)))
+   \   00000138   D20F8DE2           ADD      R0,SP,#+840
+   \   0000013C   ........           BL       FindSdByFileName
+   \   00000140   000050E3           CMP      R0,#+0
+   \   00000144   1500001A           BNE      ??CheckFile_10
+    940                {
+    941          	sdx=AllocSD();
+   \   00000148   ........           _BLF     AllocSD,??AllocSD??rA
+   \   0000014C   0080A0E1           MOV      R8,R0
+    942          	if(ReadMSS(filepath, sdx))
+   \   00000150   0810A0E1           MOV      R1,R8
+   \   00000154   D20F8DE2           ADD      R0,SP,#+840
+   \   00000158   ........           _BLF     ReadMSS,??ReadMSS??rA
+   \   0000015C   000050E3           CMP      R0,#+0
+   \   00000160   0C00000A           BEQ      ??CheckFile_11
+    943          	{
+    944          	  res++;
+   \   00000164   014084E2           ADD      R4,R4,#+1
+    945          	  LockSched();
+   \   00000168   460100EF           SWI      +326
+    946          	  AddToSdlByTime(sdx);
+   \   0000016C   0800A0E1           MOV      R0,R8
+   \   00000170   ........           _BLF     AddToSdlByTime,??AddToSdlByTime??rA
+    947          	  UnlockSched();
+   \   00000174   470100EF           SWI      +327
+    948          	  if(!(res%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+   \   00000178   C400A0E1           ASR      R0,R4,#+1
+   \   0000017C   200F84E0           ADD      R0,R4,R0, LSR #+30
+   \   00000180   4001A0E1           ASR      R0,R0,#+2
+   \   00000184   000154E0           SUBS     R0,R4,R0, LSL #+2
+   \   00000188   0400001A           BNE      ??CheckFile_10
+   \   0000018C   0700A0E1           MOV      R0,R7
+   \   00000190   ........           _BLF     SendSimpleIpcMsg,??SendSimpleIpcMsg??rA
+   \   00000194   010000EA           B        ??CheckFile_10
+    949          	}
+    950          	else FreeSdOne(sdx);
+   \                     ??CheckFile_11:
+   \   00000198   0800A0E1           MOV      R0,R8
+   \   0000019C   ........           _BLF     FreeSdOne,??FreeSdOne??rA
+    951                }
+    952              }while(FindNextFile(&de, &err));
+   \                     ??CheckFile_10:
+   \   000001A0   0D10A0E1           MOV      R1,SP
+   \   000001A4   04008DE2           ADD      R0,SP,#+4
+   \   000001A8   6C0000EF           SWI      +108
+   \   000001AC   000050E3           CMP      R0,#+0
+   \   000001B0   CFFFFF1A           BNE      ??CheckFile_9
+    953            }
+    954            FindClose(&de, &err);
+   \                     ??CheckFile_8:
+   \   000001B4   0D10A0E1           MOV      R1,SP
+   \   000001B8   04008DE2           ADD      R0,SP,#+4
+   \   000001BC   6D0000EF           SWI      +109
+    955            if((res%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+   \   000001C0   C400A0E1           ASR      R0,R4,#+1
+   \   000001C4   200F84E0           ADD      R0,R4,R0, LSR #+30
+   \   000001C8   4001A0E1           ASR      R0,R0,#+2
+   \   000001CC   000154E0           SUBS     R0,R4,R0, LSL #+2
+   \   000001D0   0100000A           BEQ      ??CheckFile_6
+   \   000001D4   0700A0E1           MOV      R0,R7
+   \   000001D8   ........           _BLF     SendSimpleIpcMsg,??SendSimpleIpcMsg??rA
+    956            return res;
+   \                     ??CheckFile_6:
+   \   000001DC   0400A0E1           MOV      R0,R4
+   \                     ??CheckFile_7:
+   \   000001E0   48D08DE2           ADD      SP,SP,#+72
+   \   000001E4   40DE8DE2           ADD      SP,SP,#+1024
+   \   000001E8   F081BDE8           POP      {R4-R8,PC}       ;; return
+   \                     ??CheckFile_4:
+   \   000001EC   ........           DC32     FLDR_DRAFT
+   \   000001F0   ........           DC32     FLDR_OUT
+   \   000001F4   ........           DC32     FLDR_IN
+   \   000001F8   ........           DC32     FLDR_UNK
+   \   000001FC   ........           DC32     CFG_MAIN_FOLDER
+   \   00000200   ........           DC32     `?<Constant "*.mss">`
+    957          }
+    958          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    959          int CheckDat(void)
+    960          {
+   \                     CheckDat:
+   \   00000000   F0472DE9           PUSH     {R4-R10,LR}
+    961            SMS_DATA *sd;
+    962            SMS_DATA_ROOT *sdroot=SmsDataRoot();
+    963            SMS_DATA_LLIST inll=sdroot->in_msg;
+    964            SMS_DATA_LLIST outll=sdroot->out_msg;
+    965            SMS_DATA_LIST *lst;
+    966            INDEX_ID_DATA *idd;
+    967            int res=0;
+   \   00000004   0050A0E3           MOV      R5,#+0
+    968            lst=inll.first;
+   \   00000008   0170A0E3           MOV      R7,#+1
+   \   0000000C   407F87E3           ORR      R7,R7,#0x100
+   \   00000010   B18200EF           SWI      +33457
+   \   00000014   006090E5           LDR      R6,[R0, #+0]
+   \   00000018   0C4090E5           LDR      R4,[R0, #+12]
+   \   0000001C   000056E3           CMP      R6,#+0
+   \   00000020   3400000A           BEQ      ??CheckDat_0
+    969            while(lst)
+    970            {
+    971              if((idd=lst->index_id_data))
+   \                     ??CheckDat_1:
+   \   00000024   088096E5           LDR      R8,[R6, #+8]
+   \   00000028   000058E3           CMP      R8,#+0
+   \   0000002C   2E00000A           BEQ      ??CheckDat_2
+   \   00000030   F8A0D8E1           LDRSH    R10,[R8, #+8]
+   \   00000034   019085E2           ADD      R9,R5,#+1
+   \   00000038   0A00A0E1           MOV      R0,R10
+    972              {
+    973                if((sd=FindSmsByIndex(idd->index)))
+   \   0000003C   ........           BL       FindSmsByIndex
+   \   00000040   000050E3           CMP      R0,#+0
+   \   00000044   2300000A           BEQ      ??CheckDat_3
+    974                {
+    975          	if(sd->cnt_r < idd->cnt_received)
+   \   00000048   1320D8E5           LDRB     R2,[R8, #+19]
+   \   0000004C   080080E2           ADD      R0,R0,#+8
+   \   00000050   141090E5           LDR      R1,[R0, #+20]
+   \   00000054   020051E1           CMP      R1,R2
+   \   00000058   0E0000AA           BGE      ??CheckDat_4
+    976          	{
+    977          	  if(ReadThisSms(idd->index, 0))
+   \   0000005C   0010A0E3           MOV      R1,#+0
+   \   00000060   0A00A0E1           MOV      R0,R10
+   \   00000064   ........           BL       ReadThisSms
+   \   00000068   000050E3           CMP      R0,#+0
+    978          	    res++;
+   \   0000006C   0950A011           MOVNE    R5,R9
+    979          	  if(res && !(res%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+   \   00000070   000055E3           CMP      R5,#+0
+   \   00000074   1D00000A           BEQ      ??CheckDat_5
+   \                     ??CheckDat_6:
+   \   00000078   C500A0E1           ASR      R0,R5,#+1
+   \   0000007C   200F85E0           ADD      R0,R5,R0, LSR #+30
+   \   00000080   4001A0E1           ASR      R0,R0,#+2
+   \   00000084   000155E0           SUBS     R0,R5,R0, LSL #+2
+   \   00000088   1800001A           BNE      ??CheckDat_5
+   \   0000008C   0700A0E1           MOV      R0,R7
+   \   00000090   ........           _BLF     SendSimpleIpcMsg,??SendSimpleIpcMsg??rA
+   \   00000094   150000EA           B        ??CheckDat_5
+    980          	  continue;
+    981          	}
+    982          	if(idd->type==1)
+   \                     ??CheckDat_4:
+   \   00000098   1E20D8E5           LDRB     R2,[R8, #+30]
+   \   0000009C   001090E5           LDR      R1,[R0, #+0]
+   \   000000A0   010052E3           CMP      R2,#+1
+   \   000000A4   0500001A           BNE      ??CheckDat_7
+    983          	{
+    984          	  if(sd->type!=TYPE_IN_N)
+   \   000000A8   030051E3           CMP      R1,#+3
+   \   000000AC   0E00000A           BEQ      ??CheckDat_2
+    985          	  {
+    986          	    sd->type=TYPE_IN_N;
+   \   000000B0   0310A0E3           MOV      R1,#+3
+   \   000000B4   001080E5           STR      R1,[R0, #+0]
+    987          	    res++;
+   \   000000B8   0950A0E1           MOV      R5,R9
+    988          	    if(!(res%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+   \   000000BC   EDFFFFEA           B        ??CheckDat_6
+    989          	    continue;
+    990          	  }
+    991          	}
+    992          	else
+    993          	{
+    994          	  if(sd->type==TYPE_IN_N)
+   \                     ??CheckDat_7:
+   \   000000C0   030051E3           CMP      R1,#+3
+   \   000000C4   0800001A           BNE      ??CheckDat_2
+    995          	  {
+    996          	    sd->type=TYPE_IN_R;
+   \   000000C8   0210A0E3           MOV      R1,#+2
+   \   000000CC   001080E5           STR      R1,[R0, #+0]
+    997          	    res++;
+   \   000000D0   0950A0E1           MOV      R5,R9
+    998          	    if(!(res%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+   \   000000D4   E7FFFFEA           B        ??CheckDat_6
+    999          	    continue;
+   1000          	  }
+   1001          	}
+   1002                }
+   1003                else
+   1004                {
+   1005          	if(ReadThisSms(idd->index, 0))
+   \                     ??CheckDat_3:
+   \   000000D8   0010A0E3           MOV      R1,#+0
+   \   000000DC   0A00A0E1           MOV      R0,R10
+   \   000000E0   ........           BL       ReadThisSms
+   \   000000E4   000050E3           CMP      R0,#+0
+   1006          	  res++;
+   \   000000E8   0950A011           MOVNE    R5,R9
+   1007                }
+   1008              }
+   1009              lst=lst->next;
+   \                     ??CheckDat_2:
+   \   000000EC   006096E5           LDR      R6,[R6, #+0]
+   1010            }
+   \                     ??CheckDat_5:
+   \   000000F0   000056E3           CMP      R6,#+0
+   \   000000F4   CAFFFF1A           BNE      ??CheckDat_1
+   1011            lst=outll.first;
+   \                     ??CheckDat_0:
+   \   000000F8   000054E3           CMP      R4,#+0
+   \   000000FC   1C00000A           BEQ      ??CheckDat_8
+   1012            while(lst)
+   1013            {
+   1014              if((idd=lst->index_id_data))
+   \                     ??CheckDat_9:
+   \   00000100   088094E5           LDR      R8,[R4, #+8]
+   \   00000104   000058E3           CMP      R8,#+0
+   \   00000108   1600000A           BEQ      ??CheckDat_10
+   \   0000010C   F860D8E1           LDRSH    R6,[R8, #+8]
+   \   00000110   0600A0E1           MOV      R0,R6
+   1015              {
+   1016                if(!(sd=FindSmsByIndex(idd->index)) || sd->cnt_r < idd->cnt_received)
+   \   00000114   ........           BL       FindSmsByIndex
+   \   00000118   000050E3           CMP      R0,#+0
+   \   0000011C   0300000A           BEQ      ??CheckDat_11
+   \   00000120   1310D8E5           LDRB     R1,[R8, #+19]
+   \   00000124   1C0090E5           LDR      R0,[R0, #+28]
+   \   00000128   010050E1           CMP      R0,R1
+   \   0000012C   0D0000AA           BGE      ??CheckDat_10
+   1017                {
+   1018          	if(ReadThisSms(idd->index, 0))
+   \                     ??CheckDat_11:
+   \   00000130   0010A0E3           MOV      R1,#+0
+   \   00000134   0600A0E1           MOV      R0,R6
+   \   00000138   ........           BL       ReadThisSms
+   \   0000013C   000050E3           CMP      R0,#+0
+   1019          	  res++;
+   \   00000140   01508512           ADDNE    R5,R5,#+1
+   1020          	if(res && !(res%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+   \   00000144   000055E3           CMP      R5,#+0
+   \   00000148   0600000A           BEQ      ??CheckDat_10
+   \   0000014C   C500A0E1           ASR      R0,R5,#+1
+   \   00000150   200F85E0           ADD      R0,R5,R0, LSR #+30
+   \   00000154   4001A0E1           ASR      R0,R0,#+2
+   \   00000158   000155E0           SUBS     R0,R5,R0, LSL #+2
+   \   0000015C   0100001A           BNE      ??CheckDat_10
+   \   00000160   0700A0E1           MOV      R0,R7
+   \   00000164   ........           _BLF     SendSimpleIpcMsg,??SendSimpleIpcMsg??rA
+   1021                }
+   1022              }
+   1023              lst=lst->next;
+   \                     ??CheckDat_10:
+   \   00000168   004094E5           LDR      R4,[R4, #+0]
+   1024            }
+   \   0000016C   000054E3           CMP      R4,#+0
+   \   00000170   E2FFFF1A           BNE      ??CheckDat_9
+   1025            if((res%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+   \                     ??CheckDat_8:
+   \   00000174   C500A0E1           ASR      R0,R5,#+1
+   \   00000178   200F85E0           ADD      R0,R5,R0, LSR #+30
+   \   0000017C   4001A0E1           ASR      R0,R0,#+2
+   \   00000180   000155E0           SUBS     R0,R5,R0, LSL #+2
+   \   00000184   0100000A           BEQ      ??CheckDat_12
+   \   00000188   0700A0E1           MOV      R0,R7
+   \   0000018C   ........           _BLF     SendSimpleIpcMsg,??SendSimpleIpcMsg??rA
+   1026            return res;
+   \                     ??CheckDat_12:
+   \   00000190   0500A0E1           MOV      R0,R5
+   \   00000194   F087BDE8           POP      {R4-R10,PC}      ;; return
+   1027          }
+   1028          
+
+   \                                 In segment CODE, align 4, keep-with-next
+   1029          int IsDatExsit(int index)
+   1030          {
+   \                     IsDatExsit:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   1031            SMS_DATA_ROOT *sdroot=SmsDataRoot();
+   \   00000008   B18200EF           SWI      +33457
+   1032            SMS_DATA_LLIST inll=sdroot->in_msg;
+   1033            SMS_DATA_LLIST outll=sdroot->out_msg;
+   \   0000000C   0C1090E5           LDR      R1,[R0, #+12]
+   1034            SMS_DATA_LIST *lst;
+   1035            INDEX_ID_DATA *idd;
+   1036            lst=inll.first;
+   1037            while(lst)
+   1038            {
+   1039              if((idd=lst->index_id_data))
+   1040              {
+   1041                if(idd->index==index)
+   1042          	return 1;
+   1043              }
+   1044              lst=lst->next;
+   \                     ??IsDatExsit_0:
+   \   00000010   000090E5           LDR      R0,[R0, #+0]
+   \   00000014   000050E3           CMP      R0,#+0
+   \   00000018   0700000A           BEQ      ??IsDatExsit_1
+   \   0000001C   082090E5           LDR      R2,[R0, #+8]
+   \   00000020   000052E3           CMP      R2,#+0
+   \   00000024   F9FFFF0A           BEQ      ??IsDatExsit_0
+   \   00000028   F820D2E1           LDRSH    R2,[R2, #+8]
+   \   0000002C   040052E1           CMP      R2,R4
+   \   00000030   F6FFFF1A           BNE      ??IsDatExsit_0
+   \                     ??IsDatExsit_2:
+   \   00000034   0100A0E3           MOV      R0,#+1
+   \   00000038   1080BDE8           POP      {R4,PC}
+   1045            }
+   1046            lst=outll.first;
+   \                     ??IsDatExsit_1:
+   \   0000003C   0100A0E1           MOV      R0,R1
+   \   00000040   060000EA           B        ??IsDatExsit_3
+   1047            while(lst)
+   1048            {
+   1049              if((idd=lst->index_id_data))
+   \                     ??IsDatExsit_4:
+   \   00000044   082090E5           LDR      R2,[R0, #+8]
+   \   00000048   000052E3           CMP      R2,#+0
+   \   0000004C   0200000A           BEQ      ??IsDatExsit_5
+   1050              {
+   1051                if(idd->index==index)
+   \   00000050   F810D2E1           LDRSH    R1,[R2, #+8]
+   \   00000054   040051E1           CMP      R1,R4
+   \   00000058   F5FFFF0A           BEQ      ??IsDatExsit_2
+   1052          	return 1;
+   1053              }
+   1054              lst=lst->next;
+   \                     ??IsDatExsit_5:
+   \   0000005C   000090E5           LDR      R0,[R0, #+0]
+   1055            }
+   \                     ??IsDatExsit_3:
+   \   00000060   000050E3           CMP      R0,#+0
+   \   00000064   F6FFFF1A           BNE      ??IsDatExsit_4
+   1056            return 0;
+   \   00000068   1080BDE8           POP      {R4,PC}          ;; return
+   1057          }
+   1058          
+
+   \                                 In segment CODE, align 4, keep-with-next
+   1059          int CheckBack(void)
+   1060          {
+   1061            SMS_DATA *sdl=sdltop;
+   \                     CheckBack:
+   \   00000000   ........           LDR      R0,??DataTable11  ;; sdltop
+   \   00000004   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000008   005090E5           LDR      R5,[R0, #+0]
+   1062            SMS_DATA *sdx;
+   1063            int n=0;
+   \   0000000C   0060A0E3           MOV      R6,#+0
+   \   00000010   0140A0E3           MOV      R4,#+1
+   \   00000014   404F84E3           ORR      R4,R4,#0x100
+   \   00000018   000055E3           CMP      R5,#+0
+   \   0000001C   1D00000A           BEQ      ??CheckBack_0
+   1064            while(sdl)
+   1065            {
+   1066              if(sdl->isfile)
+   \                     ??CheckBack_1:
+   \   00000020   140095E5           LDR      R0,[R5, #+20]
+   \   00000024   017086E2           ADD      R7,R6,#+1
+   \   00000028   000050E3           CMP      R0,#+0
+   \   0000002C   1100000A           BEQ      ??CheckBack_2
+   1067              {
+   1068                if(sdl->fname)
+   \   00000030   200095E5           LDR      R0,[R5, #+32]
+   \   00000034   000050E3           CMP      R0,#+0
+   \   00000038   1300000A           BEQ      ??CheckBack_3
+   1069                {
+   1070          	if(!IsFileExist(sdl->fname))
+   \   0000003C   ........           _BLF     IsFileExist,??IsFileExist??rA
+   \                     ??CheckBack_4:
+   \   00000040   000050E3           CMP      R0,#+0
+   \   00000044   1000001A           BNE      ??CheckBack_3
+   1071          	{
+   1072          	  sdx=sdl;
+   \   00000048   0500A0E1           MOV      R0,R5
+   1073          	  sdl=sdl->next;
+   \   0000004C   005095E5           LDR      R5,[R5, #+0]
+   1074          	  delSDList(sdx);
+   \   00000050   ........           _BLF     delSDList,??delSDList??rA
+   1075          	  n++;
+   \   00000054   0760A0E1           MOV      R6,R7
+   1076          	  if(!(n%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+   \   00000058   C600A0E1           ASR      R0,R6,#+1
+   \   0000005C   200F86E0           ADD      R0,R6,R0, LSR #+30
+   \   00000060   4001A0E1           ASR      R0,R0,#+2
+   \   00000064   000156E0           SUBS     R0,R6,R0, LSL #+2
+   \   00000068   0800001A           BNE      ??CheckBack_5
+   \   0000006C   0400A0E1           MOV      R0,R4
+   \   00000070   ........           _BLF     SendSimpleIpcMsg,??SendSimpleIpcMsg??rA
+   \   00000074   050000EA           B        ??CheckBack_5
+   1077          	  continue;
+   1078          	}
+   1079                }
+   1080              }
+   1081              else if(sdl->id)
+   \                     ??CheckBack_2:
+   \   00000078   0C0095E5           LDR      R0,[R5, #+12]
+   \   0000007C   000050E3           CMP      R0,#+0
+   \   00000080   0100000A           BEQ      ??CheckBack_3
+   1082              {
+   1083                if(!IsDatExsit(sdl->id))
+   \   00000084   ........           BL       IsDatExsit
+   \   00000088   ECFFFFEA           B        ??CheckBack_4
+   1084                {
+   1085          	sdx=sdl;
+   1086          	sdl=sdl->next;
+   1087          	delSDList(sdx);
+   1088          	n++;
+   1089          	if(!(n%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+   1090          	continue;
+   1091                }
+   1092              }
+   1093              sdl=sdl->next;
+   \                     ??CheckBack_3:
+   \   0000008C   005095E5           LDR      R5,[R5, #+0]
+   1094            }
+   \                     ??CheckBack_5:
+   \   00000090   000055E3           CMP      R5,#+0
+   \   00000094   E1FFFF1A           BNE      ??CheckBack_1
+   1095            if((n%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+   \                     ??CheckBack_0:
+   \   00000098   C600A0E1           ASR      R0,R6,#+1
+   \   0000009C   200F86E0           ADD      R0,R6,R0, LSR #+30
+   \   000000A0   4001A0E1           ASR      R0,R0,#+2
+   \   000000A4   000156E0           SUBS     R0,R6,R0, LSL #+2
+   \   000000A8   0100000A           BEQ      ??CheckBack_6
+   \   000000AC   0400A0E1           MOV      R0,R4
+   \   000000B0   ........           _BLF     SendSimpleIpcMsg,??SendSimpleIpcMsg??rA
+   1096            return n;
+   \                     ??CheckBack_6:
+   \   000000B4   0600A0E1           MOV      R0,R6
+   \   000000B8   F080BDE8           POP      {R4-R7,PC}       ;; return
+   1097          }
+   1098          
+   1099          //extern const IPC_REQ my_ipc_upd; //sms_dat.c
+
+   \                                 In segment CODE, align 4, keep-with-next
+   1100          int CheckAll(void)
+   1101          {
+   1102            int res=0;
+   1103            if(is_readall) return 0;
+   \                     CheckAll:
+   \   00000000   64009FE5           LDR      R0,??CheckAll_0  ;; is_readall
+   \   00000004   10402DE9           PUSH     {R4,LR}
+   \   00000008   000090E5           LDR      R0,[R0, #+0]
+   \   0000000C   000050E3           CMP      R0,#+0
+   \   00000010   0000A013           MOVNE    R0,#+0
+   \   00000014   1080BD18           POPNE    {R4,PC}
+   1104            CheckBack();
+   \   00000018   ........           BL       CheckBack
+   1105            res=CheckDat();
+   \   0000001C   ........           BL       CheckDat
+   \   00000020   0040A0E1           MOV      R4,R0
+   1106            res+=CheckFile(TYPE_IN_ALL);
+   \   00000024   0500A0E3           MOV      R0,#+5
+   \   00000028   ........           BL       CheckFile
+   \   0000002C   044080E0           ADD      R4,R0,R4
+   1107            res+=CheckFile(TYPE_OUT);
+   \   00000030   0100A0E3           MOV      R0,#+1
+   \   00000034   ........           BL       CheckFile
+   \   00000038   044080E0           ADD      R4,R0,R4
+   1108            res+=CheckFile(TYPE_DRAFT);
+   \   0000003C   0400A0E3           MOV      R0,#+4
+   \   00000040   ........           BL       CheckFile
+   \   00000044   044080E0           ADD      R4,R0,R4
+   1109            new_sms_n=getCountByType(TYPE_IN_N);
+   \   00000048   0300A0E3           MOV      R0,#+3
+   \   0000004C   ........           _BLF     getCountByType,??getCountByType??rA
+   \   00000050   ........           LDR      R1,??DataTable13  ;; new_sms_n
+   \   00000054   000081E5           STR      R0,[R1, #+0]
+   1110            SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+   \   00000058   0100A0E3           MOV      R0,#+1
+   \   0000005C   400F80E3           ORR      R0,R0,#0x100
+   \   00000060   ........           _BLF     SendSimpleIpcMsg,??SendSimpleIpcMsg??rA
+   1111            return res;
+   \   00000064   0400A0E1           MOV      R0,R4
+   \   00000068   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??CheckAll_0:
+   \   0000006C   ........           DC32     is_readall
+   1112          }
+   1113          
+   1114          
+
+   \                                 In segment CODE, align 4, keep-with-next
+   1115          int NewToRead_File(SMS_DATA *sd)
+   1116          {
+   \                     NewToRead_File:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   49DF4DE2           SUB      SP,SP,#+292
+   \   00000008   0040B0E1           MOVS     R4,R0
+   1117            int fin, size, version, lsize;
+   1118            char *buf;
+   1119            unsigned int err;
+   1120            MSS_FILE_P1 mfp1;
+   1121            MSS_FILE_P2 mfp2;
+   1122            char filepath[128];
+   1123            if(!sd || !sd->isfile || !sd->fname)
+   \   0000000C   1D00000A           BEQ      ??NewToRead_File_0
+   \   00000010   140094E5           LDR      R0,[R4, #+20]
+   \   00000014   000050E3           CMP      R0,#+0
+   \   00000018   8B00000A           BEQ      ??NewToRead_File_1
+   \   0000001C   201094E5           LDR      R1,[R4, #+32]
+   \   00000020   000051E3           CMP      R1,#+0
+   \   00000024   0000001A           BNE      ??NewToRead_File_2
+   1124              return 0;
+   \                     ??NewToRead_File_3:
+   \   00000028   160000EA           B        ??NewToRead_File_0
+   1125          //  sd->type=TYPE_IN_R;
+   1126          //  if(new_sms_n>0) new_sms_n--;
+   1127            
+   1128            //先修改文件
+   1129            strcpy(filepath, sd->fname);
+   \                     ??NewToRead_File_2:
+   \   0000002C   08008DE2           ADD      R0,SP,#+8
+   \   00000030   1A0000EF           SWI      +26
+   1130            if((fin=fopen(filepath, A_BIN+A_ReadOnly, P_READ, &err))<0)
+   \   00000034   0D30A0E1           MOV      R3,SP
+   \   00000038   8020A0E3           MOV      R2,#+128
+   \   0000003C   801CA0E3           MOV      R1,#+32768
+   \   00000040   08008DE2           ADD      R0,SP,#+8
+   \   00000044   0A0000EF           SWI      +10
+   \   00000048   0050B0E1           MOVS     R5,R0
+   \   0000004C   0D00004A           BMI      ??NewToRead_File_0
+   1131              return 0;
+   1132            size=lseek(fin, 0, S_END, &err, &err);
+   \   00000050   0D00A0E1           MOV      R0,SP
+   \   00000054   01002DE9           PUSH     {R0}
+   \   00000058   04308DE2           ADD      R3,SP,#+4
+   \   0000005C   0220A0E3           MOV      R2,#+2
+   \   00000060   0010A0E3           MOV      R1,#+0
+   \   00000064   0500A0E1           MOV      R0,R5
+   \   00000068   0F0000EF           SWI      +15
+   \   0000006C   0070A0E1           MOV      R7,R0
+   1133            if(size<sizeof(MSS_FILE_P1))
+   \   00000070   4C0057E3           CMP      R7,#+76
+   \   00000074   04D08DE2           ADD      SP,SP,#+4
+   \   00000078   0500002A           BCS      ??NewToRead_File_4
+   1134            {
+   1135            FERR:
+   1136              fclose(fin, &err);
+   \                     ??NewToRead_File_5:
+   \   0000007C   0D10A0E1           MOV      R1,SP
+   \   00000080   0500A0E1           MOV      R0,R5
+   \   00000084   0D0000EF           SWI      +13
+   1137              return 0;
+   \                     ??NewToRead_File_0:
+   \   00000088   0000A0E3           MOV      R0,#+0
+   \   0000008C   49DF8DE2           ADD      SP,SP,#+292
+   \   00000090   F081BDE8           POP      {R4-R8,PC}
+   1138            }
+   1139            lseek(fin, 8, S_SET, &err, &err); //version;
+   \                     ??NewToRead_File_4:
+   \   00000094   0D00A0E1           MOV      R0,SP
+   \   00000098   01002DE9           PUSH     {R0}
+   \   0000009C   04308DE2           ADD      R3,SP,#+4
+   \   000000A0   0020A0E3           MOV      R2,#+0
+   \   000000A4   0810A0E3           MOV      R1,#+8
+   \   000000A8   0500A0E1           MOV      R0,R5
+   \   000000AC   0F0000EF           SWI      +15
+   1140            if(fread(fin, &version, sizeof(int), &err)!=sizeof(int))
+   \   000000B0   04308DE2           ADD      R3,SP,#+4
+   \   000000B4   0420A0E3           MOV      R2,#+4
+   \   000000B8   08108DE2           ADD      R1,SP,#+8
+   \   000000BC   0500A0E1           MOV      R0,R5
+   \   000000C0   0B0000EF           SWI      +11
+   \   000000C4   040050E3           CMP      R0,#+4
+   \   000000C8   04D08DE2           ADD      SP,SP,#+4
+   \   000000CC   EAFFFF1A           BNE      ??NewToRead_File_5
+   1141            {
+   1142              goto FERR;
+   1143            }
+   1144            lseek(fin, 0, S_SET, &err, &err);
+   \   000000D0   0D00A0E1           MOV      R0,SP
+   \   000000D4   01002DE9           PUSH     {R0}
+   \   000000D8   04308DE2           ADD      R3,SP,#+4
+   \   000000DC   0020A0E3           MOV      R2,#+0
+   \   000000E0   0010A0E3           MOV      R1,#+0
+   \   000000E4   0500A0E1           MOV      R0,R5
+   \   000000E8   0F0000EF           SWI      +15
+   1145            if(version==1)
+   \   000000EC   08009DE5           LDR      R0,[SP, #+8]
+   \   000000F0   0260A0E3           MOV      R6,#+2
+   \   000000F4   010050E3           CMP      R0,#+1
+   \   000000F8   04D08DE2           ADD      SP,SP,#+4
+   \   000000FC   1300001A           BNE      ??NewToRead_File_6
+   1146            {
+   1147              if(fread(fin, &mfp1, sizeof(MSS_FILE_P1), &err)!=sizeof(MSS_FILE_P1))
+   \   00000100   0D30A0E1           MOV      R3,SP
+   \   00000104   4C20A0E3           MOV      R2,#+76
+   \   00000108   D8108DE2           ADD      R1,SP,#+216
+   \   0000010C   0500A0E1           MOV      R0,R5
+   \   00000110   0B0000EF           SWI      +11
+   \   00000114   4C0050E3           CMP      R0,#+76
+   \   00000118   D7FFFF1A           BNE      ??NewToRead_File_5
+   1148                goto FERR;
+   1149              lsize=size-sizeof(MSS_FILE_P1);
+   1150              mfp2.version=MSS_VERSION;
+   \   0000011C   90608DE5           STR      R6,[SP, #+144]
+   1151              mfp2.type=TYPE_IN_R;
+   \   00000120   94608DE5           STR      R6,[SP, #+148]
+   1152              strcpy(mfp2.header, mfp1.header);
+   \   00000124   D8108DE2           ADD      R1,SP,#+216
+   \   00000128   88008DE2           ADD      R0,SP,#+136
+   \   0000012C   1A0000EF           SWI      +26
+   1153              strcpy(mfp2.time, mfp1.time);
+   \   00000130   E4108DE2           ADD      R1,SP,#+228
+   \   00000134   98008DE2           ADD      R0,SP,#+152
+   \   00000138   1A0000EF           SWI      +26
+   1154              strcpy(mfp2.number, mfp1.number);
+   \   0000013C   411F8DE2           ADD      R1,SP,#+260
+   \   00000140   B8008DE2           ADD      R0,SP,#+184
+   \   00000144   1A0000EF           SWI      +26
+   \   00000148   4C7047E2           SUB      R7,R7,#+76
+   \   0000014C   0A0000EA           B        ??NewToRead_File_7
+   1155            }
+   1156            else if(version==2)
+   \                     ??NewToRead_File_6:
+   \   00000150   020050E3           CMP      R0,#+2
+   \   00000154   C8FFFF1A           BNE      ??NewToRead_File_5
+   1157            {
+   1158              if(fread(fin, &mfp2, sizeof(MSS_FILE_P2), &err)!=sizeof(MSS_FILE_P2))
+   \   00000158   0D30A0E1           MOV      R3,SP
+   \   0000015C   5020A0E3           MOV      R2,#+80
+   \   00000160   88108DE2           ADD      R1,SP,#+136
+   \   00000164   0500A0E1           MOV      R0,R5
+   \   00000168   0B0000EF           SWI      +11
+   \   0000016C   500050E3           CMP      R0,#+80
+   \   00000170   C1FFFF1A           BNE      ??NewToRead_File_5
+   1159                goto FERR;
+   1160              lsize=size-sizeof(MSS_FILE_P2);
+   \   00000174   507047E2           SUB      R7,R7,#+80
+   1161              mfp2.type=TYPE_IN_R;
+   \   00000178   94608DE5           STR      R6,[SP, #+148]
+   1162            }
+   1163            else
+   1164            {
+   1165              goto FERR;
+   1166            }
+   1167            buf=malloc(lsize);
+   \                     ??NewToRead_File_7:
+   \   0000017C   0700A0E1           MOV      R0,R7
+   \   00000180   140000EF           SWI      +20
+   \   00000184   0080A0E1           MOV      R8,R0
+   1168            if(fread(fin, buf, lsize, &err)!=lsize)
+   \   00000188   0D30A0E1           MOV      R3,SP
+   \   0000018C   0720A0E1           MOV      R2,R7
+   \   00000190   0810A0E1           MOV      R1,R8
+   \   00000194   0500A0E1           MOV      R0,R5
+   \   00000198   0B0000EF           SWI      +11
+   \   0000019C   070050E1           CMP      R0,R7
+   \   000001A0   0200000A           BEQ      ??NewToRead_File_8
+   1169            {
+   1170            FERR1:
+   1171              mfree(buf);
+   \                     ??NewToRead_File_9:
+   \   000001A4   0800A0E1           MOV      R0,R8
+   \   000001A8   150000EF           SWI      +21
+   1172              goto FERR;
+   \   000001AC   B2FFFFEA           B        ??NewToRead_File_5
+   1173            }
+   1174            fclose(fin, &err);
+   \                     ??NewToRead_File_8:
+   \   000001B0   0D10A0E1           MOV      R1,SP
+   \   000001B4   0500A0E1           MOV      R0,R5
+   \   000001B8   0D0000EF           SWI      +13
+   1175            if((fin=fopen(filepath, A_BIN+A_WriteOnly+A_Create+A_Truncate, P_WRITE, &err))<0)
+   \   000001BC   0D30A0E1           MOV      R3,SP
+   \   000001C0   402FA0E3           MOV      R2,#+256
+   \   000001C4   0110A0E3           MOV      R1,#+1
+   \   000001C8   831C81E3           ORR      R1,R1,#0x8300
+   \   000001CC   08008DE2           ADD      R0,SP,#+8
+   \   000001D0   0A0000EF           SWI      +10
+   \   000001D4   0050B0E1           MOVS     R5,R0
+   \   000001D8   0200005A           BPL      ??NewToRead_File_10
+   1176            {
+   1177              mfree(buf);
+   \   000001DC   0800A0E1           MOV      R0,R8
+   \   000001E0   150000EF           SWI      +21
+   1178              return 0;
+   \   000001E4   A7FFFFEA           B        ??NewToRead_File_0
+   1179            }
+   1180            if(fwrite(fin, &mfp2, sizeof(MSS_FILE_P2), &err)!=sizeof(MSS_FILE_P2))
+   \                     ??NewToRead_File_10:
+   \   000001E8   0D30A0E1           MOV      R3,SP
+   \   000001EC   5020A0E3           MOV      R2,#+80
+   \   000001F0   88108DE2           ADD      R1,SP,#+136
+   \   000001F4   0C0000EF           SWI      +12
+   \   000001F8   500050E3           CMP      R0,#+80
+   \   000001FC   E8FFFF1A           BNE      ??NewToRead_File_9
+   1181              goto FERR1;
+   1182            if(fwrite(fin, buf, lsize, &err)!=lsize)
+   \   00000200   0D30A0E1           MOV      R3,SP
+   \   00000204   0720A0E1           MOV      R2,R7
+   \   00000208   0810A0E1           MOV      R1,R8
+   \   0000020C   0500A0E1           MOV      R0,R5
+   \   00000210   0C0000EF           SWI      +12
+   \   00000214   070050E1           CMP      R0,R7
+   \   00000218   E1FFFF1A           BNE      ??NewToRead_File_9
+   1183              goto FERR1;
+   1184            mfree(buf);
+   \   0000021C   0800A0E1           MOV      R0,R8
+   \   00000220   150000EF           SWI      +21
+   1185            fclose(fin, &err);
+   \   00000224   0D10A0E1           MOV      R1,SP
+   \   00000228   0500A0E1           MOV      R0,R5
+   \   0000022C   0D0000EF           SWI      +13
+   1186            sd->type=TYPE_IN_R;
+   1187            if(new_sms_n>0) new_sms_n--;
+   \   00000230   ........           LDR      R0,??DataTable13  ;; new_sms_n
+   \   00000234   086084E5           STR      R6,[R4, #+8]
+   \   00000238   001090E5           LDR      R1,[R0, #+0]
+   \   0000023C   010051E3           CMP      R1,#+1
+   \   00000240   011041A2           SUBGE    R1,R1,#+1
+   \   00000244   001080A5           STRGE    R1,[R0, #+0]
+   1188            return 1;
+   \   00000248   0100A0E3           MOV      R0,#+1
+   \                     ??NewToRead_File_1:
+   \   0000024C   49DF8DE2           ADD      SP,SP,#+292      ;; stack cleaning
+   \   00000250   F081BDE8           POP      {R4-R8,PC}       ;; return
+   1189          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable2:
+   \   00000000   93244992           DC32     0xffffffff92492493
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable3:
+   \   00000000   ........           DC32     STR_UNK_TXTT
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable8:
+   \   00000000   ........           DC32     sms_dat
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable9:
+   \   00000000   ........           DC32     ems_admin_dat
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable11:
+   \   00000000   ........           DC32     sdltop
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable13:
+   \   00000000   ........           DC32     new_sms_n
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "%t\\r%t: 20%s">`:
+   \   00000000   25740D25743A       DC8 "%t\015%t: 20%s"
+   \              203230257300
+   \   0000000C   25740D25743A       DC8 "%t\015%t: 20%s\015%s (%d)!"
+   \              20323025730D
+   \              257320282564
+   \              292100      
+   \   00000021   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "*.mss">`:
+   \   00000000   2A2E6D737300       DC8 "*.mss"
+   \   00000006   0000               DC8 0, 0
+   1190          
+
+   Maximum stack usage in bytes:
+
+     Function         CSTACK
+     --------         ------
+     Add2WS_NEW           4
+     Bit7Decode          28
+     CheckAll             8
+     CheckBack           20
+     CheckDat            32
+     CheckFile         1120
+     CheckThisSMS        12
+     DoAllDatMsg         40
+     DoMsgList           44
+     DoMsgReport         52
+     FindSdByFileName    12
+     FindSmsByIndex       0
+     GetTheLastNew        4
+     Hex2Num_NEW          4
+     IsDatExsit           8
+     IsHaveNewSMS         4
+     IsThisSmsNewIn       8
+     NewMsgReader        36
+     NewToRead_File     320
+     PduDecodeAll       660
+     PduDecodeTxt       640
+     ReadThisSms        284
+
+
+   Segment part sizes:
+
+     Function/Label             Bytes
+     --------------             -----
+     Add2WS_NEW                   80
+     Hex2Num_NEW                 188
+     Bit7Decode                  124
+     PduDecodeTxt                512
+     DoMsgReport                 224
+     PduDecodeAll                796
+     DoMsgList                   336
+     DoAllDatMsg                 264
+     NewMsgReader                384
+     IsHaveNewSMS                 72
+     GetTheLastNew                48
+     FindSmsByIndex               44
+     CheckThisSMS                272
+     IsThisSmsNewIn              100
+     ReadThisSms                 840
+     FindSdByFileName             84
+     CheckFile                   516
+     CheckDat                    408
+     IsDatExsit                  108
+     CheckBack                   188
+     CheckAll                    112
+     NewToRead_File              596
+     ??DataTable2                  4
+     ??DataTable3                  4
+     ??DataTable8                  4
+     ??DataTable9                  4
+     ??DataTable11                 4
+     ??DataTable13                 4
+     ?<Constant "%t\r%t: 20%s">   36
+     ?<Constant "*.mss">           8
+      Others                     220
+
+ 
+ 6 540 bytes in segment CODE
+    44 bytes in segment DATA_C
+ 
+ 6 320 bytes of CODE  memory (+ 220 bytes shared)
+    44 bytes of CONST memory
+
+Errors: none
+Warnings: none

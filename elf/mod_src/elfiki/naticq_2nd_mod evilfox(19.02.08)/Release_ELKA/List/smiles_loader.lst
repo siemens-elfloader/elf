@@ -1,0 +1,363 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.41A/W32 EVALUATION    26/Feb/2008  13:47:59 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod           #
+#                       evilfox(19.02.08)\smiles_loader.c                    #
+#    Command line    =  "D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod          #
+#                       evilfox(19.02.08)\smiles_loader.c" -D NEWSGOLD -D    #
+#                       ELKA --preprocess "D:\Pasha\elf\mod_src\elfiki\natic #
+#                       q_2nd_mod evilfox(19.02.08)\Release_ELKA\List\" -lC  #
+#                       "D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod          #
+#                       evilfox(19.02.08)\Release_ELKA\List\" -o             #
+#                       "D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod          #
+#                       evilfox(19.02.08)\Release_ELKA\Obj\" -s9             #
+#                       --no_unroll --cpu_mode arm --endian little --cpu     #
+#                       ARM926EJ-S --stack_align 4 --interwork -e --fpu      #
+#                       None --dlib_config "D:\Pasha\ARM_Embedded_Workbench\ #
+#                       Embedded Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8 #
+#                       n.h" -I "D:\Pasha\ARM_Embedded_Workbench\Embedded    #
+#                       Workbench 4.0 Evaluation\ARM\INC\"                   #
+#                       --inline_threshold=2                                 #
+#    List file       =  D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod           #
+#                       evilfox(19.02.08)\Release_ELKA\List\smiles_loader.ls #
+#                       t                                                    #
+#    Object file     =  D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod           #
+#                       evilfox(19.02.08)\Release_ELKA\Obj\smiles_loader.r79 #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod evilfox(19.02.08)\smiles_loader.c
+      1          #include "../inc/swilib.h"
+      2          #include "../inc/pnglist.h"
+
+  void SendAnswer(int dummy, TPKT *p);
+                             ^
+"D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod evilfox(19.02.08)\main.h",5  Error[Pe020]: 
+          identifier "TPKT" is undefined
+
+  void CreateEditChat(CLIST *t);
+                      ^
+"D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod evilfox(19.02.08)\main.h",6  Error[Pe020]: 
+          identifier "CLIST" is undefined
+
+  int GetIconIndex(CLIST *t);
+                   ^
+"D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod evilfox(19.02.08)\main.h",19  Error[Pe020]: 
+          identifier "CLIST" is undefined
+
+  void FreeLOGQ(LOGQ **pp);
+                ^
+"D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod evilfox(19.02.08)\main.h",22  Error[Pe020]: 
+          identifier "LOGQ" is undefined
+
+    CLIST *ed_contact;
+    ^
+"D:\Pasha\elf\mod_src\elfiki\naticq_2nd_mod evilfox(19.02.08)\main.h",27  Error[Pe020]: 
+          identifier "CLIST" is undefined
+      3          #include "naticq_ipc.h"
+      4          #include "smiles.h"
+      5          #include "naticq.h"
+      6          
+      7          S_SMILES *s_top=0;
+      8          
+      9          DYNPNGICONLIST *SmilesImgList;
+     10          DYNPNGICONLIST *XStatusesImgList;
+     11          
+     12          int *XStatusesIconArray;
+     13          
+     14          volatile int total_smiles;
+     15          volatile int total_xstatuses;
+     16          volatile int xstatuses_load;
+     17          
+     18          extern const char SMILE_FILE[];
+     19          extern const char SMILE_PATH[];
+     20          extern const char XSTATUSES_PATH[];
+     21          extern const char ipc_my_name[32];
+     22          extern  int S_ICONS[];
+     23          
+     24          static IPC_REQ gipc;
+     25          static char *p_buf;
+     26          static char *s_buf;
+     27          static S_SMILES *s_bot;
+     28          static int n_pic;
+     29          
+     30          S_SMILES *FindSmileById(int n)
+     31          {
+     32            int i=0;
+     33            S_SMILES *sl=(S_SMILES *)s_top;
+     34            while(sl && i!=n)
+     35            {
+     36              sl=sl->next;
+     37              i++;
+     38            }
+     39            return sl;
+     40          }
+     41          
+     42          S_SMILES *FindSmileByUni(int wchar)
+     43          {
+     44            S_SMILES *sl=(S_SMILES *)s_top;
+     45            while(sl)
+     46            {
+     47              if (sl->uni_smile == wchar) return (sl);
+     48              sl=sl->next;
+     49            }
+     50            return (0);
+     51          }
+     52          
+     53          void FreeSmiles(void)
+     54          {
+     55            S_SMILES *s_smile;
+     56            STXT_SMILES *n;
+     57            STXT_SMILES *st;
+     58            DYNPNGICONLIST *d;
+     59            DYNPNGICONLIST *nd;
+     60            LockSched();
+     61            total_smiles=0;
+     62            s_smile=(S_SMILES *)s_top;
+     63            s_top=0;
+     64            s_bot=0;
+     65            UnlockSched();
+     66            while(s_smile)
+     67            {
+     68              S_SMILES *s;
+     69              s=s_smile;
+     70              st=s->lines;
+     71              while(st)
+     72              {
+     73                n=st->next;
+     74                mfree(st);
+     75                st=n;
+     76              }
+     77              s_smile=(S_SMILES *)(s_smile->next);
+     78              mfree(s);
+     79            }
+     80            LockSched();
+     81            d=SmilesImgList;
+     82            SmilesImgList=0;
+     83            UnlockSched();
+     84            while(d)
+     85            {
+     86              if (d->img)
+     87              {
+     88                mfree(d->img->bitmap);
+     89                mfree(d->img);
+     90              }
+     91              nd=d->next;
+     92              mfree(d);
+     93              d=nd;
+     94            }
+     95            mfree(s_buf);
+     96          }
+     97          
+     98          void InitSmiles(void)
+     99          {
+    100            int f;
+    101            unsigned int err;
+    102            int fsize;
+    103            char *buf;
+    104            FSTATS stat;
+    105          
+    106            FreeSmiles();
+    107          
+    108            n_pic=FIRST_UCS2_BITMAP;
+    109            if (GetFileStats(SMILE_FILE,&stat,&err)==-1)
+    110              return;
+    111          
+    112            if ((fsize=stat.size)<=0)
+    113              return;
+    114          
+    115            if ((f=fopen(SMILE_FILE,A_ReadOnly+A_BIN,P_READ,&err))==-1)
+    116              return;
+    117          
+    118            buf=s_buf=p_buf=malloc(fsize+1);
+    119            buf[fread(f,buf,fsize,&err)]=0;
+    120            fclose(f,&err);
+    121            //f=fopen("4:\\smiles.cfg",A_ReadWrite+A_BIN+A_Create+A_Append,P_READ+P_WRITE,&err);
+    122            gipc.name_to=ipc_my_name;
+    123            gipc.name_from=ipc_my_name;
+    124            gipc.data=0;
+    125            GBS_SendMessage(MMI_CEPID,MSG_IPC,IPC_SMILE_PROCESSED,&gipc);
+    126          }
+    127          
+    128          void ProcessNextSmile(void)  
+    129          {  
+    130            int c;
+    131            char fn[128];
+    132            DYNPNGICONLIST *dp;
+    133            S_SMILES *si;
+    134            STXT_SMILES *st;
+    135            char *buf=p_buf;
+    136            if (!buf) return;
+    137            while ((c=*buf))
+    138            {
+    139              char *p;
+    140              if ((c==10)||(c==13))
+    141              {
+    142                buf++;
+    143                gipc.name_to=ipc_my_name;
+    144                gipc.name_from=ipc_my_name;
+    145                gipc.data=0;
+    146                GBS_SendMessage(MMI_CEPID,MSG_IPC,IPC_SMILE_PROCESSED,&gipc);
+    147                p_buf=buf;
+    148                return;
+    149              }
+    150              p=strchr(buf,':');
+    151              if (!p) break;
+    152              zeromem(fn,128);
+    153              strcpy(fn,SMILE_PATH);
+    154              if (fn[strlen(fn)-1]!='\\') strcat(fn,"\\");
+    155              c=p-buf;
+    156              if (c>(127-strlen(fn))) break;
+    157              strncpy(fn+strlen(fn),buf,c);
+    158          //    snprintf(logmsg,255,"Process file %s...",fn);
+    159          //    REDRAW();
+    160              buf=p;
+    161              dp=malloc(sizeof(DYNPNGICONLIST));
+    162              zeromem(dp,sizeof(DYNPNGICONLIST));
+    163              dp->icon=GetPicNByUnicodeSymbol(n_pic);
+    164              dp->img=CreateIMGHDRFromPngFile(fn,0);
+    165              LockSched();
+    166              if (SmilesImgList)
+    167              {
+    168                dp->next=SmilesImgList;
+    169              }
+    170              SmilesImgList=dp;
+    171              UnlockSched();
+    172              si=malloc(sizeof(S_SMILES));
+    173              si->next=NULL;
+    174              si->lines=NULL;
+    175              si->botlines=NULL;
+    176              si->uni_smile=n_pic;
+    177              if (s_bot)
+    178              {
+    179                //Не первый
+    180                s_bot->next=si;
+    181                s_bot=si;
+    182              }
+    183              else
+    184              {
+    185                //Первый
+    186                s_top=si;
+    187                s_bot=si;
+    188              }
+    189              n_pic++;
+    190              while (*buf!=10 && *buf!=13 && *buf!=0)
+    191              {
+    192                buf++;
+    193                int i=0;
+    194                while (buf[i]!=0&&buf [i]!=','&&buf [i]!=10&&buf[i]!=13)  i++;
+    195                st=malloc(sizeof(STXT_SMILES)+i);
+    196                strncpy(st->text,buf,i);
+    197                st->text[i]=0;
+    198                
+    199                st->next=NULL;
+    200                st->key=*((unsigned long *)st->text);
+    201                st->mask=~(0xFFFFFFFFUL<<(8*i));
+    202                st->key&=st->mask;
+    203                if (si->botlines)
+    204                {
+    205          	si->botlines->next=st;
+    206          	si->botlines=st;
+    207                }
+    208                else
+    209                {
+    210          	si->lines=st;
+    211          	si->botlines=st;
+    212                }
+    213                buf+=i;
+    214              }
+    215              total_smiles++;
+    216            }
+    217            //fclose(f,&err);
+    218            total_smiles=0;
+    219            p_buf=NULL;
+    220            mfree(s_buf);
+    221            s_buf=NULL;
+    222            REDRAW();
+    223          }
+    224          
+    225          void FreeXStatusesImg(void)
+    226          {
+    227            DYNPNGICONLIST *d;
+    228            DYNPNGICONLIST *nd;
+    229            LockSched();
+    230            total_xstatuses=0;
+    231            d=XStatusesImgList;
+    232            XStatusesImgList=0;
+    233            UnlockSched();
+    234            mfree(XStatusesIconArray);
+    235            XStatusesIconArray=NULL;
+    236            while(d)
+    237            {
+    238              if (d->img)
+    239              {
+    240                mfree(d->img->bitmap);
+    241                mfree(d->img);
+    242              }
+    243              nd=d->next;
+    244              mfree(d);
+    245              d=nd;
+    246            }
+    247          }
+    248          
+    249          void InitXStatusesImg(void)
+    250          {
+    251            FreeXStatusesImg();
+    252            total_xstatuses=0;
+    253            *(XStatusesIconArray=malloc(sizeof(int)))=S_ICONS[IS_NULLICON];
+    254            xstatuses_load=1;
+    255            n_pic=FIRST_UCS2_BITMAP;
+    256            gipc.name_to=ipc_my_name;
+    257            gipc.name_from=ipc_my_name;
+    258            gipc.data=0;
+    259            GBS_SendMessage(MMI_CEPID,MSG_IPC,IPC_XSTATUSIMG_PROCESSED,&gipc);
+    260          }
+    261          
+    262          void ProcessNextXStatImg(void)
+    263          {
+    264            char fn[128];
+    265            DYNPNGICONLIST *dp;
+    266            unsigned int err;
+    267            FSTATS stat;
+    268            int i;
+    269            
+    270            strcpy(fn,XSTATUSES_PATH);
+    271            sprintf(fn+strlen(fn),"\\%d.png",total_xstatuses);
+    272            if (GetFileStats(fn,&stat,&err)!=-1)
+    273            {
+    274              if (stat.size>0)
+    275              {
+    276                dp=malloc(sizeof(DYNPNGICONLIST));
+    277                zeromem(dp,sizeof(DYNPNGICONLIST));
+    278                dp->icon=i=GetPicNByUnicodeSymbol(n_pic);
+    279                dp->img=CreateIMGHDRFromPngFile(fn,0);
+    280                LockSched();
+    281                if (XStatusesImgList)
+    282                {
+    283          	dp->next=XStatusesImgList;
+    284                }
+    285                XStatusesImgList=dp;
+    286                UnlockSched();
+    287                total_xstatuses++;
+    288                XStatusesIconArray=realloc(XStatusesIconArray,(total_xstatuses*sizeof(int)));
+    289                *(XStatusesIconArray+(total_xstatuses-1))=i;
+    290                n_pic++;
+    291                gipc.name_to=ipc_my_name;
+    292                gipc.name_from=ipc_my_name;
+    293                gipc.data=0;
+    294                GBS_SendMessage(MMI_CEPID,MSG_IPC,IPC_XSTATUSIMG_PROCESSED,&gipc);
+    295                return;
+    296              }
+    297            }
+    298            xstatuses_load=0;
+    299            SUBPROC((void *)InitSmiles);
+    300          }
+
+Errors: 5
+Warnings: none

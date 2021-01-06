@@ -1,0 +1,316 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    07/Jul/2010  13:09:22 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\splayer\klib.c                                #
+#    Command line    =  C:\arm\splayer\klib.c -D NEWSGOLD -D ELKA -D OBS     #
+#                       -lC C:\arm\splayer\Release_ELKA\List\ -o             #
+#                       C:\arm\splayer\Release_ELKA\Obj\ -s9 --no_unroll     #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\splayer\Release_ELKA\List\klib.lst            #
+#    Object file     =  C:\arm\splayer\Release_ELKA\Obj\klib.r79             #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\splayer\klib.c
+      1          #include "..\inc\swilib.h"
+      2          #include "main.h"
+      3          #include "langpack.h"
+      4          
+
+   \                                 In segment CODE, align 4, keep-with-next
+      5          char *strtolower(char *src, char *dst, int sz)
+      6          {
+   \                     strtolower:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0140A0E1           MOV      R4,R1
+   \   00000008   0050A0E1           MOV      R5,R0
+   \   0000000C   0260A0E1           MOV      R6,R2
+      7           int sl = strlen(src)+1;
+   \   00000010   1B0000EF           SWI      +27
+   \   00000014   010080E2           ADD      R0,R0,#+1
+      8           int len = sz==-1?sl:sz;
+   \   00000018   010076E3           CMN      R6,#+1
+   \   0000001C   0060A001           MOVEQ    R6,R0
+      9           if(len>sl)len=sl;
+   \   00000020   060050E1           CMP      R0,R6
+   \   00000024   0060A0B1           MOVLT    R6,R0
+     10             
+     11           for(int ii=0;ii<len-1;ii++)
+   \   00000028   0000A0E3           MOV      R0,#+0
+   \   0000002C   011046E2           SUB      R1,R6,#+1
+   \   00000030   010051E3           CMP      R1,#+1
+   \   00000034   070000AA           BGE      ??strtolower_0
+   \   00000038   080000EA           B        ??strtolower_1
+     12           {
+     13             int ch = src[ii];
+   \                     ??strtolower_2:
+   \   0000003C   0520D0E7           LDRB     R2,[R0, +R5]
+     14             
+     15             if(ch>='A' && ch<='Z') ch=ch-'A'+'a';
+   \   00000040   410052E3           CMP      R2,#+65
+   \   00000044   010000BA           BLT      ??strtolower_3
+   \   00000048   5B0052E3           CMP      R2,#+91
+   \   0000004C   202082B2           ADDLT    R2,R2,#+32
+     16             
+     17             dst[ii]=ch;
+   \                     ??strtolower_3:
+   \   00000050   0420C0E7           STRB     R2,[R0, +R4]
+     18           }
+   \   00000054   010080E2           ADD      R0,R0,#+1
+   \                     ??strtolower_0:
+   \   00000058   010050E1           CMP      R0,R1
+   \   0000005C   F6FFFFBA           BLT      ??strtolower_2
+     19           dst[len-1]=0;
+   \                     ??strtolower_1:
+   \   00000060   040086E0           ADD      R0,R6,R4
+   \   00000064   0010A0E3           MOV      R1,#+0
+   \   00000068   011040E5           STRB     R1,[R0, #-1]
+     20           return dst;
+   \   0000006C   0400A0E1           MOV      R0,R4
+   \   00000070   7080BDE8           POP      {R4-R6,PC}       ;; return
+     21          }
+     22          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     23          int EnumIni(int local, char *ininame, INIPROC proc)
+     24          {
+   \                     EnumIni:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+   \   00000004   04D04DE2           SUB      SP,SP,#+4
+   \   00000008   0140A0E1           MOV      R4,R1
+   \   0000000C   0250A0E1           MOV      R5,R2
+     25            int res=0;
+   \   00000010   0080A0E3           MOV      R8,#+0
+     26            char *buf;
+     27            char *cfg;
+     28            int ch;
+     29            int p=0;
+     30            char* name=malloc(MAX_INIBUF);
+   \   00000014   400FA0E3           MOV      R0,#+256
+   \   00000018   140000EF           SWI      +20
+   \   0000001C   0060A0E1           MOV      R6,R0
+     31            char* value=malloc(MAX_INIBUF);
+   \   00000020   400FA0E3           MOV      R0,#+256
+   \   00000024   140000EF           SWI      +20
+   \   00000028   0070A0E1           MOV      R7,R0
+     32            
+     33            unsigned int size_cfg;
+     34            
+     35            char* fn = ininame;
+     36            int f;
+     37            unsigned int err;
+     38            if (name && value && fn && (f=fopen(fn,A_ReadOnly,0,&err))!=-1)
+   \   0000002C   000056E3           CMP      R6,#+0
+   \   00000030   00005713           CMPNE    R7,#+0
+   \   00000034   00005413           CMPNE    R4,#+0
+   \   00000038   5000000A           BEQ      ??EnumIni_0
+   \   0000003C   0D30A0E1           MOV      R3,SP
+   \   00000040   0020A0E3           MOV      R2,#+0
+   \   00000044   0210A0E1           MOV      R1,R2
+   \   00000048   0400A0E1           MOV      R0,R4
+   \   0000004C   0A0000EF           SWI      +10
+   \   00000050   0040A0E1           MOV      R4,R0
+   \   00000054   010070E3           CMN      R0,#+1
+   \   00000058   4800000A           BEQ      ??EnumIni_0
+     39            {
+     40              size_cfg=lseek(f,0,S_END,&err,&err);
+   \   0000005C   0D00A0E1           MOV      R0,SP
+   \   00000060   01002DE9           PUSH     {R0}
+   \   00000064   04308DE2           ADD      R3,SP,#+4
+   \   00000068   0220A0E3           MOV      R2,#+2
+   \   0000006C   0010A0E3           MOV      R1,#+0
+   \   00000070   0400A0E1           MOV      R0,R4
+   \   00000074   0F0000EF           SWI      +15
+   \   00000078   00B0A0E1           MOV      R11,R0
+     41              lseek(f,0,S_SET,&err,&err);
+   \   0000007C   04008DE2           ADD      R0,SP,#+4
+   \   00000080   01002DE9           PUSH     {R0}
+   \   00000084   08308DE2           ADD      R3,SP,#+8
+   \   00000088   0820A0E1           MOV      R2,R8
+   \   0000008C   0210A0E1           MOV      R1,R2
+   \   00000090   0400A0E1           MOV      R0,R4
+   \   00000094   0F0000EF           SWI      +15
+     42              cfg=buf=malloc(size_cfg+1);
+   \   00000098   01008BE2           ADD      R0,R11,#+1
+   \   0000009C   140000EF           SWI      +20
+   \   000000A0   0080A0E1           MOV      R8,R0
+   \   000000A4   0890B0E1           MOVS     R9,R8
+     43              if (cfg)
+   \   000000A8   08D08DE2           ADD      SP,SP,#+8
+   \   000000AC   2C00000A           BEQ      ??EnumIni_1
+     44              {
+     45                buf[fread(f,buf,size_cfg,&err)]=0;
+   \   000000B0   00A0A0E3           MOV      R10,#+0
+   \   000000B4   0D30A0E1           MOV      R3,SP
+   \   000000B8   0B20A0E1           MOV      R2,R11
+   \   000000BC   0810A0E1           MOV      R1,R8
+   \   000000C0   0400A0E1           MOV      R0,R4
+   \   000000C4   0B0000EF           SWI      +11
+   \   000000C8   08A0C0E7           STRB     R10,[R0, +R8]
+     46                do
+     47                {
+     48                L_NEXT:
+     49                  //Камент
+     50                  if (*buf==';')
+   \                     ??EnumIni_2:
+   \   000000CC   0000D8E5           LDRB     R0,[R8, #+0]
+   \   000000D0   3B0050E3           CMP      R0,#+59
+   \   000000D4   0400001A           BNE      ??EnumIni_3
+     51                  {
+     52                    while((ch=*buf++)>=32);
+   \                     ??EnumIni_4:
+   \   000000D8   ........           LDRB     R11,[R8], #+1
+   \   000000DC   20005BE3           CMP      R11,#+32
+   \   000000E0   FCFFFFAA           BGE      ??EnumIni_4
+     53                    if (!ch) goto L_EOF;
+   \   000000E4   00005BE3           CMP      R11,#+0
+   \   000000E8   1D00000A           BEQ      ??EnumIni_1
+     54                  }
+     55                  p=0;
+   \                     ??EnumIni_3:
+   \   000000EC   0000A0E3           MOV      R0,#+0
+   \   000000F0   060000EA           B        ??EnumIni_5
+     56                  while((ch=*buf++)!='=')
+     57                  {
+     58                    if (!ch) goto L_EOF;
+   \                     ??EnumIni_6:
+   \   000000F4   00005BE3           CMP      R11,#+0
+   \   000000F8   1900000A           BEQ      ??EnumIni_1
+     59                    if (ch<32) goto L_NEXT;
+   \   000000FC   20005BE3           CMP      R11,#+32
+   \   00000100   F1FFFFBA           BLT      ??EnumIni_2
+     60                    if (p<MAX_INIBUF-1) name[p++]=ch;
+   \   00000104   FF0050E3           CMP      R0,#+255
+   \   00000108   06B0C0B7           STRBLT   R11,[R0, +R6]
+   \   0000010C   010080B2           ADDLT    R0,R0,#+1
+     61                  }
+   \                     ??EnumIni_5:
+   \   00000110   ........           LDRB     R11,[R8], #+1
+   \   00000114   3D005BE3           CMP      R11,#+61
+   \   00000118   F5FFFF1A           BNE      ??EnumIni_6
+     62                  name[p]=0;
+   \   0000011C   06A0C0E7           STRB     R10,[R0, +R6]
+     63                  p=0;
+   \   00000120   0000A0E3           MOV      R0,#+0
+   \   00000124   020000EA           B        ??EnumIni_7
+     64                  while((ch=*buf++)>=32)
+     65                  {
+     66                    if (p<MAX_INIBUF-1) value[p++]=ch;
+   \                     ??EnumIni_8:
+   \   00000128   FF0050E3           CMP      R0,#+255
+   \   0000012C   07B0C0B7           STRBLT   R11,[R0, +R7]
+   \   00000130   010080B2           ADDLT    R0,R0,#+1
+     67                  }
+   \                     ??EnumIni_7:
+   \   00000134   ........           LDRB     R11,[R8], #+1
+   \   00000138   20005BE3           CMP      R11,#+32
+   \   0000013C   F9FFFFAA           BGE      ??EnumIni_8
+     68                  value[p]=0;
+   \   00000140   07A0C0E7           STRB     R10,[R0, +R7]
+     69          
+     70                  if(proc)
+   \   00000144   000055E3           CMP      R5,#+0
+   \   00000148   0300000A           BEQ      ??EnumIni_9
+     71                  proc(name, value);        
+   \   0000014C   0710A0E1           MOV      R1,R7
+   \   00000150   0600A0E1           MOV      R0,R6
+   \   00000154   0520A0E1           MOV      R2,R5
+   \   00000158   32FF2FE1           BLX      R2
+     72                  
+     73                  if (!ch) break; //EOF
+   \                     ??EnumIni_9:
+   \   0000015C   00005BE3           CMP      R11,#+0
+   \   00000160   D9FFFF1A           BNE      ??EnumIni_2
+     74                }
+     75                while (1);
+     76               }
+     77              L_EOF:
+     78               mfree(cfg);
+   \                     ??EnumIni_1:
+   \   00000164   0900A0E1           MOV      R0,R9
+   \   00000168   150000EF           SWI      +21
+     79               fclose(f,&err);
+   \   0000016C   0D10A0E1           MOV      R1,SP
+   \   00000170   0400A0E1           MOV      R0,R4
+   \   00000174   0D0000EF           SWI      +13
+     80               res=1;
+   \   00000178   0180A0E3           MOV      R8,#+1
+   \   0000017C   0B0000EA           B        ??EnumIni_10
+     81            }
+     82            else {WriteSPerr(SPerr3);extern const unsigned int SHOW_POPUP; if(SHOW_POPUP) ShowMSG(1,(int)lgpData[LGP_Spkeys_er]);}
+   \                     ??EnumIni_0:
+   \   00000180   48009FE5           LDR      R0,??EnumIni_11  ;; `?<Constant "0x03">`
+   \   00000184   ........           _BLF     WriteSPerr,??WriteSPerr??rA
+   \   00000188   44009FE5           LDR      R0,??EnumIni_11+0x4  ;; SHOW_POPUP
+   \   0000018C   000090E5           LDR      R0,[R0, #+0]
+   \   00000190   000050E3           CMP      R0,#+0
+   \   00000194   0300000A           BEQ      ??EnumIni_12
+   \   00000198   38009FE5           LDR      R0,??EnumIni_11+0x8  ;; lgpData + 144
+   \   0000019C   001090E5           LDR      R1,[R0, #+0]
+   \   000001A0   0100A0E3           MOV      R0,#+1
+   \   000001A4   480100EF           SWI      +328
+     83            if(name)mfree(name);
+   \                     ??EnumIni_12:
+   \   000001A8   000056E3           CMP      R6,#+0
+   \   000001AC   0100000A           BEQ      ??EnumIni_13
+   \                     ??EnumIni_10:
+   \   000001B0   0600A0E1           MOV      R0,R6
+   \   000001B4   150000EF           SWI      +21
+     84            if(value)mfree(value);
+   \                     ??EnumIni_13:
+   \   000001B8   000057E3           CMP      R7,#+0
+   \   000001BC   0100000A           BEQ      ??EnumIni_14
+   \   000001C0   0700A0E1           MOV      R0,R7
+   \   000001C4   150000EF           SWI      +21
+     85            return res;
+   \                     ??EnumIni_14:
+   \   000001C8   0800A0E1           MOV      R0,R8
+   \   000001CC   F28FBDE8           POP      {R1,R4-R11,PC}   ;; return
+   \                     ??EnumIni_11:
+   \   000001D0   ........           DC32     `?<Constant "0x03">`
+   \   000001D4   ........           DC32     SHOW_POPUP
+   \   000001D8   ........           DC32     lgpData + 144
+     86          }
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "0x03">`:
+   \   00000000   3078303300         DC8 "0x03"
+   \   00000005   000000             DC8 0, 0, 0
+
+   Maximum stack usage in bytes:
+
+     Function   CSTACK
+     --------   ------
+     EnumIni       48
+     strtolower    16
+
+
+   Segment part sizes:
+
+     Function/Label     Bytes
+     --------------     -----
+     strtolower          116
+     EnumIni             476
+     ?<Constant "0x03">    8
+      Others              20
+
+ 
+ 612 bytes in segment CODE
+   8 bytes in segment DATA_C
+ 
+ 592 bytes of CODE  memory (+ 20 bytes shared)
+   8 bytes of CONST memory
+
+Errors: none
+Warnings: none

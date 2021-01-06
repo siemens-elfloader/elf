@@ -1,0 +1,727 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    21/Dec/2010  19:11:45 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\elfpack_mod_last\main\elfloader.c             #
+#    Command line    =  C:\arm\elfpack_mod_last\main\elfloader.c -D          #
+#                       NEWSGOLD -D ELKA -lCN C:\arm\elfpack_mod_last\Other\ #
+#                       EL71sw45\List\ -lb C:\arm\elfpack_mod_last\Other\EL7 #
+#                       1sw45\List\ -o C:\arm\elfpack_mod_last\Other\EL71sw4 #
+#                       5\Obj\ -s9 --no_unroll --cpu_mode thumb --endian     #
+#                       little --cpu ARM926EJ-S --stack_align 4 --interwork  #
+#                       -e --fpu None -I "C:\arm2\Embedded Workbench 4.0     #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\elfpack_mod_last\Other\EL71sw45\List\elfloade #
+#                       r.lst                                                #
+#    Object file     =  C:\arm\elfpack_mod_last\Other\EL71sw45\Obj\elfloader #
+#                       .r79                                                 #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\elfpack_mod_last\main\elfloader.c
+      1          #include "..\..\inc\swilib.h"
+      2          #include "..\cfg\conf_loader.h"
+      3          
+      4          extern long elfload(char *filename, void *param1, void *param2, void *param3);
+      5          extern int get_file_size(const char * fname);
+      6          
+      7          extern int EDL_system_init();
+      8          extern int EDL_system_reinit();
+      9          extern int EDL_system_kill();
+     10          extern int EDL_load_ep(char *fname);
+     11          
+     12          
+     13          /*  Оповещение об ошибки запуска  */ 
+     14          
+     15          #define TYPE_ELF 0
+     16          #define TYPE_EDL 1
+     17          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     18          __arm int executer_and_messager(char *filename, void *param1, char type)
+     19          {
+   \                     executer_and_messager:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   60D04DE2           SUB      SP,SP,#+96
+   \   00000008   0040A0E1           MOV      R4,R0
+     20            char msg[96];
+     21            
+     22            int err;
+     23            if (type == TYPE_ELF) err = elfload(filename,param1,0,0);
+   \   0000000C   000052E3           CMP      R2,#+0
+   \   00000010   0200001A           BNE      ??executer_and_messager_0
+   \   00000014   0030A0E3           MOV      R3,#+0
+   \   00000018   ........           _BLF     elfload,??elfload??rA
+   \   0000001C   000000EA           B        ??executer_and_messager_1
+     24                             else err = EDL_load_ep(filename);
+   \                     ??executer_and_messager_0:
+   \   00000020   ........           _BLF     EDL_load_ep,??EDL_load_ep??rA
+   \                     ??executer_and_messager_1:
+   \   00000024   0050A0E1           MOV      R5,R0
+     25            if (err >= 0) return 0;
+   \   00000028   000055E3           CMP      R5,#+0
+   \   0000002C   0000A053           MOVPL    R0,#+0
+   \   00000030   0B00005A           BPL      ??executer_and_messager_2
+     26            else
+     27             {
+     28              char *fn = strrchr(filename,(int)'\\');
+   \   00000034   5C10A0E3           MOV      R1,#+92
+   \   00000038   0400A0E1           MOV      R0,R4
+   \   0000003C   170100EF           SWI      +279
+     29              sprintf(msg, "EP 3.0:\n%s\nerr: %d!", fn+1, err);
+   \   00000040   24109FE5           LDR      R1,??executer_and_messager_3  ;; `?<Constant "EP 3.0:\\n%s\\nerr: %d!">`
+   \   00000044   0530A0E1           MOV      R3,R5
+   \   00000048   012080E2           ADD      R2,R0,#+1
+   \   0000004C   0D00A0E1           MOV      R0,SP
+   \   00000050   160000EF           SWI      +22
+     30              MsgBoxError(1, (int)msg);
+   \   00000054   0D10A0E1           MOV      R1,SP
+   \   00000058   0100A0E3           MOV      R0,#+1
+   \   0000005C   4E0000EF           SWI      +78
+     31              return 1;       // Oшибка запуска
+   \   00000060   0100A0E3           MOV      R0,#+1
+   \                     ??executer_and_messager_2:
+   \   00000064   60D08DE2           ADD      SP,SP,#+96       ;; stack cleaning
+   \   00000068   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??executer_and_messager_3:
+   \   0000006C   ........           DC32     `?<Constant "EP 3.0:\\n%s\\nerr: %d!">`
+     32             }
+     33          }
+     34          
+     35          /*  Вызов из Card-Explorer'a или My Stuff или ExecuteFile()  */
+
+   \                                 In segment CODE, align 4, keep-with-next
+     36          __arm int elf_onload(WSHDR *filename, WSHDR *ext, void *param)
+     37          {
+   \                     elf_onload:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   80D04DE2           SUB      SP,SP,#+128
+     38            char fn[128];
+     39            ws_2str(filename,fn,126);
+   \   00000008   0D10A0E1           MOV      R1,SP
+   \   0000000C   0240A0E1           MOV      R4,R2
+   \   00000010   7E20A0E3           MOV      R2,#+126
+   \   00000014   A30000EF           SWI      +163
+     40            if (fn[1] != ':') param = 0;
+   \   00000018   0100DDE5           LDRB     R0,[SP, #+1]
+     41            if (executer_and_messager(fn, param, TYPE_ELF)) return 0; else return 1;
+   \   0000001C   0020A0E3           MOV      R2,#+0
+   \   00000020   3A0050E3           CMP      R0,#+58
+   \   00000024   0040A013           MOVNE    R4,#+0
+   \   00000028   0410A0E1           MOV      R1,R4
+   \   0000002C   0D00A0E1           MOV      R0,SP
+   \   00000030   ........           BL       executer_and_messager
+   \   00000034   000050E3           CMP      R0,#+0
+   \   00000038   0000A013           MOVNE    R0,#+0
+   \   0000003C   0100A003           MOVEQ    R0,#+1
+   \   00000040   80D08DE2           ADD      SP,SP,#+128
+   \   00000044   1080BDE8           POP      {R4,PC}          ;; return
+     42          }
+     43          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     44          __arm int edl_onload(WSHDR *filename, WSHDR *ext, void *param)
+     45          {
+   \                     edl_onload:
+   \   00000000   00402DE9           PUSH     {LR}
+   \   00000004   80D04DE2           SUB      SP,SP,#+128
+     46            char fn[128];
+     47            ws_2str(filename,fn,126);
+   \   00000008   7E20A0E3           MOV      R2,#+126
+   \   0000000C   0D10A0E1           MOV      R1,SP
+   \   00000010   A30000EF           SWI      +163
+     48            if (executer_and_messager(fn, 0, TYPE_EDL)) return 0; else return 1;
+   \   00000014   0120A0E3           MOV      R2,#+1
+   \   00000018   0010A0E3           MOV      R1,#+0
+   \   0000001C   0D00A0E1           MOV      R0,SP
+   \   00000020   ........           BL       executer_and_messager
+   \   00000024   000050E3           CMP      R0,#+0
+   \   00000028   0000A013           MOVNE    R0,#+0
+   \   0000002C   0100A003           MOVEQ    R0,#+1
+   \   00000030   80D08DE2           ADD      SP,SP,#+128
+   \   00000034   0080BDE8           POP      {PC}             ;; return
+     49          }
+     50          
+     51          
+     52          
+     53          extern void(*OldOnClose)(void *);
+     54          extern void(*OldOnCreate)(void *);
+     55          
+     56          
+     57          extern unsigned int DEFAULT_DISK_N;
+     58          extern void InitPngBitMap(void);
+     59          
+     60          
+     61          
+     62          
+     63          
+     64          
+     65          
+     66          
+     67          /* ---------------- Loading EDL Libs ---------------- */
+
+   \                                 In segment CODE, align 4, keep-with-next
+     68          __arm void LoadLibs()
+     69          {
+   \                     LoadLibs:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+     70            DIR_ENTRY de;
+     71            unsigned int err;
+     72            unsigned int pathlen;
+     73            char name[256];
+     74            strcpy(name+1,":\\ZBin\\Libs\\");
+   \   00000004   A4409FE5           LDR      R4,??LoadLibs_0  ;; `?<Constant ":\\\\ZBin\\\\Libs\\\\">`
+   \   00000008   48D04DE2           SUB      SP,SP,#+72
+   \   0000000C   40DE4DE2           SUB      SP,SP,#+1024
+   \   00000010   0410A0E1           MOV      R1,R4
+   \   00000014   49008DE2           ADD      R0,SP,#+73
+   \   00000018   C00F80E2           ADD      R0,R0,#+768
+   \   0000001C   1A0000EF           SWI      +26
+     75            name[0]=DEFAULT_DISK_N+'0';
+   \   00000020   ........           LDR      R1,??DataTable2  ;; DEFAULT_DISK_N
+     76            pathlen=strlen(name);
+   \   00000024   D20F8DE2           ADD      R0,SP,#+840
+   \   00000028   001091E5           LDR      R1,[R1, #+0]
+   \   0000002C   301081E2           ADD      R1,R1,#+48
+   \   00000030   4813CDE5           STRB     R1,[SP, #+840]
+   \   00000034   1B0000EF           SWI      +27
+   \   00000038   0050A0E1           MOV      R5,R0
+     77            strcat(name,"*.edl");
+   \   0000003C   101084E2           ADD      R1,R4,#+16
+   \   00000040   D20F8DE2           ADD      R0,SP,#+840
+   \   00000044   170000EF           SWI      +23
+     78            if (FindFirstFile(&de,name,&err))
+   \   00000048   0D20A0E1           MOV      R2,SP
+   \   0000004C   D21F8DE2           ADD      R1,SP,#+840
+   \   00000050   04008DE2           ADD      R0,SP,#+4
+   \   00000054   6B0000EF           SWI      +107
+   \   00000058   000050E3           CMP      R0,#+0
+   \   0000005C   0D00000A           BEQ      ??LoadLibs_1
+     79            {
+     80              do
+     81              {
+     82                name[pathlen]=0;
+   \                     ??LoadLibs_2:
+   \   00000060   D20F8DE2           ADD      R0,SP,#+840
+   \   00000064   0010A0E3           MOV      R1,#+0
+   \   00000068   0010C5E7           STRB     R1,[R5, +R0]
+     83                strcat(name,de.file_name);
+   \   0000006C   B9108DE2           ADD      R1,SP,#+185
+   \   00000070   170000EF           SWI      +23
+     84                executer_and_messager(name, 0, TYPE_EDL);
+   \   00000074   0120A0E3           MOV      R2,#+1
+   \   00000078   0010A0E3           MOV      R1,#+0
+   \   0000007C   D20F8DE2           ADD      R0,SP,#+840
+   \   00000080   ........           BL       executer_and_messager
+     85              }
+     86              while(FindNextFile(&de,&err));
+   \   00000084   0D10A0E1           MOV      R1,SP
+   \   00000088   04008DE2           ADD      R0,SP,#+4
+   \   0000008C   6C0000EF           SWI      +108
+   \   00000090   000050E3           CMP      R0,#+0
+   \   00000094   F1FFFF1A           BNE      ??LoadLibs_2
+     87            }
+     88            FindClose(&de,&err);
+   \                     ??LoadLibs_1:
+   \   00000098   0D10A0E1           MOV      R1,SP
+   \   0000009C   04008DE2           ADD      R0,SP,#+4
+   \   000000A0   6D0000EF           SWI      +109
+     89          }
+   \   000000A4   48D08DE2           ADD      SP,SP,#+72
+   \   000000A8   40DE8DE2           ADD      SP,SP,#+1024
+   \   000000AC   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??LoadLibs_0:
+   \   000000B0   ........           DC32     `?<Constant ":\\\\ZBin\\\\Libs\\\\">`
+     90          
+     91          /* ---------------- Loading Daemons ---------------- */
+     92          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     93          __arm void LoadDaemons()
+     94          {
+   \                     LoadDaemons:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+     95            DIR_ENTRY de;
+     96            unsigned int err;
+     97            unsigned int pathlen;
+     98            char name[256];
+     99            strcpy(name+1,":\\ZBin\\Daemons\\");
+   \   00000004   A4409FE5           LDR      R4,??LoadDaemons_0  ;; `?<Constant ":\\\\ZBin\\\\Daemons\\\\">`
+   \   00000008   48D04DE2           SUB      SP,SP,#+72
+   \   0000000C   40DE4DE2           SUB      SP,SP,#+1024
+   \   00000010   0410A0E1           MOV      R1,R4
+   \   00000014   49008DE2           ADD      R0,SP,#+73
+   \   00000018   C00F80E2           ADD      R0,R0,#+768
+   \   0000001C   1A0000EF           SWI      +26
+    100            name[0]=DEFAULT_DISK_N+'0';
+   \   00000020   ........           LDR      R1,??DataTable2  ;; DEFAULT_DISK_N
+    101            pathlen=strlen(name);
+   \   00000024   D20F8DE2           ADD      R0,SP,#+840
+   \   00000028   001091E5           LDR      R1,[R1, #+0]
+   \   0000002C   301081E2           ADD      R1,R1,#+48
+   \   00000030   4813CDE5           STRB     R1,[SP, #+840]
+   \   00000034   1B0000EF           SWI      +27
+   \   00000038   0050A0E1           MOV      R5,R0
+    102            strcat(name,"*.elf");
+   \   0000003C   101084E2           ADD      R1,R4,#+16
+   \   00000040   D20F8DE2           ADD      R0,SP,#+840
+   \   00000044   170000EF           SWI      +23
+    103            if (FindFirstFile(&de,name,&err))
+   \   00000048   0D20A0E1           MOV      R2,SP
+   \   0000004C   D21F8DE2           ADD      R1,SP,#+840
+   \   00000050   04008DE2           ADD      R0,SP,#+4
+   \   00000054   6B0000EF           SWI      +107
+   \   00000058   000050E3           CMP      R0,#+0
+   \   0000005C   0D00000A           BEQ      ??LoadDaemons_1
+    104            {
+    105              do
+    106              {
+    107                name[pathlen]=0;
+   \                     ??LoadDaemons_2:
+   \   00000060   D20F8DE2           ADD      R0,SP,#+840
+   \   00000064   0010A0E3           MOV      R1,#+0
+   \   00000068   0010C5E7           STRB     R1,[R5, +R0]
+    108                strcat(name,de.file_name);
+   \   0000006C   B9108DE2           ADD      R1,SP,#+185
+   \   00000070   170000EF           SWI      +23
+    109                executer_and_messager(name, 0, TYPE_ELF);
+   \   00000074   0020A0E3           MOV      R2,#+0
+   \   00000078   0010A0E3           MOV      R1,#+0
+   \   0000007C   D20F8DE2           ADD      R0,SP,#+840
+   \   00000080   ........           BL       executer_and_messager
+    110              }
+    111              while(FindNextFile(&de,&err));
+   \   00000084   0D10A0E1           MOV      R1,SP
+   \   00000088   04008DE2           ADD      R0,SP,#+4
+   \   0000008C   6C0000EF           SWI      +108
+   \   00000090   000050E3           CMP      R0,#+0
+   \   00000094   F1FFFF1A           BNE      ??LoadDaemons_2
+    112            }
+    113            FindClose(&de,&err);
+   \                     ??LoadDaemons_1:
+   \   00000098   0D10A0E1           MOV      R1,SP
+   \   0000009C   04008DE2           ADD      R0,SP,#+4
+   \   000000A0   6D0000EF           SWI      +109
+    114          }
+   \   000000A4   48D08DE2           ADD      SP,SP,#+72
+   \   000000A8   40DE8DE2           ADD      SP,SP,#+1024
+   \   000000AC   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??LoadDaemons_0:
+   \   000000B0   ........           DC32     `?<Constant ":\\\\ZBin\\\\Daemons\\\\">`
+    115          
+    116          
+    117          
+    118          //ELF
+
+   \                                 In segment DATA_N, align 4, align-sorted
+    119          __no_init char smallicons_str[32];
+   \                     smallicons_str:
+   \   00000000                      DS8 32
+    120          __no_init char bigicons_str[32];
+   \                     bigicons_str:
+   \   00000020                      DS8 32
+    121          
+    122          //EDL
+    123          __no_init char smallicons_edl_str[32];
+   \                     smallicons_edl_str:
+   \   00000040                      DS8 32
+    124          __no_init char bigicons_edl_str[32];
+   \                     bigicons_edl_str:
+   \   00000060                      DS8 32
+    125          
+    126          
+    127          
+    128          
+    129          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    130          __arm void MyIDLECSMonCreate(void *data)
+    131          {
+   \                     MyIDLECSMonCreate:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+    132            //ELF
+    133            static const int smallicons[2]={(int)smallicons_str,0};
+    134            static const int bigicons[2]={(int)bigicons_str,0};
+    135            //EDL
+    136            static const int smallicons_edl[2]={(int)smallicons_edl_str,0};
+    137            static const int bigicons_edl[2]={(int)bigicons_edl_str,0};
+    138            
+    139            
+    140          #ifdef NEWSGOLD
+    141            static const REGEXPLEXT elf_reg=
+    142            {
+    143              "elf",
+    144              0x55,
+    145              0xFF,
+    146              8, //Каталог Misc
+    147              MENU_FLAG2,
+    148              smallicons,
+    149              bigicons,
+    150              (int)"Open",    //LGP "Открыть"
+    151              (int)"AltOpen", //LGP "Опции"
+    152              LGP_DOIT_PIC,
+    153              (void *)elf_onload,
+    154              0
+    155            };
+    156            
+    157            static const REGEXPLEXT edl_reg=
+    158            {
+    159              "edl",
+    160              0xFFFF,
+    161              0xFF,
+    162              8, //Каталог Misc
+    163              MENU_FLAG2,
+    164              smallicons_edl,
+    165              bigicons_edl,
+    166              (int)"Open",    //LGP "Открыть"
+    167              (int)"AltOpen", //LGP "Опции"
+    168              LGP_DOIT_PIC,
+    169              (void *)edl_onload,
+    170              0
+    171            };
+    172            
+    173          #else
+    174            static const REGEXPLEXT elf_reg=
+    175            {
+    176              "elf",
+    177              0x55,
+    178              0xFF,
+    179              7,
+    180              MENU_FLAG2,
+    181              smallicons,
+    182              bigicons,
+    183              (void *)elf_onload,
+    184              0
+    185            };
+    186            
+    187            static const REGEXPLEXT edl_reg=
+    188            {
+    189              "edl",
+    190              0xFFFF,
+    191              0xFF,
+    192              7,
+    193              MENU_FLAG2,
+    194              smallicons_edl,
+    195              bigicons_edl,
+    196              (void *)edl_onload,
+    197              0
+    198            };
+    199          #endif
+    200            
+    201           // InitConfig();
+    202          
+    203            extern void CreateEPC_PROC();
+    204            CreateEPC_PROC();
+    205            
+    206            extern void LoadLibrary();
+    207            LoadLibrary();
+    208            
+    209            extern void DHS_init();
+    210            DHS_init();
+    211            
+    212            EDL_system_init();
+    213            
+    214            InitPngBitMap();
+    215            
+    216            //ELF
+    217            strcpy(smallicons_str+1,":\\ZBin\\img\\elf_small.png");
+   \   00000004   C4509FE5           LDR      R5,??MyIDLECSMonCreate_0  ;; smallicons_str
+   \   00000008   C4609FE5           LDR      R6,??MyIDLECSMonCreate_0+0x4  ;; `?<Constant ":\\\\ZBin\\\\img\\\\elf_small.png">`
+    218            strcpy(bigicons_str+1,":\\ZBin\\img\\elf_big.png");
+    219            smallicons_str[0]=bigicons_str[0]=DEFAULT_DISK_N+'0';
+   \   0000000C   ........           LDR      R7,??DataTable2  ;; DEFAULT_DISK_N
+   \   00000010   0040A0E1           MOV      R4,R0
+   \   00000014   ........           _BLF     CreateEPC_PROC,??CreateEPC_PROC??rA
+   \   00000018   ........           _BLF     LoadLibrary,??LoadLibrary??rA
+   \   0000001C   ........           _BLF     DHS_init,??DHS_init??rA
+   \   00000020   ........           _BLF     EDL_system_init,??EDL_system_init??rA
+   \   00000024   ........           _BLF     InitPngBitMap,??InitPngBitMap??rA
+   \   00000028   0610A0E1           MOV      R1,R6
+   \   0000002C   010085E2           ADD      R0,R5,#+1
+   \   00000030   1A0000EF           SWI      +26
+   \   00000034   1C1086E2           ADD      R1,R6,#+28
+   \   00000038   210085E2           ADD      R0,R5,#+33
+   \   0000003C   1A0000EF           SWI      +26
+   \   00000040   000097E5           LDR      R0,[R7, #+0]
+    220            
+    221            //EDL
+    222            strcpy(smallicons_edl_str+1,":\\ZBin\\img\\edl_small.png");
+   \   00000044   341086E2           ADD      R1,R6,#+52
+   \   00000048   300080E2           ADD      R0,R0,#+48
+   \   0000004C   2000C5E5           STRB     R0,[R5, #+32]
+   \   00000050   0000C5E5           STRB     R0,[R5, #+0]
+   \   00000054   410085E2           ADD      R0,R5,#+65
+   \   00000058   1A0000EF           SWI      +26
+    223            strcpy(bigicons_edl_str+1,":\\ZBin\\img\\edl_big.png");
+   \   0000005C   501086E2           ADD      R1,R6,#+80
+   \   00000060   610085E2           ADD      R0,R5,#+97
+   \   00000064   1A0000EF           SWI      +26
+    224            smallicons_edl_str[0]=bigicons_edl_str[0]=DEFAULT_DISK_N+'0';
+   \   00000068   000097E5           LDR      R0,[R7, #+0]
+   \   0000006C   300080E2           ADD      R0,R0,#+48
+   \   00000070   6000C5E5           STRB     R0,[R5, #+96]
+   \   00000074   4000C5E5           STRB     R0,[R5, #+64]
+    225            
+    226            
+    227            RegExplorerExt(&elf_reg);
+   \   00000078   680086E2           ADD      R0,R6,#+104
+   \   0000007C   8C0000EF           SWI      +140
+    228            RegExplorerExt(&edl_reg);
+   \   00000080   900086E2           ADD      R0,R6,#+144
+   \   00000084   8C0000EF           SWI      +140
+    229            
+    230            extern int edl_ena;
+    231            if (edl_ena) LoadLibs();
+   \   00000088   48009FE5           LDR      R0,??MyIDLECSMonCreate_0+0x8  ;; edl_ena
+   \   0000008C   000090E5           LDR      R0,[R0, #+0]
+   \   00000090   000050E3           CMP      R0,#+0
+   \   00000094   0000000A           BEQ      ??MyIDLECSMonCreate_1
+   \   00000098   ........           BL       LoadLibs
+    232            
+    233            extern int subproc_daem;
+    234            if (subproc_daem == 1)
+   \                     ??MyIDLECSMonCreate_1:
+   \   0000009C   38009FE5           LDR      R0,??MyIDLECSMonCreate_0+0xC  ;; subproc_daem
+   \   000000A0   000090E5           LDR      R0,[R0, #+0]
+   \   000000A4   010050E3           CMP      R0,#+1
+   \   000000A8   0200001A           BNE      ??MyIDLECSMonCreate_2
+    235            SUBPROC((void *)LoadDaemons);
+   \   000000AC   2C009FE5           LDR      R0,??MyIDLECSMonCreate_0+0x10  ;; LoadDaemons
+   \   000000B0   710100EF           SWI      +369
+   \   000000B4   000000EA           B        ??MyIDLECSMonCreate_3
+    236            else LoadDaemons();
+   \                     ??MyIDLECSMonCreate_2:
+   \   000000B8   ........           BL       LoadDaemons
+    237            
+    238            
+    239            extern BXR1(void *, void (*)(void *));
+    240            BXR1(data,OldOnCreate);
+   \                     ??MyIDLECSMonCreate_3:
+   \   000000BC   20009FE5           LDR      R0,??MyIDLECSMonCreate_0+0x14  ;; OldOnCreate
+   \   000000C0   001090E5           LDR      R1,[R0, #+0]
+   \   000000C4   0400A0E1           MOV      R0,R4
+   \   000000C8   ........           _BLF     BXR1,??BXR1??rA
+    241          }
+   \   000000CC   F080BDE8           POP      {R4-R7,PC}       ;; return
+   \                     ??MyIDLECSMonCreate_0:
+   \   000000D0   ........           DC32     smallicons_str
+   \   000000D4   ........           DC32     `?<Constant ":\\\\ZBin\\\\img\\\\elf_small.png">`
+   \   000000D8   ........           DC32     edl_ena
+   \   000000DC   ........           DC32     subproc_daem
+   \   000000E0   ........           DC32     LoadDaemons
+   \   000000E4   ........           DC32     OldOnCreate
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     ??smallicons:
+   \   00000000   ........0000       DC32 smallicons_str, 0
+   \              0000        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     ??bigicons:
+   \   00000000   ........0000       DC32 bigicons_str, 0
+   \              0000        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     ??smallicons_edl:
+   \   00000000   ........0000       DC32 smallicons_edl_str, 0
+   \              0000        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     ??bigicons_edl:
+   \   00000000   ........0000       DC32 bigicons_edl_str, 0
+   \              0000        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant ":\\\\ZBin\\\\img\\\\elf_small.png">`:
+   \   00000000   3A5C5A42696E       DC8 ":\\ZBin\\img\\elf_small.png"
+   \              5C696D675C65
+   \              6C665F736D61
+   \              6C6C2E706E67
+   \              00          
+   \   00000019   000000             DC8 0, 0, 0
+   \   0000001C   3A5C5A42696E       DC8 ":\\ZBin\\img\\elf_big.png"
+   \              5C696D675C65
+   \              6C665F626967
+   \              2E706E6700  
+   \   00000033   00                 DC8 0
+   \   00000034   3A5C5A42696E       DC8 ":\\ZBin\\img\\edl_small.png"
+   \              5C696D675C65
+   \              646C5F736D61
+   \              6C6C2E706E67
+   \              00          
+   \   0000004D   000000             DC8 0, 0, 0
+   \   00000050   3A5C5A42696E       DC8 ":\\ZBin\\img\\edl_big.png"
+   \              5C696D675C65
+   \              646C5F626967
+   \              2E706E6700  
+   \   00000067   00                 DC8 0
+   \   00000068   ........5500       DC32 `?<Constant "elf">`, 85
+   \              0000        
+   \   00000070   FF08               DC8 255, 8
+   \   00000072   A205               DC16 1442
+   \   00000074   ............       DC32 ??smallicons, ??bigicons, `?<Constant "Open">`
+   \              ............
+   \   00000080   ........FBC0       DC32 `?<Constant "AltOpen">`, 2147467515, elf_onload, 0H
+   \              FF7F........
+   \              00000000    
+   \   00000090   ........FFFF       DC32 `?<Constant "edl">`, 65535
+   \              0000        
+   \   00000098   FF08               DC8 255, 8
+   \   0000009A   A205               DC16 1442
+   \   0000009C   ............       DC32 ??smallicons_edl, ??bigicons_edl, `?<Constant "Open">`
+   \              ............
+   \   000000A8   ........FBC0       DC32 `?<Constant "AltOpen">`, 2147467515, edl_onload, 0H
+   \              FF7F........
+   \              00000000    
+    242          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    243          __arm void MyIDLECSMonClose(void *data)
+    244          {
+   \                     MyIDLECSMonClose:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    245            extern BXR1(void *, void (*)(void *));
+    246            extern void KillEPC_PROC();
+    247            KillEPC_PROC();
+   \   00000008   ........           _BLF     KillEPC_PROC,??KillEPC_PROC??rA
+    248            //EDL_system_kill();
+    249            extern void DHS_kill();
+    250            DHS_kill();
+   \   0000000C   ........           _BLF     DHS_kill,??DHS_kill??rA
+    251            
+    252            BXR1(data,OldOnClose);
+   \   00000010   0C009FE5           LDR      R0,??MyIDLECSMonClose_0  ;; OldOnClose
+   \   00000014   001090E5           LDR      R1,[R0, #+0]
+   \   00000018   0400A0E1           MOV      R0,R4
+   \   0000001C   1040BDE8           POP      {R4,LR}          ;; Pop
+   \   00000020   ........           _BF      BXR1,??BXR1??rA  ;; tailcall
+   \                     ??MyIDLECSMonClose_0:
+   \   00000024   ........           DC32     OldOnClose
+    253          }
+    254          
+    255          
+    256          
+    257          
+    258          //Патчи
+    259          #pragma diag_suppress=Pe177
+
+   \                                 In segment PATCH_ONCREATE, align 4, align-sorted, root
+   \   00000000   ........           DC32 MyIDLECSMonCreate
+    260          __root static const int NEW_ONCREATE @ "PATCH_ONCREATE" = (int)MyIDLECSMonCreate;
+
+   \                                 In segment PATCH_ONCLOSE, align 4, align-sorted, root
+   \   00000000   ........           DC32 MyIDLECSMonClose
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable2:
+   \   00000000   ........           DC32     DEFAULT_DISK_N
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "EP 3.0:\\n%s\\nerr: %d!">`:
+   \   00000000   455020332E30       DC8 "EP 3.0:\012%s\012err: %d!"
+   \              3A0A25730A65
+   \              72723A202564
+   \              2100        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant ":\\\\ZBin\\\\Libs\\\\">`:
+   \   00000000   3A5C5A42696E       DC8 ":\\ZBin\\Libs\\"
+   \              5C4C6962735C
+   \              00          
+   \   0000000D   000000             DC8 0, 0, 0
+   \   00000010   2A2E65646C00       DC8 "*.edl"
+   \   00000016   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant ":\\\\ZBin\\\\Daemons\\\\">`:
+   \   00000000   3A5C5A42696E       DC8 ":\\ZBin\\Daemons\\"
+   \              5C4461656D6F
+   \              6E735C00    
+   \   00000010   2A2E656C6600       DC8 "*.elf"
+   \   00000016   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "elf">`:
+   \   00000000   656C6600           DC8 "elf"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Open">`:
+   \   00000000   4F70656E00         DC8 "Open"
+   \   00000005   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "AltOpen">`:
+   \   00000000   416C744F7065       DC8 "AltOpen"
+   \              6E00        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "edl">`:
+   \   00000000   65646C00           DC8 "edl"
+    261          __root static const int NEW_ONCLOSE @ "PATCH_ONCLOSE" = (int)MyIDLECSMonClose;
+    262          #pragma diag_default=Pe177
+    263          
+
+   Maximum stack usage in bytes:
+
+     Function              CSTACK
+     --------              ------
+     LoadDaemons            1108
+     LoadLibs               1108
+     MyIDLECSMonClose          8
+     MyIDLECSMonCreate        20
+     edl_onload              132
+     elf_onload              136
+     executer_and_messager   108
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     executer_and_messager           112
+     elf_onload                       72
+     edl_onload                       56
+     LoadLibs                        180
+     LoadDaemons                     180
+     smallicons_str                  128
+     MyIDLECSMonCreate               232
+     smallicons                        8
+     bigicons                          8
+     smallicons_edl                    8
+     bigicons_edl                      8
+     ?<Constant ":\\ZBin\\img\\elf_small.png">
+                                     184
+     MyIDLECSMonClose                 40
+     NEW_ONCREATE                      4
+     NEW_ONCLOSE                       4
+     ??DataTable2                      4
+     ?<Constant "EP 3.0:\n%s\nerr: %d!">
+                                      20
+     ?<Constant ":\\ZBin\\Libs\\">    24
+     ?<Constant ":\\ZBin\\Daemons\\">
+                                      24
+     ?<Constant "elf">                 4
+     ?<Constant "Open">                8
+     ?<Constant "AltOpen">             8
+     ?<Constant "edl">                 4
+      Others                         148
+
+ 
+ 1 024 bytes in segment CODE
+   308 bytes in segment DATA_C
+   128 bytes in segment DATA_N
+     4 bytes in segment PATCH_ONCLOSE
+     4 bytes in segment PATCH_ONCREATE
+ 
+ 876 bytes of CODE  memory (+ 148 bytes shared)
+ 316 bytes of CONST memory
+ 128 bytes of DATA  memory
+
+Errors: none
+Warnings: none

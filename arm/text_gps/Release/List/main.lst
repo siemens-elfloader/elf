@@ -1,0 +1,1317 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    24/Apr/2011  00:19:44 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\bobakozel\main.c                              #
+#    Command line    =  C:\arm\bobakozel\main.c -D NEWSGOLD -lC              #
+#                       C:\arm\bobakozel\Release\List\ -o                    #
+#                       C:\arm\bobakozel\Release\Obj\ -s9 --no_unroll        #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None -I "C:\arm2\Embedded Workbench 4.0        #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\bobakozel\Release\List\main.lst               #
+#    Object file     =  C:\arm\bobakozel\Release\Obj\main.r79                #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\bobakozel\main.c
+      1          #include "..\inc\swilib.h"
+      2          #include "conf_loader.h"
+      3          #include "string_works.h"
+      4          
+      5          #define BUFFSIZE 0x200
+      6          
+      7          extern const RECT DATA_AREA;
+      8          extern const int SHOW_COUNTRY;
+      9          extern const int SHOW_AREA;
+     10          extern const int SHOW_CITY;
+     11          extern const int SHOW_STREET;
+
+   \                                 In segment DATA_C, align 4, align-sorted
+     12           const int SHOW_LON;
+   \                     SHOW_LON:
+   \   00000000   00000000           DC8 0, 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+     13           const int SHOW_LAT;
+   \                     SHOW_LAT:
+   \   00000000   00000000           DC8 0, 0, 0, 0
+     14          
+     15          typedef struct{
+     16            char
+     17              Lat[32],
+     18              Lon[32],
+     19              Country[32],
+     20              Area[32],
+     21              City[32],
+     22              Street[32];
+     23          }LOCATE;
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     24          LOCATE locate;
+   \                     locate:
+   \   00000000                      DS8 192
+     25          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     26          WSHDR *ews;
+   \                     ews:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     27          int sock;
+   \                     sock:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     28          int connect_state;
+   \                     connect_state:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     29          char *buf=0;
+   \                     buf:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     30          int pbuf=0;
+   \                     pbuf:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     31          RAMNET *ramnet;
+   \                     ramnet:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 2, align-sorted
+     32          unsigned short old_ci=0;
+   \                     old_ci:
+   \   00000000                      DS8 2
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     33          unsigned int old_gprs_state[2]={0,0};
+   \                     old_gprs_state:
+   \   00000000                      DS8 8
+     34          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     35          GBSTMR update_tmr;
+   \                     update_tmr:
+   \   00000000                      DS8 16
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     36          GBSTMR reconnect_tmr;
+   \                     reconnect_tmr:
+   \   00000000                      DS8 16
+     37          
+     38          void create_connect(void);
+     39          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     40          void do_start_connection(void){
+     41            if (old_ci!=ramnet[0].ci){
+   \                     do_start_connection:
+   \   00000000   ........           LDR      R1,??DataTable36  ;; ramnet
+   \   00000004   ........           LDR      R0,??DataTable34  ;; old_ci
+   \   00000008   10402DE9           PUSH     {R4,LR}
+   \   0000000C   001091E5           LDR      R1,[R1, #+0]
+   \   00000010   B000D0E1           LDRH     R0,[R0, #+0]
+   \   00000014   B210D1E1           LDRH     R1,[R1, #+2]
+   \   00000018   010050E1           CMP      R0,R1
+   \   0000001C   0200000A           BEQ      ??do_start_connection_0
+     42              SUBPROC((void *)create_connect);
+   \   00000020   28009FE5           LDR      R0,??do_start_connection_1  ;; create_connect
+   \   00000024   710100EF           SWI      +369
+   \   00000028   1080BDE8           POP      {R4,PC}
+     43            }else{
+     44              GBS_DelTimer(&update_tmr);
+   \                     ??do_start_connection_0:
+   \   0000002C   ........           LDR      R4,??DataTable39  ;; update_tmr
+   \   00000030   0400A0E1           MOV      R0,R4
+   \   00000034   8C0100EF           SWI      +396
+     45              GBS_StartTimerProc(&update_tmr, (216*60), do_start_connection); 
+   \   00000038   ........           LDR      R2,??DataTable32  ;; do_start_connection
+   \   0000003C   A010A0E3           MOV      R1,#+160
+   \   00000040   C81D81E3           ORR      R1,R1,#0x3200
+   \   00000044   0400A0E1           MOV      R0,R4
+   \   00000048   4D0000EF           SWI      +77
+     46            }
+     47          }
+   \   0000004C   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??do_start_connection_1:
+   \   00000050   ........           DC32     create_connect
+     48          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     49          void StartGPRS(void){
+   \                     StartGPRS:
+   \   00000000   00402DE9           PUSH     {LR}
+     50            GPRS_OnOff(1,1);
+   \   00000004   0110A0E3           MOV      R1,#+1
+   \   00000008   0100A0E3           MOV      R0,#+1
+   \   0000000C   8E0100EF           SWI      +398
+     51            GBS_StartTimerProc(&reconnect_tmr,216*60,do_start_connection);
+   \   00000010   ........           LDR      R2,??DataTable32  ;; do_start_connection
+   \   00000014   ........           LDR      R0,??DataTable40  ;; reconnect_tmr
+   \   00000018   A010A0E3           MOV      R1,#+160
+   \   0000001C   C81D81E3           ORR      R1,R1,#0x3200
+   \   00000020   4D0000EF           SWI      +77
+     52          }
+   \   00000024   0080BDE8           POP      {PC}             ;; return
+     53          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     54          void create_connect(void){
+   \                     create_connect:
+   \   00000000   F0432DE9           PUSH     {R4-R9,LR}
+     55            SOCK_ADDR sa;
+     56            //Устанавливаем соединение
+     57            connect_state=0;
+   \   00000004   ........           LDR      R5,??DataTable30  ;; connect_state
+     58          
+     59            GBS_DelTimer(&reconnect_tmr);
+   \   00000008   ........           LDR      R6,??DataTable40  ;; reconnect_tmr
+     60            
+     61            if (!IsGPRSEnabled()){
+   \   0000000C   ........           LDR      R8,??DataTable19  ;; old_gprs_state
+   \   00000010   10D04DE2           SUB      SP,SP,#+16
+   \   00000014   0070A0E3           MOV      R7,#+0
+   \   00000018   007085E5           STR      R7,[R5, #+0]
+   \   0000001C   0600A0E1           MOV      R0,R6
+   \   00000020   8C0100EF           SWI      +396
+   \   00000024   0140A0E3           MOV      R4,#+1
+   \   00000028   A70000EF           SWI      +167
+   \   0000002C   000050E3           CMP      R0,#+0
+   \   00000030   0600001A           BNE      ??create_connect_0
+     62              StartGPRS();
+   \   00000034   ........           BL       StartGPRS
+     63              if (!old_gprs_state[1]){
+   \   00000038   040098E5           LDR      R0,[R8, #+4]
+   \   0000003C   000050E3           CMP      R0,#+0
+   \   00000040   FF83BD18           POPNE    {R0-R9,PC}
+     64                old_gprs_state[0] = 0;
+   \   00000044   007088E5           STR      R7,[R8, #+0]
+     65                old_gprs_state[1] = 1;
+   \   00000048   044088E5           STR      R4,[R8, #+4]
+   \   0000004C   FF83BDE8           POP      {R0-R9,PC}
+     66              }
+     67              return;
+     68            }else{
+     69              if (!old_gprs_state[1]){
+   \                     ??create_connect_0:
+   \   00000050   040098E5           LDR      R0,[R8, #+4]
+     70                old_gprs_state[0] = 1;
+     71                old_gprs_state[1] = 1;
+     72              }    
+     73            }
+     74            
+     75            sock=socket(1,1,0);
+   \   00000054   ........           LDR      R7,??DataTable29  ;; sock
+   \   00000058   000050E3           CMP      R0,#+0
+   \   0000005C   00408805           STREQ    R4,[R8, #+0]
+   \   00000060   04408805           STREQ    R4,[R8, #+4]
+   \   00000064   0020A0E3           MOV      R2,#+0
+   \   00000068   0110A0E3           MOV      R1,#+1
+   \   0000006C   0100A0E1           MOV      R0,R1
+   \   00000070   730100EF           SWI      +371
+   \   00000074   000087E5           STR      R0,[R7, #+0]
+     76            if (sock!=-1){
+   \   00000078   A080A0E3           MOV      R8,#+160
+   \   0000007C   C88D88E3           ORR      R8,R8,#0x3200
+   \   00000080   009064E2           RSB      R9,R4,#+0
+   \   00000084   090050E1           CMP      R0,R9
+   \   00000088   1400000A           BEQ      ??create_connect_1
+     77              sa.family=1;
+   \   0000008C   B040CDE1           STRH     R4,[SP, #+0]
+     78              sa.port=htons(80);
+   \   00000090   5000A0E3           MOV      R0,#+80
+   \   00000094   7A0100EF           SWI      +378
+   \   00000098   B200CDE1           STRH     R0,[SP, #+2]
+     79              sa.ip=htonl(IP_ADDR(78,24,218,208));
+   \   0000009C   5C009FE5           LDR      R0,??create_connect_2  ;; 0x4e18dad0
+   \   000000A0   7B0100EF           SWI      +379
+   \   000000A4   04008DE5           STR      R0,[SP, #+4]
+     80              if (connect(sock,&sa,sizeof(sa))!=-1){
+   \   000000A8   000097E5           LDR      R0,[R7, #+0]
+   \   000000AC   1020A0E3           MOV      R2,#+16
+   \   000000B0   0D10A0E1           MOV      R1,SP
+   \   000000B4   740100EF           SWI      +372
+   \   000000B8   090050E1           CMP      R0,R9
+   \   000000BC   0200000A           BEQ      ??create_connect_3
+     81                connect_state=1;
+   \   000000C0   004085E5           STR      R4,[R5, #+0]
+     82                REDRAW();
+   \   000000C4   720100EF           SWI      +370
+   \   000000C8   FF83BDE8           POP      {R0-R9,PC}
+     83              }else{
+     84                closesocket(sock);
+   \                     ??create_connect_3:
+   \   000000CC   000097E5           LDR      R0,[R7, #+0]
+   \   000000D0   760100EF           SWI      +374
+     85                sock=-1;
+     86                GBS_StartTimerProc(&reconnect_tmr,216*60,do_start_connection);
+   \   000000D4   ........           LDR      R2,??DataTable32  ;; do_start_connection
+   \   000000D8   009087E5           STR      R9,[R7, #+0]
+   \   000000DC   030000EA           B        ??create_connect_4
+     87              }
+     88            }else{
+     89              //Не осилили создания сокета, закрываем GPRS-сессию
+     90              GPRS_OnOff(0,1);
+   \                     ??create_connect_1:
+   \   000000E0   0110A0E3           MOV      R1,#+1
+   \   000000E4   0000A0E3           MOV      R0,#+0
+   \   000000E8   8E0100EF           SWI      +398
+     91              // и через 30 секунд запускаем жопорез
+     92              GBS_StartTimerProc(&reconnect_tmr, 216*60, StartGPRS);    
+   \   000000EC   10209FE5           LDR      R2,??create_connect_2+0x4  ;; StartGPRS
+   \                     ??create_connect_4:
+   \   000000F0   0810A0E1           MOV      R1,R8
+   \   000000F4   0600A0E1           MOV      R0,R6
+   \   000000F8   4D0000EF           SWI      +77
+   \   000000FC   FF83BDE8           POP      {R0-R9,PC}       ;; return
+   \                     ??create_connect_2:
+   \   00000100   D0DA184E           DC32     0x4e18dad0
+   \   00000104   ........           DC32     StartGPRS
+     93            }
+     94          }
+     95          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     96          char req_buf[100];
+   \                     req_buf:
+   \   00000000                      DS8 100
+
+   \                                 In segment CODE, align 4, keep-with-next
+     97          void send_req(void){
+     98            char *p=((char*)ramnet)-11;
+   \                     send_req:
+   \   00000000   ........           LDR      R0,??DataTable36  ;; ramnet
+   \   00000004   10402DE9           PUSH     {R4,LR}
+   \   00000008   001090E5           LDR      R1,[R0, #+0]
+   \   0000000C   0B0041E2           SUB      R0,R1,#+11
+     99            char cc1=*p;
+   \   00000010   0020D0E5           LDRB     R2,[R0, #+0]
+    100            char cc2=*(p+1);
+    101            char nc=*(p+2);
+   \   00000014   0230D0E5           LDRB     R3,[R0, #+2]
+    102          
+    103            snprintf(req_buf,99, "GET /w/g.php?mcc=%i&mnc=%i&lac=%i&ci=%i"
+    104              " HTTP/1.0\r\nHost: igps.boba.su\r\n\r\n",
+    105              (cc1&0x0F)*100+(cc1>>4)*10+(cc2&0x0F),
+    106              (nc&0x0F)*10+(nc>>4),
+    107              ramnet[0].lac,
+    108              ramnet[0].ci
+    109            );  
+   \   00000018   B2C0D1E1           LDRH     R12,[R1, #+2]
+   \   0000001C   A8409FE5           LDR      R4,??send_req_0  ;; req_buf
+   \   00000020   00102DE9           PUSH     {R12}
+   \   00000024   B410D1E1           LDRH     R1,[R1, #+4]
+   \   00000028   0AC0A0E3           MOV      R12,#+10
+   \   0000002C   02002DE9           PUSH     {R1}
+   \   00000030   0F1003E2           AND      R1,R3,#0xF
+   \   00000034   2332A0E1           LSR      R3,R3,#+4
+   \   00000038   9C3121E0           MLA      R1,R12,R1,R3
+   \   0000003C   6430A0E3           MOV      R3,#+100
+   \   00000040   02002DE9           PUSH     {R1}
+   \   00000044   0100D0E5           LDRB     R0,[R0, #+1]
+   \   00000048   0F1002E2           AND      R1,R2,#0xF
+   \   0000004C   2222A0E1           LSR      R2,R2,#+4
+   \   00000050   9C0202E0           MUL      R2,R12,R2
+   \   00000054   0F0000E2           AND      R0,R0,#0xF
+   \   00000058   932121E0           MLA      R1,R3,R1,R2
+   \   0000005C   6C209FE5           LDR      R2,??send_req_0+0x4  ;; `?<Constant "GET /w/g.php?mcc=%i&m...">`
+   \   00000060   013080E0           ADD      R3,R0,R1
+   \   00000064   6310A0E3           MOV      R1,#+99
+   \   00000068   0400A0E1           MOV      R0,R4
+   \   0000006C   1B0100EF           SWI      +283
+    110           
+    111            send(sock,req_buf,strlen(req_buf),0);
+   \   00000070   0400A0E1           MOV      R0,R4
+   \   00000074   1B0000EF           SWI      +27
+   \   00000078   0020A0E1           MOV      R2,R0
+   \   0000007C   ........           LDR      R0,??DataTable29  ;; sock
+   \   00000080   0030A0E3           MOV      R3,#+0
+   \   00000084   000090E5           LDR      R0,[R0, #+0]
+   \   00000088   0410A0E1           MOV      R1,R4
+    112            connect_state=2;
+    113          
+    114            if (!buf){
+   \   0000008C   ........           LDR      R4,??DataTable37  ;; buf
+   \   00000090   790100EF           SWI      +377
+   \   00000094   ........           LDR      R0,??DataTable30  ;; connect_state
+   \   00000098   0210A0E3           MOV      R1,#+2
+   \   0000009C   001080E5           STR      R1,[R0, #+0]
+   \   000000A0   000094E5           LDR      R0,[R4, #+0]
+   \   000000A4   0CD08DE2           ADD      SP,SP,#+12
+   \   000000A8   000050E3           CMP      R0,#+0
+   \   000000AC   1080BD18           POPNE    {R4,PC}
+    115              buf=malloc(BUFFSIZE);
+   \   000000B0   800FA0E3           MOV      R0,#+512
+   \   000000B4   140000EF           SWI      +20
+   \   000000B8   000084E5           STR      R0,[R4, #+0]
+    116              pbuf=0;
+   \   000000BC   ........           LDR      R0,??DataTable26  ;; pbuf
+   \   000000C0   0010A0E3           MOV      R1,#+0
+   \   000000C4   001080E5           STR      R1,[R0, #+0]
+    117            }
+    118          }
+   \   000000C8   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??send_req_0:
+   \   000000CC   ........           DC32     req_buf
+   \   000000D0   ........           DC32     `?<Constant "GET /w/g.php?mcc=%i&m...">`
+    119          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    120          void end_socket(void){
+   \                     end_socket:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    121            if (sock>=0){
+   \   00000004   ........           LDR      R4,??DataTable29  ;; sock
+   \   00000008   000094E5           LDR      R0,[R4, #+0]
+   \   0000000C   000050E3           CMP      R0,#+0
+   \   00000010   1080BD48           POPMI    {R4,PC}
+    122              shutdown(sock,2);
+   \   00000014   0210A0E3           MOV      R1,#+2
+   \   00000018   770100EF           SWI      +375
+    123              closesocket(sock);
+   \   0000001C   000094E5           LDR      R0,[R4, #+0]
+   \   00000020   760100EF           SWI      +374
+    124              buf[pbuf]=0;
+   \   00000024   ........           LDR      R0,??DataTable26  ;; pbuf
+   \   00000028   ........           LDR      R1,??DataTable37  ;; buf
+   \   0000002C   000090E5           LDR      R0,[R0, #+0]
+   \   00000030   001091E5           LDR      R1,[R1, #+0]
+   \   00000034   0020A0E3           MOV      R2,#+0
+   \   00000038   0120C0E7           STRB     R2,[R0, +R1]
+    125              // выключаем жопорез, если он изначально был выключен
+    126              if (!old_gprs_state[0]){
+   \   0000003C   ........           LDR      R0,??DataTable19  ;; old_gprs_state
+   \   00000040   000090E5           LDR      R0,[R0, #+0]
+   \   00000044   000050E3           CMP      R0,#+0
+   \   00000048   1080BD18           POPNE    {R4,PC}
+    127                GPRS_OnOff(0,1);
+   \   0000004C   0110A0E3           MOV      R1,#+1
+   \   00000050   8E0100EF           SWI      +398
+    128              }
+    129            }
+    130          }
+   \   00000054   1080BDE8           POP      {R4,PC}          ;; return
+    131          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    132          void get_answer(void){
+    133            int i=recv(sock,buf+pbuf,BUFFSIZE-1-pbuf,0);
+   \                     get_answer:
+   \   00000000   ........           LDR      R1,??DataTable37  ;; buf
+   \   00000004   30402DE9           PUSH     {R4,R5,LR}
+   \   00000008   001091E5           LDR      R1,[R1, #+0]
+   \   0000000C   ........           LDR      R4,??DataTable26  ;; pbuf
+   \   00000010   FF50A0E3           MOV      R5,#+255
+   \   00000014   000094E5           LDR      R0,[R4, #+0]
+   \   00000018   405F85E3           ORR      R5,R5,#0x100
+   \   0000001C   002045E0           SUB      R2,R5,R0
+   \   00000020   011080E0           ADD      R1,R0,R1
+   \   00000024   ........           LDR      R0,??DataTable29  ;; sock
+   \   00000028   0030A0E3           MOV      R3,#+0
+   \   0000002C   000090E5           LDR      R0,[R0, #+0]
+   \   00000030   780100EF           SWI      +376
+    134            pbuf+=i;
+   \   00000034   001094E5           LDR      R1,[R4, #+0]
+    135            if ((i<0)||(pbuf>=BUFFSIZE-1)){
+   \   00000038   000050E3           CMP      R0,#+0
+   \   0000003C   011080E0           ADD      R1,R0,R1
+   \   00000040   001084E5           STR      R1,[R4, #+0]
+   \   00000044   0100004A           BMI      ??get_answer_0
+   \   00000048   050051E1           CMP      R1,R5
+   \   0000004C   3080BDB8           POPLT    {R4,R5,PC}
+    136              end_socket();
+   \                     ??get_answer_0:
+   \   00000050   ........           BL       end_socket
+    137            }
+    138          }
+   \   00000054   3080BDE8           POP      {R4,R5,PC}       ;; return
+    139          
+    140          //==============================================================================
+
+   \                                 In segment CODE, align 4, keep-with-next
+    141          void GenerateString(){
+    142              char sss[128];
+    143              snprintf(sss, 127, "%s%s%s%s%s%s", 
+    144                          locate.Street,
+    145                          SHOW_CITY    ? locate.City    : "", 
+    146                          SHOW_AREA    ? locate.Area    : "", 
+    147                          SHOW_COUNTRY ? locate.Country : "", 
+    148                          SHOW_LAT ? locate.Lat : "", 
+    149                          SHOW_LON ? locate.Lon : ""
+    150          
+    151                   );
+   \                     GenerateString:
+   \   00000000   ........           LDR      R1,??DataTable27  ;; locate
+   \   00000004   A8209FE5           LDR      R2,??GenerateString_0+0x4  ;; SHOW_LON
+   \   00000008   A8309FE5           LDR      R3,??GenerateString_0+0x8  ;; SHOW_LAT
+   \   0000000C   30402DE9           PUSH     {R4,R5,LR}
+   \   00000010   A4409FE5           LDR      R4,??GenerateString_0+0xC  ;; SHOW_COUNTRY
+   \   00000014   A4509FE5           LDR      R5,??GenerateString_0+0x10  ;; SHOW_CITY
+   \   00000018   80D04DE2           SUB      SP,SP,#+128
+   \   0000001C   002092E5           LDR      R2,[R2, #+0]
+   \   00000020   003093E5           LDR      R3,[R3, #+0]
+   \   00000024   004094E5           LDR      R4,[R4, #+0]
+   \   00000028   200F8FE2           ADR      R0,??GenerateString_0  ;; ""
+   \   0000002C   005095E5           LDR      R5,[R5, #+0]
+   \   00000030   000052E3           CMP      R2,#+0
+   \   00000034   20208112           ADDNE    R2,R1,#+32
+   \   00000038   0020A001           MOVEQ    R2,R0
+   \   0000003C   000053E3           CMP      R3,#+0
+   \   00000040   0130A011           MOVNE    R3,R1
+   \   00000044   0030A001           MOVEQ    R3,R0
+   \   00000048   000054E3           CMP      R4,#+0
+   \   0000004C   70409FE5           LDR      R4,??GenerateString_0+0x14  ;; SHOW_AREA
+   \   00000050   40C08112           ADDNE    R12,R1,#+64
+   \   00000054   004094E5           LDR      R4,[R4, #+0]
+   \   00000058   00C0A001           MOVEQ    R12,R0
+   \   0000005C   000054E3           CMP      R4,#+0
+   \   00000060   60408112           ADDNE    R4,R1,#+96
+   \   00000064   0040A001           MOVEQ    R4,R0
+   \   00000068   000055E3           CMP      R5,#+0
+   \   0000006C   80008112           ADDNE    R0,R1,#+128
+   \   00000070   04002DE9           PUSH     {R2}
+   \   00000074   4C209FE5           LDR      R2,??GenerateString_0+0x18  ;; `?<Constant "%s%s%s%s%s%s">`
+   \   00000078   08002DE9           PUSH     {R3}
+   \   0000007C   00102DE9           PUSH     {R12}
+   \   00000080   10002DE9           PUSH     {R4}
+   \   00000084   01002DE9           PUSH     {R0}
+   \   00000088   A03081E2           ADD      R3,R1,#+160
+   \   0000008C   7F10A0E3           MOV      R1,#+127
+   \   00000090   14008DE2           ADD      R0,SP,#+20
+   \   00000094   1B0100EF           SWI      +283
+    152              ascii2ws(ews, sss);
+   \   00000098   ........           LDR      R0,??DataTable38  ;; ews
+   \   0000009C   14108DE2           ADD      R1,SP,#+20
+   \   000000A0   000090E5           LDR      R0,[R0, #+0]
+   \   000000A4   ........           _BLF     ascii2ws,??ascii2ws??rA
+    153          }
+   \   000000A8   94D08DE2           ADD      SP,SP,#+148
+   \   000000AC   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??GenerateString_0:
+   \   000000B0   00000000           DC8      "",+0,+0,+0
+   \   000000B4   ........           DC32     SHOW_LON
+   \   000000B8   ........           DC32     SHOW_LAT
+   \   000000BC   ........           DC32     SHOW_COUNTRY
+   \   000000C0   ........           DC32     SHOW_CITY
+   \   000000C4   ........           DC32     SHOW_AREA
+   \   000000C8   ........           DC32     `?<Constant "%s%s%s%s%s%s">`
+    154          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    155          char *valuetag(char *src,char *dst, int maxlen){
+    156           if (!src) return 0;
+   \                     valuetag:
+   \   00000000   000050E3           CMP      R0,#+0
+   \   00000004   1EFF2F01           BXEQ     LR
+    157           if (!*src) return src;
+   \   00000008   0030D0E5           LDRB     R3,[R0, #+0]
+   \   0000000C   000053E3           CMP      R3,#+0
+   \   00000010   1EFF2F01           BXEQ     LR
+    158           int c=0;
+   \   00000014   0030A0E3           MOV      R3,#+0
+   \   00000018   020000EA           B        ??valuetag_0
+    159          // dst=dst+strlen(dst);
+    160           while (*src!='\n' && *src!='"' && *src!=0 && c < maxlen){
+    161            *dst++=*src++;
+   \                     ??valuetag_1:
+   \   0000001C   ........           LDRB     R12,[R0], #+1
+    162            c++;
+   \   00000020   013083E2           ADD      R3,R3,#+1
+   \   00000024   ........           STRB     R12,[R1], #+1
+    163           }
+   \                     ??valuetag_0:
+   \   00000028   00C0D0E5           LDRB     R12,[R0, #+0]
+   \   0000002C   0A005CE3           CMP      R12,#+10
+   \   00000030   22005C13           CMPNE    R12,#+34
+   \   00000034   00005C13           CMPNE    R12,#+0
+   \   00000038   0100000A           BEQ      ??valuetag_2
+   \   0000003C   020053E1           CMP      R3,R2
+   \   00000040   F5FFFFBA           BLT      ??valuetag_1
+    164           *dst=0;
+   \                     ??valuetag_2:
+   \   00000044   0020A0E3           MOV      R2,#+0
+   \   00000048   0020C1E5           STRB     R2,[R1, #+0]
+    165           return src;
+   \   0000004C   1EFF2FE1           BX       LR               ;; return
+    166          }
+    167          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    168          char * findtag(char *src, char *tag){
+   \                     findtag:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0140A0E1           MOV      R4,R1
+    169           char *s;
+    170           if (s=strstr(src,tag))
+   \   00000008   180100EF           SWI      +280
+   \   0000000C   0050B0E1           MOVS     R5,R0
+   \   00000010   3080BD08           POPEQ    {R4,R5,PC}
+    171            return s+strlen(tag);
+   \   00000014   0400A0E1           MOV      R0,R4
+   \   00000018   1B0000EF           SWI      +27
+   \   0000001C   050080E0           ADD      R0,R0,R5
+    172           return s;
+   \   00000020   3080BDE8           POP      {R4,R5,PC}       ;; return
+    173          }
+    174          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    175          void Parsing(){
+   \                     Parsing:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+    176            if ((!buf)||(!pbuf)) return; 
+   \   00000004   ........           LDR      R4,??DataTable37  ;; buf
+   \   00000008   000094E5           LDR      R0,[R4, #+0]
+   \   0000000C   000050E3           CMP      R0,#+0
+   \   00000010   F080BD08           POPEQ    {R4-R7,PC}
+   \   00000014   ........           LDR      R1,??DataTable26  ;; pbuf
+   \   00000018   001091E5           LDR      R1,[R1, #+0]
+   \   0000001C   000051E3           CMP      R1,#+0
+   \   00000020   F080BD08           POPEQ    {R4-R7,PC}
+    177            if (!strstr(buf,"200 OK")) return;
+   \   00000024   08119FE5           LDR      R1,??Parsing_0   ;; `?<Constant "200 OK">`
+   \   00000028   180100EF           SWI      +280
+   \   0000002C   000050E3           CMP      R0,#+0
+   \   00000030   F080BD08           POPEQ    {R4-R7,PC}
+    178            
+    179            char *tag=0;  
+    180            //Улица
+    181            locate.Street[0]=0;
+   \   00000034   ........           LDR      R5,??DataTable27  ;; locate
+    182            if(tag=findtag(buf,"STREET:")){
+   \   00000038   000094E5           LDR      R0,[R4, #+0]
+   \   0000003C   F4109FE5           LDR      R1,??Parsing_0+0x4  ;; `?<Constant "STREET:">`
+   \   00000040   0060A0E3           MOV      R6,#+0
+   \   00000044   A060C5E5           STRB     R6,[R5, #+160]
+   \   00000048   ........           BL       findtag
+   \   0000004C   000050E3           CMP      R0,#+0
+   \   00000050   0200000A           BEQ      ??Parsing_1
+    183              valuetag(tag, locate.Street, sizeof(locate.Street)-1);
+   \   00000054   1F20A0E3           MOV      R2,#+31
+   \   00000058   A01085E2           ADD      R1,R5,#+160
+   \   0000005C   ........           BL       valuetag
+    184            }
+    185          
+    186            //Город
+    187            locate.City[0]='\n';
+    188            if (tag=findtag(buf,"CITY:")){
+   \                     ??Parsing_1:
+   \   00000060   000094E5           LDR      R0,[R4, #+0]
+   \   00000064   D0109FE5           LDR      R1,??Parsing_0+0x8  ;; `?<Constant "CITY:">`
+   \   00000068   0A70A0E3           MOV      R7,#+10
+   \   0000006C   8070C5E5           STRB     R7,[R5, #+128]
+   \   00000070   ........           BL       findtag
+   \   00000074   000050E3           CMP      R0,#+0
+   \   00000078   0200000A           BEQ      ??Parsing_2
+    189              valuetag(tag, locate.City+1, sizeof(locate.City)-2);
+   \   0000007C   1E20A0E3           MOV      R2,#+30
+   \   00000080   811085E2           ADD      R1,R5,#+129
+   \   00000084   ........           BL       valuetag
+    190            }
+    191          
+    192            //Область
+    193            locate.Area[0]='\n';
+    194            if (tag=findtag(buf,"AREA:")){
+   \                     ??Parsing_2:
+   \   00000088   000094E5           LDR      R0,[R4, #+0]
+   \   0000008C   AC109FE5           LDR      R1,??Parsing_0+0xC  ;; `?<Constant "AREA:">`
+   \   00000090   6070C5E5           STRB     R7,[R5, #+96]
+   \   00000094   ........           BL       findtag
+   \   00000098   000050E3           CMP      R0,#+0
+   \   0000009C   0200000A           BEQ      ??Parsing_3
+    195              valuetag(tag, locate.Area+1, sizeof(locate.Area)-2);
+   \   000000A0   1E20A0E3           MOV      R2,#+30
+   \   000000A4   611085E2           ADD      R1,R5,#+97
+   \   000000A8   ........           BL       valuetag
+    196            }
+    197          
+    198            //Страна
+    199            locate.Country[0]='\n';
+    200            if (tag=findtag(buf,"COUNTRY:")){
+   \                     ??Parsing_3:
+   \   000000AC   000094E5           LDR      R0,[R4, #+0]
+   \   000000B0   8C109FE5           LDR      R1,??Parsing_0+0x10  ;; `?<Constant "COUNTRY:">`
+   \   000000B4   4070C5E5           STRB     R7,[R5, #+64]
+   \   000000B8   ........           BL       findtag
+   \   000000BC   000050E3           CMP      R0,#+0
+   \   000000C0   0200000A           BEQ      ??Parsing_4
+    201              valuetag(tag, locate.Country+1, sizeof(locate.Country)-2);
+   \   000000C4   1E20A0E3           MOV      R2,#+30
+   \   000000C8   411085E2           ADD      R1,R5,#+65
+   \   000000CC   ........           BL       valuetag
+    202            }
+    203            //Долгота
+    204            locate.Lon[0]=0;
+    205            if(tag=findtag(buf,"LON:")){
+   \                     ??Parsing_4:
+   \   000000D0   000094E5           LDR      R0,[R4, #+0]
+   \   000000D4   6C109FE5           LDR      R1,??Parsing_0+0x14  ;; `?<Constant "LON:">`
+   \   000000D8   2060C5E5           STRB     R6,[R5, #+32]
+   \   000000DC   ........           BL       findtag
+   \   000000E0   000050E3           CMP      R0,#+0
+   \   000000E4   0200000A           BEQ      ??Parsing_5
+    206              valuetag(tag, locate.Lon, sizeof(locate.Lon)-1);
+   \   000000E8   1F20A0E3           MOV      R2,#+31
+   \   000000EC   201085E2           ADD      R1,R5,#+32
+   \   000000F0   ........           BL       valuetag
+    207            }  //широта
+    208            locate.Lat[0]=0;
+    209            if(tag=findtag(buf,"LAT:")){
+   \                     ??Parsing_5:
+   \   000000F4   000094E5           LDR      R0,[R4, #+0]
+   \   000000F8   4C109FE5           LDR      R1,??Parsing_0+0x18  ;; `?<Constant "LAT:">`
+   \   000000FC   0060C5E5           STRB     R6,[R5, #+0]
+   \   00000100   ........           BL       findtag
+   \   00000104   0070B0E1           MOVS     R7,R0
+   \   00000108   0200000A           BEQ      ??Parsing_6
+    210              valuetag(tag, locate.Lat, sizeof(locate.Lat)-1);
+   \   0000010C   1F20A0E3           MOV      R2,#+31
+   \   00000110   0510A0E1           MOV      R1,R5
+   \   00000114   ........           BL       valuetag
+    211            }
+    212            mfree(buf);
+   \                     ??Parsing_6:
+   \   00000118   000094E5           LDR      R0,[R4, #+0]
+   \   0000011C   150000EF           SWI      +21
+    213            buf=0;
+   \   00000120   006084E5           STR      R6,[R4, #+0]
+    214              
+    215            if (tag) GenerateString();
+   \   00000124   000057E3           CMP      R7,#+0
+   \   00000128   F080BD08           POPEQ    {R4-R7,PC}
+   \   0000012C   ........           BL       GenerateString
+   \   00000130   F080BDE8           POP      {R4-R7,PC}       ;; return
+   \                     ??Parsing_0:
+   \   00000134   ........           DC32     `?<Constant "200 OK">`
+   \   00000138   ........           DC32     `?<Constant "STREET:">`
+   \   0000013C   ........           DC32     `?<Constant "CITY:">`
+   \   00000140   ........           DC32     `?<Constant "AREA:">`
+   \   00000144   ........           DC32     `?<Constant "COUNTRY:">`
+   \   00000148   ........           DC32     `?<Constant "LON:">`
+   \   0000014C   ........           DC32     `?<Constant "LAT:">`
+    216          }
+    217          
+    218          //==============================================================================
+    219          
+
+   \                                 In segment DATA_C, align 4, align-sorted
+    220          const int minus11=-11;
+   \                     minus11:
+   \   00000000   F5FFFFFF           DC32 -11
+    221          
+    222          typedef struct{
+    223            CSM_RAM csm;
+    224          }MAIN_CSM;
+    225          
+    226          
+    227          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    228          int maincsm_onmessage(CSM_RAM* data,GBS_MSG* msg){
+   \                     maincsm_onmessage:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0140A0E1           MOV      R4,R1
+    229            if(msg->msg == MSG_RECONFIGURE_REQ) {
+   \   00000008   040094E5           LDR      R0,[R4, #+4]
+   \   0000000C   AF10A0E3           MOV      R1,#+175
+   \   00000010   DE1C81E3           ORR      R1,R1,#0xDE00
+   \   00000014   010050E1           CMP      R0,R1
+   \   00000018   0A00001A           BNE      ??maincsm_onmessage_0
+    230              extern const char *successed_config_filename;
+    231              if (strcmp_nocase(successed_config_filename,(char *)msg->data0)==0){
+   \   0000001C   B0019FE5           LDR      R0,??maincsm_onmessage_1  ;; successed_config_filename
+   \   00000020   0C1094E5           LDR      R1,[R4, #+12]
+   \   00000024   000090E5           LDR      R0,[R0, #+0]
+   \   00000028   ........           _BLF     strcmp_nocase,??strcmp_nocase??rA
+   \   0000002C   000050E3           CMP      R0,#+0
+   \   00000030   0400001A           BNE      ??maincsm_onmessage_0
+    232                InitConfig();
+   \   00000034   ........           _BLF     InitConfig,??InitConfig??rA
+    233                GenerateString();
+   \   00000038   ........           BL       GenerateString
+    234                ShowMSG(1,(int)"microGPS config updated!");
+   \   0000003C   94119FE5           LDR      R1,??maincsm_onmessage_1+0x4  ;; `?<Constant "microGPS config updated!">`
+   \   00000040   0100A0E3           MOV      R0,#+1
+   \   00000044   480100EF           SWI      +328
+    235              }
+    236            }
+    237            #define idlegui_id (((int *)icsm)[DISPLACE_OF_IDLEGUI_ID/4])
+    238            CSM_RAM *icsm=FindCSMbyID(CSM_root()->idle_id);    
+   \                     ??maincsm_onmessage_0:
+   \   00000048   068100EF           SWI      +33030
+   \   0000004C   040090E5           LDR      R0,[R0, #+4]
+   \   00000050   080100EF           SWI      +264
+    239            if (icsm&&IsGuiOnTop(idlegui_id)&&!IsScreenSaver()/*&&IsUnlocked()*/){ //Если IdleGui на самом верху
+   \   00000054   000050E3           CMP      R0,#+0
+   \   00000058   2200000A           BEQ      ??maincsm_onmessage_2
+   \   0000005C   2C0090E5           LDR      R0,[R0, #+44]
+   \   00000060   350100EF           SWI      +309
+   \   00000064   000050E3           CMP      R0,#+0
+   \   00000068   1E00000A           BEQ      ??maincsm_onmessage_2
+   \   0000006C   420000EF           SWI      +66
+   \   00000070   000050E3           CMP      R0,#+0
+   \   00000074   1B00001A           BNE      ??maincsm_onmessage_2
+    240              GUI *igui=GetTopGUI();
+   \   00000078   4D0100EF           SWI      +333
+    241              if (igui){ //И он существует
+   \   0000007C   000050E3           CMP      R0,#+0
+   \   00000080   1800000A           BEQ      ??maincsm_onmessage_2
+    242          #ifdef ELKA
+    243                          {
+    244          //      void *canvasdata=BuildCanvas();
+    245          #else
+    246                void *idata=GetDataOfItemByID(igui,2);
+    247                if (idata){
+   \   00000084   0210A0E3           MOV      R1,#+2
+   \   00000088   4F0100EF           SWI      +335
+   \   0000008C   000050E3           CMP      R0,#+0
+   \   00000090   1400000A           BEQ      ??maincsm_onmessage_2
+    248          //        void *canvasdata=((void **)idata)[DISPLACE_OF_IDLECANVAS/4];
+    249          #endif        
+    250                  DrawString(ews, DATA_AREA.x, DATA_AREA.y, DATA_AREA.x2, DATA_AREA.y2, FONT_SMALL,
+    251          	           0x20 + (1 << 1),GetPaletteAdrByColorIndex(0), GetPaletteAdrByColorIndex(1));
+   \   00000094   0100A0E3           MOV      R0,#+1
+   \   00000098   2E0100EF           SWI      +302
+   \   0000009C   0050A0E1           MOV      R5,R0
+   \   000000A0   0000A0E3           MOV      R0,#+0
+   \   000000A4   2E0100EF           SWI      +302
+   \   000000A8   2C119FE5           LDR      R1,??maincsm_onmessage_1+0x8  ;; DATA_AREA
+   \   000000AC   20002DE9           PUSH     {R5}
+   \   000000B0   01002DE9           PUSH     {R0}
+   \   000000B4   2200A0E3           MOV      R0,#+34
+   \   000000B8   01002DE9           PUSH     {R0}
+   \   000000BC   0B00A0E3           MOV      R0,#+11
+   \   000000C0   01002DE9           PUSH     {R0}
+   \   000000C4   F600D1E1           LDRSH    R0,[R1, #+6]
+   \   000000C8   01002DE9           PUSH     {R0}
+   \   000000CC   F430D1E1           LDRSH    R3,[R1, #+4]
+   \   000000D0   F220D1E1           LDRSH    R2,[R1, #+2]
+   \   000000D4   F010D1E1           LDRSH    R1,[R1, #+0]
+   \   000000D8   ........           LDR      R0,??DataTable38  ;; ews
+   \   000000DC   000090E5           LDR      R0,[R0, #+0]
+   \   000000E0   4C0100EF           SWI      +332
+   \   000000E4   14D08DE2           ADD      SP,SP,#+20
+    252                }
+    253              }  
+    254            }    
+    255            if (msg->msg==MSG_HELPER_TRANSLATOR){
+   \                     ??maincsm_onmessage_2:
+   \   000000E8   040094E5           LDR      R0,[R4, #+4]
+   \   000000EC   AE10A0E3           MOV      R1,#+174
+   \   000000F0   DE1C81E3           ORR      R1,R1,#0xDE00
+   \   000000F4   010050E1           CMP      R0,R1
+   \   000000F8   3300001A           BNE      ??maincsm_onmessage_3
+    256              if ((int)msg->data1==sock){
+   \   000000FC   ........           LDR      R5,??DataTable29  ;; sock
+   \   00000100   100094E5           LDR      R0,[R4, #+16]
+   \   00000104   001095E5           LDR      R1,[R5, #+0]
+   \   00000108   010050E1           CMP      R0,R1
+   \   0000010C   2E00001A           BNE      ??maincsm_onmessage_3
+    257                //Если наш сокет
+    258                switch((int)msg->data0){
+   \   00000110   ........           LDR      R6,??DataTable30  ;; connect_state
+   \   00000114   0C1094E5           LDR      R1,[R4, #+12]
+   \   00000118   000096E5           LDR      R0,[R6, #+0]
+   \   0000011C   8C1051E2           SUBS     R1,R1,#+140
+   \   00000120   0A00000A           BEQ      ??maincsm_onmessage_4
+   \   00000124   011051E2           SUBS     R1,R1,#+1
+   \   00000128   0400000A           BEQ      ??maincsm_onmessage_5
+   \   0000012C   011051E2           SUBS     R1,R1,#+1
+   \   00000130   1000000A           BEQ      ??maincsm_onmessage_6
+   \   00000134   011051E2           SUBS     R1,R1,#+1
+   \   00000138   0A00000A           BEQ      ??maincsm_onmessage_7
+   \   0000013C   070000EA           B        ??maincsm_onmessage_8
+    259                  case ENIP_SOCK_CONNECTED:
+    260                    if (connect_state==1){
+   \                     ??maincsm_onmessage_5:
+   \   00000140   010050E3           CMP      R0,#+1
+   \   00000144   2000001A           BNE      ??maincsm_onmessage_3
+    261                      //Если посылали запрос
+    262                      SUBPROC((void *)send_req);
+   \   00000148   90009FE5           LDR      R0,??maincsm_onmessage_1+0xC  ;; send_req
+   \   0000014C   020000EA           B        ??maincsm_onmessage_9
+    263                    }
+    264                    break;
+    265                  case ENIP_SOCK_DATA_READ:
+    266                    if (connect_state==2){
+   \                     ??maincsm_onmessage_4:
+   \   00000150   020050E3           CMP      R0,#+2
+   \   00000154   1C00001A           BNE      ??maincsm_onmessage_3
+    267                      //Если посылали send
+    268                      SUBPROC((void *)get_answer);
+   \   00000158   84009FE5           LDR      R0,??maincsm_onmessage_1+0x10  ;; get_answer
+   \                     ??maincsm_onmessage_9:
+   \   0000015C   710100EF           SWI      +369
+   \                     ??maincsm_onmessage_8:
+   \   00000160   0100A0E3           MOV      R0,#+1
+   \   00000164   7080BDE8           POP      {R4-R6,PC}
+    269                    }
+    270                    break;
+    271                  case ENIP_SOCK_REMOTE_CLOSED:
+    272                    //Закрыт со стороны сервера
+    273                    if (connect_state)
+   \                     ??maincsm_onmessage_7:
+   \   00000168   000050E3           CMP      R0,#+0
+   \   0000016C   1600000A           BEQ      ??maincsm_onmessage_3
+    274                      SUBPROC((void *)end_socket);
+   \   00000170   70009FE5           LDR      R0,??maincsm_onmessage_1+0x14  ;; end_socket
+   \   00000174   F8FFFFEA           B        ??maincsm_onmessage_9
+    275                    break;
+    276                  case ENIP_SOCK_CLOSED:
+    277                    //Закрыт вызовом closesocket
+    278                    SUBPROC((void *)Parsing);
+    279                    GBS_DelTimer(&update_tmr);
+   \                     ??maincsm_onmessage_6:
+   \   00000178   ........           LDR      R4,??DataTable39  ;; update_tmr
+   \   0000017C   68009FE5           LDR      R0,??maincsm_onmessage_1+0x18  ;; Parsing
+   \   00000180   710100EF           SWI      +369
+   \   00000184   0400A0E1           MOV      R0,R4
+   \   00000188   8C0100EF           SWI      +396
+    280                    GBS_StartTimerProc(&update_tmr, (216*60)*10, do_start_connection); 
+   \   0000018C   ........           LDR      R2,??DataTable32  ;; do_start_connection
+   \   00000190   701BA0E3           MOV      R1,#+114688
+   \   00000194   E91D81E3           ORR      R1,R1,#0x3A40
+   \   00000198   0400A0E1           MOV      R0,R4
+   \   0000019C   4D0000EF           SWI      +77
+    281                    old_ci=ramnet[0].ci;
+   \   000001A0   ........           LDR      R1,??DataTable36  ;; ramnet
+   \   000001A4   ........           LDR      R0,??DataTable34  ;; old_ci
+   \   000001A8   001091E5           LDR      R1,[R1, #+0]
+   \   000001AC   B210D1E1           LDRH     R1,[R1, #+2]
+   \   000001B0   B010C0E1           STRH     R1,[R0, #+0]
+    282                    old_gprs_state[1] = 0;
+   \   000001B4   34109FE5           LDR      R1,??maincsm_onmessage_1+0x1C  ;; old_gprs_state + 4
+   \   000001B8   0000A0E3           MOV      R0,#+0
+   \   000001BC   000081E5           STR      R0,[R1, #+0]
+    283                    connect_state=0;
+   \   000001C0   000086E5           STR      R0,[R6, #+0]
+    284                    sock=-1;
+   \   000001C4   0000E0E1           MVN      R0,R0
+   \   000001C8   000085E5           STR      R0,[R5, #+0]
+    285                    break;
+    286                }
+    287              }
+    288            }
+    289            return (1);
+   \                     ??maincsm_onmessage_3:
+   \   000001CC   0100A0E3           MOV      R0,#+1
+   \   000001D0   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??maincsm_onmessage_1:
+   \   000001D4   ........           DC32     successed_config_filename
+   \   000001D8   ........           DC32     `?<Constant "microGPS config updated!">`
+   \   000001DC   ........           DC32     DATA_AREA
+   \   000001E0   ........           DC32     send_req
+   \   000001E4   ........           DC32     get_answer
+   \   000001E8   ........           DC32     end_socket
+   \   000001EC   ........           DC32     Parsing
+   \   000001F0   ........           DC32     old_gprs_state + 4
+    290          }
+    291          extern void kill_data(void *p, void (*func_p)(void *));
+
+   \                                 In segment CODE, align 4, keep-with-next
+    292          static void maincsm_oncreate(CSM_RAM *data){
+   \                     maincsm_oncreate:
+   \   00000000   00402DE9           PUSH     {LR}
+    293            ews=AllocWS(128);
+   \   00000004   8000A0E3           MOV      R0,#+128
+   \   00000008   250100EF           SWI      +293
+   \   0000000C   ........           LDR      R1,??DataTable38  ;; ews
+   \   00000010   000081E5           STR      R0,[R1, #+0]
+    294            ramnet=RamNet();
+   \   00000014   CA8000EF           SWI      +32970
+   \   00000018   ........           LDR      R1,??DataTable36  ;; ramnet
+   \   0000001C   000081E5           STR      R0,[R1, #+0]
+    295            do_start_connection();
+   \   00000020   0040BDE8           POP      {LR}             ;; Pop
+   \   00000024   ........           B        do_start_connection  ;; tailcall
+    296          }
+    297          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    298          static void Killer(void)
+    299          {
+   \                     Killer:
+   \   00000000   00402DE9           PUSH     {LR}
+    300            extern void *ELF_BEGIN;
+    301            kill_data(&ELF_BEGIN,(void (*)(void *))mfree_adr());
+   \   00000004   158000EF           SWI      +32789
+   \   00000008   0010A0E1           MOV      R1,R0
+   \   0000000C   04009FE5           LDR      R0,??Killer_0    ;; ELF_BEGIN
+   \   00000010   0040BDE8           POP      {LR}             ;; Pop
+   \   00000014   ........           _BF      kill_data,??kill_data??rA  ;; tailcall
+   \                     ??Killer_0:
+   \   00000018   ........           DC32     ELF_BEGIN
+    302          }
+    303          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    304          static void maincsm_onclose(CSM_RAM *csm){
+    305            mfree(buf);
+   \                     maincsm_onclose:
+   \   00000000   ........           LDR      R0,??DataTable37  ;; buf
+   \   00000004   00402DE9           PUSH     {LR}
+   \   00000008   000090E5           LDR      R0,[R0, #+0]
+   \   0000000C   150000EF           SWI      +21
+    306            FreeWS(ews);
+   \   00000010   ........           LDR      R0,??DataTable38  ;; ews
+   \   00000014   000090E5           LDR      R0,[R0, #+0]
+   \   00000018   290100EF           SWI      +297
+    307            GBS_DelTimer(&update_tmr);
+   \   0000001C   ........           LDR      R0,??DataTable39  ;; update_tmr
+   \   00000020   8C0100EF           SWI      +396
+    308            GBS_DelTimer(&reconnect_tmr);
+   \   00000024   ........           LDR      R0,??DataTable40  ;; reconnect_tmr
+   \   00000028   8C0100EF           SWI      +396
+    309            SUBPROC((void *)Killer);
+   \   0000002C   04009FE5           LDR      R0,??maincsm_onclose_0  ;; Killer
+   \   00000030   710100EF           SWI      +369
+    310          }
+   \   00000034   0080BDE8           POP      {PC}             ;; return
+   \                     ??maincsm_onclose_0:
+   \   00000038   ........           DC32     Killer
+    311          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    312          static unsigned short maincsm_name_body[140];
+   \                     maincsm_name_body:
+   \   00000000                      DS8 280
+    313          
+    314          static const struct{
+    315            CSM_DESC maincsm;
+    316            WSHDR maincsm_name;
+
+   \                                 In segment DATA_C, align 4, align-sorted
+    317          }MAINCSM =
+   \                     MAINCSM:
+   \   00000000   ............       DC32 maincsm_onmessage, maincsm_oncreate, 0, 0, 0, 0, maincsm_onclose
+   \              ....00000000
+   \              000000000000
+   \              000000000000
+   \              ........    
+   \   0000001C   280000000100       DC32 40, 1, minus11, maincsm_name_body, 55AACCCCH, 3333AA55H, 0
+   \              0000........
+   \              ........CCCC
+   \              AA5555AA3333
+   \              00000000    
+   \   00000038   8B00               DC16 139
+   \   0000003A   0000               DC8 0, 0
+    318          {
+    319            {
+    320            maincsm_onmessage,
+    321            maincsm_oncreate,
+    322          #ifdef NEWSGOLD
+    323            0,
+    324            0,
+    325            0,
+    326            0,
+    327          #endif
+    328            maincsm_onclose,
+    329            sizeof(MAIN_CSM),
+    330            1,
+    331            &minus11
+    332            },
+    333            {
+    334              maincsm_name_body,
+    335              NAMECSM_MAGIC1,
+    336              NAMECSM_MAGIC2,
+    337              0x0,
+    338              139
+    339            }
+    340          };
+    341          
+    342          static void UpdateCSMname(void){
+    343            wsprintf((WSHDR *)(&MAINCSM.maincsm_name),"microGPS");
+    344          }
+    345          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    346          int main(){
+   \                     main:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+    347            InitConfig();
+    348            
+    349            CSM_RAM *save_cmpc;
+    350            char dummy[sizeof(MAIN_CSM)];
+    351            UpdateCSMname();  
+   \   00000004   68409FE5           LDR      R4,??main_0      ;; MAINCSM
+   \   00000008   28D04DE2           SUB      SP,SP,#+40
+   \   0000000C   ........           _BLF     InitConfig,??InitConfig??rA
+   \   00000010   60109FE5           LDR      R1,??main_0+0x4  ;; `?<Constant "microGPS">`
+   \   00000014   280084E2           ADD      R0,R4,#+40
+   \   00000018   240100EF           SWI      +292
+    352            LockSched();
+   \   0000001C   460100EF           SWI      +326
+    353            save_cmpc=CSM_root()->csm_q->current_msg_processing_csm;
+   \   00000020   068100EF           SWI      +33030
+   \   00000024   080090E5           LDR      R0,[R0, #+8]
+   \   00000028   045090E5           LDR      R5,[R0, #+4]
+    354            CSM_root()->csm_q->current_msg_processing_csm=CSM_root()->csm_q->csm.first;
+   \   0000002C   068100EF           SWI      +33030
+   \   00000030   0060A0E1           MOV      R6,R0
+   \   00000034   068100EF           SWI      +33030
+   \   00000038   080090E5           LDR      R0,[R0, #+8]
+   \   0000003C   081096E5           LDR      R1,[R6, #+8]
+   \   00000040   080090E5           LDR      R0,[R0, #+8]
+    355            CreateCSM(&MAINCSM.maincsm,dummy,0);
+   \   00000044   0020A0E3           MOV      R2,#+0
+   \   00000048   040081E5           STR      R0,[R1, #+4]
+   \   0000004C   0D10A0E1           MOV      R1,SP
+   \   00000050   0400A0E1           MOV      R0,R4
+   \   00000054   070100EF           SWI      +263
+    356            CSM_root()->csm_q->current_msg_processing_csm=save_cmpc;
+   \   00000058   068100EF           SWI      +33030
+   \   0000005C   080090E5           LDR      R0,[R0, #+8]
+   \   00000060   045080E5           STR      R5,[R0, #+4]
+    357            UnlockSched();
+   \   00000064   470100EF           SWI      +327
+    358          
+    359            return 0;
+   \   00000068   0000A0E3           MOV      R0,#+0
+   \   0000006C   28D08DE2           ADD      SP,SP,#+40
+   \   00000070   7080BDE8           POP      {R4-R6,PC}       ;; return
+   \                     ??main_0:
+   \   00000074   ........           DC32     MAINCSM
+   \   00000078   ........           DC32     `?<Constant "microGPS">`
+    360          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable19:
+   \   00000000   ........           DC32     old_gprs_state
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable26:
+   \   00000000   ........           DC32     pbuf
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable27:
+   \   00000000   ........           DC32     locate
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable29:
+   \   00000000   ........           DC32     sock
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable30:
+   \   00000000   ........           DC32     connect_state
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable32:
+   \   00000000   ........           DC32     do_start_connection
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable34:
+   \   00000000   ........           DC32     old_ci
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable36:
+   \   00000000   ........           DC32     ramnet
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable37:
+   \   00000000   ........           DC32     buf
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable38:
+   \   00000000   ........           DC32     ews
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable39:
+   \   00000000   ........           DC32     update_tmr
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable40:
+   \   00000000   ........           DC32     reconnect_tmr
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "GET /w/g.php?mcc=%i&m...">`:
+   \   00000000   474554202F77       DC8 47H, 45H, 54H, 20H, 2FH, 77H, 2FH, 67H
+   \              2F67        
+   \   00000008   2E7068703F6D       DC8 2EH, 70H, 68H, 70H, 3FH, 6DH, 63H, 63H
+   \              6363        
+   \   00000010   3D2569266D6E       DC8 3DH, 25H, 69H, 26H, 6DH, 6EH, 63H, 3DH
+   \              633D        
+   \   00000018   2569266C6163       DC8 25H, 69H, 26H, 6CH, 61H, 63H, 3DH, 25H
+   \              3D25        
+   \   00000020   692663693D25       DC8 69H, 26H, 63H, 69H, 3DH, 25H, 69H, 20H
+   \              6920        
+   \   00000028   485454502F31       DC8 48H, 54H, 54H, 50H, 2FH, 31H, 2EH, 30H
+   \              2E30        
+   \   00000030   0D0A486F7374       DC8 0DH, 0AH, 48H, 6FH, 73H, 74H, 3AH, 20H
+   \              3A20        
+   \   00000038   696770732E62       DC8 69H, 67H, 70H, 73H, 2EH, 62H, 6FH, 62H
+   \              6F62        
+   \   00000040   612E73750D0A       DC8 61H, 2EH, 73H, 75H, 0DH, 0AH, 0DH, 0AH
+   \              0D0A        
+   \   00000048   00                 DC8 0
+   \   00000049   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "%s%s%s%s%s%s">`:
+   \   00000000   257325732573       DC8 "%s%s%s%s%s%s"
+   \              257325732573
+   \              00          
+   \   0000000D   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \   00000000   00                 DC8 ""
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "200 OK">`:
+   \   00000000   323030204F4B       DC8 "200 OK"
+   \              00          
+   \   00000007   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "STREET:">`:
+   \   00000000   535452454554       DC8 "STREET:"
+   \              3A00        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "CITY:">`:
+   \   00000000   434954593A00       DC8 "CITY:"
+   \   00000006   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "AREA:">`:
+   \   00000000   415245413A00       DC8 "AREA:"
+   \   00000006   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "COUNTRY:">`:
+   \   00000000   434F554E5452       DC8 "COUNTRY:"
+   \              593A00      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "LON:">`:
+   \   00000000   4C4F4E3A00         DC8 "LON:"
+   \   00000005   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "LAT:">`:
+   \   00000000   4C41543A00         DC8 "LAT:"
+   \   00000005   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "microGPS config updated!">`:
+   \   00000000   6D6963726F47       DC8 "microGPS config updated!"
+   \              505320636F6E
+   \              666967207570
+   \              646174656421
+   \              00          
+   \   00000019   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "microGPS">`:
+   \   00000000   6D6963726F47       DC8 "microGPS"
+   \              505300      
+   \   00000009   000000             DC8 0, 0, 0
+
+   Maximum stack usage in bytes:
+
+     Function            CSTACK
+     --------            ------
+     GenerateString        160
+     Killer                  4
+     Parsing                20
+     StartGPRS               4
+     create_connect         44
+     do_start_connection     8
+     end_socket              8
+     findtag                12
+     get_answer             12
+     main                   56
+     maincsm_onclose         4
+     maincsm_oncreate        4
+     maincsm_onmessage      36
+     send_req               20
+     valuetag                0
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     SHOW_LON                          4
+     SHOW_LAT                          4
+     locate                          192
+     ews                               4
+     sock                              4
+     connect_state                     4
+     buf                               4
+     pbuf                              4
+     ramnet                            4
+     old_ci                            2
+     old_gprs_state                    8
+     update_tmr                       16
+     reconnect_tmr                    16
+     do_start_connection              84
+     StartGPRS                        40
+     create_connect                  264
+     req_buf                         100
+     send_req                        212
+     end_socket                       88
+     get_answer                       88
+     GenerateString                  204
+     valuetag                         80
+     findtag                          36
+     Parsing                         336
+     minus11                           4
+     maincsm_onmessage               500
+     maincsm_oncreate                 40
+     Killer                           28
+     maincsm_onclose                  60
+     maincsm_name_body               280
+     MAINCSM                          60
+     main                            124
+     ??DataTable19                     4
+     ??DataTable26                     4
+     ??DataTable27                     4
+     ??DataTable29                     4
+     ??DataTable30                     4
+     ??DataTable32                     4
+     ??DataTable34                     4
+     ??DataTable36                     4
+     ??DataTable37                     4
+     ??DataTable38                     4
+     ??DataTable39                     4
+     ??DataTable40                     4
+     ?<Constant "GET /w/g.php?mcc=%i&m...">
+                                      76
+     ?<Constant "%s%s%s%s%s%s">       16
+     ?<Constant "">                    1
+     ?<Constant "200 OK">              8
+     ?<Constant "STREET:">             8
+     ?<Constant "CITY:">               8
+     ?<Constant "AREA:">               8
+     ?<Constant "COUNTRY:">           12
+     ?<Constant "LON:">                8
+     ?<Constant "LAT:">                8
+     ?<Constant "microGPS config updated!">
+                                      28
+     ?<Constant "microGPS">           12
+      Others                         120
+
+ 
+ 2 340 bytes in segment CODE
+   265 bytes in segment DATA_C
+   638 bytes in segment DATA_Z
+    12 bytes in segment INITTAB
+ 
+ 2 232 bytes of CODE  memory (+ 120 bytes shared)
+   265 bytes of CONST memory
+   638 bytes of DATA  memory
+
+Errors: none
+Warnings: none

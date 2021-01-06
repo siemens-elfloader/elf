@@ -1,0 +1,9 @@
+#define SIM_Access_Function_ADR   0xA12465E8
+#define Set_LAI_ADR               0xA009F057
+#define RegisterInNetwork_ADR     0xA0AB69AF
+#define UNUSED_RAM_BASE_ADR       0xA8000380
+#define Set_HTTP_Profile_ADR      0xA101BAD4
+#define Set_SMS_Profile_ADR       0xA0ABBA09
+#define StartTimerProc_ADR        0xA0827C04
+#define Current_SMS_Profile_ADR   0xA865C11C
+#define Save_SMS_Profile_ADR      0xA0A6AC99

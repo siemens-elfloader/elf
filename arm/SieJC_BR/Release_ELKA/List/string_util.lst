@@ -1,0 +1,2394 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    15/Feb/2011  01:38:59 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\SieJC_BR\string_util.c                        #
+#    Command line    =  C:\arm\SieJC_BR\string_util.c -D NEWSGOLD -D ELKA    #
+#                       --preprocess C:\arm\SieJC_BR\Release_ELKA\List\ -lC  #
+#                       C:\arm\SieJC_BR\Release_ELKA\List\ -o                #
+#                       C:\arm\SieJC_BR\Release_ELKA\Obj\ -s9 --no_unroll    #
+#                       --cpu_mode arm --endian little --cpu ARM926EJ-S      #
+#                       --stack_align 4 --interwork -e --fpu None            #
+#                       --dlib_config "C:\arm2\Embedded Workbench 4.0        #
+#                       Evaluation\ARM\LIB\dl5tpainl8n.h" -I                 #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\SieJC_BR\Release_ELKA\List\string_util.lst    #
+#    Object file     =  C:\arm\SieJC_BR\Release_ELKA\Obj\string_util.r79     #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\SieJC_BR\string_util.c
+      1          #include "../inc/swilib.h"
+      2          #include "string_util.h"
+      3          
+      4          /////////////////////////////////////////// Разный стафф для замены спецсимволов
+      5          
+      6          // Структура, описывающая, что на что менять
+      7          typedef struct
+      8          {
+      9            char mask[7];
+     10            char replace;
+     11          }REPL_ARRAY;
+     12          
+     13          // Сами замены и их количество
+
+   \                                 In segment DATA_C, align 4, align-sorted
+     14          const int Repl_chars_count = 5;
+   \                     Repl_chars_count:
+   \   00000000   05000000           DC32 5
+
+   \                                 In segment DATA_I, align 4, align-sorted
+     15          REPL_ARRAY Repl_chars[] = {"&apos;\0",0x27,
+   \                     Repl_chars:
+   \   00000000                      DS8 40
+   \   00000028                      REQUIRE `?<Initializer for Repl_chars>`
+     16                                     "&quot;\0",'"',
+     17                                     "&lt;\0\0\0", '<',
+     18                                     "&gt;\0\0\0", '>',
+     19                                     "&amp;\0\0", '&',
+     20          };
+     21          
+     22          /*
+     23              Получить спецсимвол по его маске
+     24          IN: mask_begin - строка символов
+     25              out_ofs - число, к которому прибавится длина обработанной последовательности
+     26          OUT: out_ofs - смещение в строке, откуда начинаются необработанные данные
+     27              <return> - спецсимвол
+     28          */
+
+   \                                 In segment CODE, align 4, keep-with-next
+     29          char GetSpecialSym(char *mask_begin, int *out_ofs)
+     30          {
+   \                     GetSpecialSym:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   0CD04DE2           SUB      SP,SP,#+12
+   \   00000008   0050A0E1           MOV      R5,R0
+     31            int i=0;
+     32            int replen;
+     33            char rep_ex[10];
+     34            if(*mask_begin!='&')return *(mask_begin);
+   \   0000000C   0000D5E5           LDRB     R0,[R5, #+0]
+   \   00000010   0140A0E1           MOV      R4,R1
+   \   00000014   260050E3           CMP      R0,#+38
+   \   00000018   0100000A           BEQ      ??GetSpecialSym_0
+   \                     ??GetSpecialSym_1:
+   \   0000001C   0000D5E5           LDRB     R0,[R5, #+0]
+   \   00000020   FE81BDE8           POP      {R1-R8,PC}
+     35            for(i=0;i<Repl_chars_count;i++)
+   \                     ??GetSpecialSym_0:
+   \   00000024   0060A0E3           MOV      R6,#+0
+   \   00000028   020000EA           B        ??GetSpecialSym_2
+   \                     ??GetSpecialSym_3:
+   \   0000002C   016086E2           ADD      R6,R6,#+1
+   \   00000030   050056E3           CMP      R6,#+5
+   \   00000034   F8FFFFAA           BGE      ??GetSpecialSym_1
+     36            {
+     37              replen = strlen(Repl_chars[i].mask);  // Определяем длину очередной маски
+   \                     ??GetSpecialSym_2:
+   \   00000038   ........           LDR      R0,??DataTable2  ;; Repl_chars
+   \   0000003C   867180E0           ADD      R7,R0,R6, LSL #+3
+   \   00000040   0700A0E1           MOV      R0,R7
+   \   00000044   1B0000EF           SWI      +27
+   \   00000048   0080A0E1           MOV      R8,R0
+     38              zeromem(rep_ex,10);
+   \   0000004C   0A10A0E3           MOV      R1,#+10
+   \   00000050   0D00A0E1           MOV      R0,SP
+   \   00000054   1D0100EF           SWI      +285
+     39              strncpy(rep_ex,mask_begin,replen);    // Копируем строку такой длины с текущей позиции
+   \   00000058   0820A0E1           MOV      R2,R8
+   \   0000005C   0510A0E1           MOV      R1,R5
+   \   00000060   0D00A0E1           MOV      R0,SP
+   \   00000064   160100EF           SWI      +278
+     40              if(!strcmp(rep_ex,Repl_chars[i].mask))// Если совпало с очередной маской
+   \   00000068   0710A0E1           MOV      R1,R7
+   \   0000006C   0D00A0E1           MOV      R0,SP
+   \   00000070   190000EF           SWI      +25
+   \   00000074   000050E3           CMP      R0,#+0
+   \   00000078   EBFFFF1A           BNE      ??GetSpecialSym_3
+     41              {
+     42                *out_ofs+=replen-1;                   // Увеличиваем обработанную длину на длину маски
+   \   0000007C   000094E5           LDR      R0,[R4, #+0]
+   \   00000080   011048E2           SUB      R1,R8,#+1
+   \   00000084   000081E0           ADD      R0,R1,R0
+   \   00000088   000084E5           STR      R0,[R4, #+0]
+     43                return Repl_chars[i].replace;       // Возвращаем символ для замены
+   \   0000008C   0700D7E5           LDRB     R0,[R7, #+7]
+   \   00000090   FE81BDE8           POP      {R1-R8,PC}       ;; return
+     44              }
+     45            }
+     46            return *(mask_begin);       //  Масок не нашлось, возвращаем как есть
+     47          }
+     48          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     49          int GetSpecialSymMaskN(char sym)
+     50          {
+     51            for(int i=0; i<Repl_chars_count; i++)
+   \                     GetSpecialSymMaskN:
+   \   00000000   0010A0E3           MOV      R1,#+0
+     52              if(Repl_chars[i].replace==sym)
+   \                     ??GetSpecialSymMaskN_0:
+   \   00000004   ........           LDR      R2,??DataTable2  ;; Repl_chars
+   \   00000008   812182E0           ADD      R2,R2,R1, LSL #+3
+   \   0000000C   0720D2E5           LDRB     R2,[R2, #+7]
+   \   00000010   000052E1           CMP      R2,R0
+     53                return i;
+   \   00000014   0100A001           MOVEQ    R0,R1
+   \   00000018   1EFF2F01           BXEQ     LR
+   \   0000001C   011081E2           ADD      R1,R1,#+1
+   \   00000020   050051E3           CMP      R1,#+5
+   \   00000024   F6FFFFBA           BLT      ??GetSpecialSymMaskN_0
+     54            return -1;
+   \   00000028   0000E0E3           MVN      R0,#+0
+   \   0000002C   1EFF2FE1           BX       LR               ;; return
+     55          }
+     56          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     57          char * Replace_Special_Syms(char * unrep_str)
+     58          {
+   \                     Replace_Special_Syms:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   04D04DE2           SUB      SP,SP,#+4
+   \   00000008   0050A0E1           MOV      R5,R0
+     59            unsigned int unrep_len=strlen(unrep_str);
+   \   0000000C   1B0000EF           SWI      +27
+   \   00000010   0060A0E1           MOV      R6,R0
+     60            char *rep_buffer = malloc(unrep_len+1);
+   \   00000014   017086E2           ADD      R7,R6,#+1
+   \   00000018   0700A0E1           MOV      R0,R7
+   \   0000001C   140000EF           SWI      +20
+   \   00000020   0040A0E1           MOV      R4,R0
+     61            zeromem(rep_buffer, unrep_len+1);
+   \   00000024   0710A0E1           MOV      R1,R7
+   \   00000028   1D0100EF           SWI      +285
+     62            char tmp=0;
+     63            unsigned int rpl_c=0;
+   \   0000002C   0070A0E3           MOV      R7,#+0
+     64            for(int j=0;j<unrep_len;j++)
+   \   00000030   0010A0E3           MOV      R1,#+0
+   \   00000034   00108DE5           STR      R1,[SP, #+0]
+   \   00000038   000056E3           CMP      R6,#+0
+   \   0000003C   0800001A           BNE      ??Replace_Special_Syms_0
+   \   00000040   0A0000EA           B        ??Replace_Special_Syms_1
+     65            {
+     66              tmp = *(unrep_str+j);
+     67              tmp = GetSpecialSym(unrep_str+j,&j);
+     68              //ShowMSG(1,(int)"fnd");
+     69              rep_buffer[rpl_c++]=tmp;
+   \                     ??Replace_Special_Syms_2:
+   \   00000044   0D10A0E1           MOV      R1,SP
+   \   00000048   050080E0           ADD      R0,R0,R5
+   \   0000004C   ........           BL       GetSpecialSym
+   \   00000050   0400C7E7           STRB     R0,[R7, +R4]
+     70            }
+   \   00000054   00109DE5           LDR      R1,[SP, #+0]
+   \   00000058   017087E2           ADD      R7,R7,#+1
+   \   0000005C   011081E2           ADD      R1,R1,#+1
+   \   00000060   00108DE5           STR      R1,[SP, #+0]
+   \                     ??Replace_Special_Syms_0:
+   \   00000064   00009DE5           LDR      R0,[SP, #+0]
+   \   00000068   060050E1           CMP      R0,R6
+   \   0000006C   F4FFFF3A           BCC      ??Replace_Special_Syms_2
+     71            rep_buffer = realloc(rep_buffer,rpl_c+1);
+   \                     ??Replace_Special_Syms_1:
+   \   00000070   011087E2           ADD      R1,R7,#+1
+   \   00000074   0400A0E1           MOV      R0,R4
+   \   00000078   BA0000EF           SWI      +186
+     72            return rep_buffer;
+   \   0000007C   F280BDE8           POP      {R1,R4-R7,PC}    ;; return
+     73          }
+     74          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     75          char * Mask_Special_Syms(const char * unrep_str)
+     76          {
+   \                     Mask_Special_Syms:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+     77            unsigned int unrep_len = strlen(unrep_str);
+     78            unsigned int rep_buffer_size = unrep_len*2+16;
+     79            char *rep_buffer = malloc(rep_buffer_size);
+     80            unsigned int c_pos = 0;
+   \   00000008   0060A0E3           MOV      R6,#+0
+   \   0000000C   0070A0E3           MOV      R7,#+0
+   \   00000010   1B0000EF           SWI      +27
+   \   00000014   0050A0E1           MOV      R5,R0
+   \   00000018   1000A0E3           MOV      R0,#+16
+   \   0000001C   858080E0           ADD      R8,R0,R5, LSL #+1
+   \   00000020   0800A0E1           MOV      R0,R8
+   \   00000024   140000EF           SWI      +20
+   \   00000028   0090A0E1           MOV      R9,R0
+     81            for(int i=0; i<unrep_len; i++)
+   \   0000002C   06A0A0E1           MOV      R10,R6
+   \   00000030   000055E3           CMP      R5,#+0
+   \   00000034   1000001A           BNE      ??Mask_Special_Syms_0
+     82            {
+     83              int n=GetSpecialSymMaskN(unrep_str[i]);
+     84              if(n!=-1)
+     85              {
+     86                strcpy(rep_buffer+c_pos, Repl_chars[n].mask);
+     87                c_pos += strlen(Repl_chars[n].mask);
+     88              }
+     89              else
+     90              {
+     91                rep_buffer[c_pos++] = unrep_str[i];
+     92              }
+     93              if (c_pos+10>rep_buffer_size)
+     94              {
+     95                rep_buffer_size *= 2;
+     96                rep_buffer = realloc(rep_buffer, rep_buffer_size);
+     97              }
+     98            }
+     99            rep_buffer[c_pos] = '\0';
+   \                     ??Mask_Special_Syms_1:
+   \   00000038   0960C7E7           STRB     R6,[R7, +R9]
+    100            rep_buffer = realloc(rep_buffer, c_pos+1);
+   \   0000003C   011087E2           ADD      R1,R7,#+1
+   \   00000040   0900A0E1           MOV      R0,R9
+   \   00000044   BA0000EF           SWI      +186
+    101            return rep_buffer;
+   \   00000048   F08FBDE8           POP      {R4-R11,PC}      ;; return
+   \                     ??Mask_Special_Syms_2:
+   \   0000004C   0410DAE7           LDRB     R1,[R10, +R4]
+   \   00000050   017087E2           ADD      R7,R7,#+1
+   \   00000054   0010C0E5           STRB     R1,[R0, #+0]
+   \                     ??Mask_Special_Syms_3:
+   \   00000058   0A0087E2           ADD      R0,R7,#+10
+   \   0000005C   000058E1           CMP      R8,R0
+   \   00000060   0400002A           BCS      ??Mask_Special_Syms_4
+   \   00000064   8880A0E1           LSL      R8,R8,#+1
+   \   00000068   0810A0E1           MOV      R1,R8
+   \   0000006C   0900A0E1           MOV      R0,R9
+   \   00000070   BA0000EF           SWI      +186
+   \   00000074   0090A0E1           MOV      R9,R0
+   \                     ??Mask_Special_Syms_4:
+   \   00000078   01A08AE2           ADD      R10,R10,#+1
+   \                     ??Mask_Special_Syms_0:
+   \   0000007C   05005AE1           CMP      R10,R5
+   \   00000080   ECFFFF2A           BCS      ??Mask_Special_Syms_1
+   \   00000084   0400DAE7           LDRB     R0,[R10, +R4]
+   \   00000088   ........           BL       GetSpecialSymMaskN
+   \   0000008C   0010A0E1           MOV      R1,R0
+   \   00000090   090087E0           ADD      R0,R7,R9
+   \   00000094   010071E3           CMN      R1,#+1
+   \   00000098   EBFFFF0A           BEQ      ??Mask_Special_Syms_2
+   \   0000009C   ........           LDR      R2,??DataTable2  ;; Repl_chars
+   \   000000A0   81B182E0           ADD      R11,R2,R1, LSL #+3
+   \   000000A4   0B10A0E1           MOV      R1,R11
+   \   000000A8   1A0000EF           SWI      +26
+   \   000000AC   0B00A0E1           MOV      R0,R11
+   \   000000B0   1B0000EF           SWI      +27
+   \   000000B4   077080E0           ADD      R7,R0,R7
+   \   000000B8   E6FFFFEA           B        ??Mask_Special_Syms_3
+    102          }
+    103          
+    104          /* Вернуть значение параметра по имени параметра из строки вида:
+    105           nonce="2444323444",qop="auth",charset=utf-8,algorithm=md5-sess
+    106          
+    107          IN: ch - строка
+    108              req - имя требуемого параметра
+    109              cut_quotes - обрезать ли кавычки, если параметр в кавычках
+    110          OUT: Искомое значение; нужно освободить память!
+    111          */
+
+   \                                 In segment CODE, align 4, keep-with-next
+    112          char *Get_Param_Value(char *ch, char *req, char cut_quotes)
+    113          {
+   \                     Get_Param_Value:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   0050A0E1           MOV      R5,R0
+   \   00000008   0140A0E1           MOV      R4,R1
+   \   0000000C   0260A0E1           MOV      R6,R2
+    114          //  char ch[]="nonce=\"2444323444\",qop=\"auth\",charset=utf-8,algorithm=md5-sess";
+    115          //  char req[]="qop";
+    116            char *n_displace = strstr(ch, req);     // начало строки с именем параметра
+   \   00000010   180100EF           SWI      +280
+   \   00000014   0070A0E1           MOV      R7,R0
+    117            char *eq=n_displace + strlen(req);
+   \   00000018   0400A0E1           MOV      R0,R4
+   \   0000001C   1B0000EF           SWI      +27
+   \   00000020   074080E0           ADD      R4,R0,R7
+    118            if(!(eq[0]=='='))return NULL;
+   \   00000024   ........           LDRB     R0,[R4], #+1
+   \   00000028   3D0050E3           CMP      R0,#+61
+   \   0000002C   0000A013           MOVNE    R0,#+0
+   \   00000030   F080BD18           POPNE    {R4-R7,PC}
+    119            eq+=1;
+    120            char *zpt= strchr(n_displace,',');
+   \   00000034   2C10A0E3           MOV      R1,#+44
+   \   00000038   0700A0E1           MOV      R0,R7
+   \   0000003C   180000EF           SWI      +24
+    121            if(!zpt)zpt=ch+strlen(ch);
+   \   00000040   000050E3           CMP      R0,#+0
+   \   00000044   0200001A           BNE      ??Get_Param_Value_0
+   \   00000048   0500A0E1           MOV      R0,R5
+   \   0000004C   1B0000EF           SWI      +27
+   \   00000050   050080E0           ADD      R0,R0,R5
+    122            int len;
+    123            char *val;
+    124            if(cut_quotes)
+   \                     ??Get_Param_Value_0:
+   \   00000054   045040E0           SUB      R5,R0,R4
+   \   00000058   000056E3           CMP      R6,#+0
+   \   0000005C   0C00000A           BEQ      ??Get_Param_Value_1
+    125            {
+    126              len=zpt-eq-2;
+   \   00000060   025045E2           SUB      R5,R5,#+2
+    127              val=malloc(len+1);
+   \   00000064   010085E2           ADD      R0,R5,#+1
+   \   00000068   140000EF           SWI      +20
+    128              for(int i=0;i<len;i++) val[i]=*(eq+i+1);
+   \   0000006C   0010A0E3           MOV      R1,#+0
+   \   00000070   010055E3           CMP      R5,#+1
+   \   00000074   130000BA           BLT      ??Get_Param_Value_2
+   \                     ??Get_Param_Value_3:
+   \   00000078   050051E1           CMP      R1,R5
+   \   0000007C   110000AA           BGE      ??Get_Param_Value_2
+   \   00000080   042081E0           ADD      R2,R1,R4
+   \   00000084   0120D2E5           LDRB     R2,[R2, #+1]
+   \   00000088   0020C1E7           STRB     R2,[R1, +R0]
+   \   0000008C   011081E2           ADD      R1,R1,#+1
+   \   00000090   F8FFFFEA           B        ??Get_Param_Value_3
+    129            }
+    130            else
+    131            {
+    132              len=zpt-eq;
+    133              val=malloc(len+1);
+   \                     ??Get_Param_Value_1:
+   \   00000094   010085E2           ADD      R0,R5,#+1
+   \   00000098   140000EF           SWI      +20
+    134              for(int i=0;i<len;i++) val[i]=*(eq+i);
+   \   0000009C   0010A0E3           MOV      R1,#+0
+   \   000000A0   010055E3           CMP      R5,#+1
+   \   000000A4   050000AA           BGE      ??Get_Param_Value_4
+   \   000000A8   0010A0E3           MOV      R1,#+0
+   \   000000AC   0010C5E7           STRB     R1,[R5, +R0]
+   \   000000B0   F080BDE8           POP      {R4-R7,PC}
+   \                     ??Get_Param_Value_5:
+   \   000000B4   0420D1E7           LDRB     R2,[R1, +R4]
+   \   000000B8   0020C1E7           STRB     R2,[R1, +R0]
+   \   000000BC   011081E2           ADD      R1,R1,#+1
+   \                     ??Get_Param_Value_4:
+   \   000000C0   050051E1           CMP      R1,R5
+   \   000000C4   FAFFFFBA           BLT      ??Get_Param_Value_5
+    135            }
+    136            val[len]=0x0;
+   \                     ??Get_Param_Value_2:
+   \   000000C8   0010A0E3           MOV      R1,#+0
+   \   000000CC   0010C5E7           STRB     R1,[R5, +R0]
+    137            return val;
+   \   000000D0   F080BDE8           POP      {R4-R7,PC}       ;; return
+    138          }
+    139          
+    140          
+    141          /*
+    142            Преобразование буфера данных из кодировки UTF-8 в ANSI
+    143          IN:
+    144            - tmp_out: куда положить результат. Буфер уже должен существовать
+    145                       и в нем должно быть достаточно места
+    146            - UTF8_str: откуда брать данные для преобразования
+    147            - size: сколько длина буфера для преобразования (UTF8_str)
+    148            - fact - куда положить итоговый размер данных в буфере
+    149          
+    150          OUT:  результирующий буфер.
+    151          */
+
+   \                                 In segment CODE, align 4, keep-with-next
+    152          void* convUTF8_to_ANSI(char* tmp_out, char *UTF8_str, unsigned int size, int* fact)
+    153          {
+   \                     convUTF8_to_ANSI:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0350A0E1           MOV      R5,R3
+    154            // Рассматривая строку UTF8 как обычную, определяем её длину
+    155            if(!UTF8_str)return NULL;
+   \   0000000C   000051E3           CMP      R1,#+0
+   \   00000010   1C00000A           BEQ      ??convUTF8_to_ANSI_0
+    156            int st_len = size;
+    157          
+    158            // Выделяем память - на всякий случай столько же. Это предельный случай,
+    159            // когда весь поступивший буфер - на русском языке. Реально будет, скорее всего,
+    160            // занято меньше, посему в конце сделаем realloc
+    161            int lastchar = 0;
+   \   00000014   0060A0E3           MOV      R6,#+0
+    162            int dummy;
+    163            char chr, chr2, chr3;
+    164            for(int i=0;i<st_len;i++)
+   \   00000018   0000A0E3           MOV      R0,#+0
+   \   0000001C   040000EA           B        ??convUTF8_to_ANSI_1
+    165            {
+    166            chr = (*(UTF8_str+i));
+    167          
+    168          	if (chr<0x80)
+    169                  {
+    170                    *(tmp_out+lastchar)=chr;
+    171                    lastchar++;
+    172                    goto L_END_CYCLE;
+    173                  }
+    174          	if (chr<0xc0)
+    175                  {
+    176                    ShowMSG(1,(int)"Bad UTF-8 Encoding encountered (chr<0xC0)");
+    177                    mfree(tmp_out);
+    178                    return NULL;
+    179                  }
+    180          	
+    181                  chr2 = *(UTF8_str+i+1);
+    182          
+    183                  if (chr2<0x80)
+    184                  {
+    185                    ShowMSG(1,(int)"Bad UTF-8 Encoding encountered (chr2<0x80)");
+    186                    mfree(tmp_out);
+    187                    return NULL;
+    188                  }
+    189          	
+    190          	if (chr<0xe0) {
+    191          	    // cx, dx
+    192          	    char test1 = (chr & 0x1f)<<6;
+    193                      char test2 = chr2 & 0x3f;
+    194                      *(tmp_out+lastchar)= test1 | test2 + 127 + 0x31;
+    195                      i++;
+    196                      lastchar++;
+    197                      goto L_END_CYCLE;
+    198          	}
+    199          	if (chr<0xf0) {
+    200          	    // cx, dx
+    201          	    chr3= *(UTF8_str+i+2);
+    202          
+    203          	    if (chr3<0x80)
+    204                      {
+    205                        ShowMSG(1,(int)"Bad UTF-8 Encoding encountered");
+    206                        mfree(tmp_out);
+    207                        return NULL;
+    208                      }
+    209          	    else
+    210                      {
+    211                        *(tmp_out+lastchar) =  ((chr & 0x0f)<<12) | ((chr2 &0x3f) <<6) | (chr3 &0x3f);
+   \                     ??convUTF8_to_ANSI_2:
+   \   00000020   3F3003E2           AND      R3,R3,#0x3F
+   \   00000024   0E3383E1           ORR      R3,R3,LR, LSL #+6
+   \   00000028   0430C6E7           STRB     R3,[R6, +R4]
+    212                        i=i+2;
+   \   0000002C   020080E2           ADD      R0,R0,#+2
+    213                      }
+    214          	}
+    215          
+    216            L_END_CYCLE:
+    217              dummy++;
+   \                     ??convUTF8_to_ANSI_3:
+   \   00000030   010080E2           ADD      R0,R0,#+1
+   \                     ??convUTF8_to_ANSI_1:
+   \   00000034   020050E1           CMP      R0,R2
+   \   00000038   240000AA           BGE      ??convUTF8_to_ANSI_4
+   \   0000003C   01C0D0E7           LDRB     R12,[R0, +R1]
+   \   00000040   013086E2           ADD      R3,R6,#+1
+   \   00000044   80005CE3           CMP      R12,#+128
+   \   00000048   0200002A           BCS      ??convUTF8_to_ANSI_5
+   \   0000004C   04C0C6E7           STRB     R12,[R6, +R4]
+   \                     ??convUTF8_to_ANSI_6:
+   \   00000050   0360A0E1           MOV      R6,R3
+   \   00000054   F5FFFFEA           B        ??convUTF8_to_ANSI_3
+   \                     ??convUTF8_to_ANSI_5:
+   \   00000058   C0005CE3           CMP      R12,#+192
+   \   0000005C   ........           LDRCC    R1,??DataTable6  ;; `?<Constant "Bad UTF-8 Encoding en...">`
+   \   00000060   0400003A           BCC      ??convUTF8_to_ANSI_7
+   \   00000064   01E080E0           ADD      LR,R0,R1
+   \   00000068   01E0DEE5           LDRB     LR,[LR, #+1]
+   \   0000006C   80005EE3           CMP      LR,#+128
+   \   00000070   0600002A           BCS      ??convUTF8_to_ANSI_8
+   \   00000074   ........           LDR      R1,??DataTable7  ;; `?<Constant "Bad UTF-8 Encoding en...">` + 44
+   \                     ??convUTF8_to_ANSI_7:
+   \   00000078   0100A0E3           MOV      R0,#+1
+   \   0000007C   480100EF           SWI      +328
+   \   00000080   0400A0E1           MOV      R0,R4
+   \   00000084   150000EF           SWI      +21
+   \                     ??convUTF8_to_ANSI_0:
+   \   00000088   0000A0E3           MOV      R0,#+0
+   \   0000008C   F080BDE8           POP      {R4-R7,PC}
+   \                     ??convUTF8_to_ANSI_8:
+   \   00000090   E0005CE3           CMP      R12,#+224
+   \   00000094   0500002A           BCS      ??convUTF8_to_ANSI_9
+   \   00000098   3F700EE2           AND      R7,LR,#0x3F
+   \   0000009C   B07087E2           ADD      R7,R7,#+176
+   \   000000A0   0C7387E1           ORR      R7,R7,R12, LSL #+6
+   \   000000A4   0470C6E7           STRB     R7,[R6, +R4]
+   \   000000A8   010080E2           ADD      R0,R0,#+1
+   \   000000AC   E7FFFFEA           B        ??convUTF8_to_ANSI_6
+   \                     ??convUTF8_to_ANSI_9:
+   \   000000B0   F0005CE3           CMP      R12,#+240
+   \   000000B4   DDFFFF2A           BCS      ??convUTF8_to_ANSI_3
+   \   000000B8   013080E0           ADD      R3,R0,R1
+   \   000000BC   0230D3E5           LDRB     R3,[R3, #+2]
+   \   000000C0   800053E3           CMP      R3,#+128
+   \   000000C4   D5FFFF2A           BCS      ??convUTF8_to_ANSI_2
+   \   000000C8   ........           LDR      R1,??DataTable8  ;; `?<Constant "Bad UTF-8 Encoding en...">` + 88
+   \   000000CC   E9FFFFEA           B        ??convUTF8_to_ANSI_7
+    218            }
+    219            tmp_out = realloc(tmp_out,lastchar);
+   \                     ??convUTF8_to_ANSI_4:
+   \   000000D0   0610A0E1           MOV      R1,R6
+   \   000000D4   0400A0E1           MOV      R0,R4
+   \   000000D8   BA0000EF           SWI      +186
+    220            *fact = lastchar;
+   \   000000DC   006085E5           STR      R6,[R5, #+0]
+    221            return tmp_out;
+   \   000000E0   F080BDE8           POP      {R4-R7,PC}       ;; return
+    222          }
+    223          
+    224          // Преобразование в нижний регистр
+
+   \                                 In segment CODE, align 4, keep-with-next
+    225          char* str2lower(char *st)
+    226          {
+   \                     str2lower:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    227            unsigned int len = strlen(st);
+   \   00000008   1B0000EF           SWI      +27
+    228            for(int i=0;i<len;i++)
+   \   0000000C   0010A0E3           MOV      R1,#+0
+   \   00000010   000050E3           CMP      R0,#+0
+   \   00000014   0B00001A           BNE      ??str2lower_0
+    229            {
+    230              char sym = *(st+i);
+    231              if(sym<0x80)
+    232              {
+    233                if(st[i]>='A' && st[i]<='Z') st[i] += ('a' - 'A');
+    234                continue;
+    235              }
+    236              if(sym<0xe0)
+    237              {
+    238                i++;
+    239                if(st[i] >= 0x90 && st[i]<=0xAF) st[i]+= (0xB0 - 0x90);
+    240              }
+    241            }
+    242            return st;
+   \                     ??str2lower_1:
+   \   00000018   0400A0E1           MOV      R0,R4
+   \   0000001C   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??str2lower_2:
+   \   00000020   E00052E3           CMP      R2,#+224
+   \   00000024   0600002A           BCS      ??str2lower_3
+   \   00000028   011081E2           ADD      R1,R1,#+1
+   \   0000002C   0420D1E7           LDRB     R2,[R1, +R4]
+   \   00000030   900052E3           CMP      R2,#+144
+   \   00000034   0200003A           BCC      ??str2lower_3
+   \   00000038   B00052E3           CMP      R2,#+176
+   \                     ??str2lower_4:
+   \   0000003C   20208232           ADDCC    R2,R2,#+32
+   \   00000040   0420C137           STRBCC   R2,[R1, +R4]
+   \                     ??str2lower_3:
+   \   00000044   011081E2           ADD      R1,R1,#+1
+   \                     ??str2lower_0:
+   \   00000048   000051E1           CMP      R1,R0
+   \   0000004C   F1FFFF2A           BCS      ??str2lower_1
+   \   00000050   0420D1E7           LDRB     R2,[R1, +R4]
+   \   00000054   800052E3           CMP      R2,#+128
+   \   00000058   F0FFFF2A           BCS      ??str2lower_2
+   \   0000005C   410052E3           CMP      R2,#+65
+   \   00000060   F7FFFF3A           BCC      ??str2lower_3
+   \   00000064   5B0052E3           CMP      R2,#+91
+   \   00000068   F3FFFFEA           B        ??str2lower_4
+    243          }
+    244          
+    245          ////////////////////////////////////////////////////////////////////////////////
+    246          #pragma inline
+
+   \                                 In segment CODE, align 4, keep-with-next
+    247          int tolower(int C)
+    248          {
+    249          //  if ((C>='A' && C<='Z')) C-='A'-'a';
+    250              if(C<0x80)
+   \                     tolower:
+   \   00000000   201080E2           ADD      R1,R0,#+32
+   \   00000004   800050E3           CMP      R0,#+128
+   \   00000008   040000AA           BGE      ??tolower_0
+    251              {
+    252                if(C>='A' && C<='Z') C += ('a' - 'A');
+   \   0000000C   410050E3           CMP      R0,#+65
+   \   00000010   1EFF2FB1           BXLT     LR
+   \   00000014   5B0050E3           CMP      R0,#+91
+   \   00000018   0100A0B1           MOVLT    R0,R1
+    253                return C;
+   \   0000001C   1EFF2FE1           BX       LR               ;; return
+    254              }
+    255                if(C >= 0x90 && C<=0xAF) C+= (0xB0 - 0x90);
+   \                     ??tolower_0:
+   \   00000020   900050E3           CMP      R0,#+144
+   \   00000024   1EFF2FB1           BXLT     LR
+   \   00000028   B00050E3           CMP      R0,#+176
+   \   0000002C   1EFF2FA1           BXGE     LR
+   \   00000030   0100A0E1           MOV      R0,R1
+   \   00000034   1EFF2FE1           BX       LR
+    256            return(C);
+    257          }
+    258          
+    259          
+    260          // Аналог strcmp, но без чувствительности к регистру
+
+   \                                 In segment CODE, align 4, keep-with-next
+    261          int stricmp(const char *s, const char *d)
+    262          {
+   \                     stricmp:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+    263            int cs;
+    264            int ds;
+    265            do
+    266            {
+    267              cs=tolower(*s++);
+   \                     ??stricmp_0:
+   \   0000000C   ........           LDRB     R0,[R4], #+1
+   \   00000010   ........           _BLF     tolower,??tolower??rA
+   \   00000014   0060A0E1           MOV      R6,R0
+    268              ds=tolower(*d++);
+   \   00000018   ........           LDRB     R0,[R5], #+1
+   \   0000001C   ........           _BLF     tolower,??tolower??rA
+    269              cs-=ds;
+   \   00000020   001056E0           SUBS     R1,R6,R0
+    270              if (cs) break;
+   \   00000024   0100001A           BNE      ??stricmp_1
+    271            }
+    272            while(ds);
+   \   00000028   000050E3           CMP      R0,#+0
+   \   0000002C   F6FFFF1A           BNE      ??stricmp_0
+    273            return(cs);
+   \                     ??stricmp_1:
+   \   00000030   0100A0E1           MOV      R0,R1
+   \   00000034   7080BDE8           POP      {R4-R6,PC}       ;; return
+    274          }
+    275          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    276          int strnicmp(const char *s1, const char *s2, size_t len)
+    277          {
+   \                     strnicmp:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+   \   0000000C   0260B0E1           MOVS     R6,R2
+    278          	/* Yes, Virginia, it had better be unsigned */
+    279          	unsigned int c1, c2;
+    280          
+    281          	c1 = 0;	c2 = 0;
+   \   00000010   0070A0E3           MOV      R7,#+0
+   \   00000014   0080A0E3           MOV      R8,#+0
+    282          	if (len) {
+   \   00000018   1000000A           BEQ      ??strnicmp_0
+    283          		do {
+    284          			c1 = *s1; c2 = *s2;
+   \                     ??strnicmp_1:
+   \   0000001C   ........           LDRB     R7,[R4], #+1
+   \   00000020   ........           LDRB     R8,[R5], #+1
+    285          			s1++; s2++;
+    286          			if (!c1)
+   \   00000024   000057E3           CMP      R7,#+0
+    287          				break;
+    288          			if (!c2)
+   \   00000028   00005813           CMPNE    R8,#+0
+   \   0000002C   0B00000A           BEQ      ??strnicmp_0
+    289          				break;
+    290          			if (c1 == c2)
+   \   00000030   080057E1           CMP      R7,R8
+   \   00000034   0700000A           BEQ      ??strnicmp_2
+    291          				continue;
+    292          			c1 = tolower(c1);
+   \   00000038   0700A0E1           MOV      R0,R7
+   \   0000003C   ........           _BLF     tolower,??tolower??rA
+   \   00000040   0070A0E1           MOV      R7,R0
+    293          			c2 = tolower(c2);
+   \   00000044   0800A0E1           MOV      R0,R8
+   \   00000048   ........           _BLF     tolower,??tolower??rA
+   \   0000004C   0080A0E1           MOV      R8,R0
+    294          			if (c1 != c2)
+   \   00000050   080057E1           CMP      R7,R8
+   \   00000054   0100001A           BNE      ??strnicmp_0
+    295          				break;
+    296          		} while (--len);
+   \                     ??strnicmp_2:
+   \   00000058   016056E2           SUBS     R6,R6,#+1
+   \   0000005C   EEFFFF1A           BNE      ??strnicmp_1
+    297          	}
+    298          	return c1 - c2;
+   \                     ??strnicmp_0:
+   \   00000060   080047E0           SUB      R0,R7,R8
+   \   00000064   F081BDE8           POP      {R4-R8,PC}       ;; return
+    299          }
+    300          
+    301          // Аналог strstr, но без чувствительности к регистру
+    302          /*
+    303           * Find the first occurrence of find in s.
+    304           */
+
+   \                                 In segment CODE, align 4, keep-with-next
+    305          char *stristr(const char *s, const char *find)
+    306          {
+   \                     stristr:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+    307              char c, sc;
+    308              size_t len;
+    309          
+    310              if ((c = tolower((unsigned char)(*find++))) != 0) {
+   \   0000000C   ........           LDRB     R0,[R5], #+1
+   \   00000010   ........           _BLF     tolower,??tolower??rA
+   \   00000014   FF6010E2           ANDS     R6,R0,#0xFF
+   \   00000018   1000000A           BEQ      ??stristr_0
+    311                  len = strlen(find);
+   \   0000001C   0500A0E1           MOV      R0,R5
+   \   00000020   1B0000EF           SWI      +27
+   \   00000024   0070A0E1           MOV      R7,R0
+    312                  do {
+    313                      do {
+    314                          if ((sc = tolower((unsigned char)(*s++))) == 0)
+   \                     ??stristr_1:
+   \   00000028   ........           LDRB     R0,[R4], #+1
+   \   0000002C   ........           _BLF     tolower,??tolower??rA
+   \   00000030   000CB0E1           MOVS     R0,R0, LSL #+24
+    315                              return (NULL);
+   \   00000034   0000A003           MOVEQ    R0,#+0
+   \   00000038   F080BD08           POPEQ    {R4-R7,PC}
+    316                      } while (sc != c);
+   \   0000003C   200C56E1           CMP      R6,R0, LSR #+24
+   \   00000040   F8FFFF1A           BNE      ??stristr_1
+    317                  } while (strnicmp(s, find, len) != 0);
+   \   00000044   0720A0E1           MOV      R2,R7
+   \   00000048   0510A0E1           MOV      R1,R5
+   \   0000004C   0400A0E1           MOV      R0,R4
+   \   00000050   ........           BL       strnicmp
+   \   00000054   000050E3           CMP      R0,#+0
+   \   00000058   F2FFFF1A           BNE      ??stristr_1
+    318                  s--;
+   \   0000005C   014044E2           SUB      R4,R4,#+1
+    319              }
+    320              return ((char *)s);
+   \                     ??stristr_0:
+   \   00000060   0400A0E1           MOV      R0,R4
+   \   00000064   F080BDE8           POP      {R4-R7,PC}       ;; return
+    321          }
+    322          ////////////////////////////////////////////////////////////////////////////////
+    323          
+    324          /*
+    325          // Аналог strstr, но без чувствительности к регистру
+    326          char *stristr(char *haystack, char *needle)
+    327          {
+    328            if(!haystack || !needle)return NULL;
+    329            char *i_haystack = malloc(strlen(haystack)+1);
+    330            char *i_needle = malloc(strlen(needle)+1);
+    331            strcpy(i_haystack, haystack);
+    332            strcpy(i_needle, needle);
+    333            str2lower(i_haystack);
+    334            str2lower(i_needle);
+    335            // Сравниваем уже строки в нижнем регистре и считаем смещение
+    336            char *q = strstr(i_haystack, i_needle);
+    337            mfree(i_haystack);
+    338            mfree(i_needle);
+    339            if(!q)  // Значит, нет подстроки
+    340            {
+    341              return NULL;
+    342            }
+    343            int delta = q - i_haystack;
+    344            return haystack + delta;  // Есть подстрока, очевидно, по тому же смещению
+    345          }
+    346          
+    347          // Аналог strcmp, но без чувствительности к регистру
+    348          int stricmp(char *str1, char *str2)
+    349          {
+    350            if(!str1 || !str2)return NULL;
+    351            char *i_str1 = malloc(strlen(str1)+1);
+    352            char *i_str2 = malloc(strlen(str2)+1);
+    353            strcpy(i_str1, str1);
+    354            strcpy(i_str2, str2);
+    355            str2lower(i_str1);
+    356            str2lower(i_str2);
+    357            // Сравниваем уже строки в нижнем регистре
+    358            int res= strcmp(i_str1, i_str2);
+    359            mfree(i_str1);
+    360            mfree(i_str2);
+    361            return res;
+    362          }
+    363          */
+
+   \                                 In segment CODE, align 4, keep-with-next
+    364          char* str2lower_ANSI(char *st)
+    365          {
+   \                     str2lower_ANSI:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    366            unsigned int len = strlen(st);
+   \   00000008   1B0000EF           SWI      +27
+    367            for(int i=0;i<len;i++)
+   \   0000000C   0010A0E3           MOV      R1,#+0
+   \   00000010   000050E3           CMP      R0,#+0
+   \   00000014   0300001A           BNE      ??str2lower_ANSI_0
+    368            {
+    369              char sym = *(st+i);
+    370              char *cc = st+i;
+    371              *cc= sym>='A' && sym<='Z' ? sym + ('a' - 'A') : sym >= 'А' && sym <= 'Я'? sym + ('а' - 'А') : sym;
+    372            }
+    373            return st;
+   \                     ??str2lower_ANSI_1:
+   \   00000018   0400A0E1           MOV      R0,R4
+   \   0000001C   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??str2lower_ANSI_2:
+   \   00000020   0420C1E7           STRB     R2,[R1, +R4]
+   \   00000024   011081E2           ADD      R1,R1,#+1
+   \                     ??str2lower_ANSI_0:
+   \   00000028   000051E1           CMP      R1,R0
+   \   0000002C   F9FFFF2A           BCS      ??str2lower_ANSI_1
+   \   00000030   0420D1E7           LDRB     R2,[R1, +R4]
+   \   00000034   410052E3           CMP      R2,#+65
+   \   00000038   0300003A           BCC      ??str2lower_ANSI_3
+   \   0000003C   5B0052E3           CMP      R2,#+91
+   \   00000040   0100002A           BCS      ??str2lower_ANSI_3
+   \                     ??str2lower_ANSI_4:
+   \   00000044   202082E2           ADD      R2,R2,#+32
+   \   00000048   F4FFFFEA           B        ??str2lower_ANSI_2
+   \                     ??str2lower_ANSI_3:
+   \   0000004C   C00052E3           CMP      R2,#+192
+   \   00000050   F2FFFF3A           BCC      ??str2lower_ANSI_2
+   \   00000054   E00052E3           CMP      R2,#+224
+   \   00000058   F0FFFF2A           BCS      ??str2lower_ANSI_2
+   \   0000005C   F8FFFFEA           B        ??str2lower_ANSI_4
+    374          }
+    375          
+    376          
+    377          // Строковый вариант
+
+   \                                 In segment CODE, align 4, keep-with-next
+    378          char* convUTF8_to_ANSI_STR(char *UTF8_str)
+    379          {
+   \                     convUTF8_to_ANSI_STR:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   0040B0E1           MOVS     R4,R0
+    380            // Рассматривая строку UTF8 как обычную, определяем её длину
+    381            if(!UTF8_str)return NULL;
+   \   00000008   2400000A           BEQ      ??convUTF8_to_ANSI_STR_0
+    382            int st_len = strlen(UTF8_str);
+   \   0000000C   1B0000EF           SWI      +27
+   \   00000010   0050A0E1           MOV      R5,R0
+    383          
+    384            // Выделяем память - на всякий случай дохера
+    385            int lastchar = 0;
+   \   00000014   0060A0E3           MOV      R6,#+0
+    386            int dummy;
+    387            char* tmp_out = malloc(st_len+1);
+   \   00000018   018085E2           ADD      R8,R5,#+1
+   \   0000001C   0800A0E1           MOV      R0,R8
+   \   00000020   140000EF           SWI      +20
+   \   00000024   0070A0E1           MOV      R7,R0
+    388            zeromem(tmp_out,st_len+1);
+   \   00000028   0810A0E1           MOV      R1,R8
+   \   0000002C   1D0100EF           SWI      +285
+    389            char chr, chr2, chr3;
+    390            for(int i=0;i<st_len;i++)
+   \   00000030   0000A0E3           MOV      R0,#+0
+   \   00000034   040000EA           B        ??convUTF8_to_ANSI_STR_1
+    391            {
+    392            chr = (*(UTF8_str+i));
+    393          
+    394          	if (chr<0x80)
+    395                  {
+    396                    *(tmp_out+lastchar)=chr;
+    397                    lastchar++;
+    398                    goto L_END_CYCLE;
+    399                  }
+    400          	if (chr<0xc0)
+    401                  {
+    402                    ShowMSG(1,(int)"Bad UTF-8 Encoding encountered (chr<0xC0)");
+    403                    mfree(tmp_out);
+    404                    return NULL;
+    405                  }
+    406          	
+    407                  chr2 = *(UTF8_str+i+1);
+    408          
+    409                  if (chr2<0x80)
+    410                  {
+    411                    ShowMSG(1,(int)"Bad UTF-8 Encoding encountered (chr2<0x80)");
+    412                    mfree(tmp_out);
+    413                    return NULL;
+    414                  }
+    415          	
+    416          	if (chr<0xe0) {
+    417          	    // cx, dx
+    418                            if ((chr == 0xD0)&&(chr2 == 0x81)){*(tmp_out+lastchar) = 0xA8;}//Ё
+    419                       else if ((chr == 0xD0)&&(chr2 == 0x86)){*(tmp_out+lastchar) = 0xB2;}//І
+    420                       else if ((chr == 0xD0)&&(chr2 == 0x87)){*(tmp_out+lastchar) = 0xAF;}//Ї
+    421                       else if ((chr == 0xD0)&&(chr2 == 0x84)){*(tmp_out+lastchar) = 0xAA;}//Є
+    422                       else if ((chr == 0xD1)&&(chr2 == 0x91)){*(tmp_out+lastchar) = 0xB8;}//ё
+    423                       else if ((chr == 0xD1)&&(chr2 == 0x96)){*(tmp_out+lastchar) = 0xB3;}//і
+    424                       else if ((chr == 0xD1)&&(chr2 == 0x97)){*(tmp_out+lastchar) = 0xBF;}//ї
+    425                       else if ((chr == 0xD1)&&(chr2 == 0x94)){*(tmp_out+lastchar) = 0xBA;}//є
+    426                       else if ((chr == 0xD2)&&(chr2 == 0x91)){*(tmp_out+lastchar) = 0xE3;}//ґ->г
+    427                       else if ((chr == 0xD2)&&(chr2 == 0x90)){*(tmp_out+lastchar) = 0xC3;}//Ґ->Г
+    428                       else
+    429                    {
+    430          	    char test1 = (chr & 0x1f)<<6;
+    431                      char test2 = chr2 & 0x3f;
+    432                      *(tmp_out+lastchar)= test1 | test2 + 127 + 0x31;
+    433                    }
+    434                      i++;
+    435                      lastchar++;
+    436                      goto L_END_CYCLE;
+    437          	}
+    438          	if (chr<0xf0) {
+    439          	    // cx, dx
+    440          	    chr3= *(UTF8_str+i+2);
+    441          
+    442          	    if (chr3<0x80)
+    443                      {
+    444                        ShowMSG(1,(int)"Bad UTF-8 Encoding encountered");
+    445                        mfree(tmp_out);
+    446                        return NULL;
+    447                      }
+    448          	    else
+    449                      {
+    450                        *(tmp_out+lastchar) =  ((chr & 0x0f)<<12) | ((chr2 &0x3f) <<6) | (chr3 &0x3f);
+   \                     ??convUTF8_to_ANSI_STR_2:
+   \   00000038   3F1001E2           AND      R1,R1,#0x3F
+   \   0000003C   031381E1           ORR      R1,R1,R3, LSL #+6
+   \   00000040   0710C6E7           STRB     R1,[R6, +R7]
+    451                        i=i+2;
+   \   00000044   020080E2           ADD      R0,R0,#+2
+    452                      }
+    453          	}
+    454          
+    455            L_END_CYCLE:
+    456              dummy++;
+   \                     ??convUTF8_to_ANSI_STR_3:
+   \   00000048   010080E2           ADD      R0,R0,#+1
+   \                     ??convUTF8_to_ANSI_STR_1:
+   \   0000004C   050050E1           CMP      R0,R5
+   \   00000050   4C0000AA           BGE      ??convUTF8_to_ANSI_STR_4
+   \   00000054   0410D0E7           LDRB     R1,[R0, +R4]
+   \   00000058   012086E2           ADD      R2,R6,#+1
+   \   0000005C   800051E3           CMP      R1,#+128
+   \   00000060   0200002A           BCS      ??convUTF8_to_ANSI_STR_5
+   \   00000064   0710C6E7           STRB     R1,[R6, +R7]
+   \                     ??convUTF8_to_ANSI_STR_6:
+   \   00000068   0260A0E1           MOV      R6,R2
+   \   0000006C   F5FFFFEA           B        ??convUTF8_to_ANSI_STR_3
+   \                     ??convUTF8_to_ANSI_STR_5:
+   \   00000070   C00051E3           CMP      R1,#+192
+   \   00000074   ........           LDRCC    R1,??DataTable6  ;; `?<Constant "Bad UTF-8 Encoding en...">`
+   \   00000078   0400003A           BCC      ??convUTF8_to_ANSI_STR_7
+   \   0000007C   043080E0           ADD      R3,R0,R4
+   \   00000080   0130D3E5           LDRB     R3,[R3, #+1]
+   \   00000084   800053E3           CMP      R3,#+128
+   \   00000088   0600002A           BCS      ??convUTF8_to_ANSI_STR_8
+   \   0000008C   ........           LDR      R1,??DataTable7  ;; `?<Constant "Bad UTF-8 Encoding en...">` + 44
+   \                     ??convUTF8_to_ANSI_STR_7:
+   \   00000090   0100A0E3           MOV      R0,#+1
+   \   00000094   480100EF           SWI      +328
+   \   00000098   0700A0E1           MOV      R0,R7
+   \   0000009C   150000EF           SWI      +21
+   \                     ??convUTF8_to_ANSI_STR_0:
+   \   000000A0   0000A0E3           MOV      R0,#+0
+   \   000000A4   F081BDE8           POP      {R4-R8,PC}
+   \                     ??convUTF8_to_ANSI_STR_8:
+   \   000000A8   E00051E3           CMP      R1,#+224
+   \   000000AC   2D00002A           BCS      ??convUTF8_to_ANSI_STR_9
+   \   000000B0   D00051E3           CMP      R1,#+208
+   \   000000B4   0C00001A           BNE      ??convUTF8_to_ANSI_STR_10
+   \   000000B8   810053E3           CMP      R3,#+129
+   \   000000BC   A810A003           MOVEQ    R1,#+168
+   \   000000C0   2500000A           BEQ      ??convUTF8_to_ANSI_STR_11
+   \   000000C4   860053E3           CMP      R3,#+134
+   \   000000C8   B210A003           MOVEQ    R1,#+178
+   \   000000CC   2200000A           BEQ      ??convUTF8_to_ANSI_STR_11
+   \   000000D0   870053E3           CMP      R3,#+135
+   \   000000D4   AF10A003           MOVEQ    R1,#+175
+   \   000000D8   1F00000A           BEQ      ??convUTF8_to_ANSI_STR_11
+   \   000000DC   840053E3           CMP      R3,#+132
+   \   000000E0   1A00001A           BNE      ??convUTF8_to_ANSI_STR_12
+   \   000000E4   AA10A0E3           MOV      R1,#+170
+   \   000000E8   1B0000EA           B        ??convUTF8_to_ANSI_STR_11
+   \                     ??convUTF8_to_ANSI_STR_10:
+   \   000000EC   D10051E3           CMP      R1,#+209
+   \   000000F0   0300001A           BNE      ??convUTF8_to_ANSI_STR_13
+   \   000000F4   910053E3           CMP      R3,#+145
+   \   000000F8   0700001A           BNE      ??convUTF8_to_ANSI_STR_14
+   \   000000FC   B810A0E3           MOV      R1,#+184
+   \   00000100   150000EA           B        ??convUTF8_to_ANSI_STR_11
+   \                     ??convUTF8_to_ANSI_STR_13:
+   \   00000104   D20051E3           CMP      R1,#+210
+   \   00000108   1000001A           BNE      ??convUTF8_to_ANSI_STR_12
+   \   0000010C   910053E3           CMP      R3,#+145
+   \   00000110   0B00001A           BNE      ??convUTF8_to_ANSI_STR_15
+   \   00000114   E310A0E3           MOV      R1,#+227
+   \   00000118   0F0000EA           B        ??convUTF8_to_ANSI_STR_11
+   \                     ??convUTF8_to_ANSI_STR_14:
+   \   0000011C   960053E3           CMP      R3,#+150
+   \   00000120   B310A003           MOVEQ    R1,#+179
+   \   00000124   0C00000A           BEQ      ??convUTF8_to_ANSI_STR_11
+   \   00000128   970053E3           CMP      R3,#+151
+   \   0000012C   BF10A003           MOVEQ    R1,#+191
+   \   00000130   0900000A           BEQ      ??convUTF8_to_ANSI_STR_11
+   \   00000134   940053E3           CMP      R3,#+148
+   \   00000138   0400001A           BNE      ??convUTF8_to_ANSI_STR_12
+   \   0000013C   BA10A0E3           MOV      R1,#+186
+   \   00000140   050000EA           B        ??convUTF8_to_ANSI_STR_11
+   \                     ??convUTF8_to_ANSI_STR_15:
+   \   00000144   900053E3           CMP      R3,#+144
+   \   00000148   C310A003           MOVEQ    R1,#+195
+   \   0000014C   0200000A           BEQ      ??convUTF8_to_ANSI_STR_11
+   \                     ??convUTF8_to_ANSI_STR_12:
+   \   00000150   3F3003E2           AND      R3,R3,#0x3F
+   \   00000154   B03083E2           ADD      R3,R3,#+176
+   \   00000158   011383E1           ORR      R1,R3,R1, LSL #+6
+   \                     ??convUTF8_to_ANSI_STR_11:
+   \   0000015C   0710C6E7           STRB     R1,[R6, +R7]
+   \   00000160   010080E2           ADD      R0,R0,#+1
+   \   00000164   BFFFFFEA           B        ??convUTF8_to_ANSI_STR_6
+   \                     ??convUTF8_to_ANSI_STR_9:
+   \   00000168   F00051E3           CMP      R1,#+240
+   \   0000016C   B5FFFF2A           BCS      ??convUTF8_to_ANSI_STR_3
+   \   00000170   041080E0           ADD      R1,R0,R4
+   \   00000174   0210D1E5           LDRB     R1,[R1, #+2]
+   \   00000178   800051E3           CMP      R1,#+128
+   \   0000017C   ADFFFF2A           BCS      ??convUTF8_to_ANSI_STR_2
+   \   00000180   ........           LDR      R1,??DataTable8  ;; `?<Constant "Bad UTF-8 Encoding en...">` + 88
+   \   00000184   C1FFFFEA           B        ??convUTF8_to_ANSI_STR_7
+    457            }
+    458            st_len = strlen(tmp_out);
+   \                     ??convUTF8_to_ANSI_STR_4:
+   \   00000188   0700A0E1           MOV      R0,R7
+   \   0000018C   1B0000EF           SWI      +27
+    459            tmp_out = realloc(tmp_out,st_len+1);
+   \   00000190   011080E2           ADD      R1,R0,#+1
+   \   00000194   0700A0E1           MOV      R0,R7
+   \   00000198   BA0000EF           SWI      +186
+    460            return tmp_out;
+   \   0000019C   F081BDE8           POP      {R4-R8,PC}       ;; return
+    461          }
+    462          
+    463          
+    464          
+    465          // Готовимся к отказу от ANSI вообще. Пока не используется, скоро, наверное, будет...
+    466          
+    467          /* UTF-8 to UTF-16 conversion.  Surrogates are handeled properly, e.g.
+    468           * a single 4-byte UTF-8 character is encoded into a surrogate pair.
+    469           * On the other hand, if the UTF-8 string contains surrogate values, this
+    470           * is considered an error and returned as such.
+    471           *
+    472           * The destination array must be able to hold as many Unicode-16 characters
+    473           * as there are ASCII characters in the UTF-8 string.  This in case all UTF-8
+    474           * characters are ASCII characters.  No more will be needed.
+    475           *
+    476           * Copyright (c) 2000 Morten Rolland, Screen Media
+    477           */
+    478          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    479          int utf8_to_utf16(char *utf8, int cc, char *unicode16)
+    480          {
+   \                     utf8_to_utf16:
+   \   00000000   F0002DE9           PUSH     {R4-R7}
+    481          	int count = 0;
+   \   00000004   0030A0E3           MOV      R3,#+0
+   \   00000008   010000EA           B        ??utf8_to_utf16_0
+    482          	unsigned char c0, c1;
+    483          	unsigned long scalar;
+    484          
+    485          	while(--cc >= 0) {
+    486          		c0 = *utf8++;
+    487          		/*DPRINTF("Trying: %02x\n",c0);*/
+    488          
+    489          		if ( c0 < 0x80 ) {
+    490          			/* Plain ASCII character, simple translation :-) */
+    491          			*unicode16++ = c0;
+   \                     ??utf8_to_utf16_1:
+   \   0000000C   ........           STRB     R12,[R2], #+1
+    492          			count++;
+   \                     ??utf8_to_utf16_2:
+   \   00000010   0430A0E1           MOV      R3,R4
+    493          			continue;
+    494          		}
+   \                     ??utf8_to_utf16_0:
+   \   00000014   011051E2           SUBS     R1,R1,#+1
+   \   00000018   3C00004A           BMI      ??utf8_to_utf16_3
+   \   0000001C   ........           LDRB     R12,[R0], #+1
+   \   00000020   014083E2           ADD      R4,R3,#+1
+   \   00000024   80005CE3           CMP      R12,#+128
+   \   00000028   F7FFFF3A           BCC      ??utf8_to_utf16_1
+    495          
+    496          		if ( (c0 & 0xc0) == 0x80 )
+   \   0000002C   C0500CE2           AND      R5,R12,#0xC0
+   \   00000030   800055E3           CMP      R5,#+128
+   \   00000034   0000001A           BNE      ??utf8_to_utf16_4
+    497          			/* Illegal; starts with 10xxxxxx */
+    498          			return -1;
+   \                     ??utf8_to_utf16_5:
+   \   00000038   1D0000EA           B        ??utf8_to_utf16_6
+    499          
+    500          		/* c0 must be 11xxxxxx if we get here => at least 2 bytes */
+    501          		scalar = c0;
+    502          		if(--cc < 0)
+   \                     ??utf8_to_utf16_4:
+   \   0000003C   011051E2           SUBS     R1,R1,#+1
+   \   00000040   1B00004A           BMI      ??utf8_to_utf16_6
+    503          			return -1;
+    504          		c1 = *utf8++;
+   \   00000044   ........           LDRB     R6,[R0], #+1
+    505          		/*DPRINTF("c1=%02x\n",c1);*/
+    506          		if ( (c1 & 0xc0) != 0x80 )
+   \   00000048   C07006E2           AND      R7,R6,#0xC0
+   \   0000004C   800057E3           CMP      R7,#+128
+   \   00000050   1700001A           BNE      ??utf8_to_utf16_6
+    507          			/* Bad byte */
+    508          			return -1;
+    509          		scalar <<= 6;
+    510          		scalar |= (c1 & 0x3f);
+   \   00000054   3F6006E2           AND      R6,R6,#0x3F
+   \   00000058   0C5386E1           ORR      R5,R6,R12, LSL #+6
+    511          
+    512          		if ( !(c0 & 0x20) ) {
+   \   0000005C   20001CE3           TST      R12,#0x20
+   \   00000060   0300001A           BNE      ??utf8_to_utf16_7
+    513          			/* Two bytes UTF-8 */
+    514          			if ( scalar < 0x80 )
+   \   00000064   800055E3           CMP      R5,#+128
+   \   00000068   1100003A           BCC      ??utf8_to_utf16_6
+    515          				return -1;	/* Overlong encoding */
+    516          			*unicode16++ = scalar & 0x7ff;
+   \                     ??utf8_to_utf16_8:
+   \   0000006C   ........           STRB     R5,[R2], #+1
+    517          			count++;
+   \   00000070   E6FFFFEA           B        ??utf8_to_utf16_2
+    518          			continue;
+    519          		}
+    520          
+    521          		/* c0 must be 111xxxxx if we get here => at least 3 bytes */
+    522          		if(--cc < 0)
+   \                     ??utf8_to_utf16_7:
+   \   00000074   011051E2           SUBS     R1,R1,#+1
+   \   00000078   0D00004A           BMI      ??utf8_to_utf16_6
+    523          			return -1;
+    524          		c1 = *utf8++;
+   \   0000007C   ........           LDRB     R6,[R0], #+1
+    525          		/*DPRINTF("c1=%02x\n",c1);*/
+    526          		if ( (c1 & 0xc0) != 0x80 )
+   \   00000080   C07006E2           AND      R7,R6,#0xC0
+   \   00000084   800057E3           CMP      R7,#+128
+   \   00000088   0900001A           BNE      ??utf8_to_utf16_6
+    527          			/* Bad byte */
+    528          			return -1;
+    529          		scalar <<= 6;
+    530          		scalar |= (c1 & 0x3f);
+   \   0000008C   3F6006E2           AND      R6,R6,#0x3F
+   \   00000090   055386E1           ORR      R5,R6,R5, LSL #+6
+    531          
+    532          		if ( !(c0 & 0x10) ) {
+   \   00000094   10001CE3           TST      R12,#0x10
+   \   00000098   0800001A           BNE      ??utf8_to_utf16_9
+    533          			/*DPRINTF("####\n");*/
+    534          			/* Three bytes UTF-8 */
+    535          			if ( scalar < 0x800 )
+   \   0000009C   800E55E3           CMP      R5,#+2048
+   \   000000A0   0300003A           BCC      ??utf8_to_utf16_6
+    536          				return -1;	/* Overlong encoding */
+    537          			if ( scalar >= 0xd800 && scalar < 0xe000 )
+   \   000000A4   D80C55E3           CMP      R5,#+55296
+   \   000000A8   EFFFFF3A           BCC      ??utf8_to_utf16_8
+   \   000000AC   E00C55E3           CMP      R5,#+57344
+   \   000000B0   EDFFFF2A           BCS      ??utf8_to_utf16_8
+   \                     ??utf8_to_utf16_6:
+   \   000000B4   F000BDE8           POP      {R4-R7}
+   \   000000B8   0000E0E3           MVN      R0,#+0
+   \   000000BC   1EFF2FE1           BX       LR
+    538          				return -1;	/* UTF-16 high/low halfs */
+    539          			*unicode16++ = scalar & 0xffff;
+    540          			count++;
+    541          			continue;
+    542          		}
+    543          
+    544          		/* c0 must be 1111xxxx if we get here => at least 4 bytes */
+    545          		c1 = *utf8++;
+   \                     ??utf8_to_utf16_9:
+   \   000000C0   ........           LDRB     R6,[R0], #+1
+    546          		if(--cc < 0)
+   \   000000C4   011051E2           SUBS     R1,R1,#+1
+   \   000000C8   F9FFFF4A           BMI      ??utf8_to_utf16_6
+    547          			return -1;
+    548          		/*DPRINTF("c1=%02x\n",c1);*/
+    549          		if ( (c1 & 0xc0) != 0x80 )
+   \   000000CC   C04006E2           AND      R4,R6,#0xC0
+   \   000000D0   800054E3           CMP      R4,#+128
+   \   000000D4   F6FFFF1A           BNE      ??utf8_to_utf16_6
+    550          			/* Bad byte */
+    551          			return -1;
+    552          		scalar <<= 6;
+    553          		scalar |= (c1 & 0x3f);
+   \   000000D8   3F4006E2           AND      R4,R6,#0x3F
+   \   000000DC   055384E1           ORR      R5,R4,R5, LSL #+6
+    554          
+    555          		if ( !(c0 & 0x08) ) {
+   \   000000E0   08001CE3           TST      R12,#0x8
+   \   000000E4   F2FFFF1A           BNE      ??utf8_to_utf16_6
+    556          			/* Four bytes UTF-8, needs encoding as surrogates */
+    557          			if ( scalar < 0x10000 )
+   \   000000E8   400B55E3           CMP      R5,#+65536
+   \   000000EC   F0FFFF3A           BCC      ??utf8_to_utf16_6
+    558          				return -1;	/* Overlong encoding */
+    559          			scalar -= 0x10000;
+   \   000000F0   FF44A0E3           MOV      R4,#-16777216
+   \   000000F4   FF4884E3           ORR      R4,R4,#0xFF0000
+   \   000000F8   055084E0           ADD      R5,R4,R5
+    560          			*unicode16++ = ((scalar >> 10) & 0x3ff) + 0xd800;
+   \   000000FC   2545A0E1           LSR      R4,R5,#+10
+   \   00000100   ........           STRB     R4,[R2], #+1
+    561          			*unicode16++ = (scalar & 0x3ff) + 0xdc00;
+   \   00000104   ........           STRB     R5,[R2], #+1
+    562          			count += 2;
+   \   00000108   023083E2           ADD      R3,R3,#+2
+    563          			continue;
+   \   0000010C   C0FFFFEA           B        ??utf8_to_utf16_0
+    564          		}
+    565          
+    566          		return -1;	/* No support for more than four byte UTF-8 */
+    567          	}
+    568          	return count;
+   \                     ??utf8_to_utf16_3:
+   \   00000110   F000BDE8           POP      {R4-R7}
+   \   00000114   0300A0E1           MOV      R0,R3
+   \   00000118   1EFF2FE1           BX       LR               ;; return
+    569          }
+    570          
+    571          
+    572          
+    573          
+    574          /*
+    575          Следующая функция взята из файла:
+    576          http://www.cs.umd.edu/projects/hpsl/chaos/ResearchAreas/ic/dist/InterComm-1.5.tar.gz/InterComm/src/ezxml/ezxml.c
+    577          
+    578          В функции отключена проверка на UNICODE LE / BE, ибо в Сименсе используется только LE
+    579          */
+    580          #define EZXML_BUFSIZE 1024
+    581          /* converts a UTF-16 string to UTF-8, returns a new string the must be freed or NULL if no conversion was needed*/
+    582          //char *ezxml_to_utf8(char **s, size_t *len) - оригинальный заголовок
+
+   \                                 In segment CODE, align 4, keep-with-next
+    583          char *utf16_to_utf8(char **s, size_t *len)
+    584          {
+   \                     utf16_to_utf8:
+   \   00000000   F0472DE9           PUSH     {R4-R10,LR}
+   \   00000004   0160A0E1           MOV      R6,R1
+    585              char *u;
+    586              size_t l = 0, sl, max = *len;
+   \   00000008   009096E5           LDR      R9,[R6, #+0]
+   \   0000000C   0050A0E1           MOV      R5,R0
+    587              long c, c2;
+    588              int b, be = 0;//be = (**s == '\xFE') ? 1 : (**s == '\xFF') ? 0 : -1; - отключение проверки!!!
+    589          
+    590              if (be == -1) return NULL; /* not UTF-16*/
+    591          
+    592              u = malloc(max); zeromem(u, max);
+   \   00000010   0900A0E1           MOV      R0,R9
+   \   00000014   140000EF           SWI      +20
+   \   00000018   00A0A0E1           MOV      R10,R0
+   \   0000001C   0910A0E1           MOV      R1,R9
+   \   00000020   1D0100EF           SWI      +285
+    593              //    for (sl = 2; sl < *len - 1; sl += 2) {      // Второй фикс: у нас строка на 2 байта больше
+    594                  for (sl = 2; sl <= *len ; sl += 2) {
+   \   00000024   000096E5           LDR      R0,[R6, #+0]
+   \   00000028   0040A0E3           MOV      R4,#+0
+   \   0000002C   0270A0E3           MOV      R7,#+2
+   \   00000030   020050E3           CMP      R0,#+2
+   \   00000034   4B00003A           BCC      ??utf16_to_utf8_0
+    595                c = (be) ? ((long)(*s)[sl] << 8) | (*s)[sl + 1] : /* big-endian*/
+    596          	((long)(*s)[sl + 1] << 8) | (*s)[sl];  /* little-endian*/
+   \                     ??utf16_to_utf8_1:
+   \   00000038   000095E5           LDR      R0,[R5, #+0]
+   \   0000003C   001087E0           ADD      R1,R7,R0
+   \   00000040   0120D1E5           LDRB     R2,[R1, #+1]
+   \   00000044   0010D1E5           LDRB     R1,[R1, #+0]
+   \   00000048   028481E1           ORR      R8,R1,R2, LSL #+8
+    597                if (c >= 0xD800 && c <= 0xDFFF && (sl += 2) < *len - 1) { /* high-half*/
+   \   0000004C   D80C58E3           CMP      R8,#+55296
+   \   00000050   160000BA           BLT      ??utf16_to_utf8_2
+   \   00000054   E00C58E3           CMP      R8,#+57344
+   \   00000058   140000AA           BGE      ??utf16_to_utf8_2
+   \   0000005C   001096E5           LDR      R1,[R6, #+0]
+   \   00000060   027087E2           ADD      R7,R7,#+2
+   \   00000064   011041E2           SUB      R1,R1,#+1
+   \   00000068   010057E1           CMP      R7,R1
+   \   0000006C   0F00002A           BCS      ??utf16_to_utf8_2
+    598          	c2 = (be) ? ((long)(*s)[sl] << 8) | (*s)[sl + 1] : /* big-endian*/
+    599          	  ((long)(*s)[sl + 1] << 8) | (*s)[sl];  /* little-endian*/
+    600                      c = (((c & 0x3FF) << 10) | (c2 & 0x3FF)) + 0x10000;
+   \   00000070   000087E0           ADD      R0,R7,R0
+   \   00000074   0130D0E5           LDRB     R3,[R0, #+1]
+   \   00000078   0000D0E5           LDRB     R0,[R0, #+0]
+   \   0000007C   FF10A0E3           MOV      R1,#+255
+   \   00000080   C01F81E3           ORR      R1,R1,#0x300
+   \   00000084   082001E0           AND      R2,R1,R8
+   \   00000088   030480E1           ORR      R0,R0,R3, LSL #+8
+   \   0000008C   000001E0           AND      R0,R1,R0
+   \   00000090   020580E1           ORR      R0,R0,R2, LSL #+10
+   \   00000094   408B80E2           ADD      R8,R0,#+65536
+   \   00000098   040000EA           B        ??utf16_to_utf8_2
+    601                  }
+    602          
+    603                  while (l + 6 > max) u = realloc(u, max += EZXML_BUFSIZE);
+   \                     ??utf16_to_utf8_3:
+   \   0000009C   409E89E2           ADD      R9,R9,#+1024
+   \   000000A0   0910A0E1           MOV      R1,R9
+   \   000000A4   0A00A0E1           MOV      R0,R10
+   \   000000A8   BA0000EF           SWI      +186
+   \   000000AC   00A0A0E1           MOV      R10,R0
+   \                     ??utf16_to_utf8_2:
+   \   000000B0   060084E2           ADD      R0,R4,#+6
+   \   000000B4   000059E1           CMP      R9,R0
+   \   000000B8   F7FFFF3A           BCC      ??utf16_to_utf8_3
+    604                  if (c < 0x80) u[l++] = c; /* US-ASCII subset*/
+   \   000000BC   0A0084E0           ADD      R0,R4,R10
+   \   000000C0   014084E2           ADD      R4,R4,#+1
+   \   000000C4   800058E3           CMP      R8,#+128
+   \   000000C8   0080C0B5           STRBLT   R8,[R0, #+0]
+   \   000000CC   210000BA           BLT      ??utf16_to_utf8_4
+    605                  else { /* multi-byte UTF-8 sequence*/
+    606          	  for (b = 0, c2 = c; c2; c2 /= 2) b++; /* bits in c*/
+   \   000000D0   0010A0E3           MOV      R1,#+0
+   \   000000D4   0820A0E1           MOV      R2,R8
+   \                     ??utf16_to_utf8_5:
+   \   000000D8   011081E2           ADD      R1,R1,#+1
+   \   000000DC   A22F82E0           ADD      R2,R2,R2, LSR #+31
+   \   000000E0   C220B0E1           ASRS     R2,R2,#+1
+   \   000000E4   FBFFFF1A           BNE      ??utf16_to_utf8_5
+    607          	  b = (b - 2) / 5; /* bytes in payload;*/
+   \   000000E8   8C209FE5           LDR      R2,??utf16_to_utf8_6  ;; 0x66666667
+   \   000000EC   021041E2           SUB      R1,R1,#+2
+   \   000000F0   9231CCE0           SMULL    R3,R12,R2,R1
+    608          	  u[l++] = (0xFF << (7 - b)) | (c >> (6 * b)); /*head*/
+   \   000000F4   FF20A0E3           MOV      R2,#+255
+   \   000000F8   CCC0A0E1           ASR      R12,R12,#+1
+   \   000000FC   A11F8CE0           ADD      R1,R12,R1, LSR #+31
+   \   00000100   0130A0E1           MOV      R3,R1
+   \   00000104   073063E2           RSB      R3,R3,#+7
+   \   00000108   1223A0E1           LSL      R2,R2,R3
+   \   0000010C   0130A0E1           MOV      R3,R1
+   \   00000110   06C0A0E3           MOV      R12,#+6
+   \   00000114   9C0303E0           MUL      R3,R12,R3
+   \   00000118   000051E3           CMP      R1,#+0
+   \   0000011C   5833A0E1           ASR      R3,R8,R3
+   \   00000120   022083E1           ORR      R2,R3,R2
+   \   00000124   0020C0E5           STRB     R2,[R0, #+0]
+   \   00000128   0620A0E3           MOV      R2,#+6
+   \   0000012C   0900000A           BEQ      ??utf16_to_utf8_4
+    609          	  while (b) u[l++] = 0x80 | ((c >> (6 * --b)) & 0x3F); /* payload*/
+   \                     ??utf16_to_utf8_7:
+   \   00000130   011041E2           SUB      R1,R1,#+1
+   \   00000134   0100A0E1           MOV      R0,R1
+   \   00000138   920000E0           MUL      R0,R2,R0
+   \   0000013C   000051E3           CMP      R1,#+0
+   \   00000140   5800A0E1           ASR      R0,R8,R0
+   \   00000144   3F0000E2           AND      R0,R0,#0x3F
+   \   00000148   800080E3           ORR      R0,R0,#0x80
+   \   0000014C   0A00C4E7           STRB     R0,[R4, +R10]
+   \   00000150   014084E2           ADD      R4,R4,#+1
+   \   00000154   F5FFFF1A           BNE      ??utf16_to_utf8_7
+    610                  }
+    611              }
+   \                     ??utf16_to_utf8_4:
+   \   00000158   000096E5           LDR      R0,[R6, #+0]
+   \   0000015C   027087E2           ADD      R7,R7,#+2
+   \   00000160   070050E1           CMP      R0,R7
+   \   00000164   B3FFFF2A           BCS      ??utf16_to_utf8_1
+    612          
+    613              //return *s = realloc(u, *len = l);
+    614              *len = l;
+   \                     ??utf16_to_utf8_0:
+   \   00000168   004086E5           STR      R4,[R6, #+0]
+    615              u = realloc(u, l+1);    // Не убиваем исходную WSHDR!
+   \   0000016C   011084E2           ADD      R1,R4,#+1
+   \   00000170   0A00A0E1           MOV      R0,R10
+   \   00000174   BA0000EF           SWI      +186
+    616              return u;
+   \   00000178   F087BDE8           POP      {R4-R10,PC}      ;; return
+   \                     ??utf16_to_utf8_6:
+   \   0000017C   67666666           DC32     0x66666667
+    617          }
+    618          
+    619          
+    620          /*
+    621            Обеспечивает преобразование кривого UTF-8 Сименса в UTF-8 для Jabber
+    622          */
+
+   \                                 In segment CODE, align 4, keep-with-next
+    623          char* Correct_UTF8_String(char* utf8_str)
+    624          {
+   \                     Correct_UTF8_String:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    625            int l = strlen(utf8_str)*2;
+   \   00000008   1B0000EF           SWI      +27
+    626            // ^ так нельзя делать цикл, строка на самом длиннее, чем strlen
+    627            int j=0;
+    628            int i=0;
+    629            char character = *utf8_str;
+   \   0000000C   0020D4E5           LDRB     R2,[R4, #+0]
+   \   00000010   0000A0E3           MOV      R0,#+0
+   \   00000014   0010A0E3           MOV      R1,#+0
+   \   00000018   0230B0E1           MOVS     R3,R2
+   \   0000001C   0600000A           BEQ      ??Correct_UTF8_String_0
+    630            while(character!='\0')
+    631            {
+    632              if(character!=0x1F)
+   \                     ??Correct_UTF8_String_1:
+   \   00000020   1F0052E3           CMP      R2,#+31
+    633              {
+    634                utf8_str[j]=character;
+   \   00000024   0420C017           STRBNE   R2,[R0, +R4]
+    635                j++;
+    636              }
+    637              i++;
+   \   00000028   011081E2           ADD      R1,R1,#+1
+    638              character = *(utf8_str+i);
+   \   0000002C   0420D1E7           LDRB     R2,[R1, +R4]
+   \   00000030   01008012           ADDNE    R0,R0,#+1
+    639            }
+   \   00000034   0230B0E1           MOVS     R3,R2
+   \   00000038   F8FFFF1A           BNE      ??Correct_UTF8_String_1
+    640            utf8_str[j]='\0';
+   \                     ??Correct_UTF8_String_0:
+   \   0000003C   0010A0E3           MOV      R1,#+0
+   \   00000040   0410C0E7           STRB     R1,[R0, +R4]
+    641            utf8_str = realloc(utf8_str, j+1);
+   \   00000044   011080E2           ADD      R1,R0,#+1
+   \   00000048   0400A0E1           MOV      R0,R4
+   \   0000004C   BA0000EF           SWI      +186
+    642            return utf8_str;
+   \   00000050   1080BDE8           POP      {R4,PC}          ;; return
+    643          }
+    644          
+    645          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    646          char * ANSI2UTF8(const char * ansi_str, int maxlen)
+    647          {
+   \                     ANSI2UTF8:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   04D04DE2           SUB      SP,SP,#+4
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   0150A0E1           MOV      R5,R1
+    648            int utf8_len = NULL;
+   \   00000010   0010A0E3           MOV      R1,#+0
+   \   00000014   00108DE5           STR      R1,[SP, #+0]
+    649            WSHDR * ws_str = AllocWS(maxlen);
+   \   00000018   0500A0E1           MOV      R0,R5
+   \   0000001C   250100EF           SWI      +293
+   \   00000020   0060A0E1           MOV      R6,R0
+    650            ascii2ws(ws_str, ansi_str);
+   \   00000024   0410A0E1           MOV      R1,R4
+   \   00000028   ........           BL       ascii2ws
+   \   0000002C   0100A0E3           MOV      R0,#+1
+   \   00000030   854080E0           ADD      R4,R0,R5, LSL #+1
+   \   00000034   0400A0E1           MOV      R0,R4
+    651            char * utf8_str = malloc(maxlen * 2 + 1);
+   \   00000038   140000EF           SWI      +20
+   \   0000003C   0050A0E1           MOV      R5,R0
+    652            ws_2utf8(ws_str, utf8_str, &utf8_len, maxlen * 2 + 1);
+   \   00000040   0430A0E1           MOV      R3,R4
+   \   00000044   0D20A0E1           MOV      R2,SP
+   \   00000048   0510A0E1           MOV      R1,R5
+   \   0000004C   0600A0E1           MOV      R0,R6
+   \   00000050   E20100EF           SWI      +482
+    653            FreeWS(ws_str);
+   \   00000054   0600A0E1           MOV      R0,R6
+   \   00000058   290100EF           SWI      +297
+    654            utf8_str = realloc(utf8_str, utf8_len + 1);
+   \   0000005C   00009DE5           LDR      R0,[SP, #+0]
+   \   00000060   011080E2           ADD      R1,R0,#+1
+   \   00000064   0500A0E1           MOV      R0,R5
+   \   00000068   BA0000EF           SWI      +186
+    655            utf8_str[utf8_len] = '\0';
+   \   0000006C   00109DE5           LDR      R1,[SP, #+0]
+   \   00000070   0020A0E3           MOV      R2,#+0
+   \   00000074   0020C1E7           STRB     R2,[R1, +R0]
+    656            return utf8_str;
+   \   00000078   7280BDE8           POP      {R1,R4-R6,PC}    ;; return
+    657          }
+    658          
+    659          // From NatICQ
+    660          
+    661          typedef struct
+    662          {
+    663            unsigned short u;
+    664            char dos;
+    665            char win;
+    666            char koi8;
+    667          } TUNICODE2CHAR;
+    668          
+
+   \                                 In segment DATA_C, align 4, align-sorted
+    669          const TUNICODE2CHAR unicode2char[]=
+   \                     unicode2char:
+   \   00000000   1004               DC16 1040
+   \   00000002   80C0E100           DC8 128, 192, 225, 0
+   \   00000006   1104               DC16 1041
+   \   00000008   81C1E200           DC8 129, 193, 226, 0
+   \   0000000C   1204               DC16 1042
+   \   0000000E   82C2F700           DC8 130, 194, 247, 0
+   \   00000012   1304               DC16 1043
+   \   00000014   83C3E700           DC8 131, 195, 231, 0
+   \   00000018   1404               DC16 1044
+   \   0000001A   84C4E400           DC8 132, 196, 228, 0
+   \   0000001E   1504               DC16 1045
+   \   00000020   85C5E500           DC8 133, 197, 229, 0
+   \   00000024   1604               DC16 1046
+   \   00000026   86C6F600           DC8 134, 198, 246, 0
+   \   0000002A   1704               DC16 1047
+   \   0000002C   87C7FA00           DC8 135, 199, 250, 0
+   \   00000030   1804               DC16 1048
+   \   00000032   88C8E900           DC8 136, 200, 233, 0
+   \   00000036   1904               DC16 1049
+   \   00000038   89C9EA00           DC8 137, 201, 234, 0
+   \   0000003C   1A04               DC16 1050
+   \   0000003E   8ACAEB00           DC8 138, 202, 235, 0
+   \   00000042   1B04               DC16 1051
+   \   00000044   8BCBEC00           DC8 139, 203, 236, 0
+   \   00000048   1C04               DC16 1052
+   \   0000004A   8CCCED00           DC8 140, 204, 237, 0
+   \   0000004E   1D04               DC16 1053
+   \   00000050   8DCDEE00           DC8 141, 205, 238, 0
+   \   00000054   1E04               DC16 1054
+   \   00000056   8ECEEF00           DC8 142, 206, 239, 0
+   \   0000005A   1F04               DC16 1055
+   \   0000005C   8FCFF000           DC8 143, 207, 240, 0
+   \   00000060   2004               DC16 1056
+   \   00000062   90D0F200           DC8 144, 208, 242, 0
+   \   00000066   2104               DC16 1057
+   \   00000068   91D1F300           DC8 145, 209, 243, 0
+   \   0000006C   2204               DC16 1058
+   \   0000006E   92D2F400           DC8 146, 210, 244, 0
+   \   00000072   2304               DC16 1059
+   \   00000074   93D3F500           DC8 147, 211, 245, 0
+   \   00000078   2404               DC16 1060
+   \   0000007A   94D4E600           DC8 148, 212, 230, 0
+   \   0000007E   2504               DC16 1061
+   \   00000080   95D5E800           DC8 149, 213, 232, 0
+   \   00000084   2604               DC16 1062
+   \   00000086   96D6E300           DC8 150, 214, 227, 0
+   \   0000008A   2704               DC16 1063
+   \   0000008C   97D7FE00           DC8 151, 215, 254, 0
+   \   00000090   2804               DC16 1064
+   \   00000092   98D8FB00           DC8 152, 216, 251, 0
+   \   00000096   2904               DC16 1065
+   \   00000098   99D9FD00           DC8 153, 217, 253, 0
+   \   0000009C   2A04               DC16 1066
+   \   0000009E   9ADAFF00           DC8 154, 218, 255, 0
+   \   000000A2   2B04               DC16 1067
+   \   000000A4   9BDBF900           DC8 155, 219, 249, 0
+   \   000000A8   2C04               DC16 1068
+   \   000000AA   9CDCF800           DC8 156, 220, 248, 0
+   \   000000AE   2D04               DC16 1069
+   \   000000B0   9DDDFC00           DC8 157, 221, 252, 0
+   \   000000B4   2E04               DC16 1070
+   \   000000B6   9EDEE000           DC8 158, 222, 224, 0
+   \   000000BA   2F04               DC16 1071
+   \   000000BC   9FDFF100           DC8 159, 223, 241, 0
+   \   000000C0   0204               DC16 1026
+   \   000000C2   5F805F00           DC8 95, 128, 95, 0
+   \   000000C6   0304               DC16 1027
+   \   000000C8   5F815F00           DC8 95, 129, 95, 0
+   \   000000CC   0904               DC16 1033
+   \   000000CE   5F8A5F00           DC8 95, 138, 95, 0
+   \   000000D2   0A04               DC16 1034
+   \   000000D4   5F8C5F00           DC8 95, 140, 95, 0
+   \   000000D8   0C04               DC16 1036
+   \   000000DA   5F8D5F00           DC8 95, 141, 95, 0
+   \   000000DE   0B04               DC16 1035
+   \   000000E0   5F8E5F00           DC8 95, 142, 95, 0
+   \   000000E4   0F04               DC16 1039
+   \   000000E6   5F8F5F00           DC8 95, 143, 95, 0
+   \   000000EA   0E04               DC16 1038
+   \   000000EC   F6A15F00           DC8 246, 161, 95, 0
+   \   000000F0   0804               DC16 1032
+   \   000000F2   4AA34A00           DC8 74, 163, 74, 0
+   \   000000F6   0904               DC16 1033
+   \   000000F8   83A5BD00           DC8 131, 165, 189, 0
+   \   000000FC   0104               DC16 1025
+   \   000000FE   F0A8B300           DC8 240, 168, 179, 0
+   \   00000102   0404               DC16 1028
+   \   00000104   F2AAB400           DC8 242, 170, 180, 0
+   \   00000108   0704               DC16 1031
+   \   0000010A   F4AFB700           DC8 244, 175, 183, 0
+   \   0000010E   0604               DC16 1030
+   \   00000110   49B2B600           DC8 73, 178, 182, 0
+   \   00000114   0504               DC16 1029
+   \   00000116   53BD5300           DC8 83, 189, 83, 0
+   \   0000011A   3004               DC16 1072
+   \   0000011C   A0E0C100           DC8 160, 224, 193, 0
+   \   00000120   3104               DC16 1073
+   \   00000122   A1E1C200           DC8 161, 225, 194, 0
+   \   00000126   3204               DC16 1074
+   \   00000128   A2E2D700           DC8 162, 226, 215, 0
+   \   0000012C   3304               DC16 1075
+   \   0000012E   A3E3C700           DC8 163, 227, 199, 0
+   \   00000132   3404               DC16 1076
+   \   00000134   A4E4C400           DC8 164, 228, 196, 0
+   \   00000138   3504               DC16 1077
+   \   0000013A   A5E5C500           DC8 165, 229, 197, 0
+   \   0000013E   3604               DC16 1078
+   \   00000140   A6E6D600           DC8 166, 230, 214, 0
+   \   00000144   3704               DC16 1079
+   \   00000146   A7E7DA00           DC8 167, 231, 218, 0
+   \   0000014A   3804               DC16 1080
+   \   0000014C   A8E8C900           DC8 168, 232, 201, 0
+   \   00000150   3904               DC16 1081
+   \   00000152   A9E9CA00           DC8 169, 233, 202, 0
+   \   00000156   3A04               DC16 1082
+   \   00000158   AAEACB00           DC8 170, 234, 203, 0
+   \   0000015C   3B04               DC16 1083
+   \   0000015E   ABEBCC00           DC8 171, 235, 204, 0
+   \   00000162   3C04               DC16 1084
+   \   00000164   ACECCD00           DC8 172, 236, 205, 0
+   \   00000168   3D04               DC16 1085
+   \   0000016A   ADEDCE00           DC8 173, 237, 206, 0
+   \   0000016E   3E04               DC16 1086
+   \   00000170   AEEECF00           DC8 174, 238, 207, 0
+   \   00000174   3F04               DC16 1087
+   \   00000176   AFEFD000           DC8 175, 239, 208, 0
+   \   0000017A   4004               DC16 1088
+   \   0000017C   E0F0D200           DC8 224, 240, 210, 0
+   \   00000180   4104               DC16 1089
+   \   00000182   E1F1D300           DC8 225, 241, 211, 0
+   \   00000186   4204               DC16 1090
+   \   00000188   E2F2D400           DC8 226, 242, 212, 0
+   \   0000018C   4304               DC16 1091
+   \   0000018E   E3F3D500           DC8 227, 243, 213, 0
+   \   00000192   4404               DC16 1092
+   \   00000194   E4F4C600           DC8 228, 244, 198, 0
+   \   00000198   4504               DC16 1093
+   \   0000019A   E5F5C800           DC8 229, 245, 200, 0
+   \   0000019E   4604               DC16 1094
+   \   000001A0   E6F6C300           DC8 230, 246, 195, 0
+   \   000001A4   4704               DC16 1095
+   \   000001A6   E7F7DE00           DC8 231, 247, 222, 0
+   \   000001AA   4804               DC16 1096
+   \   000001AC   E8F8DB00           DC8 232, 248, 219, 0
+   \   000001B0   4904               DC16 1097
+   \   000001B2   E9F9DD00           DC8 233, 249, 221, 0
+   \   000001B6   4A04               DC16 1098
+   \   000001B8   EAFADF00           DC8 234, 250, 223, 0
+   \   000001BC   4B04               DC16 1099
+   \   000001BE   EBFBD900           DC8 235, 251, 217, 0
+   \   000001C2   4C04               DC16 1100
+   \   000001C4   ECFCD800           DC8 236, 252, 216, 0
+   \   000001C8   4D04               DC16 1101
+   \   000001CA   EDFDDC00           DC8 237, 253, 220, 0
+   \   000001CE   4E04               DC16 1102
+   \   000001D0   EEFEC000           DC8 238, 254, 192, 0
+   \   000001D4   4F04               DC16 1103
+   \   000001D6   EFFFD100           DC8 239, 255, 209, 0
+   \   000001DA   5204               DC16 1106
+   \   000001DC   5F905F00           DC8 95, 144, 95, 0
+   \   000001E0   5304               DC16 1107
+   \   000001E2   5F835F00           DC8 95, 131, 95, 0
+   \   000001E6   5904               DC16 1113
+   \   000001E8   5F9A5F00           DC8 95, 154, 95, 0
+   \   000001EC   5A04               DC16 1114
+   \   000001EE   5F9C5F00           DC8 95, 156, 95, 0
+   \   000001F2   5C04               DC16 1116
+   \   000001F4   5F9D5F00           DC8 95, 157, 95, 0
+   \   000001F8   5B04               DC16 1115
+   \   000001FA   5F9E5F00           DC8 95, 158, 95, 0
+   \   000001FE   5F04               DC16 1119
+   \   00000200   5F9F5F00           DC8 95, 159, 95, 0
+   \   00000204   5E04               DC16 1118
+   \   00000206   F7A25F00           DC8 247, 162, 95, 0
+   \   0000020A   5804               DC16 1112
+   \   0000020C   6ABC6A00           DC8 106, 188, 106, 0
+   \   00000210   9104               DC16 1169
+   \   00000212   A3B4AD00           DC8 163, 180, 173, 0
+   \   00000216   5104               DC16 1105
+   \   00000218   F1B8A300           DC8 241, 184, 163, 0
+   \   0000021C   5404               DC16 1108
+   \   0000021E   F3BAA400           DC8 243, 186, 164, 0
+   \   00000222   5704               DC16 1111
+   \   00000224   F5BFA700           DC8 245, 191, 167, 0
+   \   00000228   5604               DC16 1110
+   \   0000022A   69B3A600           DC8 105, 179, 166, 0
+   \   0000022E   5504               DC16 1109
+   \   00000230   73BE7300           DC8 115, 190, 115, 0
+   \   00000234   A000               DC16 160
+   \   00000236   5FA02000           DC8 95, 160, 32, 0
+   \   0000023A   A400               DC16 164
+   \   0000023C   5FA4FD00           DC8 95, 164, 253, 0
+   \   00000240   A600               DC16 166
+   \   00000242   5FA65F00           DC8 95, 166, 95, 0
+   \   00000246   B000               DC16 176
+   \   00000248   F8B09C00           DC8 248, 176, 156, 0
+   \   0000024C   B700               DC16 183
+   \   0000024E   FAB79E00           DC8 250, 183, 158, 0
+   \   00000252   0000               DC16 0
+   \   00000254   00000000           DC8 0, 0, 0, 0
+    670          {
+    671            // CAPITAL Cyrillic letters (base)
+    672            0x410,0x80,0xC0,0xE1, // А
+    673            0x411,0x81,0xC1,0xE2, // Б
+    674            0x412,0x82,0xC2,0xF7, // В
+    675            0x413,0x83,0xC3,0xE7, // Г
+    676            0x414,0x84,0xC4,0xE4, // Д
+    677            0x415,0x85,0xC5,0xE5, // Е
+    678            0x416,0x86,0xC6,0xF6, // Ж
+    679            0x417,0x87,0xC7,0xFA, // З
+    680            0x418,0x88,0xC8,0xE9, // И
+    681            0x419,0x89,0xC9,0xEA, // Й
+    682            0x41A,0x8A,0xCA,0xEB, // К
+    683            0x41B,0x8B,0xCB,0xEC, // Л
+    684            0x41C,0x8C,0xCC,0xED, // М
+    685            0x41D,0x8D,0xCD,0xEE, // Н
+    686            0x41E,0x8E,0xCE,0xEF, // О
+    687            0x41F,0x8F,0xCF,0xF0, // П
+    688            0x420,0x90,0xD0,0xF2, // Р
+    689            0x421,0x91,0xD1,0xF3, // С
+    690            0x422,0x92,0xD2,0xF4, // Т
+    691            0x423,0x93,0xD3,0xF5, // У
+    692            0x424,0x94,0xD4,0xE6, // Ф
+    693            0x425,0x95,0xD5,0xE8, // Х
+    694            0x426,0x96,0xD6,0xE3, // Ц
+    695            0x427,0x97,0xD7,0xFE, // Ч
+    696            0x428,0x98,0xD8,0xFB, // Ш
+    697            0x429,0x99,0xD9,0xFD, // Щ
+    698            0x42A,0x9A,0xDA,0xFF, // Ъ
+    699            0x42B,0x9B,0xDB,0xF9, // Ы
+    700            0x42C,0x9C,0xDC,0xF8, // Ь
+    701            0x42D,0x9D,0xDD,0xFC, // Э
+    702            0x42E,0x9E,0xDE,0xE0, // Ю
+    703            0x42F,0x9F,0xDF,0xF1, // Я
+    704            // CAPITAL Cyrillic letters (additional)
+    705            0x402,'_',0x80,'_', // _ .*.*
+    706            0x403,'_',0x81,'_', // _ .*.*
+    707            0x409,'_',0x8A,'_', // _ .*.*
+    708            0x40A,'_',0x8C,'_', // _ .*.*
+    709            0x40C,'_',0x8D,'_', // _ .*.*
+    710            0x40B,'_',0x8E,'_', // _ .*.*
+    711            0x40F,'_',0x8F,'_', // _ .*.*
+    712            0x40E,0xF6,0xA1,'_', // Ў ...*
+    713            0x408,0x4A,0xA3,0x4A, // _ .*.*
+    714            0x409,0x83,0xA5,0xBD, // _ .*..
+    715            0x401,0xF0,0xA8,0xB3, // Ё
+    716            0x404,0xF2,0xAA,0xB4, // Є
+    717            0x407,0xF4,0xAF,0xB7, // Ї
+    718            0x406,0x49,0xB2,0xB6, // _ .*..
+    719            0x405,0x53,0xBD,0x53, // _ .*.*
+    720            // SMALL Cyrillic letters (base)
+    721            0x430,0xA0,0xE0,0xC1, // а
+    722            0x431,0xA1,0xE1,0xC2, // б
+    723            0x432,0xA2,0xE2,0xD7, // в
+    724            0x433,0xA3,0xE3,0xC7, // г
+    725            0x434,0xA4,0xE4,0xC4, // д
+    726            0x435,0xA5,0xE5,0xC5, // е
+    727            0x436,0xA6,0xE6,0xD6, // ж
+    728            0x437,0xA7,0xE7,0xDA, // з
+    729            0x438,0xA8,0xE8,0xC9, // и
+    730            0x439,0xA9,0xE9,0xCA, // й
+    731            0x43A,0xAA,0xEA,0xCB, // к
+    732            0x43B,0xAB,0xEB,0xCC, // л
+    733            0x43C,0xAC,0xEC,0xCD, // м
+    734            0x43D,0xAD,0xED,0xCE, // н
+    735            0x43E,0xAE,0xEE,0xCF, // о
+    736            0x43F,0xAF,0xEF,0xD0, // п
+    737            0x440,0xE0,0xF0,0xD2, // р
+    738            0x441,0xE1,0xF1,0xD3, // с
+    739            0x442,0xE2,0xF2,0xD4, // т
+    740            0x443,0xE3,0xF3,0xD5, // у
+    741            0x444,0xE4,0xF4,0xC6, // ф
+    742            0x445,0xE5,0xF5,0xC8, // х
+    743            0x446,0xE6,0xF6,0xC3, // ц
+    744            0x447,0xE7,0xF7,0xDE, // ч
+    745            0x448,0xE8,0xF8,0xDB, // ш
+    746            0x449,0xE9,0xF9,0xDD, // щ
+    747            0x44A,0xEA,0xFA,0xDF, // ъ
+    748            0x44B,0xEB,0xFB,0xD9, // ы
+    749            0x44C,0xEC,0xFC,0xD8, // ь
+    750            0x44D,0xED,0xFD,0xDC, // э
+    751            0x44E,0xEE,0xFE,0xC0, // ю
+    752            0x44F,0xEF,0xFF,0xD1, // я
+    753            // SMALL Cyrillic letters (additional)
+    754            0x452,'_',0x90,'_', // _ .*.*
+    755            0x453,'_',0x83,'_', // _ .*.*
+    756            0x459,'_',0x9A,'_', // _ .*.*
+    757            0x45A,'_',0x9C,'_', // _ .*.*
+    758            0x45C,'_',0x9D,'_', // _ .*.*
+    759            0x45B,'_',0x9E,'_', // _ .*.*
+    760            0x45F,'_',0x9F,'_', // _ .*.*
+    761            0x45E,0xF7,0xA2,'_', // ў ...*
+    762            0x458,0x6A,0xBC,0x6A, // _ .*.*
+    763            0x491,0xA3,0xB4,0xAD, // _ .*..
+    764            0x451,0xF1,0xB8,0xA3, // ё
+    765            0x454,0xF3,0xBA,0xA4, // є
+    766            0x457,0xF5,0xBF,0xA7, // ї
+    767            0x456,0x69,0xB3,0xA6, // _ .*..
+    768            0x455,0x73,0xBE,0x73, // _ .*.*
+    769            0x0A0,'_',0xA0,0x20, // space .*..
+    770            0x0A4,'_',0xA4,0xFD, // ¤   .*..
+    771            0x0A6,'_',0xA6,'_', // ¦   .*.*
+    772            0x0B0,0xF8,0xB0,0x9C, // °
+    773            0x0B7,0xFA,0xB7,0x9E, // ·
+    774            // 0x2022,,0x95,0x95, //    .*..
+    775            // 0x2116,0xFC,0xB9,0x23, // №   ...*
+    776            // 0x2219,,0xF9,0x9E, //    .*..
+    777            // 0x221A,0xFB,,0x96, // v   ..*.
+    778            // 0x25A0,0xFE,,0x94, // ¦
+    779            0x0000,0,0,0
+    780          };
+    781          
+
+   \                                 In segment DATA_C, align 4, align-sorted
+    782          const unsigned short win2unicode[128]=
+   \                     win2unicode:
+   \   00000000   020403041A20       DC16 1026, 1027, 8218, 1107, 8222, 8230, 8224, 8225, 8364, 8240, 1033
+   \              53041E202620
+   \              20202120AC20
+   \              30200904    
+   \   00000016   39200A040C04       DC16 8249, 1034, 1036, 1035, 1039, 1106, 8216, 8217, 8220, 8221, 8226
+   \              0B040F045204
+   \              182019201C20
+   \              1D202220    
+   \   0000002C   132014202000       DC16 8211, 8212, 32, 8482, 1113, 8250, 1114, 1116, 1115, 1119, 160
+   \              222159043A20
+   \              5A045C045B04
+   \              5F04A000    
+   \   00000042   0E045E040804       DC16 1038, 1118, 1032, 164, 1168, 166, 167, 1025, 169, 1028, 171, 172
+   \              A4009004A600
+   \              A7000104A900
+   \              0404AB00AC00
+   \   0000005A   AD00AE000704       DC16 173, 174, 1031, 176, 177, 1030, 1110, 1169, 181, 182, 183, 1105
+   \              B000B1000604
+   \              56049104B500
+   \              B600B7005104
+   \   00000072   16215404BB00       DC16 8470, 1108, 187, 1112, 1029, 1109, 1111, 1040, 1041, 1042, 1043
+   \              580405045504
+   \              570410041104
+   \              12041304    
+   \   00000088   140415041604       DC16 1044, 1045, 1046, 1047, 1048, 1049, 1050, 1051, 1052, 1053, 1054
+   \              170418041904
+   \              1A041B041C04
+   \              1D041E04    
+   \   0000009E   1F0420042104       DC16 1055, 1056, 1057, 1058, 1059, 1060, 1061, 1062, 1063, 1064, 1065
+   \              220423042404
+   \              250426042704
+   \              28042904    
+   \   000000B4   2A042B042C04       DC16 1066, 1067, 1068, 1069, 1070, 1071, 1072, 1073, 1074, 1075, 1076
+   \              2D042E042F04
+   \              300431043204
+   \              33043404    
+   \   000000CA   350436043704       DC16 1077, 1078, 1079, 1080, 1081, 1082, 1083, 1084, 1085, 1086, 1087
+   \              380439043A04
+   \              3B043C043D04
+   \              3E043F04    
+   \   000000E0   400441044204       DC16 1088, 1089, 1090, 1091, 1092, 1093, 1094, 1095, 1096, 1097, 1098
+   \              430444044504
+   \              460447044804
+   \              49044A04    
+   \   000000F6   4B044C044D04       DC16 1099, 1100, 1101, 1102, 1103
+   \              4E044F04    
+    783          {
+    784            0x0402,0x0403,0x201A,0x0453,0x201E,0x2026,0x2020,0x2021,
+    785            0x20AC,0x2030,0x0409,0x2039,0x040A,0x040C,0x040B,0x040F,
+    786            0x0452,0x2018,0x2019,0x201C,0x201D,0x2022,0x2013,0x2014,
+    787            0x0020,0x2122,0x0459,0x203A,0x045A,0x045C,0x045B,0x045F,
+    788            0x00A0,0x040E,0x045E,0x0408,0x00A4,0x0490,0x00A6,0x00A7,
+    789            0x0401,0x00A9,0x0404,0x00AB,0x00AC,0x00AD,0x00AE,0x0407,
+    790            0x00B0,0x00B1,0x0406,0x0456,0x0491,0x00B5,0x00B6,0x00B7,
+    791            0x0451,0x2116,0x0454,0x00BB,0x0458,0x0405,0x0455,0x0457,
+    792            0x0410,0x0411,0x0412,0x0413,0x0414,0x0415,0x0416,0x0417,
+    793            0x0418,0x0419,0x041A,0x041B,0x041C,0x041D,0x041E,0x041F,
+    794            0x0420,0x0421,0x0422,0x0423,0x0424,0x0425,0x0426,0x0427,
+    795            0x0428,0x0429,0x042A,0x042B,0x042C,0x042D,0x042E,0x042F,
+    796            0x0430,0x0431,0x0432,0x0433,0x0434,0x0435,0x0436,0x0437,
+    797            0x0438,0x0439,0x043A,0x043B,0x043C,0x043D,0x043E,0x043F,
+    798            0x0440,0x0441,0x0442,0x0443,0x0444,0x0445,0x0446,0x0447,
+    799            0x0448,0x0449,0x044A,0x044B,0x044C,0x044D,0x044E,0x044F
+    800          };
+    801          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    802          unsigned int char8to16(int c)
+    803          {
+    804            if (c>=128)
+   \                     char8to16:
+   \   00000000   800050E3           CMP      R0,#+128
+   \   00000004   1EFF2FB1           BXLT     LR
+    805            {
+    806              return(win2unicode[c-128]);
+   \   00000008   0C209FE5           LDR      R2,??char8to16_0  ;; win2unicode
+   \   0000000C   FF10E0E3           MVN      R1,#+255
+   \   00000010   800082E0           ADD      R0,R2,R0, LSL #+1
+   \   00000014   B00091E1           LDRH     R0,[R1, +R0]
+    807            }
+    808            return(c);
+   \   00000018   1EFF2FE1           BX       LR               ;; return
+   \                     ??char8to16_0:
+   \   0000001C   ........           DC32     win2unicode
+    809          }
+    810          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    811          unsigned int char16to8(unsigned int c)
+    812          {
+    813            const TUNICODE2CHAR *p=unicode2char;
+   \                     char16to8:
+   \   00000000   38109FE5           LDR      R1,??char16to8_0  ;; unicode2char
+    814            unsigned int i;
+    815            if (c<128) return(c);
+   \   00000004   800050E3           CMP      R0,#+128
+   \   00000008   0100002A           BCS      ??char16to8_1
+   \   0000000C   1EFF2FE1           BX       LR
+    816            while((i=p->u))
+    817            {
+    818              if (c==i)
+    819              {
+    820                return(p->win);
+    821              }
+    822              p++;
+   \                     ??char16to8_2:
+   \   00000010   061081E2           ADD      R1,R1,#+6
+   \                     ??char16to8_1:
+   \   00000014   B020D1E1           LDRH     R2,[R1, #+0]
+   \   00000018   000052E3           CMP      R2,#+0
+   \   0000001C   0300000A           BEQ      ??char16to8_3
+   \   00000020   020050E1           CMP      R0,R2
+   \   00000024   F9FFFF1A           BNE      ??char16to8_2
+   \   00000028   0300D1E5           LDRB     R0,[R1, #+3]
+   \   0000002C   1EFF2FE1           BX       LR
+    823            }
+    824            c&=0xFF;
+   \                     ??char16to8_3:
+   \   00000030   FF0000E2           AND      R0,R0,#0xFF
+    825            if (c<32) return(' ');
+   \   00000034   200050E3           CMP      R0,#+32
+   \   00000038   2000A033           MOVCC    R0,#+32
+    826            return(c);
+   \   0000003C   1EFF2FE1           BX       LR               ;; return
+   \                     ??char16to8_0:
+   \   00000040   ........           DC32     unicode2char
+    827          }
+    828          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    829          void ascii2ws(WSHDR *ws, const char *s)
+    830          {
+   \                     ascii2ws:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+    831            char c;
+    832            CutWSTR(ws,0);
+   \   0000000C   0010A0E3           MOV      R1,#+0
+   \   00000010   260100EF           SWI      +294
+   \   00000014   030000EA           B        ??ascii2ws_0
+    833            while((c=*s++))
+    834            {
+    835              wsAppendChar(ws,char8to16(c));
+   \                     ??ascii2ws_1:
+   \   00000018   ........           BL       char8to16
+   \   0000001C   0010A0E1           MOV      R1,R0
+   \   00000020   0400A0E1           MOV      R0,R4
+   \   00000024   1C0000EF           SWI      +28
+    836            }
+   \                     ??ascii2ws_0:
+   \   00000028   ........           LDRB     R1,[R5], #+1
+   \   0000002C   0100B0E1           MOVS     R0,R1
+   \   00000030   F8FFFF1A           BNE      ??ascii2ws_1
+    837          }
+   \   00000034   3080BDE8           POP      {R4,R5,PC}       ;; return
+    838          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    839          void utf82win(char*d,const char *s)
+    840          {
+   \                     utf82win:
+   \   00000000   0020D1E5           LDRB     R2,[R1, #+0]
+   \   00000004   000052E3           CMP      R2,#+0
+   \   00000008   3500000A           BEQ      ??utf82win_0
+    841            for (; *s; s+=2)
+    842            {
+    843              unsigned char ub = *s, lb = *(s+1);
+   \                     ??utf82win_1:
+   \   0000000C   0030D1E5           LDRB     R3,[R1, #+0]
+   \   00000010   0120D1E5           LDRB     R2,[R1, #+1]
+    844              if (ub == 0xD0)
+   \   00000014   D00053E3           CMP      R3,#+208
+   \   00000018   1000001A           BNE      ??utf82win_2
+    845              {
+    846                               if(lb == 0x81){*d = 0xA8;}//Ё
+   \   0000001C   810052E3           CMP      R2,#+129
+   \   00000020   0200001A           BNE      ??utf82win_3
+   \   00000024   A820A0E3           MOV      R2,#+168
+   \                     ??utf82win_4:
+   \   00000028   0020C0E5           STRB     R2,[R0, #+0]
+   \   0000002C   280000EA           B        ??utf82win_5
+    847          		else if(lb == 0x86){*d = 0xB2;}//І
+   \                     ??utf82win_3:
+   \   00000030   860052E3           CMP      R2,#+134
+   \   00000034   B220A003           MOVEQ    R2,#+178
+   \   00000038   FAFFFF0A           BEQ      ??utf82win_4
+    848          		else if(lb == 0x87){*d = 0xAF;}//Ї
+   \   0000003C   870052E3           CMP      R2,#+135
+   \   00000040   0100001A           BNE      ??utf82win_6
+   \   00000044   AF20A0E3           MOV      R2,#+175
+   \                     ??utf82win_7:
+   \   00000048   F6FFFFEA           B        ??utf82win_4
+    849          		else if(lb == 0x84){*d = 0xAA;}//Є
+   \                     ??utf82win_6:
+   \   0000004C   840052E3           CMP      R2,#+132
+   \   00000050   AA20A003           MOVEQ    R2,#+170
+   \   00000054   F3FFFF0A           BEQ      ??utf82win_4
+    850          	  else {*d = lb + 48;}
+   \   00000058   302082E2           ADD      R2,R2,#+48
+   \   0000005C   F1FFFFEA           B        ??utf82win_4
+    851              } else
+    852              if (ub == 0xD1)
+   \                     ??utf82win_2:
+   \   00000060   D10053E3           CMP      R3,#+209
+   \   00000064   0F00001A           BNE      ??utf82win_8
+    853              {
+    854                               if(lb == 0x91){*d = 0xB8;}//ё
+   \   00000068   910052E3           CMP      R2,#+145
+   \   0000006C   B820A003           MOVEQ    R2,#+184
+   \   00000070   ECFFFF0A           BEQ      ??utf82win_4
+    855          		else if(lb == 0x96){*d = 0xB3;}//і
+   \   00000074   960052E3           CMP      R2,#+150
+   \   00000078   0200001A           BNE      ??utf82win_9
+   \   0000007C   B320A0E3           MOV      R2,#+179
+   \                     ??utf82win_10:
+   \   00000080   0020C0E5           STRB     R2,[R0, #+0]
+   \   00000084   120000EA           B        ??utf82win_5
+    856          		else if(lb == 0x97){*d = 0xBF;}//ї
+   \                     ??utf82win_9:
+   \   00000088   970052E3           CMP      R2,#+151
+   \   0000008C   BF20A003           MOVEQ    R2,#+191
+   \   00000090   E4FFFF0A           BEQ      ??utf82win_4
+    857          		else if(lb == 0x94){*d = 0xBA;}//є
+   \   00000094   940052E3           CMP      R2,#+148
+   \   00000098   BA20A003           MOVEQ    R2,#+186
+   \   0000009C   E1FFFF0A           BEQ      ??utf82win_4
+    858          	        else {*d = lb + 112;}
+   \   000000A0   702082E2           ADD      R2,R2,#+112
+   \   000000A4   DFFFFFEA           B        ??utf82win_4
+    859              } else
+    860              if (ub == 0xD2)
+   \                     ??utf82win_8:
+   \   000000A8   D20053E3           CMP      R3,#+210
+   \   000000AC   0600001A           BNE      ??utf82win_11
+    861              {
+    862          //        if(lb == 0x91){*d = 0xB4;}//ґ
+    863          //        if(lb == 0x90){*d = 0xA5;}//Ґ
+    864                  if(lb == 0x91){*d = 0xE3;}//ґ->г
+   \   000000B0   910052E3           CMP      R2,#+145
+   \   000000B4   E320A003           MOVEQ    R2,#+227
+   \   000000B8   F0FFFF0A           BEQ      ??utf82win_10
+    865                  if(lb == 0x90){*d = 0xC3;}//Ґ->Г
+   \   000000BC   900052E3           CMP      R2,#+144
+   \   000000C0   0300001A           BNE      ??utf82win_5
+   \   000000C4   C320A0E3           MOV      R2,#+195
+   \   000000C8   D6FFFFEA           B        ??utf82win_4
+    866              } else
+    867              {
+    868                *d = ub;
+   \                     ??utf82win_11:
+   \   000000CC   0030C0E5           STRB     R3,[R0, #+0]
+    869                s--;
+   \   000000D0   011041E2           SUB      R1,R1,#+1
+    870              }
+    871                d++;
+    872            }
+   \                     ??utf82win_5:
+   \   000000D4   0220F1E5           LDRB     R2,[R1, #+2]!
+   \   000000D8   010080E2           ADD      R0,R0,#+1
+   \   000000DC   000052E3           CMP      R2,#+0
+   \   000000E0   C9FFFF1A           BNE      ??utf82win_1
+    873            *d = 0;
+   \                     ??utf82win_0:
+   \   000000E4   0010A0E3           MOV      R1,#+0
+   \   000000E8   0010C0E5           STRB     R1,[R0, #+0]
+    874          }
+   \   000000EC   1EFF2FE1           BX       LR               ;; return
+    875          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    876          long GetIDLETime(TTime intime, TDate indate)
+    877          {
+   \                     GetIDLETime:
+   \   00000000   1F402DE9           PUSH     {R0-R4,LR}
+   \   00000004   10D04DE2           SUB      SP,SP,#+16
+    878           TTime endt;
+    879           TDate endd;
+    880          // TDate endd, resd;
+    881           signed int res=0, rmin=0;
+    882           long resul=0;
+    883           GetDateTime(&endd, &endt);
+   \   00000008   0D10A0E1           MOV      R1,SP
+   \   0000000C   08008DE2           ADD      R0,SP,#+8
+   \   00000010   B40000EF           SWI      +180
+    884           res = endt.sec - intime.sec;
+   \   00000014   0200DDE5           LDRB     R0,[SP, #+2]
+   \   00000018   1210DDE5           LDRB     R1,[SP, #+18]
+    885           if (res < 0)
+    886           {
+    887             res = 60 + res;
+    888             rmin = 1;
+    889           }
+    890           resul = res;
+    891           res = endt.min - intime.min - rmin;
+   \   0000001C   1120DDE5           LDRB     R2,[SP, #+17]
+   \   00000020   0040A0E3           MOV      R4,#+0
+   \   00000024   010050E0           SUBS     R0,R0,R1
+   \   00000028   0110DDE5           LDRB     R1,[SP, #+1]
+   \   0000002C   3C008042           ADDMI    R0,R0,#+60
+   \   00000030   0140A043           MOVMI    R4,#+1
+   \   00000034   021041E0           SUB      R1,R1,R2
+   \   00000038   041051E0           SUBS     R1,R1,R4
+    892           rmin = 0;
+    893           if (res <0 )
+    894           {
+    895             res = 60 + res;
+   \   0000003C   3C108142           ADDMI    R1,R1,#+60
+    896             rmin = 1;
+    897           }
+    898           resul = resul + res*60;
+   \   00000040   3C30A0E3           MOV      R3,#+60
+   \   00000044   930120E0           MLA      R0,R3,R1,R0
+    899           res = endt.hour - intime.hour - rmin;
+   \   00000048   0010DDE5           LDRB     R1,[SP, #+0]
+   \   0000004C   1030DDE5           LDRB     R3,[SP, #+16]
+   \   00000050   0020A0E3           MOV      R2,#+0
+   \   00000054   0120A043           MOVMI    R2,#+1
+   \   00000058   031041E0           SUB      R1,R1,R3
+   \   0000005C   021051E0           SUBS     R1,R1,R2
+    900           rmin = 0;
+    901           if (res < 0) 
+    902           {
+    903             res = 24 + res;
+   \   00000060   18108142           ADDMI    R1,R1,#+24
+    904             rmin = 1;
+    905           }
+    906           resul = resul + res*3600;
+   \   00000064   E13EA0E3           MOV      R3,#+3600
+   \   00000068   930120E0           MLA      R0,R3,R1,R0
+    907           res = endd.day - indate.day - rmin;
+   \   0000006C   0D10DDE5           LDRB     R1,[SP, #+13]
+   \   00000070   1D30DDE5           LDRB     R3,[SP, #+29]
+   \   00000074   0020A0E3           MOV      R2,#+0
+   \   00000078   0120A043           MOVMI    R2,#+1
+   \   0000007C   031041E0           SUB      R1,R1,R3
+   \   00000080   021051E0           SUBS     R1,R1,R2
+    908           rmin = 0; 
+    909           if (res < 0)
+    910           {
+    911             res = 31 + res;
+   \   00000084   1F108142           ADDMI    R1,R1,#+31
+    912          //   rmin=1;
+    913           }
+    914           resul = resul + res*86400;
+    915          /*
+    916           res = end.mounth - indate.mounth - rmin;
+    917           rmin = 0;
+    918           if (res < 0 )
+    919           {
+    920             res = 12 + res;
+    921           }
+    922           res = resul + res*2678400; mnogovato trowki
+    923             */
+    924           return(resul);
+   \   00000088   502BA0E3           MOV      R2,#+81920
+   \   0000008C   462D82E3           ORR      R2,R2,#0x1180
+   \   00000090   920120E0           MLA      R0,R2,R1,R0
+   \   00000094   20D08DE2           ADD      SP,SP,#+32
+   \   00000098   1080BDE8           POP      {R4,PC}          ;; return
+    925          }
+    926          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    927          char *utf82filename(char *str)
+    928          {
+   \                     utf82filename:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    929            int len = strlen(str)+16;
+   \   00000008   1B0000EF           SWI      +27
+   \   0000000C   105080E2           ADD      R5,R0,#+16
+    930            WSHDR *ws = AllocWS(len);
+   \   00000010   0500A0E1           MOV      R0,R5
+   \   00000014   250100EF           SWI      +293
+   \   00000018   0060A0E1           MOV      R6,R0
+    931            char *res = malloc(len);
+   \   0000001C   0500A0E1           MOV      R0,R5
+   \   00000020   140000EF           SWI      +20
+   \   00000024   0070A0E1           MOV      R7,R0
+    932            utf8_2ws(ws, str, len);
+   \   00000028   0520A0E1           MOV      R2,R5
+   \   0000002C   0410A0E1           MOV      R1,R4
+   \   00000030   0600A0E1           MOV      R0,R6
+   \   00000034   E30100EF           SWI      +483
+    933            ws_2str(ws, res, len);
+   \   00000038   0520A0E1           MOV      R2,R5
+   \   0000003C   0710A0E1           MOV      R1,R7
+   \   00000040   0600A0E1           MOV      R0,R6
+   \   00000044   A30000EF           SWI      +163
+    934            FreeWS(ws);
+   \   00000048   0600A0E1           MOV      R0,R6
+   \   0000004C   290100EF           SWI      +297
+    935            return res;
+   \   00000050   0700A0E1           MOV      R0,R7
+   \   00000054   F080BDE8           POP      {R4-R7,PC}       ;; return
+    936          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable2:
+   \   00000000   ........           DC32     Repl_chars
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable6:
+   \   00000000   ........           DC32     `?<Constant "Bad UTF-8 Encoding en...">`
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable7:
+   \   00000000   ........           DC32     `?<Constant "Bad UTF-8 Encoding en...">` + 44
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable8:
+   \   00000000   ........           DC32     `?<Constant "Bad UTF-8 Encoding en...">` + 88
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for Repl_chars>`:
+   \   00000000   2661706F733B       DC8 "&apos;"
+   \              00          
+   \   00000007   27                 DC8 39
+   \   00000008   2671756F743B       DC8 "&quot;"
+   \              00          
+   \   0000000F   22                 DC8 34
+   \   00000010   266C743B0000       DC8 26H, 6CH, 74H, 3BH, 0, 0, 0
+   \              00          
+   \   00000017   3C                 DC8 60
+   \   00000018   2667743B0000       DC8 26H, 67H, 74H, 3BH, 0, 0, 0
+   \              00          
+   \   0000001F   3E                 DC8 62
+   \   00000020   26616D703B00       DC8 26H, 61H, 6DH, 70H, 3BH, 0, 0
+   \              00          
+   \   00000027   26                 DC8 38
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Bad UTF-8 Encoding en...">`:
+   \   00000000   426164205554       DC8 "Bad UTF-8 Encoding encountered (chr<0xC0)"
+   \              462D3820456E
+   \              636F64696E67
+   \              20656E636F75
+   \              6E7465726564
+   \              20286368723C
+   \              307843302900
+   \   0000002A   0000               DC8 0, 0
+   \   0000002C   426164205554       DC8 "Bad UTF-8 Encoding encountered (chr2<0x80)"
+   \              462D3820456E
+   \              636F64696E67
+   \              20656E636F75
+   \              6E7465726564
+   \              202863687232
+   \              3C3078383029
+   \              00          
+   \   00000057   00                 DC8 0
+   \   00000058   426164205554       DC8 "Bad UTF-8 Encoding encountered"
+   \              462D3820456E
+   \              636F64696E67
+   \              20656E636F75
+   \              6E7465726564
+   \              00          
+   \   00000077   00                 DC8 0
+    937          
+    938          
+    939          
+    940          
+
+   Maximum stack usage in bytes:
+
+     Function             CSTACK
+     --------             ------
+     ANSI2UTF8               20
+     Correct_UTF8_String      8
+     GetIDLETime             40
+     GetSpecialSym           36
+     GetSpecialSymMaskN       0
+     Get_Param_Value         20
+     Mask_Special_Syms       36
+     Replace_Special_Syms    24
+     ascii2ws                12
+     char16to8                0
+     char8to16                0
+     convUTF8_to_ANSI        20
+     convUTF8_to_ANSI_STR    24
+     str2lower                8
+     str2lower_ANSI           8
+     stricmp                 16
+     stristr                 20
+     strnicmp                24
+     tolower                  0
+     utf16_to_utf8           32
+     utf82filename           20
+     utf82win                 0
+     utf8_to_utf16           16
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     Repl_chars_count                  4
+     Repl_chars                       40
+     GetSpecialSym                   148
+     GetSpecialSymMaskN               48
+     Replace_Special_Syms            128
+     Mask_Special_Syms               188
+     Get_Param_Value                 212
+     convUTF8_to_ANSI                228
+     str2lower                       108
+     tolower                          56
+     stricmp                          56
+     strnicmp                        104
+     stristr                         104
+     str2lower_ANSI                   96
+     convUTF8_to_ANSI_STR            416
+     utf8_to_utf16                   284
+     utf16_to_utf8                   384
+     Correct_UTF8_String              84
+     ANSI2UTF8                       124
+     unicode2char                    600
+     win2unicode                     256
+     char8to16                        32
+     char16to8                        68
+     ascii2ws                         56
+     utf82win                        240
+     GetIDLETime                     156
+     utf82filename                    88
+     ??DataTable2                      4
+     ??DataTable6                      4
+     ??DataTable7                      4
+     ??DataTable8                      4
+     ?<Initializer for Repl_chars>    40
+     ?<Constant "Bad UTF-8 Encoding en...">
+                                     120
+      Others                         112
+
+ 
+ 3 524 bytes in segment CODE
+   980 bytes in segment DATA_C
+    40 bytes in segment DATA_I
+    40 bytes in segment DATA_ID
+    12 bytes in segment INITTAB
+ 
+ 3 368 bytes of CODE  memory (+ 168 bytes shared)
+ 1 020 bytes of CONST memory
+    40 bytes of DATA  memory
+
+Errors: none
+Warnings: none

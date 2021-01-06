@@ -1,0 +1,176 @@
+// sstream standard header
+#ifndef _SSTREAM_
+#define _SSTREAM_
+
+#ifndef _SYSTEM_BUILD
+#pragma system_include
+#endif
+
+#include <string>
+_STD_BEGIN
+
+// CLASS stringbuf
+class stringbuf
+  : public streambuf
+{       // stream buffer maintaining an allocated character array
+public:
+  typedef char _Elem;
+  typedef char_traits _Traits;
+  typedef char_allocator allocator_type;
+  typedef streambuf _Mysb;
+  typedef string _Mystr;
+
+  explicit stringbuf(ios_base::openmode _Mode =
+                     ios_base::in | ios_base::out)
+  {       // construct empty character buffer from mode
+    _Init(0, 0, _Getstate(_Mode));
+  }
+
+  explicit stringbuf(const _Mystr& _Str,
+                     ios_base::openmode _Mode = ios_base::in | ios_base::out)
+  {       // construct character buffer from string, mode
+    _Init(_Str.c_str(), _Str.size(), _Getstate(_Mode));
+  }
+
+  virtual ~stringbuf()
+  {       // destroy the object
+    _Tidy();
+  }
+
+  enum
+  {       // constants for bits in stream state
+    _Allocated = 1, // set if character array storage has been allocated
+    _Constant = 2,  // set if character array nonmutable
+    _Noread = 4,    // set if character array cannot be read
+    _Append = 8};   // set if all writes are appends
+  typedef int _Strstate;
+
+  typedef _Traits::int_type int_type;
+  typedef _Traits::pos_type pos_type;
+  typedef _Traits::off_type off_type;
+
+  _Mystr str() const;
+
+  void str(const _Mystr& _Newstr)
+  {       // replace character array from string
+    _Tidy();
+    _Init(_Newstr.c_str(), _Newstr.size(), _Mystate);
+  }
+
+protected:
+  virtual int_type overflow(int_type _Meta = _Traits::eof());
+  virtual int_type pbackfail(int_type _Meta = _Traits::eof());
+  virtual int_type underflow();
+  virtual pos_type seekoff(off_type _Off, ios_base::seekdir _Way,
+                      ios_base::openmode _Which = ios_base::in | ios_base::out);
+  virtual pos_type seekpos(pos_type _Ptr,
+                       ios_base::openmode _Mode = ios_base::in | ios_base::out);
+  void _Init(const _Elem *_Ptr, size_t _Count, _Strstate _State);
+  void _Tidy();
+
+private:
+  enum
+  {       // constant for minimum buffer size
+    _MINSIZE = 32};
+
+  _Strstate _Getstate(ios_base::openmode _Mode);
+
+  _Elem *_Seekhigh;       // the high-water pointer in character array
+  _Strstate _Mystate;     // the stream state
+  allocator_type _Al;     // the allocator object
+};
+
+// CLASS istringstream
+class istringstream
+  : public istream
+{       // input stream associated with a character array
+public:
+  typedef char_traits _Traits;
+  typedef stringbuf _Mysb;
+  typedef string _Mystr;
+
+  explicit istringstream(ios_base::openmode _Mode = ios_base::in)
+    : istream(&_Stringbuffer), _Stringbuffer(_Mode | ios_base::in)
+  {       // construct empty readable character buffer
+  }
+
+  explicit istringstream(const _Mystr& _Str,
+                         ios_base::openmode _Mode = ios_base::in)
+    : istream(&_Stringbuffer), _Stringbuffer(_Str, _Mode | ios_base::in)
+  {       // construct readable character buffer from NTBS
+  }
+
+  virtual ~istringstream()
+  {       // destroy the object
+  }
+
+  _Mysb *rdbuf() const
+  {       // return pointer to file buffer
+    return ((_Mysb *)&_Stringbuffer);
+  }
+
+  _Mystr str() const
+  {       // return string copy of character array
+    return (_Stringbuffer.str());
+  }
+
+  void str(const _Mystr& _Newstr)
+  {       // replace character array from string
+    _Stringbuffer.str(_Newstr);
+  }
+
+private:
+  _Mysb _Stringbuffer;    // the string buffer
+};
+
+// CLASS ostringstream
+class ostringstream
+  : public ostream
+{       // output stream associated with a character array
+public:
+  typedef char_traits _Traits;
+  typedef stringbuf _Mysb;
+  typedef string _Mystr;
+
+  explicit ostringstream(ios_base::openmode _Mode = ios_base::out)
+    : ostream(&_Stringbuffer), _Stringbuffer(_Mode | ios_base::out)
+  {       // construct empty writable character buffer
+  }
+
+  explicit ostringstream(const _Mystr& _Str,
+                         ios_base::openmode _Mode = ios_base::out)
+    : ostream(&_Stringbuffer),
+      _Stringbuffer(_Str, _Mode | ios_base::out)
+  {       // construct writable character buffer from NTBS
+  }
+
+  virtual ~ostringstream()
+  {       // destroy the object
+  }
+
+  _Mysb *rdbuf() const
+  {       // return pointer to buffer
+    return ((_Mysb *)&_Stringbuffer);
+  }
+
+  _Mystr str() const
+  {       // return string copy of character array
+    return (_Stringbuffer.str());
+  }
+
+  void str(const _Mystr& _Newstr)
+  {       // replace character array from string
+    _Stringbuffer.str(_Newstr);
+  }
+
+private:
+  _Mysb _Stringbuffer;    // the string buffer
+};
+
+_STD_END
+#endif /* _SSTREAM_ */
+
+/*
+ * Copyright (c) 1992-2002 by P.J. Plauger.  ALL RIGHTS RESERVED.
+ * Consult your license regarding permissions and restrictions.
+V3.12:0576 */

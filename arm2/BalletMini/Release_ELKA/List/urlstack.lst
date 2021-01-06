@@ -1,0 +1,874 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    27/Dec/2010  18:19:53 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\BalletMini\urlstack.c                         #
+#    Command line    =  C:\arm\BalletMini\urlstack.c -D NEWSGOLD -D ELKA     #
+#                       -lC C:\arm\BalletMini\Release_ELKA\List\ -o          #
+#                       C:\arm\BalletMini\Release_ELKA\Obj\ -s9 --no_unroll  #
+#                       --no_inline --cpu_mode arm --endian little --cpu     #
+#                       ARM926EJ-S --stack_align 4 --interwork -e --fpu      #
+#                       None --dlib_config "C:\arm2\Embedded Workbench 4.0   #
+#                       Evaluation\ARM\LIB\dl5tpainl8n.h" -I                 #
+#                       "C:\arm2\Embedded Workbench 4.0 Evaluation\ARM\INC\" #
+#    List file       =  C:\arm\BalletMini\Release_ELKA\List\urlstack.lst     #
+#    Object file     =  C:\arm\BalletMini\Release_ELKA\Obj\urlstack.r79      #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\BalletMini\urlstack.c
+      1          #include "..\inc\swilib.h"
+      2          #include "urlstack.h"
+      3          #include "file_works.h"
+      4          #include "string_works.h"
+      5          
+      6          extern const unsigned int PageSTACK_SIZE;
+      7          
+
+   \                                 In segment DATA_C, align 4, align-sorted
+      8          static const int DMonth[]={0,31,59,90,120,151,181,212,243,273,304,334,365};
+   \                     DMonth:
+   \   00000000   000000001F00       DC32 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365
+   \              00003B000000
+   \              5A0000007800
+   \              000097000000
+   \              B5000000D400
+   \              0000F3000000
+   \              110100003001
+   \              00004E010000
+   \              6D010000    
+      9          
+     10          typedef struct
+     11          {
+     12            unsigned int ref_id;
+     13            WSHDR* text;
+     14          }tUserText;
+     15          
+     16          typedef struct
+     17          {
+     18            unsigned int ref_id;
+     19            unsigned int value;
+     20            unsigned int id2;  
+     21          }tUserList;
+     22          
+     23          
+     24          typedef struct
+     25          {
+     26            unsigned long id;
+     27            unsigned int  view_line;
+     28            unsigned int  pos_cur_ref;
+     29            unsigned int user_text_counter;
+     30            tUserText* user_text;
+     31            unsigned int user_list_counter;
+     32            tUserList* user_list;
+     33          }tPageStack;
+     34          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     35          tPageStack* PageSTACK;
+   \                     PageSTACK:
+   \   00000000                      DS8 4
+   \   00000004                      DS8 4
+     36          
+     37          static int stack_top;
+     38          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     39          static char * pagename(int n)
+     40          {
+   \                     pagename:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+     41            char *s=malloc(300);
+     42            char * omscache_path = getSymbolicPath("$omscache\\");
+   \   00000004   4C609FE5           LDR      R6,??pagename_0  ;; `?<Constant "$omscache\\\\">`
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   4B0FA0E3           MOV      R0,#+300
+   \   00000010   140000EF           SWI      +20
+   \   00000014   0050A0E1           MOV      R5,R0
+   \   00000018   0600A0E1           MOV      R0,R6
+   \   0000001C   ........           _BLF     getSymbolicPath,??getSymbolicPath??rA
+     43            sprintf(s,"%s%d.oms", omscache_path, PageSTACK[n].id);
+   \   00000020   ........           LDR      R1,??DataTable18  ;; PageSTACK
+   \   00000024   0070A0E1           MOV      R7,R0
+   \   00000028   001091E5           LDR      R1,[R1, #+0]
+   \   0000002C   1C00A0E3           MOV      R0,#+28
+   \   00000030   901421E0           MLA      R1,R0,R4,R1
+   \   00000034   0720A0E1           MOV      R2,R7
+   \   00000038   003091E5           LDR      R3,[R1, #+0]
+   \   0000003C   0C1086E2           ADD      R1,R6,#+12
+   \   00000040   0500A0E1           MOV      R0,R5
+   \   00000044   160000EF           SWI      +22
+     44            mfree(omscache_path);
+   \   00000048   0700A0E1           MOV      R0,R7
+   \   0000004C   150000EF           SWI      +21
+     45            return s;
+   \   00000050   0500A0E1           MOV      R0,R5
+   \   00000054   F080BDE8           POP      {R4-R7,PC}       ;; return
+   \                     ??pagename_0:
+   \   00000058   ........           DC32     `?<Constant "$omscache\\\\">`
+     46          }
+     47          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     48          char* getCurrPageName()
+     49          {
+     50            return pagename(stack_top-1);
+   \                     getCurrPageName:
+   \   00000000   08009FE5           LDR      R0,??getCurrPageName_0  ;; PageSTACK + 4
+   \   00000004   000090E5           LDR      R0,[R0, #+0]
+   \   00000008   010040E2           SUB      R0,R0,#+1
+   \   0000000C   ........           B        pagename         ;; tailcall
+   \                     ??getCurrPageName_0:
+   \   00000010   ........           DC32     PageSTACK + 4
+     51          }
+     52          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     53          void* getPageParams(void)
+     54          {
+     55            return &(PageSTACK[stack_top]);
+   \                     getPageParams:
+   \   00000000   ........           LDR      R0,??DataTable18  ;; PageSTACK
+   \   00000004   1C20A0E3           MOV      R2,#+28
+   \   00000008   041090E5           LDR      R1,[R0, #+4]
+   \   0000000C   000090E5           LDR      R0,[R0, #+0]
+   \   00000010   920120E0           MLA      R0,R2,R1,R0
+   \   00000014   1EFF2FE1           BX       LR               ;; return
+     56          }
+     57          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     58          void setUserList(unsigned int refid, unsigned int value, unsigned int id2)
+     59          {
+   \                     setUserList:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+     60            for (int i = 0; i < PageSTACK[stack_top-1].user_list_counter; i++)
+   \   00000004   ........           LDR      R7,??DataTable18  ;; PageSTACK
+   \   00000008   0150A0E1           MOV      R5,R1
+   \   0000000C   041097E5           LDR      R1,[R7, #+4]
+   \   00000010   003097E5           LDR      R3,[R7, #+0]
+   \   00000014   0260A0E1           MOV      R6,R2
+   \   00000018   1C20A0E3           MOV      R2,#+28
+   \   0000001C   923121E0           MLA      R1,R2,R1,R3
+   \   00000020   0040A0E1           MOV      R4,R0
+   \   00000024   0000A0E3           MOV      R0,#+0
+   \   00000028   082041E2           SUB      R2,R1,#+8
+   \   0000002C   000000EA           B        ??setUserList_0
+   \                     ??setUserList_1:
+   \   00000030   010080E2           ADD      R0,R0,#+1
+   \                     ??setUserList_0:
+   \   00000034   001092E5           LDR      R1,[R2, #+0]
+   \   00000038   010050E1           CMP      R0,R1
+   \   0000003C   0C00002A           BCS      ??setUserList_2
+     61            {
+     62              if (PageSTACK[stack_top-1].user_list[i].ref_id == refid)
+   \   00000040   0C30A0E3           MOV      R3,#+12
+   \   00000044   930001E0           MUL      R1,R3,R0
+   \   00000048   043092E5           LDR      R3,[R2, #+4]
+   \   0000004C   033091E7           LDR      R3,[R1, +R3]
+   \   00000050   040053E1           CMP      R3,R4
+   \   00000054   F5FFFF1A           BNE      ??setUserList_1
+     63              {
+     64                PageSTACK[stack_top-1].user_list[i].value = value;
+   \   00000058   040092E5           LDR      R0,[R2, #+4]
+   \   0000005C   000081E0           ADD      R0,R1,R0
+   \   00000060   045080E5           STR      R5,[R0, #+4]
+     65                PageSTACK[stack_top-1].user_list[i].id2 = id2;
+   \   00000064   040092E5           LDR      R0,[R2, #+4]
+   \   00000068   000081E0           ADD      R0,R1,R0
+   \   0000006C   086080E5           STR      R6,[R0, #+8]
+   \   00000070   F081BDE8           POP      {R4-R8,PC}
+     66                return;
+     67              }
+     68            }
+     69            int cntr = PageSTACK[stack_top-1].user_list_counter++;
+   \                     ??setUserList_2:
+   \   00000074   0180A0E1           MOV      R8,R1
+   \   00000078   010088E2           ADD      R0,R8,#+1
+   \   0000007C   000082E5           STR      R0,[R2, #+0]
+     70            PageSTACK[stack_top-1].user_list = realloc(PageSTACK[stack_top-1].user_list, 
+     71                                                       sizeof(tUserList)*(cntr+1));
+   \   00000080   0C30A0E3           MOV      R3,#+12
+   \   00000084   930001E0           MUL      R1,R3,R0
+   \   00000088   040092E5           LDR      R0,[R2, #+4]
+   \   0000008C   BA0000EF           SWI      +186
+   \   00000090   041097E5           LDR      R1,[R7, #+4]
+   \   00000094   003097E5           LDR      R3,[R7, #+0]
+   \   00000098   1C20A0E3           MOV      R2,#+28
+   \   0000009C   923121E0           MLA      R1,R2,R1,R3
+   \   000000A0   0320E0E3           MVN      R2,#+3
+   \   000000A4   010082E7           STR      R0,[R2, +R1]
+     72            PageSTACK[stack_top-1].user_list[cntr].ref_id = refid;
+   \   000000A8   0C30A0E3           MOV      R3,#+12
+   \   000000AC   930800E0           MUL      R0,R3,R8
+   \   000000B0   013092E7           LDR      R3,[R2, +R1]
+   \   000000B4   034080E7           STR      R4,[R0, +R3]
+     73            PageSTACK[stack_top-1].user_list[cntr].value = value;
+   \   000000B8   013092E7           LDR      R3,[R2, +R1]
+   \   000000BC   033080E0           ADD      R3,R0,R3
+   \   000000C0   045083E5           STR      R5,[R3, #+4]
+     74            PageSTACK[stack_top-1].user_list[cntr].id2 = id2;
+   \   000000C4   011092E7           LDR      R1,[R2, +R1]
+   \   000000C8   010080E0           ADD      R0,R0,R1
+   \   000000CC   086080E5           STR      R6,[R0, #+8]
+     75          }
+   \   000000D0   F081BDE8           POP      {R4-R8,PC}       ;; return
+     76          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     77          void setUserText(unsigned int refid, WSHDR* text)
+     78          {
+   \                     setUserText:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+     79            for (int i = 0; i < PageSTACK[stack_top-1].user_text_counter; i++)
+   \   00000004   ........           LDR      R5,??DataTable18  ;; PageSTACK
+   \   00000008   0140A0E1           MOV      R4,R1
+   \   0000000C   002095E5           LDR      R2,[R5, #+0]
+   \   00000010   0080A0E1           MOV      R8,R0
+   \   00000014   040095E5           LDR      R0,[R5, #+4]
+   \   00000018   1C10A0E3           MOV      R1,#+28
+   \   0000001C   912020E0           MLA      R0,R1,R0,R2
+   \   00000020   0070A0E3           MOV      R7,#+0
+   \   00000024   100040E2           SUB      R0,R0,#+16
+   \   00000028   000000EA           B        ??setUserText_0
+   \                     ??setUserText_1:
+   \   0000002C   017087E2           ADD      R7,R7,#+1
+   \                     ??setUserText_0:
+   \   00000030   001090E5           LDR      R1,[R0, #+0]
+   \   00000034   010057E1           CMP      R7,R1
+   \   00000038   0900002A           BCS      ??setUserText_2
+     80            {
+     81              if (PageSTACK[stack_top-1].user_text[i].ref_id == refid)
+   \   0000003C   041090E5           LDR      R1,[R0, #+4]
+   \   00000040   871191E7           LDR      R1,[R1, +R7, LSL #+3]
+   \   00000044   080051E1           CMP      R1,R8
+   \   00000048   F7FFFF1A           BNE      ??setUserText_1
+     82              {
+     83                FreeWS(PageSTACK[stack_top-1].user_text[i].text);
+   \   0000004C   040090E5           LDR      R0,[R0, #+4]
+     84                PageSTACK[stack_top-1].user_text[i].text = AllocWS(wstrlen(text));
+   \   00000050   0B60E0E3           MVN      R6,#+11
+   \   00000054   870180E0           ADD      R0,R0,R7, LSL #+3
+   \   00000058   040090E5           LDR      R0,[R0, #+4]
+   \   0000005C   290100EF           SWI      +297
+   \   00000060   0C0000EA           B        ??setUserText_3
+     85                wstrcpy(PageSTACK[stack_top-1].user_text[i].text, text);
+     86                return;
+     87              }
+     88            }
+     89            int cntr = PageSTACK[stack_top-1].user_text_counter++;
+   \                     ??setUserText_2:
+   \   00000064   0170A0E1           MOV      R7,R1
+   \   00000068   011087E2           ADD      R1,R7,#+1
+   \   0000006C   001080E5           STR      R1,[R0, #+0]
+     90            PageSTACK[stack_top-1].user_text = realloc(PageSTACK[stack_top-1].user_text, 
+     91                                                       sizeof(tUserText)*(cntr+1));
+   \   00000070   040090E5           LDR      R0,[R0, #+4]
+   \   00000074   8111A0E1           LSL      R1,R1,#+3
+   \   00000078   BA0000EF           SWI      +186
+   \   0000007C   041095E5           LDR      R1,[R5, #+4]
+   \   00000080   003095E5           LDR      R3,[R5, #+0]
+   \   00000084   1C20A0E3           MOV      R2,#+28
+   \   00000088   923121E0           MLA      R1,R2,R1,R3
+   \   0000008C   0B60E0E3           MVN      R6,#+11
+   \   00000090   010086E7           STR      R0,[R6, +R1]
+     92            PageSTACK[stack_top-1].user_text[cntr].ref_id = refid;
+   \   00000094   878180E7           STR      R8,[R0, +R7, LSL #+3]
+     93            PageSTACK[stack_top-1].user_text[cntr].text = AllocWS(wstrlen(text));
+   \                     ??setUserText_3:
+   \   00000098   0400A0E1           MOV      R0,R4
+   \   0000009C   230100EF           SWI      +291
+   \   000000A0   250100EF           SWI      +293
+   \   000000A4   041095E5           LDR      R1,[R5, #+4]
+   \   000000A8   002095E5           LDR      R2,[R5, #+0]
+   \   000000AC   1C30A0E3           MOV      R3,#+28
+   \   000000B0   932122E0           MLA      R2,R3,R1,R2
+   \   000000B4   021096E7           LDR      R1,[R6, +R2]
+   \   000000B8   871181E0           ADD      R1,R1,R7, LSL #+3
+   \   000000BC   040081E5           STR      R0,[R1, #+4]
+     94            wstrcpy(PageSTACK[stack_top-1].user_text[cntr].text, text);
+   \   000000C0   020096E7           LDR      R0,[R6, +R2]
+   \   000000C4   0410A0E1           MOV      R1,R4
+   \   000000C8   870180E0           ADD      R0,R0,R7, LSL #+3
+   \   000000CC   040090E5           LDR      R0,[R0, #+4]
+   \   000000D0   1F0100EF           SWI      +287
+     95          }
+   \   000000D4   F081BDE8           POP      {R4-R8,PC}       ;; return
+     96          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     97          void setPageParams(unsigned int view_line, unsigned int pos_cur_ref)
+     98          {
+     99            PageSTACK[stack_top-1].view_line = view_line;
+   \                     setPageParams:
+   \   00000000   ........           LDR      R2,??DataTable18  ;; PageSTACK
+   \   00000004   1CC0A0E3           MOV      R12,#+28
+   \   00000008   043092E5           LDR      R3,[R2, #+4]
+   \   0000000C   002092E5           LDR      R2,[R2, #+0]
+   \   00000010   9C2322E0           MLA      R2,R12,R3,R2
+   \   00000014   180022E5           STR      R0,[R2, #-24]!
+    100            PageSTACK[stack_top-1].pos_cur_ref = pos_cur_ref;
+   \   00000018   041082E5           STR      R1,[R2, #+4]
+    101          }
+   \   0000001C   1EFF2FE1           BX       LR               ;; return
+    102          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    103          WSHDR* getUserTextByRefId(unsigned int refid)
+    104          {
+    105            for (int i = 0; i < PageSTACK[stack_top-1].user_text_counter; i++)
+   \                     getUserTextByRefId:
+   \   00000000   ........           LDR      R2,??DataTable18  ;; PageSTACK
+   \   00000004   1CC0A0E3           MOV      R12,#+28
+   \   00000008   043092E5           LDR      R3,[R2, #+4]
+   \   0000000C   002092E5           LDR      R2,[R2, #+0]
+   \   00000010   0010A0E3           MOV      R1,#+0
+   \   00000014   9C2322E0           MLA      R2,R12,R3,R2
+   \   00000018   102042E2           SUB      R2,R2,#+16
+   \   0000001C   000000EA           B        ??getUserTextByRefId_0
+   \                     ??getUserTextByRefId_1:
+   \   00000020   011081E2           ADD      R1,R1,#+1
+   \                     ??getUserTextByRefId_0:
+   \   00000024   003092E5           LDR      R3,[R2, #+0]
+   \   00000028   030051E1           CMP      R1,R3
+   \   0000002C   0700002A           BCS      ??getUserTextByRefId_2
+    106            {
+    107              if (PageSTACK[stack_top-1].user_text[i].ref_id == refid)
+   \   00000030   043092E5           LDR      R3,[R2, #+4]
+   \   00000034   813193E7           LDR      R3,[R3, +R1, LSL #+3]
+   \   00000038   000053E1           CMP      R3,R0
+   \   0000003C   F7FFFF1A           BNE      ??getUserTextByRefId_1
+    108                return PageSTACK[stack_top-1].user_text[i].text;
+   \   00000040   040092E5           LDR      R0,[R2, #+4]
+   \   00000044   810180E0           ADD      R0,R0,R1, LSL #+3
+   \   00000048   040090E5           LDR      R0,[R0, #+4]
+   \   0000004C   1EFF2FE1           BX       LR
+    109            }
+    110            return NULL;   
+   \                     ??getUserTextByRefId_2:
+   \   00000050   0000A0E3           MOV      R0,#+0
+   \   00000054   1EFF2FE1           BX       LR               ;; return
+    111          }
+    112          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    113          int getUserListByRefId(unsigned int refid , unsigned int *value, unsigned int *id2)
+    114          {
+    115            for (int i = 0; i < PageSTACK[stack_top-1].user_list_counter; i++)
+   \                     getUserListByRefId:
+   \   00000000   ........           LDR      R12,??DataTable18  ;; PageSTACK
+   \   00000004   30002DE9           PUSH     {R4,R5}
+   \   00000008   04409CE5           LDR      R4,[R12, #+4]
+   \   0000000C   00C09CE5           LDR      R12,[R12, #+0]
+   \   00000010   0030A0E3           MOV      R3,#+0
+   \   00000014   1C50A0E3           MOV      R5,#+28
+   \   00000018   95C424E0           MLA      R4,R5,R4,R12
+   \   0000001C   08C044E2           SUB      R12,R4,#+8
+   \   00000020   000000EA           B        ??getUserListByRefId_0
+   \                     ??getUserListByRefId_1:
+   \   00000024   013083E2           ADD      R3,R3,#+1
+   \                     ??getUserListByRefId_0:
+   \   00000028   00409CE5           LDR      R4,[R12, #+0]
+   \   0000002C   040053E1           CMP      R3,R4
+   \   00000030   1000002A           BCS      ??getUserListByRefId_2
+    116            {
+    117              if (PageSTACK[stack_top-1].user_list[i].ref_id == refid)
+   \   00000034   0C50A0E3           MOV      R5,#+12
+   \   00000038   950304E0           MUL      R4,R5,R3
+   \   0000003C   04509CE5           LDR      R5,[R12, #+4]
+   \   00000040   055094E7           LDR      R5,[R4, +R5]
+   \   00000044   000055E1           CMP      R5,R0
+   \   00000048   F5FFFF1A           BNE      ??getUserListByRefId_1
+    118              {
+    119                *value = PageSTACK[stack_top-1].user_list[i].value;
+   \   0000004C   04009CE5           LDR      R0,[R12, #+4]
+   \   00000050   000084E0           ADD      R0,R4,R0
+   \   00000054   040090E5           LDR      R0,[R0, #+4]
+   \   00000058   000081E5           STR      R0,[R1, #+0]
+    120                *id2 = PageSTACK[stack_top-1].user_list[i].id2;
+   \   0000005C   04009CE5           LDR      R0,[R12, #+4]
+   \   00000060   000084E0           ADD      R0,R4,R0
+   \   00000064   080090E5           LDR      R0,[R0, #+8]
+   \   00000068   000082E5           STR      R0,[R2, #+0]
+    121                return 1;
+   \   0000006C   3000BDE8           POP      {R4,R5}
+   \   00000070   0100A0E3           MOV      R0,#+1
+   \   00000074   1EFF2FE1           BX       LR
+    122              }
+    123            }
+    124            return 0;   
+   \                     ??getUserListByRefId_2:
+   \   00000078   3000BDE8           POP      {R4,R5}
+   \   0000007C   0000A0E3           MOV      R0,#+0
+   \   00000080   1EFF2FE1           BX       LR               ;; return
+    125          }
+    126          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    127          unsigned int getViewLine(void* data)
+    128          {
+    129            return ((tPageStack*)(data))->view_line;
+   \                     getViewLine:
+   \   00000000   040090E5           LDR      R0,[R0, #+4]
+   \   00000004   1EFF2FE1           BX       LR               ;; return
+    130          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+    131          unsigned int getPosCurRef(void* data)
+    132          {
+    133            return ((tPageStack*)(data))->pos_cur_ref;
+   \                     getPosCurRef:
+   \   00000000   080090E5           LDR      R0,[R0, #+8]
+   \   00000004   1EFF2FE1           BX       LR               ;; return
+    134          }
+    135          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    136          static void killpage(int n)
+    137          {
+   \                     killpage:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+    138            unsigned int err;
+    139            char *fn=pagename(n);
+    140            unlink(fn,&err);
+    141            PageSTACK[n].id=0;
+   \   00000004   ........           LDR      R6,??DataTable18  ;; PageSTACK
+   \   00000008   04D04DE2           SUB      SP,SP,#+4
+   \   0000000C   0050A0E1           MOV      R5,R0
+   \   00000010   ........           BL       pagename
+   \   00000014   0040A0E1           MOV      R4,R0
+   \   00000018   0D10A0E1           MOV      R1,SP
+   \   0000001C   6B0100EF           SWI      +363
+   \   00000020   1C00A0E3           MOV      R0,#+28
+   \   00000024   900505E0           MUL      R5,R0,R5
+   \   00000028   000096E5           LDR      R0,[R6, #+0]
+   \   0000002C   0070A0E3           MOV      R7,#+0
+   \   00000030   000085E0           ADD      R0,R5,R0
+   \   00000034   007080E5           STR      R7,[R0, #+0]
+    142            PageSTACK[n].view_line=0;
+   \   00000038   047080E5           STR      R7,[R0, #+4]
+    143            for (int i = 0; i < PageSTACK[n].user_text_counter; i++)
+   \   0000003C   0C0090E5           LDR      R0,[R0, #+12]
+   \   00000040   0080A0E3           MOV      R8,#+0
+   \   00000044   000050E3           CMP      R0,#+0
+   \   00000048   0500001A           BNE      ??killpage_0
+   \   0000004C   090000EA           B        ??killpage_1
+    144            {
+    145              FreeWS(PageSTACK[n].user_text[i].text);
+   \                     ??killpage_2:
+   \   00000050   100090E5           LDR      R0,[R0, #+16]
+   \   00000054   880180E0           ADD      R0,R0,R8, LSL #+3
+   \   00000058   040090E5           LDR      R0,[R0, #+4]
+    146            }
+   \   0000005C   018088E2           ADD      R8,R8,#+1
+   \   00000060   290100EF           SWI      +297
+   \                     ??killpage_0:
+   \   00000064   000096E5           LDR      R0,[R6, #+0]
+   \   00000068   000085E0           ADD      R0,R5,R0
+   \   0000006C   0C1090E5           LDR      R1,[R0, #+12]
+   \   00000070   010058E1           CMP      R8,R1
+   \   00000074   F5FFFF3A           BCC      ??killpage_2
+    147            PageSTACK[n].user_text_counter = 0;
+   \                     ??killpage_1:
+   \   00000078   000096E5           LDR      R0,[R6, #+0]
+   \   0000007C   000085E0           ADD      R0,R5,R0
+   \   00000080   0C7080E5           STR      R7,[R0, #+12]
+    148            mfree(PageSTACK[n].user_text);
+   \   00000084   100090E5           LDR      R0,[R0, #+16]
+   \   00000088   150000EF           SWI      +21
+    149            PageSTACK[n].user_text = NULL;
+   \   0000008C   000096E5           LDR      R0,[R6, #+0]
+   \   00000090   000085E0           ADD      R0,R5,R0
+   \   00000094   107080E5           STR      R7,[R0, #+16]
+    150            PageSTACK[n].user_list_counter = 0;
+   \   00000098   147080E5           STR      R7,[R0, #+20]
+    151            mfree(PageSTACK[n].user_list);
+   \   0000009C   180090E5           LDR      R0,[R0, #+24]
+   \   000000A0   150000EF           SWI      +21
+    152            PageSTACK[n].user_list = NULL;
+   \   000000A4   000096E5           LDR      R0,[R6, #+0]
+   \   000000A8   000085E0           ADD      R0,R5,R0
+   \   000000AC   187080E5           STR      R7,[R0, #+24]
+    153            mfree(fn);
+   \   000000B0   0400A0E1           MOV      R0,R4
+   \   000000B4   150000EF           SWI      +21
+    154          }
+   \   000000B8   F181BDE8           POP      {R0,R4-R8,PC}    ;; return
+    155          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    156          char *PushPageToStack(void)
+    157          {
+   \                     PushPageToStack:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   10D04DE2           SUB      SP,SP,#+16
+    158            unsigned long iday;
+    159            TTime tt;
+    160            TDate dd;
+    161            int i;
+    162            GetDateTime(&dd,&tt);
+   \   00000008   08108DE2           ADD      R1,SP,#+8
+   \   0000000C   0D00A0E1           MOV      R0,SP
+   \   00000010   B40000EF           SWI      +180
+    163            dd.year=dd.year%100;
+   \   00000014   00109DE5           LDR      R1,[SP, #+0]
+   \   00000018   30219FE5           LDR      R2,??PushPageToStack_0  ;; 0x51eb851f
+   \   0000001C   923184E0           UMULL    R3,R4,R2,R1
+   \   00000020   6430A0E3           MOV      R3,#+100
+   \   00000024   A442A0E1           LSR      R4,R4,#+5
+   \   00000028   930404E0           MUL      R4,R3,R4
+    164            iday=365*dd.year+DMonth[dd.month-1]+(dd.day - 1);
+    165            iday=iday+(dd.year>>2);
+   \   0000002C   6D20A0E3           MOV      R2,#+109
+   \   00000030   044041E0           SUB      R4,R1,R4
+   \   00000034   00408DE5           STR      R4,[SP, #+0]
+   \   00000038   0400DDE5           LDRB     R0,[SP, #+4]
+   \   0000003C   0410A0E1           MOV      R1,R4
+   \   00000040   0C419FE5           LDR      R4,??PushPageToStack_0+0x4  ;; DMonth
+   \   00000044   402F82E3           ORR      R2,R2,#0x100
+   \   00000048   003184E0           ADD      R3,R4,R0, LSL #+2
+   \   0000004C   043013E5           LDR      R3,[R3, #-4]
+    166            if (dd.month>2||(dd.year&3)>0)
+   \   00000050   030050E3           CMP      R0,#+3
+   \   00000054   923121E0           MLA      R1,R2,R1,R3
+   \   00000058   0520DDE5           LDRB     R2,[SP, #+5]
+   \   0000005C   012042E2           SUB      R2,R2,#+1
+   \   00000060   011082E0           ADD      R1,R2,R1
+   \   00000064   00209DE5           LDR      R2,[SP, #+0]
+   \   00000068   221181E0           ADD      R1,R1,R2, LSR #+2
+   \   0000006C   0100002A           BCS      ??PushPageToStack_1
+   \   00000070   030012E3           TST      R2,#0x3
+   \   00000074   0000000A           BEQ      ??PushPageToStack_2
+    167              iday++;
+   \                     ??PushPageToStack_1:
+   \   00000078   011081E2           ADD      R1,R1,#+1
+    168            iday=(tt.sec+60*(tt.min+60*(tt.hour+24* iday)));
+   \                     ??PushPageToStack_2:
+   \   0000007C   0830DDE5           LDRB     R3,[SP, #+8]
+   \   00000080   0920DDE5           LDRB     R2,[SP, #+9]
+   \   00000084   0A00DDE5           LDRB     R0,[SP, #+10]
+    169            
+    170            if (stack_top==PageSTACK_SIZE)
+   \   00000088   ........           LDR      R5,??DataTable18  ;; PageSTACK
+   \   0000008C   1840A0E3           MOV      R4,#+24
+   \   00000090   943121E0           MLA      R1,R4,R1,R3
+   \   00000094   3C30A0E3           MOV      R3,#+60
+   \   00000098   932121E0           MLA      R1,R3,R1,R2
+   \   0000009C   930124E0           MLA      R4,R3,R1,R0
+   \   000000A0   ........           LDR      R0,??DataTable19  ;; PageSTACK_SIZE
+   \   000000A4   006090E5           LDR      R6,[R0, #+0]
+   \   000000A8   040095E5           LDR      R0,[R5, #+4]
+   \   000000AC   060050E1           CMP      R0,R6
+   \   000000B0   0E00001A           BNE      ??PushPageToStack_3
+    171            {
+    172              //Убиваем лишнее
+    173              killpage(0);
+   \   000000B4   0000A0E3           MOV      R0,#+0
+   \   000000B8   ........           BL       killpage
+    174              memmove(PageSTACK,PageSTACK+1,(PageSTACK_SIZE-1)*sizeof(tPageStack));
+   \   000000BC   000095E5           LDR      R0,[R5, #+0]
+   \   000000C0   011046E2           SUB      R1,R6,#+1
+   \   000000C4   1C30A0E3           MOV      R3,#+28
+   \   000000C8   930102E0           MUL      R2,R3,R1
+   \   000000CC   1C1080E2           ADD      R1,R0,#+28
+   \   000000D0   320100EF           SWI      +306
+    175              stack_top--;
+   \   000000D4   040095E5           LDR      R0,[R5, #+4]
+    176              zeromem(PageSTACK+stack_top, sizeof(tPageStack));
+   \   000000D8   003095E5           LDR      R3,[R5, #+0]
+   \   000000DC   010040E2           SUB      R0,R0,#+1
+   \   000000E0   040085E5           STR      R0,[R5, #+4]
+   \   000000E4   1C10A0E3           MOV      R1,#+28
+   \   000000E8   913020E0           MLA      R0,R1,R0,R3
+   \   000000EC   1D0100EF           SWI      +285
+    177            }
+    178            i=stack_top;
+   \                     ??PushPageToStack_3:
+   \   000000F0   047095E5           LDR      R7,[R5, #+4]
+   \   000000F4   060057E1           CMP      R7,R6
+   \   000000F8   0A00000A           BEQ      ??PushPageToStack_4
+    179            //Убираем возможность пойти вперед ;)
+    180            while(i!=PageSTACK_SIZE)
+    181            {
+    182              if (PageSTACK[i].id!=0)
+   \                     ??PushPageToStack_5:
+   \   000000FC   001095E5           LDR      R1,[R5, #+0]
+   \   00000100   1C00A0E3           MOV      R0,#+28
+   \   00000104   901721E0           MLA      R1,R0,R7,R1
+   \   00000108   000091E5           LDR      R0,[R1, #+0]
+   \   0000010C   000050E3           CMP      R0,#+0
+   \   00000110   0100000A           BEQ      ??PushPageToStack_6
+    183              {
+    184                killpage(i);
+   \   00000114   0700A0E1           MOV      R0,R7
+   \   00000118   ........           BL       killpage
+    185              }
+    186              i++;
+   \                     ??PushPageToStack_6:
+   \   0000011C   017087E2           ADD      R7,R7,#+1
+    187            }
+   \   00000120   060057E1           CMP      R7,R6
+   \   00000124   F4FFFF1A           BNE      ??PushPageToStack_5
+    188            PageSTACK[stack_top].id=iday;
+   \                     ??PushPageToStack_4:
+   \   00000128   040095E5           LDR      R0,[R5, #+4]
+   \   0000012C   002095E5           LDR      R2,[R5, #+0]
+   \   00000130   1C10A0E3           MOV      R1,#+28
+   \   00000134   912022E0           MLA      R2,R1,R0,R2
+    189            return pagename(stack_top++);
+   \   00000138   011080E2           ADD      R1,R0,#+1
+   \   0000013C   004082E5           STR      R4,[R2, #+0]
+   \   00000140   041085E5           STR      R1,[R5, #+4]
+   \   00000144   ........           BL       pagename
+   \   00000148   10D08DE2           ADD      SP,SP,#+16
+   \   0000014C   F080BDE8           POP      {R4-R7,PC}       ;; return
+   \                     ??PushPageToStack_0:
+   \   00000150   1F85EB51           DC32     0x51eb851f
+   \   00000154   ........           DC32     DMonth
+    190          }
+    191          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    192          char *PopPageFromStack(void)
+    193          {
+    194            if (!stack_top) return NULL;
+   \                     PopPageFromStack:
+   \   00000000   ........           LDR      R1,??DataTable16  ;; PageSTACK
+   \   00000004   040091E5           LDR      R0,[R1, #+4]
+   \   00000008   000050E3           CMP      R0,#+0
+   \   0000000C   1EFF2F01           BXEQ     LR
+    195            return pagename(--stack_top);
+   \   00000010   010040E2           SUB      R0,R0,#+1
+   \   00000014   040081E5           STR      R0,[R1, #+4]
+   \   00000018   ........           B        pagename         ;; tailcall
+    196          }
+    197          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    198          int CheckPageStackTop(void)
+    199          {
+    200            unsigned long retval = PageSTACK[stack_top].id;
+    201            /*if (retval)
+    202            {
+    203              unsigned int err;
+    204              FSTATS stat;
+    205              char* toppagename = pagename(stack_top);
+    206              if (GetFileStats(toppagename,&stat,&err)==-1) 
+    207                retval = 0;
+    208              mfree(toppagename);
+    209            }*/
+    210            return retval;
+   \                     CheckPageStackTop:
+   \   00000000   ........           LDR      R0,??DataTable18  ;; PageSTACK
+   \   00000004   1C20A0E3           MOV      R2,#+28
+   \   00000008   041090E5           LDR      R1,[R0, #+4]
+   \   0000000C   000090E5           LDR      R0,[R0, #+0]
+   \   00000010   920120E0           MLA      R0,R2,R1,R0
+   \   00000014   000090E5           LDR      R0,[R0, #+0]
+   \   00000018   1EFF2FE1           BX       LR               ;; return
+    211          }
+    212          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    213          char *ForwardPageFromStack(void)
+    214          {
+    215            if (stack_top==PageSTACK_SIZE) return NULL;
+   \                     ForwardPageFromStack:
+   \   00000000   ........           LDR      R1,??DataTable18  ;; PageSTACK
+   \   00000004   ........           LDR      R2,??DataTable19  ;; PageSTACK_SIZE
+   \   00000008   040091E5           LDR      R0,[R1, #+4]
+   \   0000000C   002092E5           LDR      R2,[R2, #+0]
+   \   00000010   020050E1           CMP      R0,R2
+   \   00000014   0500000A           BEQ      ??ForwardPageFromStack_0
+    216            if (!PageSTACK[stack_top].id) return NULL;
+   \   00000018   003091E5           LDR      R3,[R1, #+0]
+   \   0000001C   1C20A0E3           MOV      R2,#+28
+   \   00000020   923023E0           MLA      R3,R2,R0,R3
+   \   00000024   002093E5           LDR      R2,[R3, #+0]
+   \   00000028   000052E3           CMP      R2,#+0
+   \   0000002C   0100001A           BNE      ??ForwardPageFromStack_1
+   \                     ??ForwardPageFromStack_0:
+   \   00000030   0000A0E3           MOV      R0,#+0
+   \   00000034   1EFF2FE1           BX       LR
+    217            return pagename(++stack_top);
+   \                     ??ForwardPageFromStack_1:
+   \   00000038   010080E2           ADD      R0,R0,#+1
+   \   0000003C   040081E5           STR      R0,[R1, #+4]
+   \   00000040   ........           B        pagename         ;; tailcall
+    218          }
+    219          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    220          void FreePageStack(void)
+    221          {
+    222            int i=0;
+   \                     FreePageStack:
+   \   00000000   ........           LDR      R0,??DataTable19  ;; PageSTACK_SIZE
+   \   00000004   70402DE9           PUSH     {R4-R6,LR}
+   \   00000008   005090E5           LDR      R5,[R0, #+0]
+   \   0000000C   ........           LDR      R6,??DataTable18  ;; PageSTACK
+   \   00000010   0040A0E3           MOV      R4,#+0
+   \   00000014   000055E3           CMP      R5,#+0
+   \   00000018   0A00000A           BEQ      ??FreePageStack_0
+    223            while(i!=PageSTACK_SIZE)
+    224            {
+    225              if (PageSTACK[i].id!=0)
+   \                     ??FreePageStack_1:
+   \   0000001C   001096E5           LDR      R1,[R6, #+0]
+   \   00000020   1C00A0E3           MOV      R0,#+28
+   \   00000024   901421E0           MLA      R1,R0,R4,R1
+   \   00000028   000091E5           LDR      R0,[R1, #+0]
+   \   0000002C   000050E3           CMP      R0,#+0
+   \   00000030   0100000A           BEQ      ??FreePageStack_2
+    226              {
+    227                killpage(i);
+   \   00000034   0400A0E1           MOV      R0,R4
+   \   00000038   ........           BL       killpage
+    228              }
+    229              i++;
+   \                     ??FreePageStack_2:
+   \   0000003C   014084E2           ADD      R4,R4,#+1
+    230            }
+   \   00000040   050054E1           CMP      R4,R5
+   \   00000044   F4FFFF1A           BNE      ??FreePageStack_1
+    231            mfree(PageSTACK);
+   \                     ??FreePageStack_0:
+   \   00000048   000096E5           LDR      R0,[R6, #+0]
+   \   0000004C   150000EF           SWI      +21
+    232          }
+   \   00000050   7080BDE8           POP      {R4-R6,PC}       ;; return
+    233          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    234          void UpPageStack(void)
+    235          {
+    236            if (stack_top==PageSTACK_SIZE) return;
+   \                     UpPageStack:
+   \   00000000   ........           LDR      R0,??DataTable16  ;; PageSTACK
+   \   00000004   ........           LDR      R2,??DataTable19  ;; PageSTACK_SIZE
+   \   00000008   041090E5           LDR      R1,[R0, #+4]
+   \   0000000C   002092E5           LDR      R2,[R2, #+0]
+   \   00000010   020051E1           CMP      R1,R2
+    237            stack_top++;
+   \   00000014   01108112           ADDNE    R1,R1,#+1
+   \   00000018   04108015           STRNE    R1,[R0, #+4]
+    238          }
+   \   0000001C   1EFF2FE1           BX       LR               ;; return
+    239          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    240          void InitUrlStack(void)
+    241          {
+   \                     InitUrlStack:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+    242            stack_top = 0;
+   \   00000004   ........           LDR      R4,??DataTable18  ;; PageSTACK
+   \   00000008   0000A0E3           MOV      R0,#+0
+   \   0000000C   040084E5           STR      R0,[R4, #+4]
+    243            PageSTACK = malloc((PageSTACK_SIZE+1)*sizeof(tPageStack));
+   \   00000010   ........           LDR      R0,??DataTable19  ;; PageSTACK_SIZE
+   \   00000014   1C10A0E3           MOV      R1,#+28
+   \   00000018   000090E5           LDR      R0,[R0, #+0]
+   \   0000001C   010080E2           ADD      R0,R0,#+1
+   \   00000020   910005E0           MUL      R5,R1,R0
+   \   00000024   0500A0E1           MOV      R0,R5
+   \   00000028   140000EF           SWI      +20
+   \   0000002C   000084E5           STR      R0,[R4, #+0]
+    244            zeromem(PageSTACK, (PageSTACK_SIZE+1)*sizeof(tPageStack));
+   \   00000030   0510A0E1           MOV      R1,R5
+   \   00000034   1D0100EF           SWI      +285
+    245          }
+   \   00000038   3080BDE8           POP      {R4,R5,PC}       ;; return
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable16:
+   \   00000000   ........           DC32     PageSTACK
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable18:
+   \   00000000   ........           DC32     PageSTACK
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable19:
+   \   00000000   ........           DC32     PageSTACK_SIZE
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "$omscache\\\\">`:
+   \   00000000   246F6D736361       DC8 "$omscache\\"
+   \              6368655C00  
+   \   0000000B   00                 DC8 0
+   \   0000000C   257325642E6F       DC8 "%s%d.oms"
+   \              6D7300      
+   \   00000015   000000             DC8 0, 0, 0
+
+   Maximum stack usage in bytes:
+
+     Function             CSTACK
+     --------             ------
+     CheckPageStackTop        0
+     ForwardPageFromStack     4
+     FreePageStack           16
+     InitUrlStack            12
+     PopPageFromStack         4
+     PushPageToStack         36
+     UpPageStack              0
+     getCurrPageName          4
+     getPageParams            0
+     getPosCurRef             0
+     getUserListByRefId       8
+     getUserTextByRefId       0
+     getViewLine              0
+     killpage                28
+     pagename                20
+     setPageParams            0
+     setUserList             24
+     setUserText             24
+
+
+   Segment part sizes:
+
+     Function/Label            Bytes
+     --------------            -----
+     DMonth                      52
+     PageSTACK                    8
+     pagename                    92
+     getCurrPageName             20
+     getPageParams               24
+     setUserList                212
+     setUserText                216
+     setPageParams               32
+     getUserTextByRefId          88
+     getUserListByRefId         132
+     getViewLine                  8
+     getPosCurRef                 8
+     killpage                   188
+     PushPageToStack            344
+     PopPageFromStack            28
+     CheckPageStackTop           28
+     ForwardPageFromStack        68
+     FreePageStack               84
+     UpPageStack                 32
+     InitUrlStack                60
+     ??DataTable16                4
+     ??DataTable18                4
+     ??DataTable19                4
+     ?<Constant "$omscache\\">   24
+      Others                     96
+
+ 
+ 1 760 bytes in segment CODE
+    76 bytes in segment DATA_C
+     8 bytes in segment DATA_Z
+    12 bytes in segment INITTAB
+ 
+ 1 676 bytes of CODE  memory (+ 96 bytes shared)
+    76 bytes of CONST memory
+     8 bytes of DATA  memory
+
+Errors: none
+Warnings: none

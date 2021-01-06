@@ -1,0 +1,2526 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    23/Feb/2011  16:38:24 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\siejc\vCard.c                                 #
+#    Command line    =  C:\arm\siejc\vCard.c -D NEWSGOLD -D ELKA             #
+#                       --preprocess C:\arm\siejc\Release_ELKA\List\ -lC     #
+#                       C:\arm\siejc\Release_ELKA\List\ -o                   #
+#                       C:\arm\siejc\Release_ELKA\Obj\ -s9 --no_unroll       #
+#                       --cpu_mode arm --endian little --cpu ARM926EJ-S      #
+#                       --stack_align 4 --interwork -e --fpu None            #
+#                       --dlib_config "C:\arm2\Embedded Workbench 4.0        #
+#                       Evaluation\ARM\LIB\dl5tpainl8f.h" -I                 #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\siejc\Release_ELKA\List\vCard.lst             #
+#    Object file     =  C:\arm\siejc\Release_ELKA\Obj\vCard.r79              #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\siejc\vCard.c
+      1          #include "../inc/swilib.h"
+      2          #include "main.h"
+      3          #include "clist_util.h"
+      4          #include "xml_parser.h"
+      5          #include "siejc_ipc.h"
+      6          #include "history.h"
+      7          #include "lang.h"
+      8          #include "string_util.h"
+      9          #include "jabber_util.h"
+     10          #include "vCard.h"
+     11          #include "rect_patcher.h"
+     12          
+     13          #define N_VCARD_FIELDS 52
+     14          
+     15          char *vcard_index[N_VCARD_FIELDS] =
+     16          {
+     17            "JABBERID",
+     18            "FN",
+     19            
+     20            "N/FAMILY",
+     21            "N/GIVEN",
+     22            "N/MIDDLE",
+     23            "N/PREFIX",
+     24            "N/SUFFIX",
+     25          
+     26            "NICKNAME",
+     27            "BDAY",
+     28            "GENDER",
+     29          
+     30            "ORG/ORGNAME",
+     31            "ORG/ORGUNIT",
+     32            "TITLE",
+     33            "ROLE",
+     34          
+     35            "EMAIL/USERID",
+     36            "EMAIL/HOME",
+     37            "EMAIL/WORK",
+     38            "EMAIL/INTERNET",
+     39            "EMAIL/PREF",
+     40            "EMAIL/X400",
+     41          
+     42            "TEL/HOME",
+     43            "TEL/WORK",
+     44            "TEL/VOICE",
+     45            "TEL/FAX",
+     46            "TEL/PAGER",
+     47            "TEL/MSG",
+     48            "TEL/CELL",
+     49            "TEL/VIDEO",
+     50            "TEL/BBS",
+     51            "TEL/MODEM",
+     52            "TEL/ISDN",
+     53            "TEL/PCS",
+     54            "TEL/PREF",
+     55            "TEL/NUMBER",
+     56          
+     57            "ADR/HOME",
+     58            "ADR/WORK",
+     59            "ADR/POSTAL",
+     60            "ADR/PARCEL",
+     61            "ADR/DOM",
+     62            "ADR/PREF",
+     63            "ADR/POBOX",
+     64            "ADR/EXTADD",
+     65            "ADR/STREET",
+     66            "ADR/LOCALITY",
+     67            "ADR/REGION",
+     68            "ADR/PCODE",
+     69            "ADR/CTRY",
+     70              
+     71            "URL",
+     72          
+     73            "DESC",
+     74            "TZ",
+     75          
+     76            "!PHOTO", // Сюда мы пишем путь к аватаре
+     77            "!LOGO" // Сюда мы пишем путь к логотипу
+     78          };
+     79          
+     80          char *vcard_names[N_VCARD_FIELDS] =
+     81          {
+     82            LG_VCARD_JABBERID,
+     83            LG_VCARD_FN,
+     84            LG_VCARD_N_FAMILY,
+     85            LG_VCARD_N_GIVEN,
+     86            LG_VCARD_N_MIDDLE,
+     87            LG_VCARD_N_PREFIX,
+     88            LG_VCARD_N_SUFFIX,
+     89            LG_VCARD_NICKNAME,
+     90            LG_VCARD_BDAY,
+     91            LG_VCARD_GENDER,
+     92          
+     93            LG_VCARD_ORGNAME,
+     94            LG_VCARD_ORGUNIT,
+     95            LG_VCARD_TITLE,
+     96            LG_VCARD_ROLE,
+     97          
+     98            LG_VCARD_EMAIL,
+     99            LG_VCARD_EMAIL_HOME,
+    100            LG_VCARD_EMAIL_WORK,
+    101            LG_VCARD_EMAIL_INTERNET,
+    102            LG_VCARD_EMAIL_PREF,
+    103            LG_VCARD_EMAIL_X400,
+    104            
+    105            LG_VCARD_TEL_HOME,
+    106            LG_VCARD_TEL_WORK,
+    107            LG_VCARD_TEL_VOICE,
+    108            LG_VCARD_TEL_FAX,
+    109            LG_VCARD_TEL_PAGER,
+    110            LG_VCARD_TEL_MSG,
+    111            LG_VCARD_TEL_CELL,
+    112            LG_VCARD_TEL_VIDEO,
+    113            LG_VCARD_TEL_BBS,
+    114            LG_VCARD_TEL_MODEM,
+    115            LG_VCARD_TEL_ISDN,
+    116            LG_VCARD_TEL_PCS,
+    117            LG_VCARD_TEL_PREF,
+    118            LG_VCARD_TEL_NUMBER,
+    119          
+    120            LG_VCARD_ADR_HOME,
+    121            LG_VCARD_ADR_WORK,
+    122            LG_VCARD_ADR_POSTAL,
+    123            LG_VCARD_ADR_PARCEL,
+    124            LG_VCARD_ADR_DOM,
+    125            LG_VCARD_ADR_PREF,
+    126            LG_VCARD_ADR_POBOX,
+    127            LG_VCARD_ADR_EXTADD,
+    128            LG_VCARD_ADR_STREET,
+    129            LG_VCARD_ADR_LOCALITY,
+    130            LG_VCARD_ADR_REGION,
+    131            LG_VCARD_ADR_PCODE,
+    132            LG_VCARD_ADR_CTRY,
+    133          
+    134            LG_VCARD_URL,
+    135          
+    136            LG_VCARD_DESC,
+    137            LG_VCARD_TZ,
+    138          
+    139            LG_VCARD_AVATAR,
+    140            LG_VCARD_LOGO
+    141          };
+    142          
+    143          // Служебная функция, заполняет структуру vCard
+
+   \                                 In segment CODE, align 4, keep-with-next
+    144          void Add_vCard_Value(VCARD dest, char *par_name, char *val)
+    145          {
+   \                     Add_vCard_Value:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+   \   0000000C   0260A0E1           MOV      R6,R2
+    146            int field_id = 0;
+   \   00000010   0070A0E3           MOV      R7,#+0
+   \   00000014   020000EA           B        ??Add_vCard_Value_0
+    147          
+    148            while (field_id<N_VCARD_FIELDS && strcmp(par_name, vcard_index[field_id]))
+    149              field_id++;
+   \                     ??Add_vCard_Value_1:
+   \   00000018   017087E2           ADD      R7,R7,#+1
+   \   0000001C   340057E3           CMP      R7,#+52
+   \   00000020   F080BDA8           POPGE    {R4-R7,PC}
+   \                     ??Add_vCard_Value_0:
+   \   00000024   ........           LDR      R0,??DataTable1  ;; vcinfo_desc
+   \   00000028   070180E0           ADD      R0,R0,R7, LSL #+2
+   \   0000002C   4C1090E5           LDR      R1,[R0, #+76]
+   \   00000030   0500A0E1           MOV      R0,R5
+   \   00000034   190000EF           SWI      +25
+   \   00000038   000050E3           CMP      R0,#+0
+   \   0000003C   F5FFFF1A           BNE      ??Add_vCard_Value_1
+    150            
+    151            if (field_id<N_VCARD_FIELDS)
+    152            {
+    153              if (dest[field_id])
+   \   00000040   070194E7           LDR      R0,[R4, +R7, LSL #+2]
+   \   00000044   000050E3           CMP      R0,#+0
+   \   00000048   0000000A           BEQ      ??Add_vCard_Value_2
+    154                mfree(dest[field_id]);
+   \   0000004C   150000EF           SWI      +21
+    155              dest[field_id] = malloc(strlen(val)+1);
+   \                     ??Add_vCard_Value_2:
+   \   00000050   0600A0E1           MOV      R0,R6
+   \   00000054   1B0000EF           SWI      +27
+   \   00000058   010080E2           ADD      R0,R0,#+1
+   \   0000005C   140000EF           SWI      +20
+   \   00000060   070184E7           STR      R0,[R4, +R7, LSL #+2]
+    156              strcpy(dest[field_id], val);
+   \   00000064   0610A0E1           MOV      R1,R6
+   \   00000068   1A0000EF           SWI      +26
+    157            }
+    158          }
+   \   0000006C   F080BDE8           POP      {R4-R7,PC}       ;; return
+    159          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    160          char *Get_VCard_Value(VCARD src, char *par_name)
+    161          {
+   \                     Get_VCard_Value:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+    162            int field_id = 0;
+   \   0000000C   0060A0E3           MOV      R6,#+0
+   \                     ??Get_VCard_Value_0:
+   \   00000010   ........           LDR      R0,??DataTable1  ;; vcinfo_desc
+   \   00000014   060180E0           ADD      R0,R0,R6, LSL #+2
+   \   00000018   4C1090E5           LDR      R1,[R0, #+76]
+   \   0000001C   0500A0E1           MOV      R0,R5
+   \   00000020   190000EF           SWI      +25
+   \   00000024   000050E3           CMP      R0,#+0
+   \   00000028   0400000A           BEQ      ??Get_VCard_Value_1
+    163            while (field_id<N_VCARD_FIELDS && strcmp(par_name, vcard_index[field_id]))
+    164              field_id++;
+   \   0000002C   016086E2           ADD      R6,R6,#+1
+   \   00000030   340056E3           CMP      R6,#+52
+   \   00000034   F5FFFFBA           BLT      ??Get_VCard_Value_0
+    165            if (field_id<N_VCARD_FIELDS)
+    166            {
+    167              return src[field_id];
+    168            }
+    169            return NULL;
+   \   00000038   0000A0E3           MOV      R0,#+0
+   \   0000003C   7080BDE8           POP      {R4-R6,PC}
+   \                     ??Get_VCard_Value_1:
+   \   00000040   060194E7           LDR      R0,[R4, +R6, LSL #+2]
+   \   00000044   7080BDE8           POP      {R4-R6,PC}       ;; return
+    170          }
+    171          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    172          VCARD Create_vCard()
+    173          {
+   \                     Create_vCard:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    174            VCARD tmp = malloc(4*N_VCARD_FIELDS);
+   \   00000004   D000A0E3           MOV      R0,#+208
+   \   00000008   140000EF           SWI      +20
+   \   0000000C   0040A0E1           MOV      R4,R0
+    175            zeromem(tmp, 4*N_VCARD_FIELDS);
+   \   00000010   D010A0E3           MOV      R1,#+208
+   \   00000014   1D0100EF           SWI      +285
+    176            return tmp;
+   \   00000018   0400A0E1           MOV      R0,R4
+   \   0000001C   1080BDE8           POP      {R4,PC}          ;; return
+    177          }
+    178          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    179          void Free_vCard(VCARD vcard)
+    180          {
+   \                     Free_vCard:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040B0E1           MOVS     R4,R0
+    181            if (!vcard)
+   \   00000008   3080BD08           POPEQ    {R4,R5,PC}
+    182              return;
+    183            for (int i=0; i<N_VCARD_FIELDS; i++)
+   \   0000000C   0050A0E3           MOV      R5,#+0
+    184              if (vcard[i])
+   \                     ??Free_vCard_0:
+   \   00000010   050194E7           LDR      R0,[R4, +R5, LSL #+2]
+   \   00000014   000050E3           CMP      R0,#+0
+   \   00000018   0000000A           BEQ      ??Free_vCard_1
+    185                mfree(vcard[i]);
+   \   0000001C   150000EF           SWI      +21
+   \                     ??Free_vCard_1:
+   \   00000020   015085E2           ADD      R5,R5,#+1
+   \   00000024   340055E3           CMP      R5,#+52
+   \   00000028   F8FFFFBA           BLT      ??Free_vCard_0
+    186            mfree(vcard);
+   \   0000002C   0400A0E1           MOV      R0,R4
+   \   00000030   150000EF           SWI      +21
+    187          }
+   \   00000034   3080BDE8           POP      {R4,R5,PC}       ;; return
+    188          
+    189          
+    190          //==============================   AVATAR   ================================
+    191          
+    192          extern const char DEFAULT_DISC[128];
+    193          extern const char ipc_my_name[32];
+    194          extern const char PATH_TO_AVATARS[128];
+
+   \                                 In segment DATA_C, align 1, align-sorted
+    195          const char _slash[2] = "\\";
+   \                     _slash:
+   \   00000000   5C00               DC8 "\\"
+    196          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    197          void Get_Avatar_Path(char *path, char *jid)
+    198          {
+   \                     Get_Avatar_Path:
+   \   00000000   70402DE9           PUSH     {R4-R6,LR}
+   \   00000004   04D04DE2           SUB      SP,SP,#+4
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   0150A0E1           MOV      R5,R1
+    199            strcpy(path, PATH_TO_AVATARS);
+   \   00000010   CC109FE5           LDR      R1,??Get_Avatar_Path_0  ;; PATH_TO_AVATARS
+   \   00000014   1A0000EF           SWI      +26
+    200            TRESOURCE *ResEx = CList_IsResourceInList(jid);
+   \   00000018   0500A0E1           MOV      R0,R5
+   \   0000001C   ........           _BLF     CList_IsResourceInList,??CList_IsResourceInList??rA
+   \   00000020   0060A0E1           MOV      R6,R0
+    201            CLIST *ClEx = CList_FindContactByJID(jid);
+   \   00000024   0500A0E1           MOV      R0,R5
+   \   00000028   ........           _BLF     CList_FindContactByJID,??CList_FindContactByJID??rA
+    202            if(!ClEx) return;
+   \   0000002C   000050E3           CMP      R0,#+0
+   \   00000030   7180BD08           POPEQ    {R0,R4-R6,PC}
+    203            unsigned int err;
+    204            if (ResEx)
+   \   00000034   000090E5           LDR      R0,[R0, #+0]
+   \   00000038   000056E3           CMP      R6,#+0
+   \   0000003C   1F00000A           BEQ      ??Get_Avatar_Path_1
+    205            {
+    206              if (ResEx->entry_type==T_CONF_NODE)
+   \   00000040   0810D6E5           LDRB     R1,[R6, #+8]
+   \   00000044   030051E3           CMP      R1,#+3
+   \   00000048   1C00001A           BNE      ??Get_Avatar_Path_2
+    207              {
+    208                char *s1, *s2;
+    209                s1 = utf82filename(ClEx->JID);
+   \   0000004C   ........           _BLF     utf82filename,??utf82filename??rA
+   \   00000050   0050A0E1           MOV      R5,R0
+    210                remove_bad_chars(s1);
+   \   00000054   ........           _BLF     remove_bad_chars,??remove_bad_chars??rA
+    211                strcat(path, s1);
+   \   00000058   0510A0E1           MOV      R1,R5
+   \   0000005C   0400A0E1           MOV      R0,R4
+   \   00000060   170000EF           SWI      +23
+    212                if (!isdir(path, &err))
+   \   00000064   0D10A0E1           MOV      R1,SP
+   \   00000068   0400A0E1           MOV      R0,R4
+   \   0000006C   910000EF           SWI      +145
+   \   00000070   000050E3           CMP      R0,#+0
+   \   00000074   0200001A           BNE      ??Get_Avatar_Path_3
+    213                  mkdir(path, &err);
+   \   00000078   0D10A0E1           MOV      R1,SP
+   \   0000007C   0400A0E1           MOV      R0,R4
+   \   00000080   100000EF           SWI      +16
+    214                strcat(path, _slash);
+   \                     ??Get_Avatar_Path_3:
+   \   00000084   5C109FE5           LDR      R1,??Get_Avatar_Path_0+0x4  ;; _slash
+   \   00000088   0400A0E1           MOV      R0,R4
+   \   0000008C   170000EF           SWI      +23
+    215                s2 = utf82filename(ResEx->name);
+   \   00000090   000096E5           LDR      R0,[R6, #+0]
+   \   00000094   ........           _BLF     utf82filename,??utf82filename??rA
+   \   00000098   0060A0E1           MOV      R6,R0
+    216                remove_bad_chars(s2);
+   \   0000009C   ........           _BLF     remove_bad_chars,??remove_bad_chars??rA
+    217                strcat(path, s2);
+   \   000000A0   0610A0E1           MOV      R1,R6
+   \   000000A4   0400A0E1           MOV      R0,R4
+   \   000000A8   170000EF           SWI      +23
+    218                mfree(s1);
+   \   000000AC   0500A0E1           MOV      R0,R5
+   \   000000B0   150000EF           SWI      +21
+    219                mfree(s2);
+   \   000000B4   0600A0E1           MOV      R0,R6
+   \   000000B8   150000EF           SWI      +21
+   \   000000BC   7180BDE8           POP      {R0,R4-R6,PC}
+    220              }
+    221              else
+    222              {
+    223                char *s1;
+    224                s1 = utf82filename(ClEx->JID);
+    225                remove_bad_chars(s1);
+    226                strcat(path, s1);
+    227                mfree(s1);
+    228              }
+    229            }
+    230                else
+    231              {
+    232                char *s1;
+    233                s1 = utf82filename(ClEx->JID);
+   \                     ??Get_Avatar_Path_2:
+   \                     ??Get_Avatar_Path_1:
+   \   000000C0   ........           _BLF     utf82filename,??utf82filename??rA
+   \   000000C4   0050A0E1           MOV      R5,R0
+    234                remove_bad_chars(s1);
+   \   000000C8   ........           _BLF     remove_bad_chars,??remove_bad_chars??rA
+    235                strcat(path, s1);
+   \   000000CC   0510A0E1           MOV      R1,R5
+   \   000000D0   0400A0E1           MOV      R0,R4
+   \   000000D4   170000EF           SWI      +23
+    236                mfree(s1);
+   \   000000D8   0500A0E1           MOV      R0,R5
+   \   000000DC   150000EF           SWI      +21
+   \   000000E0   7180BDE8           POP      {R0,R4-R6,PC}    ;; return
+   \                     ??Get_Avatar_Path_0:
+   \   000000E4   ........           DC32     PATH_TO_AVATARS
+   \   000000E8   ........           DC32     _slash
+    237              }
+    238          }
+    239          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    240          void vCard_Photo_Display(char *path)
+    241          {
+   \                     vCard_Photo_Display:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    242            WSHDR *fp = AllocWS(128);
+   \   00000008   8000A0E3           MOV      R0,#+128
+   \   0000000C   250100EF           SWI      +293
+   \   00000010   0050A0E1           MOV      R5,R0
+    243            str_2ws(fp,path,128);
+   \   00000014   8020A0E3           MOV      R2,#+128
+   \   00000018   0410A0E1           MOV      R1,R4
+   \   0000001C   6C0100EF           SWI      +364
+    244            ExecuteFile(fp, NULL, NULL);
+   \   00000020   0020A0E3           MOV      R2,#+0
+   \   00000024   0010A0E3           MOV      R1,#+0
+   \   00000028   0500A0E1           MOV      R0,R5
+   \   0000002C   940000EF           SWI      +148
+    245            FreeWS(fp);
+   \   00000030   0500A0E1           MOV      R0,R5
+   \   00000034   290100EF           SWI      +297
+    246          }
+   \   00000038   3080BDE8           POP      {R4,R5,PC}       ;; return
+    247          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    248          void MsgBoxError_locked(const char *str)
+    249          {
+   \                     MsgBoxError_locked:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    250              LockSched();
+   \   00000008   460100EF           SWI      +326
+    251              MsgBoxError(1,(int)str);
+   \   0000000C   0410A0E1           MOV      R1,R4
+   \   00000010   0100A0E3           MOV      R0,#+1
+   \   00000014   4E0000EF           SWI      +78
+    252              UnlockSched();
+   \   00000018   470100EF           SWI      +327
+    253          }
+   \   0000001C   1080BDE8           POP      {R4,PC}          ;; return
+    254          
+    255          //Context:HELPER
+
+   \                                 In segment CODE, align 4, keep-with-next
+    256          void DecodePhoto(char *path, void *data)
+    257          {
+   \                     DecodePhoto:
+   \   00000000   F0432DE9           PUSH     {R4-R9,LR}
+    258            char *buf;
+    259            int unk5 = 0;
+    260            int datlen, binlen;
+    261            unsigned int ec;
+    262          
+    263            datlen = strlen(data);
+    264          
+    265            buf = malloc(datlen + 1);
+    266            if (buf == NULL) {
+   \   00000004   2C719FE5           LDR      R7,??DecodePhoto_0  ;; `?<Constant "malloc error!">`
+   \   00000008   0CD04DE2           SUB      SP,SP,#+12
+   \   0000000C   0040A0E1           MOV      R4,R0
+   \   00000010   0150A0E1           MOV      R5,R1
+   \   00000014   0010A0E3           MOV      R1,#+0
+   \   00000018   08108DE5           STR      R1,[SP, #+8]
+   \   0000001C   0500A0E1           MOV      R0,R5
+   \   00000020   1B0000EF           SWI      +27
+   \   00000024   0080A0E1           MOV      R8,R0
+   \   00000028   019088E2           ADD      R9,R8,#+1
+   \   0000002C   0900A0E1           MOV      R0,R9
+   \   00000030   140000EF           SWI      +20
+   \   00000034   0060B0E1           MOVS     R6,R0
+   \   00000038   0600001A           BNE      ??DecodePhoto_1
+    267              mfree(data);
+   \   0000003C   0500A0E1           MOV      R0,R5
+   \   00000040   150000EF           SWI      +21
+    268              mfree(path);
+   \   00000044   0400A0E1           MOV      R0,R4
+   \   00000048   150000EF           SWI      +21
+    269              MsgBoxError_locked("malloc error!");
+   \   0000004C   0700A0E1           MOV      R0,R7
+   \   00000050   ........           BL       MsgBoxError_locked
+    270              return;
+   \   00000054   F783BDE8           POP      {R0-R2,R4-R9,PC}
+    271            }
+    272            zeromem(buf, datlen + 1);
+   \                     ??DecodePhoto_1:
+   \   00000058   0910A0E1           MOV      R1,R9
+   \   0000005C   1D0100EF           SWI      +285
+    273            binlen = Base64Decode(data, datlen, buf, datlen, NULL, &unk5);
+   \   00000060   08008DE2           ADD      R0,SP,#+8
+   \   00000064   01002DE9           PUSH     {R0}
+   \   00000068   0830A0E1           MOV      R3,R8
+   \   0000006C   0620A0E1           MOV      R2,R6
+   \   00000070   0810A0E1           MOV      R1,R8
+   \   00000074   0000A0E3           MOV      R0,#+0
+   \   00000078   01002DE9           PUSH     {R0}
+   \   0000007C   0500A0E1           MOV      R0,R5
+   \   00000080   450200EF           SWI      +581
+   \   00000084   0080B0E1           MOVS     R8,R0
+    274          
+    275            if (binlen == 0) {
+   \   00000088   08D08DE2           ADD      SP,SP,#+8
+   \   0000008C   0800001A           BNE      ??DecodePhoto_2
+    276              MsgBoxError_locked("decode error (zero length)!");
+   \   00000090   100087E2           ADD      R0,R7,#+16
+   \   00000094   ........           BL       MsgBoxError_locked
+    277              mfree(data);
+   \   00000098   0500A0E1           MOV      R0,R5
+   \   0000009C   150000EF           SWI      +21
+    278              mfree(path);
+   \   000000A0   0400A0E1           MOV      R0,R4
+   \   000000A4   150000EF           SWI      +21
+    279              mfree(buf);
+   \   000000A8   0600A0E1           MOV      R0,R6
+   \   000000AC   150000EF           SWI      +21
+   \   000000B0   F783BDE8           POP      {R0-R2,R4-R9,PC}
+    280              return;
+    281            }
+    282            
+    283            unlink(path, &ec);
+   \                     ??DecodePhoto_2:
+   \   000000B4   0D10A0E1           MOV      R1,SP
+   \   000000B8   0400A0E1           MOV      R0,R4
+   \   000000BC   6B0100EF           SWI      +363
+    284            ec=0;   // похеру, чем закончится удаление.
+   \   000000C0   0010A0E3           MOV      R1,#+0
+   \   000000C4   00108DE5           STR      R1,[SP, #+0]
+    285            volatile int f = fopen(path, A_ReadWrite +A_Create+ A_Append + A_BIN, P_READ+ P_WRITE, &ec);
+   \   000000C8   0D30A0E1           MOV      R3,SP
+   \   000000CC   602FA0E3           MOV      R2,#+384
+   \   000000D0   0A10A0E3           MOV      R1,#+10
+   \   000000D4   811C81E3           ORR      R1,R1,#0x8100
+   \   000000D8   0400A0E1           MOV      R0,R4
+   \   000000DC   0A0000EF           SWI      +10
+   \   000000E0   04008DE5           STR      R0,[SP, #+4]
+    286            if(!ec)
+   \   000000E4   00009DE5           LDR      R0,[SP, #+0]
+   \   000000E8   000050E3           CMP      R0,#+0
+   \   000000EC   0800001A           BNE      ??DecodePhoto_3
+    287            {
+    288              fwrite(f, buf, binlen, &ec);
+   \   000000F0   04009DE5           LDR      R0,[SP, #+4]
+   \   000000F4   0D30A0E1           MOV      R3,SP
+   \   000000F8   0820A0E1           MOV      R2,R8
+   \   000000FC   0610A0E1           MOV      R1,R6
+   \   00000100   0C0000EF           SWI      +12
+    289              fclose(f, &ec);
+   \   00000104   04009DE5           LDR      R0,[SP, #+4]
+   \   00000108   0D10A0E1           MOV      R1,SP
+   \   0000010C   0D0000EF           SWI      +13
+   \   00000110   010000EA           B        ??DecodePhoto_4
+    290            }
+    291            else
+    292            {
+    293              MsgBoxError_locked(path);
+   \                     ??DecodePhoto_3:
+   \   00000114   0400A0E1           MOV      R0,R4
+   \   00000118   ........           BL       MsgBoxError_locked
+    294            }
+    295            // Cleanup
+    296            mfree(buf);
+   \                     ??DecodePhoto_4:
+   \   0000011C   0600A0E1           MOV      R0,R6
+   \   00000120   150000EF           SWI      +21
+    297            mfree(data);
+   \   00000124   0500A0E1           MOV      R0,R5
+   \   00000128   150000EF           SWI      +21
+    298            mfree(path);
+   \   0000012C   0400A0E1           MOV      R0,R4
+   \   00000130   150000EF           SWI      +21
+    299          }
+   \   00000134   F783BDE8           POP      {R0-R2,R4-R9,PC}  ;; return
+   \                     ??DecodePhoto_0:
+   \   00000138   ........           DC32     `?<Constant "malloc error!">`
+    300          
+    301          // Сохранение фотографии
+
+   \                                 In segment CODE, align 4, keep-with-next
+    302          void SavePhoto(VCARD vcard, char *jid, XMLNode *photonode, int logo)
+    303          {
+   \                     SavePhoto:
+   \   00000000   F0432DE9           PUSH     {R4-R9,LR}
+    304            // Prepare path
+    305            //а аватарка то пустой может быть...
+    306           XMLNode *binval = XML_Get_Child_Node_By_Name(photonode, "BINVAL");
+   \   00000004   ........           LDR      R6,??DataTable4  ;; `?<Constant ".jpg">`
+   \   00000008   88D04DE2           SUB      SP,SP,#+136
+   \   0000000C   0040A0E1           MOV      R4,R0
+   \   00000010   0190A0E1           MOV      R9,R1
+   \   00000014   0280A0E1           MOV      R8,R2
+   \   00000018   0350A0E1           MOV      R5,R3
+   \   0000001C   6C1086E2           ADD      R1,R6,#+108
+   \   00000020   0800A0E1           MOV      R0,R8
+   \   00000024   ........           _BLF     XML_Get_Child_Node_By_Name,??XML_Get_Child_Node_By_Name??rA
+   \   00000028   0070B0E1           MOVS     R7,R0
+    307           if(binval)
+    308            if(binval->value)
+   \   0000002C   10009715           LDRNE    R0,[R7, #+16]
+   \   00000030   00005013           CMPNE    R0,#+0
+   \   00000034   4600000A           BEQ      ??SavePhoto_0
+    309           {
+    310            char ph_path[128];
+    311            Get_Avatar_Path(ph_path, jid);
+   \   00000038   0910A0E1           MOV      R1,R9
+   \   0000003C   08008DE2           ADD      R0,SP,#+8
+   \   00000040   ........           BL       Get_Avatar_Path
+    312            char extension[]=".jpg";
+   \   00000044   0C0096E8           LDM      R6,{R2,R3}
+   \   00000048   0D00A0E1           MOV      R0,SP
+   \   0000004C   0C0080E8           STM      R0,{R2,R3}
+    313            XMLNode *ph_node = XML_Get_Child_Node_By_Name(photonode, "TYPE");
+   \   00000050   741086E2           ADD      R1,R6,#+116
+   \   00000054   0800A0E1           MOV      R0,R8
+   \   00000058   ........           _BLF     XML_Get_Child_Node_By_Name,??XML_Get_Child_Node_By_Name??rA
+    314            if(ph_node)
+   \   0000005C   000050E3           CMP      R0,#+0
+   \   00000060   1400000A           BEQ      ??SavePhoto_1
+    315            {
+    316              char *ph_node_val = ph_node->value;
+   \   00000064   108090E5           LDR      R8,[R0, #+16]
+    317              if(!strcmp(ph_node_val, "image/jpeg"))
+   \   00000068   AC1086E2           ADD      R1,R6,#+172
+   \   0000006C   0800A0E1           MOV      R0,R8
+   \   00000070   190000EF           SWI      +25
+   \   00000074   000050E3           CMP      R0,#+0
+    318              {
+    319                strcpy(extension,".jpg");
+   \   00000078   7C108602           ADDEQ    R1,R6,#+124
+   \   0000007C   0B00000A           BEQ      ??SavePhoto_2
+    320              }
+    321              else if(!strcmp(ph_node_val, "image/png"))
+   \   00000080   A01086E2           ADD      R1,R6,#+160
+   \   00000084   0800A0E1           MOV      R0,R8
+   \   00000088   190000EF           SWI      +25
+   \   0000008C   000050E3           CMP      R0,#+0
+    322              {
+    323                strcpy(extension,".png");
+   \   00000090   84108602           ADDEQ    R1,R6,#+132
+   \   00000094   0500000A           BEQ      ??SavePhoto_2
+    324              }
+    325              else if(!strcmp(ph_node_val, "image/gif"))
+   \   00000098   941086E2           ADD      R1,R6,#+148
+   \   0000009C   0800A0E1           MOV      R0,R8
+   \   000000A0   190000EF           SWI      +25
+   \   000000A4   000050E3           CMP      R0,#+0
+   \   000000A8   0200001A           BNE      ??SavePhoto_1
+    326              {
+    327                strcpy(extension,".gif");
+   \   000000AC   8C1086E2           ADD      R1,R6,#+140
+   \                     ??SavePhoto_2:
+   \   000000B0   0D00A0E1           MOV      R0,SP
+   \   000000B4   1A0000EF           SWI      +26
+    328              }
+    329            }
+    330            
+    331            char *full_path = malloc(128);
+   \                     ??SavePhoto_1:
+   \   000000B8   8000A0E3           MOV      R0,#+128
+   \   000000BC   140000EF           SWI      +20
+   \   000000C0   0080A0E1           MOV      R8,R0
+    332            strcpy(full_path, ph_path);
+   \   000000C4   08108DE2           ADD      R1,SP,#+8
+   \   000000C8   1A0000EF           SWI      +26
+    333            if (logo)strcat(full_path, "_logo");
+   \   000000CC   000055E3           CMP      R5,#+0
+   \   000000D0   0200000A           BEQ      ??SavePhoto_3
+   \   000000D4   081086E2           ADD      R1,R6,#+8
+   \   000000D8   0800A0E1           MOV      R0,R8
+   \   000000DC   170000EF           SWI      +23
+    334            strcat(full_path, extension);
+   \                     ??SavePhoto_3:
+   \   000000E0   0D10A0E1           MOV      R1,SP
+   \   000000E4   0800A0E1           MOV      R0,R8
+   \   000000E8   170000EF           SWI      +23
+    335            
+    336            // Decode & write
+    337            int ln = strlen(binval->value);
+   \   000000EC   100097E5           LDR      R0,[R7, #+16]
+   \   000000F0   1B0000EF           SWI      +27
+   \   000000F4   0090A0E1           MOV      R9,R0
+    338            if(logo)
+   \   000000F8   000055E3           CMP      R5,#+0
+   \   000000FC   0820A0E1           MOV      R2,R8
+    339                Add_vCard_Value(vcard, "!LOGO", full_path);
+   \   00000100   58108612           ADDNE    R1,R6,#+88
+    340              else
+    341              Add_vCard_Value(vcard, "!PHOTO", full_path);
+   \   00000104   50108602           ADDEQ    R1,R6,#+80
+   \   00000108   0400A0E1           MOV      R0,R4
+   \   0000010C   ........           BL       Add_vCard_Value
+    342            char *buf = malloc(ln + 1);
+   \   00000110   010089E2           ADD      R0,R9,#+1
+   \   00000114   140000EF           SWI      +20
+   \   00000118   0040B0E1           MOVS     R4,R0
+    343            if (buf==NULL) {
+   \   0000011C   0300001A           BNE      ??SavePhoto_4
+    344              MsgBoxError_locked("malloc buffer error!");
+   \   00000120   100086E2           ADD      R0,R6,#+16
+   \   00000124   ........           BL       MsgBoxError_locked
+   \   00000128   88D08DE2           ADD      SP,SP,#+136
+   \   0000012C   F083BDE8           POP      {R4-R9,PC}
+    345            } else {
+    346              memcpy(buf, binval->value, ln);
+   \                     ??SavePhoto_4:
+   \   00000130   101097E5           LDR      R1,[R7, #+16]
+   \   00000134   0920A0E1           MOV      R2,R9
+   \   00000138   1E0100EF           SWI      +286
+    347              buf[ln] = 0;
+   \   0000013C   0000A0E3           MOV      R0,#+0
+   \   00000140   0400C9E7           STRB     R0,[R9, +R4]
+    348              SUBPROC((void*)DecodePhoto, full_path, buf);
+   \   00000144   10009FE5           LDR      R0,??SavePhoto_5  ;; DecodePhoto
+   \   00000148   0420A0E1           MOV      R2,R4
+   \   0000014C   0810A0E1           MOV      R1,R8
+   \   00000150   710100EF           SWI      +369
+    349            }
+    350          }
+    351          }
+   \                     ??SavePhoto_0:
+   \   00000154   88D08DE2           ADD      SP,SP,#+136      ;; stack cleaning
+   \   00000158   F083BDE8           POP      {R4-R9,PC}       ;; return
+   \                     ??SavePhoto_5:
+   \   0000015C   ........           DC32     DecodePhoto
+    352          
+    353          // Обработчик vCard
+
+   \                                 In segment CODE, align 4, keep-with-next
+    354          void Process_vCard(char *from, XMLNode *vCard)
+    355          {
+   \                     Process_vCard:
+   \   00000000   F24F2DE9           PUSH     {R1,R4-R11,LR}
+   \   00000004   40DF4DE2           SUB      SP,SP,#+256
+   \   00000008   0040A0E1           MOV      R4,R0
+    356            int Use_Resource = 0;
+   \   0000000C   0060A0E3           MOV      R6,#+0
+    357            TRESOURCE *ResEx = CList_IsResourceInList(from);
+   \   00000010   ........           _BLF     CList_IsResourceInList,??CList_IsResourceInList??rA
+   \   00000014   0050A0E1           MOV      R5,R0
+    358            if (ResEx->entry_type==T_CONF_NODE) // Если конференция - используем ресурс
+   \   00000018   0800D5E5           LDRB     R0,[R5, #+8]
+   \   0000001C   030050E3           CMP      R0,#+3
+    359              Use_Resource = 1;
+   \   00000020   0160A003           MOVEQ    R6,#+1
+    360            CLIST *ClEx = CList_FindContactByJID(from);
+   \   00000024   0400A0E1           MOV      R0,R4
+   \   00000028   ........           _BLF     CList_FindContactByJID,??CList_FindContactByJID??rA
+   \   0000002C   0070A0E1           MOV      R7,R0
+    361          
+    362            VCARD vcard;
+    363            if (Use_Resource)
+   \   00000030   000056E3           CMP      R6,#+0
+    364              vcard = ResEx->vcard;
+   \   00000034   28809515           LDRNE    R8,[R5, #+40]
+    365            else
+    366              vcard = ClEx->vcard;
+   \   00000038   18809705           LDREQ    R8,[R7, #+24]
+    367            if (!vcard)
+   \   0000003C   000058E3           CMP      R8,#+0
+   \   00000040   0100001A           BNE      ??Process_vCard_0
+    368              vcard = Create_vCard();
+   \   00000044   ........           BL       Create_vCard
+   \   00000048   0080A0E1           MOV      R8,R0
+    369          
+    370            // Обходим все присланные ноды vCard
+    371            char field_name[256];
+    372            XMLNode *vCard_Node = vCard->subnode;
+   \                     ??Process_vCard_0:
+   \   0000004C   00019DE5           LDR      R0,[SP, #+256]
+   \   00000050   20A19FE5           LDR      R10,??Process_vCard_1  ;; `?<Constant "%s/%s">`
+   \   00000054   049090E5           LDR      R9,[R0, #+4]
+   \   00000058   000059E3           CMP      R9,#+0
+   \   0000005C   2600000A           BEQ      ??Process_vCard_2
+    373            XMLNode *vCard_NodeL2;
+    374          
+    375            while(vCard_Node)
+    376            {
+    377              if (vCard_Node->name)
+   \                     ??Process_vCard_3:
+   \   00000060   081099E5           LDR      R1,[R9, #+8]
+   \   00000064   000051E3           CMP      R1,#+0
+   \   00000068   2000000A           BEQ      ??Process_vCard_4
+    378              {
+    379                if (vCard_Node->value)
+   \   0000006C   102099E5           LDR      R2,[R9, #+16]
+   \   00000070   000052E3           CMP      R2,#+0
+   \   00000074   0100000A           BEQ      ??Process_vCard_5
+    380                  Add_vCard_Value(vcard, vCard_Node->name, vCard_Node->value);
+   \   00000078   0800A0E1           MOV      R0,R8
+   \   0000007C   ........           BL       Add_vCard_Value
+    381                if (strcmp(vCard_Node->name, "PHOTO") && strcmp(vCard_Node->name, "LOGO")) // Не дай бог нам залезть в аватары...
+   \                     ??Process_vCard_5:
+   \   00000080   080099E5           LDR      R0,[R9, #+8]
+   \   00000084   08108AE2           ADD      R1,R10,#+8
+   \   00000088   190000EF           SWI      +25
+   \   0000008C   000050E3           CMP      R0,#+0
+   \   00000090   1600000A           BEQ      ??Process_vCard_4
+   \   00000094   080099E5           LDR      R0,[R9, #+8]
+   \   00000098   10108AE2           ADD      R1,R10,#+16
+   \   0000009C   190000EF           SWI      +25
+   \   000000A0   000050E3           CMP      R0,#+0
+    382                {
+    383                  vCard_NodeL2 = vCard_Node->subnode;
+   \   000000A4   04B09915           LDRNE    R11,[R9, #+4]
+   \   000000A8   00005B13           CMPNE    R11,#+0
+   \   000000AC   0F00000A           BEQ      ??Process_vCard_4
+    384                  while (vCard_NodeL2) // Обрабатываем поля второй вложенности
+    385          	  {
+    386                    if (vCard_NodeL2->name && vCard_NodeL2->value)
+   \                     ??Process_vCard_6:
+   \   000000B0   08309BE5           LDR      R3,[R11, #+8]
+   \   000000B4   000053E3           CMP      R3,#+0
+   \   000000B8   10009B15           LDRNE    R0,[R11, #+16]
+   \   000000BC   00005013           CMPNE    R0,#+0
+   \   000000C0   0700000A           BEQ      ??Process_vCard_7
+    387                    {
+    388                      sprintf(field_name, "%s/%s", vCard_Node->name, vCard_NodeL2->name);
+   \   000000C4   082099E5           LDR      R2,[R9, #+8]
+   \   000000C8   0A10A0E1           MOV      R1,R10
+   \   000000CC   0D00A0E1           MOV      R0,SP
+   \   000000D0   160000EF           SWI      +22
+    389                      Add_vCard_Value(vcard, field_name, vCard_NodeL2->value);
+   \   000000D4   10209BE5           LDR      R2,[R11, #+16]
+   \   000000D8   0D10A0E1           MOV      R1,SP
+   \   000000DC   0800A0E1           MOV      R0,R8
+   \   000000E0   ........           BL       Add_vCard_Value
+    390                    }
+    391                    vCard_NodeL2 = vCard_NodeL2->next;
+   \                     ??Process_vCard_7:
+   \   000000E4   00B09BE5           LDR      R11,[R11, #+0]
+    392                  }
+   \   000000E8   00005BE3           CMP      R11,#+0
+   \   000000EC   EFFFFF1A           BNE      ??Process_vCard_6
+    393                }
+    394              }
+    395              vCard_Node = vCard_Node->next;
+   \                     ??Process_vCard_4:
+   \   000000F0   009099E5           LDR      R9,[R9, #+0]
+    396            }
+   \   000000F4   000059E3           CMP      R9,#+0
+   \   000000F8   D8FFFF1A           BNE      ??Process_vCard_3
+    397          
+    398            // Save photo :))
+    399            XMLNode *photo = XML_Get_Child_Node_By_Name(vCard,"PHOTO");
+   \                     ??Process_vCard_2:
+   \   000000FC   00019DE5           LDR      R0,[SP, #+256]
+   \   00000100   08108AE2           ADD      R1,R10,#+8
+   \   00000104   ........           _BLF     XML_Get_Child_Node_By_Name,??XML_Get_Child_Node_By_Name??rA
+    400            if(photo)
+   \   00000108   000050E3           CMP      R0,#+0
+    401              if(photo->subnode)SavePhoto(vcard, from, photo, 0);
+   \   0000010C   04109015           LDRNE    R1,[R0, #+4]
+   \   00000110   00005113           CMPNE    R1,#+0
+   \   00000114   0400000A           BEQ      ??Process_vCard_8
+   \   00000118   0030A0E3           MOV      R3,#+0
+   \   0000011C   0020A0E1           MOV      R2,R0
+   \   00000120   0410A0E1           MOV      R1,R4
+   \   00000124   0800A0E1           MOV      R0,R8
+   \   00000128   ........           BL       SavePhoto
+    402            
+    403            XMLNode *logo = XML_Get_Child_Node_By_Name(vCard,"LOGO");
+   \                     ??Process_vCard_8:
+   \   0000012C   00019DE5           LDR      R0,[SP, #+256]
+   \   00000130   10108AE2           ADD      R1,R10,#+16
+   \   00000134   ........           _BLF     XML_Get_Child_Node_By_Name,??XML_Get_Child_Node_By_Name??rA
+    404            if(logo)
+   \   00000138   000050E3           CMP      R0,#+0
+    405              if(logo->subnode)SavePhoto(vcard, from, logo, 1);
+   \   0000013C   04109015           LDRNE    R1,[R0, #+4]
+   \   00000140   00005113           CMPNE    R1,#+0
+   \   00000144   0400000A           BEQ      ??Process_vCard_9
+   \   00000148   0130A0E3           MOV      R3,#+1
+   \   0000014C   0020A0E1           MOV      R2,R0
+   \   00000150   0410A0E1           MOV      R1,R4
+   \   00000154   0800A0E1           MOV      R0,R8
+   \   00000158   ........           BL       SavePhoto
+    406          
+    407            // Показываем vCard
+    408          
+    409            if (Use_Resource)
+   \                     ??Process_vCard_9:
+   \   0000015C   000056E3           CMP      R6,#+0
+    410              ResEx->vcard = vcard;
+   \   00000160   28808515           STRNE    R8,[R5, #+40]
+    411            else
+    412              ClEx->vcard = vcard;
+   \   00000164   18808705           STREQ    R8,[R7, #+24]
+    413          
+    414            Show_vCard(from);
+   \   00000168   0400A0E1           MOV      R0,R4
+   \   0000016C   ........           BL       Show_vCard
+    415          }
+   \   00000170   41DF8DE2           ADD      SP,SP,#+260
+   \   00000174   F08FBDE8           POP      {R4-R11,PC}      ;; return
+   \                     ??Process_vCard_1:
+   \   00000178   ........           DC32     `?<Constant "%s/%s">`
+    416          
+    417          //====================   GUI   ========================
+    418          
+    419          typedef struct
+    420          {
+    421            char *jid;
+    422            int update_pos;
+    423            int photo_show_pos;
+    424            int photo_logo_pos;
+    425          } VCARD_VIEW_DESC;
+    426          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    427          int vcinfo_onkey(GUI *gui, GUI_MSG *msg)
+    428          {
+   \                     vcinfo_onkey:
+   \   00000000   F0432DE9           PUSH     {R4-R9,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+   \   00000008   0150A0E1           MOV      R5,R1
+    429            VCARD_VIEW_DESC *desc = EDIT_GetUserPointer(gui);
+   \   0000000C   DF0100EF           SWI      +479
+   \   00000010   0060B0E1           MOVS     R6,R0
+    430            if (desc)
+   \   00000014   3300000A           BEQ      ??vcinfo_onkey_0
+    431            {
+    432              if (msg->gbsmsg->msg==KEY_DOWN && msg->gbsmsg->submess==ENTER_BUTTON && EDIT_GetFocus(gui)==desc->update_pos)
+   \   00000018   040095E5           LDR      R0,[R5, #+4]
+   \   0000001C   9370A0E3           MOV      R7,#+147
+   \   00000020   041090E5           LDR      R1,[R0, #+4]
+   \   00000024   407F87E3           ORR      R7,R7,#0x100
+   \   00000028   070051E1           CMP      R1,R7
+   \   0000002C   08009005           LDREQ    R0,[R0, #+8]
+   \   00000030   1A005003           CMPEQ    R0,#+26
+   \   00000034   1B00001A           BNE      ??vcinfo_onkey_1
+   \   00000038   0400A0E1           MOV      R0,R4
+   \   0000003C   820100EF           SWI      +386
+   \   00000040   041096E5           LDR      R1,[R6, #+4]
+   \   00000044   010050E1           CMP      R0,R1
+   \   00000048   1600001A           BNE      ??vcinfo_onkey_1
+    433              {
+    434                CLIST *ClEx = CList_FindContactByJID(desc->jid);
+   \   0000004C   000096E5           LDR      R0,[R6, #+0]
+   \   00000050   ........           _BLF     CList_FindContactByJID,??CList_FindContactByJID??rA
+   \   00000054   0040B0E1           MOVS     R4,R0
+    435                if (ClEx)
+   \   00000058   1000000A           BEQ      ??vcinfo_onkey_2
+    436                {
+    437                  if (ClEx->vcard)
+   \   0000005C   180094E5           LDR      R0,[R4, #+24]
+   \   00000060   0050A0E3           MOV      R5,#+0
+   \   00000064   000050E3           CMP      R0,#+0
+   \   00000068   0200000A           BEQ      ??vcinfo_onkey_3
+    438                  {
+    439                    Free_vCard(ClEx->vcard);
+   \   0000006C   ........           BL       Free_vCard
+    440                    ClEx->vcard = NULL;
+   \   00000070   185084E5           STR      R5,[R4, #+24]
+    441                    Send_Vcard_Request(desc->jid);
+   \   00000074   070000EA           B        ??vcinfo_onkey_4
+    442                  }
+    443                  else // Если не нашли - ищем в ресурсе (для конференции)
+    444                  {
+    445                    TRESOURCE *ResEx = CList_IsResourceInList(desc->jid);
+   \                     ??vcinfo_onkey_3:
+   \   00000078   000096E5           LDR      R0,[R6, #+0]
+   \   0000007C   ........           _BLF     CList_IsResourceInList,??CList_IsResourceInList??rA
+   \   00000080   0040B0E1           MOVS     R4,R0
+    446                    if (ResEx)
+    447                      if (ResEx->vcard)
+   \   00000084   28009415           LDRNE    R0,[R4, #+40]
+   \   00000088   00005013           CMPNE    R0,#+0
+   \   0000008C   0300000A           BEQ      ??vcinfo_onkey_2
+    448                      {
+    449                        Free_vCard(ResEx->vcard);
+   \   00000090   ........           BL       Free_vCard
+    450                        ResEx->vcard = NULL;
+   \   00000094   285084E5           STR      R5,[R4, #+40]
+    451                        Send_Vcard_Request(desc->jid);
+   \                     ??vcinfo_onkey_4:
+   \   00000098   000096E5           LDR      R0,[R6, #+0]
+   \   0000009C   ........           _BLF     Send_Vcard_Request,??Send_Vcard_Request??rA
+    452                      }
+    453                  }
+    454                }
+    455                return (1); //Exit
+   \                     ??vcinfo_onkey_2:
+   \   000000A0   0100A0E3           MOV      R0,#+1
+   \   000000A4   F083BDE8           POP      {R4-R9,PC}       ;; return
+    456              }
+    457              if (msg->gbsmsg->msg==KEY_DOWN && msg->gbsmsg->submess==ENTER_BUTTON && EDIT_GetFocus(gui)==desc->photo_show_pos)
+   \                     ??vcinfo_onkey_1:
+   \   000000A8   040095E5           LDR      R0,[R5, #+4]
+   \   000000AC   ........           LDR      R8,??DataTable4  ;; `?<Constant ".jpg">`
+   \   000000B0   041090E5           LDR      R1,[R0, #+4]
+   \   000000B4   070051E1           CMP      R1,R7
+   \   000000B8   08009005           LDREQ    R0,[R0, #+8]
+   \   000000BC   1A005003           CMPEQ    R0,#+26
+   \   000000C0   1500001A           BNE      ??vcinfo_onkey_5
+   \   000000C4   0400A0E1           MOV      R0,R4
+   \   000000C8   820100EF           SWI      +386
+   \   000000CC   081096E5           LDR      R1,[R6, #+8]
+   \   000000D0   010050E1           CMP      R0,R1
+   \   000000D4   1000001A           BNE      ??vcinfo_onkey_5
+    458              {
+    459                CLIST *ClEx = CList_FindContactByJID(desc->jid);
+   \   000000D8   000096E5           LDR      R0,[R6, #+0]
+   \   000000DC   ........           _BLF     CList_FindContactByJID,??CList_FindContactByJID??rA
+    460                if (!ClEx)
+   \   000000E0   000050E3           CMP      R0,#+0
+   \   000000E4   0100001A           BNE      ??vcinfo_onkey_6
+    461                  return 0;
+   \                     ??vcinfo_onkey_0:
+   \   000000E8   0000A0E3           MOV      R0,#+0
+   \   000000EC   F083BDE8           POP      {R4-R9,PC}
+    462                VCARD vcard = ClEx->vcard;
+   \                     ??vcinfo_onkey_6:
+   \   000000F0   189090E5           LDR      R9,[R0, #+24]
+    463                if (!vcard) // Если не нашли - ищем в ресурсе (для конференции)
+   \   000000F4   000059E3           CMP      R9,#+0
+   \   000000F8   0300001A           BNE      ??vcinfo_onkey_7
+    464                {
+    465                  TRESOURCE *ResEx = CList_IsResourceInList(desc->jid);
+   \   000000FC   000096E5           LDR      R0,[R6, #+0]
+   \   00000100   ........           _BLF     CList_IsResourceInList,??CList_IsResourceInList??rA
+    466                  if (ResEx)
+   \   00000104   000050E3           CMP      R0,#+0
+    467                    vcard = ResEx->vcard;
+   \   00000108   28909015           LDRNE    R9,[R0, #+40]
+    468                }
+    469                vCard_Photo_Display(Get_VCard_Value(vcard, "!PHOTO"));
+   \                     ??vcinfo_onkey_7:
+   \   0000010C   501088E2           ADD      R1,R8,#+80
+   \   00000110   0900A0E1           MOV      R0,R9
+   \   00000114   ........           BL       Get_VCard_Value
+   \   00000118   ........           BL       vCard_Photo_Display
+    470              }
+    471              if (msg->gbsmsg->msg==KEY_DOWN && msg->gbsmsg->submess==ENTER_BUTTON && EDIT_GetFocus(gui)==desc->photo_logo_pos)
+   \                     ??vcinfo_onkey_5:
+   \   0000011C   040095E5           LDR      R0,[R5, #+4]
+   \   00000120   041090E5           LDR      R1,[R0, #+4]
+   \   00000124   070051E1           CMP      R1,R7
+   \   00000128   08009005           LDREQ    R0,[R0, #+8]
+   \   0000012C   1A005003           CMPEQ    R0,#+26
+   \   00000130   ECFFFF1A           BNE      ??vcinfo_onkey_0
+   \   00000134   0400A0E1           MOV      R0,R4
+   \   00000138   820100EF           SWI      +386
+   \   0000013C   0C1096E5           LDR      R1,[R6, #+12]
+   \   00000140   010050E1           CMP      R0,R1
+   \   00000144   E7FFFF1A           BNE      ??vcinfo_onkey_0
+    472              {
+    473                CLIST *ClEx = CList_FindContactByJID(desc->jid);
+   \   00000148   000096E5           LDR      R0,[R6, #+0]
+   \   0000014C   ........           _BLF     CList_FindContactByJID,??CList_FindContactByJID??rA
+    474                if (!ClEx)
+   \   00000150   000050E3           CMP      R0,#+0
+   \   00000154   F083BD08           POPEQ    {R4-R9,PC}
+    475                  return 0;
+    476                VCARD vcard = ClEx->vcard;
+   \   00000158   184090E5           LDR      R4,[R0, #+24]
+    477                if (!vcard) // Если не нашли - ищем в ресурсе (для конференции)
+   \   0000015C   000054E3           CMP      R4,#+0
+   \   00000160   0300001A           BNE      ??vcinfo_onkey_8
+    478                {
+    479                  TRESOURCE *ResEx = CList_IsResourceInList(desc->jid);
+   \   00000164   000096E5           LDR      R0,[R6, #+0]
+   \   00000168   ........           _BLF     CList_IsResourceInList,??CList_IsResourceInList??rA
+    480                  if (ResEx)
+   \   0000016C   000050E3           CMP      R0,#+0
+    481                    vcard = ResEx->vcard;
+   \   00000170   28409015           LDRNE    R4,[R0, #+40]
+    482                }
+    483                vCard_Photo_Display(Get_VCard_Value(vcard, "!LOGO"));
+   \                     ??vcinfo_onkey_8:
+   \   00000174   581088E2           ADD      R1,R8,#+88
+   \   00000178   0400A0E1           MOV      R0,R4
+   \   0000017C   ........           BL       Get_VCard_Value
+   \   00000180   ........           BL       vCard_Photo_Display
+   \   00000184   0000A0E3           MOV      R0,#+0
+   \   00000188   F083BDE8           POP      {R4-R9,PC}
+    484              }
+    485            }
+    486          
+    487            return(0); //Do standart keys
+    488          }
+    489          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    490          void vcinfo_ghook(GUI *gui, int cmd)
+    491          {
+   \                     vcinfo_ghook:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+    492            if (cmd==TI_CMD_CREATE)
+    493            {
+    494              //Called after onCreate
+    495            }
+    496          
+    497            if (cmd==TI_CMD_DESTROY)
+   \   00000004   030051E3           CMP      R1,#+3
+   \   00000008   0040A0E1           MOV      R4,R0
+   \   0000000C   0900001A           BNE      ??vcinfo_ghook_0
+    498            {
+    499              // onDestroy
+    500              VCARD_VIEW_DESC *desc = EDIT_GetUserPointer(gui);
+   \   00000010   DF0100EF           SWI      +479
+   \   00000014   0040B0E1           MOVS     R4,R0
+    501              if (desc)
+   \   00000018   3080BD08           POPEQ    {R4,R5,PC}
+    502              {
+    503                if (desc->jid)
+   \   0000001C   000094E5           LDR      R0,[R4, #+0]
+   \   00000020   000050E3           CMP      R0,#+0
+   \   00000024   0000000A           BEQ      ??vcinfo_ghook_1
+    504                  mfree(desc->jid);
+   \   00000028   150000EF           SWI      +21
+    505                mfree(desc);
+   \                     ??vcinfo_ghook_1:
+   \   0000002C   0400A0E1           MOV      R0,R4
+   \   00000030   150000EF           SWI      +21
+   \   00000034   3080BDE8           POP      {R4,R5,PC}
+    506              }
+    507            }
+    508          
+    509            if(cmd==TI_CMD_FOCUS)
+   \                     ??vcinfo_ghook_0:
+   \   00000038   0A0051E3           CMP      R1,#+10
+   \   0000003C   0100001A           BNE      ??vcinfo_ghook_2
+    510            {
+    511              DisableIDLETMR();   // Отключаем таймер выхода по таймауту
+   \   00000040   7F0100EF           SWI      +383
+   \   00000044   3080BDE8           POP      {R4,R5,PC}
+    512            }
+    513          
+    514            if (cmd==TI_CMD_SUBFOCUS_CHANGE)
+   \                     ??vcinfo_ghook_2:
+   \   00000048   0C0051E3           CMP      R1,#+12
+   \   0000004C   3080BD18           POPNE    {R4,R5,PC}
+    515            {
+    516              if (EDIT_GetFocus(gui)>EDIT_GetUnFocus(gui)) // Если идем сверху вниз
+   \   00000050   830100EF           SWI      +387
+   \   00000054   0050A0E1           MOV      R5,R0
+   \   00000058   0400A0E1           MOV      R0,R4
+   \   0000005C   820100EF           SWI      +386
+   \   00000060   000055E1           CMP      R5,R0
+   \   00000064   3080BDA8           POPGE    {R4,R5,PC}
+    517                EDIT_SetCursorPos(gui, 1); // То ставим курсор в начало
+   \   00000068   0110A0E3           MOV      R1,#+1
+   \   0000006C   0400A0E1           MOV      R0,R4
+   \   00000070   D40100EF           SWI      +468
+    518            }
+    519          }
+   \   00000074   3080BDE8           POP      {R4,R5,PC}       ;; return
+
+   \                                 In segment DATA_I, align 4, align-sorted
+    520          
+    521          extern void inp_locret(void);
+    522          
+    523          SOFTKEY_DESC vcinfo_sk[]=
+    524          {
+    525            {0x0018,0x0000,(int)LG_UPDATE},
+    526            {0x0001,0x0000,(int)LG_BACK},
+    527            {0x003D,0x0000,(int)LGP_DOIT_PIC}
+    528          };
+    529          
+    530          SOFTKEYSTAB vcinfo_skt=
+    531          {
+    532            vcinfo_sk,0
+    533          };
+    534          
+    535          INPUTDIA_DESC vcinfo_desc=
+   \                     vcinfo_desc:
+   \   00000000                      DS8 56
+   \   00000038                      REQUIRE `?<Initializer for vcinfo_desc>`
+    536          {
+    537            1,
+    538            vcinfo_onkey,
+    539            vcinfo_ghook,
+    540            (void *)inp_locret,
+    541            0,
+    542            &vcinfo_skt,
+    543            {0,0,0,0},
+    544            4,
+    545            100,
+    546            101,
+    547            0,
+    548            0,
+    549            0x40000000// Поменять софт-кнопки
+    550          };
+    551          
+    552          HEADER_DESC vcinfo_hdr={0,0,0,0,NULL,(int)"vCard",LGP_NULL};
+   \                     vcinfo_hdr:
+   \   00000038                      DS8 20
+   \   0000004C                      REQUIRE `?<Initializer for vcinfo_hdr>`
+   \                     vcard_index:
+   \   0000004C                      DS8 208
+   \   0000011C                      REQUIRE `?<Initializer for vcard_index>`
+   \                     vcard_names:
+   \   0000011C                      DS8 208
+   \   000001EC                      REQUIRE `?<Initializer for vcard_names>`
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     vcinfo_sk:
+   \   00000000                      DS8 24
+   \   00000018                      REQUIRE `?<Initializer for vcinfo_sk>`
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     vcinfo_skt:
+   \   00000000                      DS8 8
+   \   00000008                      REQUIRE `?<Initializer for vcinfo_skt>`
+    553          
+    554          extern const char percent_s[];
+    555          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    556          int Show_vCard(char *jid)
+    557          {
+   \                     Show_vCard:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+   \   00000004   30D04DE2           SUB      SP,SP,#+48
+   \   00000008   0060A0E1           MOV      R6,R0
+    558          #define MAX_VCARD_LINE_LEN 1024
+    559            CLIST *ClEx = CList_FindContactByJID(jid);
+   \   0000000C   ........           _BLF     CList_FindContactByJID,??CList_FindContactByJID??rA
+    560            if (!ClEx)
+   \   00000010   000050E3           CMP      R0,#+0
+   \   00000014   0200001A           BNE      ??Show_vCard_0
+    561              return 0;
+   \                     ??Show_vCard_1:
+   \   00000018   0000A0E3           MOV      R0,#+0
+   \   0000001C   30D08DE2           ADD      SP,SP,#+48
+   \   00000020   F08FBDE8           POP      {R4-R11,PC}
+    562            VCARD vcard = ClEx->vcard;
+   \                     ??Show_vCard_0:
+   \   00000024   18A090E5           LDR      R10,[R0, #+24]
+    563            if (!vcard) // Если не нашли - ищем в ресурсе (для конференции)
+   \   00000028   00005AE3           CMP      R10,#+0
+   \   0000002C   0400001A           BNE      ??Show_vCard_2
+    564            {
+    565              TRESOURCE *ResEx = CList_IsResourceInList(jid);
+   \   00000030   0600A0E1           MOV      R0,R6
+   \   00000034   ........           _BLF     CList_IsResourceInList,??CList_IsResourceInList??rA
+    566              if (ResEx)
+   \   00000038   000050E3           CMP      R0,#+0
+   \   0000003C   A800000A           BEQ      ??Show_vCard_3
+    567                vcard = ResEx->vcard;
+   \   00000040   28A090E5           LDR      R10,[R0, #+40]
+    568            }
+    569            if (vcard)
+   \                     ??Show_vCard_2:
+   \   00000044   00005AE3           CMP      R10,#+0
+   \   00000048   F2FFFF0A           BEQ      ??Show_vCard_1
+    570            {
+    571              WSHDR* ws_info = AllocWS(MAX_VCARD_LINE_LEN);
+    572          
+    573              VCARD_VIEW_DESC *view_desc = malloc(sizeof(VCARD_VIEW_DESC));
+    574              view_desc->jid = malloc(strlen(jid)+1);
+    575              strcpy(view_desc->jid, jid);
+    576          
+    577              EDITCONTROL ec;
+    578              void *ma=malloc_adr();
+    579              void *eq;
+    580              PrepareEditControl(&ec);
+    581              eq=AllocEQueue(ma,mfree_adr());
+    582          
+    583              for (int i=0; i<N_VCARD_FIELDS; i++)
+   \   0000004C   98829FE5           LDR      R8,??Show_vCard_4  ;; vcinfo_desc
+   \   00000050   ........           LDR      R9,??DataTable4  ;; `?<Constant ".jpg">`
+   \   00000054   400EA0E3           MOV      R0,#+1024
+   \   00000058   250100EF           SWI      +293
+   \   0000005C   0040A0E1           MOV      R4,R0
+   \   00000060   1000A0E3           MOV      R0,#+16
+   \   00000064   140000EF           SWI      +20
+   \   00000068   0050A0E1           MOV      R5,R0
+   \   0000006C   0600A0E1           MOV      R0,R6
+   \   00000070   1B0000EF           SWI      +27
+   \   00000074   010080E2           ADD      R0,R0,#+1
+   \   00000078   140000EF           SWI      +20
+   \   0000007C   000085E5           STR      R0,[R5, #+0]
+   \   00000080   0610A0E1           MOV      R1,R6
+   \   00000084   1A0000EF           SWI      +26
+   \   00000088   148000EF           SWI      +32788
+   \   0000008C   0060A0E1           MOV      R6,R0
+   \   00000090   04008DE2           ADD      R0,SP,#+4
+   \   00000094   640100EF           SWI      +356
+   \   00000098   158000EF           SWI      +32789
+   \   0000009C   0010A0E1           MOV      R1,R0
+   \   000000A0   0600A0E1           MOV      R0,R6
+   \   000000A4   630100EF           SWI      +355
+   \   000000A8   0070A0E1           MOV      R7,R0
+   \   000000AC   00B0A0E3           MOV      R11,#+0
+    584              {
+    585                if (vcard[i])
+   \                     ??Show_vCard_5:
+   \   000000B0   0B019AE7           LDR      R0,[R10, +R11, LSL #+2]
+   \   000000B4   000050E3           CMP      R0,#+0
+   \   000000B8   2C00000A           BEQ      ??Show_vCard_6
+    586                if (strcmp(vcard_index[i], "!PHOTO") && strcmp(vcard_index[i], "!LOGO"))
+   \   000000BC   0B1188E0           ADD      R1,R8,R11, LSL #+2
+   \   000000C0   00108DE5           STR      R1,[SP, #+0]
+   \   000000C4   00009DE5           LDR      R0,[SP, #+0]
+   \   000000C8   501089E2           ADD      R1,R9,#+80
+   \   000000CC   4C0090E5           LDR      R0,[R0, #+76]
+   \   000000D0   190000EF           SWI      +25
+   \   000000D4   000050E3           CMP      R0,#+0
+   \   000000D8   2400000A           BEQ      ??Show_vCard_6
+   \   000000DC   00009DE5           LDR      R0,[SP, #+0]
+   \   000000E0   581089E2           ADD      R1,R9,#+88
+   \   000000E4   4C0090E5           LDR      R0,[R0, #+76]
+   \   000000E8   190000EF           SWI      +25
+   \   000000EC   000050E3           CMP      R0,#+0
+   \   000000F0   1E00000A           BEQ      ??Show_vCard_6
+    587                {
+    588                  ascii2ws(ws_info, vcard_names[i]);
+   \   000000F4   00009DE5           LDR      R0,[SP, #+0]
+   \   000000F8   1C1190E5           LDR      R1,[R0, #+284]
+   \   000000FC   0400A0E1           MOV      R0,R4
+   \   00000100   ........           _BLF     ascii2ws,??ascii2ws??rA
+    589                  ConstructEditControl(&ec, ECT_HEADER, ECF_APPEND_EOL, ws_info, MAX_VCARD_LINE_LEN);
+   \   00000104   400EA0E3           MOV      R0,#+1024
+   \   00000108   01002DE9           PUSH     {R0}
+   \   0000010C   0430A0E1           MOV      R3,R4
+   \   00000110   4020A0E3           MOV      R2,#+64
+   \   00000114   0110A0E3           MOV      R1,#+1
+   \   00000118   08008DE2           ADD      R0,SP,#+8
+   \   0000011C   650100EF           SWI      +357
+    590                  AddEditControlToEditQend(eq,&ec,ma);
+   \   00000120   0620A0E1           MOV      R2,R6
+   \   00000124   08108DE2           ADD      R1,SP,#+8
+   \   00000128   0700A0E1           MOV      R0,R7
+   \   0000012C   660100EF           SWI      +358
+    591                  utf8_2ws(ws_info, vcard[i], MAX_VCARD_LINE_LEN);
+   \   00000130   0B119AE7           LDR      R1,[R10, +R11, LSL #+2]
+   \   00000134   402EA0E3           MOV      R2,#+1024
+   \   00000138   0400A0E1           MOV      R0,R4
+   \   0000013C   E30100EF           SWI      +483
+    592                  ConstructEditControl(&ec, ECT_NORMAL_TEXT, ECF_APPEND_EOL, ws_info, MAX_VCARD_LINE_LEN);
+   \   00000140   400EA0E3           MOV      R0,#+1024
+   \   00000144   01002DE9           PUSH     {R0}
+   \   00000148   0430A0E1           MOV      R3,R4
+   \   0000014C   4020A0E3           MOV      R2,#+64
+   \   00000150   0310A0E3           MOV      R1,#+3
+   \   00000154   0C008DE2           ADD      R0,SP,#+12
+   \   00000158   650100EF           SWI      +357
+    593                  AddEditControlToEditQend(eq,&ec,ma);
+   \   0000015C   0620A0E1           MOV      R2,R6
+   \   00000160   0C108DE2           ADD      R1,SP,#+12
+   \   00000164   0700A0E1           MOV      R0,R7
+   \   00000168   660100EF           SWI      +358
+   \   0000016C   08D08DE2           ADD      SP,SP,#+8
+    594                }
+    595              }
+   \                     ??Show_vCard_6:
+   \   00000170   01B08BE2           ADD      R11,R11,#+1
+   \   00000174   34005BE3           CMP      R11,#+52
+   \   00000178   CCFFFFBA           BLT      ??Show_vCard_5
+    596          
+    597              if (Get_VCard_Value(vcard, "!PHOTO"))
+   \   0000017C   501089E2           ADD      R1,R9,#+80
+   \   00000180   0A00A0E1           MOV      R0,R10
+   \   00000184   ........           BL       Get_VCard_Value
+   \   00000188   000050E3           CMP      R0,#+0
+   \   0000018C   0E00000A           BEQ      ??Show_vCard_7
+    598              {
+    599                ascii2ws(ws_info, LG_SHOW_AVATAR);
+   \   00000190   281089E2           ADD      R1,R9,#+40
+   \   00000194   0400A0E1           MOV      R0,R4
+   \   00000198   ........           _BLF     ascii2ws,??ascii2ws??rA
+    600                ConstructEditControl(&ec, ECT_LINK, ECF_APPEND_EOL, ws_info, MAX_VCARD_LINE_LEN);
+   \   0000019C   400EA0E3           MOV      R0,#+1024
+   \   000001A0   01002DE9           PUSH     {R0}
+   \   000001A4   0430A0E1           MOV      R3,R4
+   \   000001A8   4020A0E3           MOV      R2,#+64
+   \   000001AC   0910A0E3           MOV      R1,#+9
+   \   000001B0   08008DE2           ADD      R0,SP,#+8
+   \   000001B4   650100EF           SWI      +357
+    601                view_desc->photo_show_pos = AddEditControlToEditQend(eq,&ec,ma);
+   \   000001B8   0620A0E1           MOV      R2,R6
+   \   000001BC   08108DE2           ADD      R1,SP,#+8
+   \   000001C0   0700A0E1           MOV      R0,R7
+   \   000001C4   660100EF           SWI      +358
+   \   000001C8   04D08DE2           ADD      SP,SP,#+4
+    602              }
+    603              else
+    604              {
+    605                view_desc->photo_show_pos = 0;
+   \                     ??Show_vCard_7:
+   \   000001CC   080085E5           STR      R0,[R5, #+8]
+    606              }
+    607          
+    608              if (Get_VCard_Value(vcard, "!LOGO"))
+   \   000001D0   581089E2           ADD      R1,R9,#+88
+   \   000001D4   0A00A0E1           MOV      R0,R10
+   \   000001D8   ........           BL       Get_VCard_Value
+   \   000001DC   000050E3           CMP      R0,#+0
+   \   000001E0   0E00000A           BEQ      ??Show_vCard_8
+    609              {
+    610                ascii2ws(ws_info, LG_SHOW_PHOTO);
+   \   000001E4   3C1089E2           ADD      R1,R9,#+60
+   \   000001E8   0400A0E1           MOV      R0,R4
+   \   000001EC   ........           _BLF     ascii2ws,??ascii2ws??rA
+    611                ConstructEditControl(&ec, ECT_LINK, ECF_APPEND_EOL, ws_info, MAX_VCARD_LINE_LEN);
+   \   000001F0   400EA0E3           MOV      R0,#+1024
+   \   000001F4   01002DE9           PUSH     {R0}
+   \   000001F8   0430A0E1           MOV      R3,R4
+   \   000001FC   4020A0E3           MOV      R2,#+64
+   \   00000200   0910A0E3           MOV      R1,#+9
+   \   00000204   08008DE2           ADD      R0,SP,#+8
+   \   00000208   650100EF           SWI      +357
+    612                view_desc->photo_logo_pos = AddEditControlToEditQend(eq,&ec,ma);
+   \   0000020C   0620A0E1           MOV      R2,R6
+   \   00000210   08108DE2           ADD      R1,SP,#+8
+   \   00000214   0700A0E1           MOV      R0,R7
+   \   00000218   660100EF           SWI      +358
+   \   0000021C   04D08DE2           ADD      SP,SP,#+4
+    613              }
+    614              else
+    615              {
+    616                view_desc->photo_logo_pos = 0;
+   \                     ??Show_vCard_8:
+   \   00000220   0C0085E5           STR      R0,[R5, #+12]
+    617              }
+    618          
+    619              ascii2ws(ws_info, LG_UPDATE);
+   \   00000224   601089E2           ADD      R1,R9,#+96
+   \   00000228   0400A0E1           MOV      R0,R4
+   \   0000022C   ........           _BLF     ascii2ws,??ascii2ws??rA
+    620              ConstructEditControl(&ec, ECT_LINK, ECF_APPEND_EOL, ws_info, MAX_VCARD_LINE_LEN);
+   \   00000230   400EA0E3           MOV      R0,#+1024
+   \   00000234   01002DE9           PUSH     {R0}
+   \   00000238   0430A0E1           MOV      R3,R4
+   \   0000023C   4020A0E3           MOV      R2,#+64
+   \   00000240   0910A0E3           MOV      R1,#+9
+   \   00000244   08008DE2           ADD      R0,SP,#+8
+   \   00000248   650100EF           SWI      +357
+    621              view_desc->update_pos = AddEditControlToEditQend(eq,&ec,ma);
+   \   0000024C   0620A0E1           MOV      R2,R6
+   \   00000250   08108DE2           ADD      R1,SP,#+8
+   \   00000254   0700A0E1           MOV      R0,R7
+   \   00000258   660100EF           SWI      +358
+   \   0000025C   040085E5           STR      R0,[R5, #+4]
+    622          
+    623              patch_header(&vcinfo_hdr);
+   \   00000260   0060A0E3           MOV      R6,#+0
+   \   00000264   B863C8E1           STRH     R6,[R8, #+56]
+   \   00000268   1800A0E3           MOV      R0,#+24
+   \   0000026C   BA03C8E1           STRH     R0,[R8, #+58]
+   \   00000270   888100EF           SWI      +33160
+   \   00000274   010040E2           SUB      R0,R0,#+1
+   \   00000278   BC03C8E1           STRH     R0,[R8, #+60]
+   \   0000027C   8A8100EF           SWI      +33162
+   \   00000280   180080E2           ADD      R0,R0,#+24
+   \   00000284   BE03C8E1           STRH     R0,[R8, #+62]
+    624              patch_input(&vcinfo_desc);
+   \   00000288   B861C8E1           STRH     R6,[R8, #+24]
+   \   0000028C   8A8100EF           SWI      +33162
+   \   00000290   190080E2           ADD      R0,R0,#+25
+   \   00000294   BA01C8E1           STRH     R0,[R8, #+26]
+   \   00000298   888100EF           SWI      +33160
+   \   0000029C   010040E2           SUB      R0,R0,#+1
+   \   000002A0   BC01C8E1           STRH     R0,[R8, #+28]
+   \   000002A4   898100EF           SWI      +33161
+   \   000002A8   0060A0E1           MOV      R6,R0
+   \   000002AC   8B8100EF           SWI      +33163
+   \   000002B0   000046E0           SUB      R0,R6,R0
+   \   000002B4   010040E2           SUB      R0,R0,#+1
+   \   000002B8   BE01C8E1           STRH     R0,[R8, #+30]
+    625              CreateInputTextDialog(&vcinfo_desc,&vcinfo_hdr,eq,1,view_desc);
+   \   000002BC   20002DE9           PUSH     {R5}
+   \   000002C0   0130A0E3           MOV      R3,#+1
+   \   000002C4   0720A0E1           MOV      R2,R7
+   \   000002C8   381088E2           ADD      R1,R8,#+56
+   \   000002CC   0800A0E1           MOV      R0,R8
+   \   000002D0   670100EF           SWI      +359
+    626          
+    627              FreeWS(ws_info);
+   \   000002D4   0400A0E1           MOV      R0,R4
+   \   000002D8   290100EF           SWI      +297
+    628              return 1;
+   \   000002DC   0100A0E3           MOV      R0,#+1
+   \   000002E0   08D08DE2           ADD      SP,SP,#+8
+   \                     ??Show_vCard_3:
+   \   000002E4   30D08DE2           ADD      SP,SP,#+48       ;; stack cleaning
+   \   000002E8   F08FBDE8           POP      {R4-R11,PC}      ;; return
+   \                     ??Show_vCard_4:
+   \   000002EC   ........           DC32     vcinfo_desc
+    629            }
+    630            return 0;
+    631          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable1:
+   \   00000000   ........           DC32     vcinfo_desc
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable4:
+   \   00000000   ........           DC32     `?<Constant ".jpg">`
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for vcinfo_desc>`:
+   \   00000000   01000000....       DC32 1, vcinfo_onkey, vcinfo_ghook, inp_locret, 0, vcinfo_skt
+   \              ............
+   \              ........0000
+   \              0000........
+   \   00000018   000000000000       DC16 0, 0, 0, 0
+   \              0000        
+   \   00000020   040000006400       DC32 4, 100, 101, 0, 0, 1073741824
+   \              000065000000
+   \              000000000000
+   \              000000000040
+   \                     `?<Initializer for vcinfo_hdr>`:
+   \   00000038   000000000000       DC16 0, 0, 0, 0
+   \              0000        
+   \   00000040   00000000....       DC32 0H, `?<Constant "vCard">`, 2147483647
+   \              ....FFFFFF7F
+   \                     `?<Initializer for vcard_index>`:
+   \   0000004C   ............       DC32 `?<Constant "JABBERID">`, `?<Constant "FN">`
+   \              ....        
+   \   00000054   ............       DC32 `?<Constant "N/FAMILY">`, `?<Constant "N/GIVEN">`
+   \              ....        
+   \   0000005C   ............       DC32 `?<Constant "N/MIDDLE">`, `?<Constant "N/PREFIX">`
+   \              ....        
+   \   00000064   ............       DC32 `?<Constant "N/SUFFIX">`, `?<Constant "NICKNAME">`
+   \              ....        
+   \   0000006C   ............       DC32 `?<Constant "BDAY">`, `?<Constant "GENDER">`
+   \              ....        
+   \   00000074   ............       DC32 `?<Constant "ORG/ORGNAME">`, `?<Constant "ORG/ORGUNIT">`
+   \              ....        
+   \   0000007C   ............       DC32 `?<Constant "TITLE">`, `?<Constant "ROLE">`
+   \              ....        
+   \   00000084   ............       DC32 `?<Constant "EMAIL/USERID">`, `?<Constant "EMAIL/HOME">`
+   \              ....        
+   \   0000008C   ............       DC32 `?<Constant "EMAIL/WORK">`, `?<Constant "EMAIL/INTERNET">`
+   \              ....        
+   \   00000094   ............       DC32 `?<Constant "EMAIL/PREF">`, `?<Constant "EMAIL/X400">`
+   \              ....        
+   \   0000009C   ............       DC32 `?<Constant "TEL/HOME">`, `?<Constant "TEL/WORK">`
+   \              ....        
+   \   000000A4   ............       DC32 `?<Constant "TEL/VOICE">`, `?<Constant "TEL/FAX">`
+   \              ....        
+   \   000000AC   ............       DC32 `?<Constant "TEL/PAGER">`, `?<Constant "TEL/MSG">`
+   \              ....        
+   \   000000B4   ............       DC32 `?<Constant "TEL/CELL">`, `?<Constant "TEL/VIDEO">`
+   \              ....        
+   \   000000BC   ............       DC32 `?<Constant "TEL/BBS">`, `?<Constant "TEL/MODEM">`
+   \              ....        
+   \   000000C4   ............       DC32 `?<Constant "TEL/ISDN">`, `?<Constant "TEL/PCS">`
+   \              ....        
+   \   000000CC   ............       DC32 `?<Constant "TEL/PREF">`, `?<Constant "TEL/NUMBER">`
+   \              ....        
+   \   000000D4   ............       DC32 `?<Constant "ADR/HOME">`, `?<Constant "ADR/WORK">`
+   \              ....        
+   \   000000DC   ............       DC32 `?<Constant "ADR/POSTAL">`, `?<Constant "ADR/PARCEL">`
+   \              ....        
+   \   000000E4   ............       DC32 `?<Constant "ADR/DOM">`, `?<Constant "ADR/PREF">`
+   \              ....        
+   \   000000EC   ............       DC32 `?<Constant "ADR/POBOX">`, `?<Constant "ADR/EXTADD">`
+   \              ....        
+   \   000000F4   ............       DC32 `?<Constant "ADR/STREET">`, `?<Constant "ADR/LOCALITY">`
+   \              ....        
+   \   000000FC   ............       DC32 `?<Constant "ADR/REGION">`, `?<Constant "ADR/PCODE">`
+   \              ....        
+   \   00000104   ............       DC32 `?<Constant "ADR/CTRY">`, `?<Constant "URL">`
+   \              ....        
+   \   0000010C   ............       DC32 `?<Constant "DESC">`, `?<Constant "TZ">`, `?<Constant "!PHOTO">`
+   \              ............
+   \   00000118   ........           DC32 `?<Constant "!LOGO">`
+   \                     `?<Initializer for vcard_names>`:
+   \   0000011C   ........           DC32 `?<Constant "JID">`
+   \   00000120   ........           DC32 `?<Constant "\\317\\356\\353\\355\\356\\345 \\350\\354\\`
+   \   00000124   ........           DC32 `?<Constant "\\324\\340\\354\\350\\353\\350\\377">`
+   \   00000128   ........           DC32 `?<Constant "\\310\\354\\377">`
+   \   0000012C   ........           DC32 `?<Constant "\\316\\362\\367\\345\\361\\362\\342\\356">`
+   \   00000130   ............       DC32 `?<Constant "N_PREFIX">`, `?<Constant "N_SUFFIX">`
+   \              ....        
+   \   00000138   ........           DC32 `?<Constant "\\315\\350\\352">`
+   \   0000013C   ........           DC32 `?<Constant "\\304\\345\\355\\374 \\360\\356\\346\\344\\`
+   \   00000140   ........           DC32 `?<Constant "\\317\\356\\353">`
+   \   00000144   ........           DC32 `?<Constant "\\315\\340\\347\\342\\340\\355\\350\\345 \\`
+   \   00000148   ........           DC32 `?<Constant "\\316\\362\\344\\345\\353\\345\\355\\350\\3`
+   \   0000014C   ........           DC32 `?<Constant "\\315\\340\\347\\342\\340\\355\\350\\345 \\_1`
+   \   00000150   ........           DC32 `?<Constant "\\304\\356\\353\\346\\355\\356\\361\\362\\3`
+   \   00000154   ........           DC32 `?<Constant "E-Mail">`
+   \   00000158   ........           DC32 `?<Constant "\\313\\350\\367\\355\\373\\351 E-Mail">`
+   \   0000015C   ........           DC32 `?<Constant "\\320\\340\\341\\356\\367\\350\\351 E-Mai`
+   \   00000160   ............       DC32 `?<Constant "EMAIL_INTERNET">`, `?<Constant "EMAIL_PREF">`
+   \              ....        
+   \   00000168   ........           DC32 `?<Constant "EMAIL_X400">`
+   \   0000016C   ........           DC32 `?<Constant "\\304\\356\\354\\340\\370\\355\\350\\351 \\`
+   \   00000170   ........           DC32 `?<Constant "\\320\\340\\341\\356\\367\\350\\351 \\362\\`
+   \   00000174   ............       DC32 `?<Constant "TEL_VOICE">`, `?<Constant "\\324\\340\\352\\361">`
+   \              ....        
+   \   0000017C   ........           DC32 `?<Constant "\\317\\345\\351\\344\\346\\345\\360">`
+   \   00000180   ........           DC32 `?<Constant "TEL_MSG">`
+   \   00000184   ........           DC32 `?<Constant "\\314\\356\\341\\350\\353\\374\\355\\373\\3`
+   \   00000188   ............       DC32 `?<Constant "TEL_VIDEO">`, `?<Constant "TEL_BBS">`
+   \              ....        
+   \   00000190   ............       DC32 `?<Constant "TEL_MODEM">`, `?<Constant "TEL_ISDN">`
+   \              ....        
+   \   00000198   ............       DC32 `?<Constant "TEL_PCS">`, `?<Constant "TEL_PREF">`
+   \              ....        
+   \   000001A0   ........           DC32 `?<Constant "\\322\\345\\353\\345\\364\\356\\355">`
+   \   000001A4   ........           DC32 `?<Constant "\\304\\356\\354\\340\\370\\355\\350\\351 \\_1`
+   \   000001A8   ........           DC32 `?<Constant "\\320\\340\\341\\356\\367\\350\\351 \\340\\`
+   \   000001AC   ............       DC32 `?<Constant "ADR_POSTAL">`, `?<Constant "ADR_PARCEL">`
+   \              ....        
+   \   000001B4   ............       DC32 `?<Constant "ADR_DOM">`, `?<Constant "ADR_PREF">`
+   \              ....        
+   \   000001BC   ............       DC32 `?<Constant "ADR_POBOX">`, `?<Constant "ADR_EXTADD">`
+   \              ....        
+   \   000001C4   ............       DC32 `?<Constant "ADR_STREET">`, `?<Constant "ADR_LOCALITY">`
+   \              ....        
+   \   000001CC   ........           DC32 `?<Constant "\\320\\345\\343\\350\\356\\355(\\356\\341\\`
+   \   000001D0   ........           DC32 `?<Constant "\\317\\356\\367\\362\\356\\342\\373\\351 \\`
+   \   000001D4   ........           DC32 `?<Constant "\\321\\362\\360\\340\\355\\340">`
+   \   000001D8   ........           DC32 `?<Constant "\\304\\356\\354\\340\\370\\355\\377\\377 \\`
+   \   000001DC   ........           DC32 `?<Constant "\\316 \\361\\345\\341\\345">`
+   \   000001E0   ........           DC32 `?<Constant "\\327\\340\\361\\356\\342\\356\\351 \\357\\`
+   \   000001E4   ........           DC32 `?<Constant "\\300\\342\\340\\362\\340\\360\\340">`
+   \   000001E8   ........           DC32 `?<Constant "\\313\\356\\343\\356\\362\\350\\357">`
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for vcinfo_sk>`:
+   \   00000000   18000000           DC16 24, 0
+   \   00000004   ........           DC32 `?<Constant "\\316\\341\\355\\356\\342\\350\\362\\374">`
+   \   00000008   01000000           DC16 1, 0
+   \   0000000C   ........           DC32 `?<Constant "\\315\\340\\347\\340\\344">`
+   \   00000010   3D000000           DC16 61, 0
+   \   00000014   FBC0FF7F           DC32 2147467515
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for vcinfo_skt>`:
+   \   00000000   ........0000       DC32 vcinfo_sk, 0
+   \              0000        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "GENDER">`:
+   \   00000000   47454E444552       DC8 "GENDER"
+   \              00          
+   \   00000007   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant ".jpg">`:
+   \   00000000   2E6A706700         DC8 ".jpg"
+   \   00000005   000000             DC8 0, 0, 0
+   \   00000008   5F6C6F676F00       DC8 "_logo"
+   \   0000000E   0000               DC8 0, 0
+   \   00000010   6D616C6C6F63       DC8 "malloc buffer error!"
+   \              206275666665
+   \              72206572726F
+   \              722100      
+   \   00000025   000000             DC8 0, 0, 0
+   \   00000028   CFEEEAE0E7E0       DC8 "\317\356\352\340\347\340\362\374 \340\342\340\362\340\360\363"
+   \              F2FC20E0E2E0
+   \              F2E0F0F300  
+   \   00000039   000000             DC8 0, 0, 0
+   \   0000003C   CFEEEAE0E7E0       DC8 "\317\356\352\340\347\340\362\374 \353\356\343\356\362\350\357"
+   \              F2FC20EBEEE3
+   \              EEF2E8EF00  
+   \   0000004D   000000             DC8 0, 0, 0
+   \                     `?<Constant "!PHOTO">`:
+   \   00000050   2150484F544F       DC8 "!PHOTO"
+   \              00          
+   \   00000057   00                 DC8 0
+   \                     `?<Constant "!LOGO">`:
+   \   00000058   214C4F474F00       DC8 "!LOGO"
+   \   0000005E   0000               DC8 0, 0
+   \                     `?<Constant "\\316\\341\\355\\356\\342\\350\\362\\374">`:
+   \   00000060   CEE1EDEEE2E8       DC8 "\316\341\355\356\342\350\362\374"
+   \              F2FC00      
+   \   00000069   000000             DC8 0, 0, 0
+   \   0000006C   42494E56414C       DC8 "BINVAL"
+   \              00          
+   \   00000073   00                 DC8 0
+   \   00000074   5459504500         DC8 "TYPE"
+   \   00000079   000000             DC8 0, 0, 0
+   \   0000007C   2E6A706700         DC8 ".jpg"
+   \   00000081   000000             DC8 0, 0, 0
+   \   00000084   2E706E6700         DC8 ".png"
+   \   00000089   000000             DC8 0, 0, 0
+   \   0000008C   2E67696600         DC8 ".gif"
+   \   00000091   000000             DC8 0, 0, 0
+   \   00000094   696D6167652F       DC8 "image/gif"
+   \              67696600    
+   \   0000009E   0000               DC8 0, 0
+   \   000000A0   696D6167652F       DC8 "image/png"
+   \              706E6700    
+   \   000000AA   0000               DC8 0, 0
+   \   000000AC   696D6167652F       DC8 "image/jpeg"
+   \              6A70656700  
+   \   000000B7   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "%s/%s">`:
+   \   00000000   25732F257300       DC8 "%s/%s"
+   \   00000006   0000               DC8 0, 0
+   \   00000008   50484F544F00       DC8 "PHOTO"
+   \   0000000E   0000               DC8 0, 0
+   \   00000010   4C4F474F00         DC8 "LOGO"
+   \   00000015   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "JABBERID">`:
+   \   00000000   4A4142424552       DC8 "JABBERID"
+   \              494400      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \                     `?<Constant "FN">`:
+   \   00000000   464E00             DC8 "FN"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "N/FAMILY">`:
+   \   00000000   4E2F46414D49       DC8 "N/FAMILY"
+   \              4C5900      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "N/GIVEN">`:
+   \   00000000   4E2F47495645       DC8 "N/GIVEN"
+   \              4E00        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "N/MIDDLE">`:
+   \   00000000   4E2F4D494444       DC8 "N/MIDDLE"
+   \              4C4500      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "N/PREFIX">`:
+   \   00000000   4E2F50524546       DC8 "N/PREFIX"
+   \              495800      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "N/SUFFIX">`:
+   \   00000000   4E2F53554646       DC8 "N/SUFFIX"
+   \              495800      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "NICKNAME">`:
+   \   00000000   4E49434B4E41       DC8 "NICKNAME"
+   \              4D4500      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "BDAY">`:
+   \   00000000   4244415900         DC8 "BDAY"
+   \   00000005   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "TEL/MSG">`:
+   \   00000000   54454C2F4D53       DC8 "TEL/MSG"
+   \              4700        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ORG/ORGNAME">`:
+   \   00000000   4F52472F4F52       DC8 "ORG/ORGNAME"
+   \              474E414D4500
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ORG/ORGUNIT">`:
+   \   00000000   4F52472F4F52       DC8 "ORG/ORGUNIT"
+   \              47554E495400
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "TITLE">`:
+   \   00000000   5449544C4500       DC8 "TITLE"
+   \   00000006   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ROLE">`:
+   \   00000000   524F4C4500         DC8 "ROLE"
+   \   00000005   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "EMAIL/USERID">`:
+   \   00000000   454D41494C2F       DC8 "EMAIL/USERID"
+   \              555345524944
+   \              00          
+   \   0000000D   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "EMAIL/HOME">`:
+   \   00000000   454D41494C2F       DC8 "EMAIL/HOME"
+   \              484F4D4500  
+   \   0000000B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "EMAIL/WORK">`:
+   \   00000000   454D41494C2F       DC8 "EMAIL/WORK"
+   \              574F524B00  
+   \   0000000B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "EMAIL/INTERNET">`:
+   \   00000000   454D41494C2F       DC8 "EMAIL/INTERNET"
+   \              494E5445524E
+   \              455400      
+   \   0000000F   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "EMAIL/PREF">`:
+   \   00000000   454D41494C2F       DC8 "EMAIL/PREF"
+   \              5052454600  
+   \   0000000B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "EMAIL/X400">`:
+   \   00000000   454D41494C2F       DC8 "EMAIL/X400"
+   \              5834303000  
+   \   0000000B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "TEL/HOME">`:
+   \   00000000   54454C2F484F       DC8 "TEL/HOME"
+   \              4D4500      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "TEL/WORK">`:
+   \   00000000   54454C2F574F       DC8 "TEL/WORK"
+   \              524B00      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "TEL/VOICE">`:
+   \   00000000   54454C2F564F       DC8 "TEL/VOICE"
+   \              49434500    
+   \   0000000A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "TEL/FAX">`:
+   \   00000000   54454C2F4641       DC8 "TEL/FAX"
+   \              5800        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "TEL/PAGER">`:
+   \   00000000   54454C2F5041       DC8 "TEL/PAGER"
+   \              47455200    
+   \   0000000A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "TEL/CELL">`:
+   \   00000000   54454C2F4345       DC8 "TEL/CELL"
+   \              4C4C00      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "TEL/VIDEO">`:
+   \   00000000   54454C2F5649       DC8 "TEL/VIDEO"
+   \              44454F00    
+   \   0000000A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "TEL/BBS">`:
+   \   00000000   54454C2F4242       DC8 "TEL/BBS"
+   \              5300        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "TEL/MODEM">`:
+   \   00000000   54454C2F4D4F       DC8 "TEL/MODEM"
+   \              44454D00    
+   \   0000000A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "TEL/ISDN">`:
+   \   00000000   54454C2F4953       DC8 "TEL/ISDN"
+   \              444E00      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "TEL/PCS">`:
+   \   00000000   54454C2F5043       DC8 "TEL/PCS"
+   \              5300        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "TEL/PREF">`:
+   \   00000000   54454C2F5052       DC8 "TEL/PREF"
+   \              454600      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "TEL/NUMBER">`:
+   \   00000000   54454C2F4E55       DC8 "TEL/NUMBER"
+   \              4D42455200  
+   \   0000000B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ADR/HOME">`:
+   \   00000000   4144522F484F       DC8 "ADR/HOME"
+   \              4D4500      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ADR/WORK">`:
+   \   00000000   4144522F574F       DC8 "ADR/WORK"
+   \              524B00      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ADR/POSTAL">`:
+   \   00000000   4144522F504F       DC8 "ADR/POSTAL"
+   \              5354414C00  
+   \   0000000B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ADR/PARCEL">`:
+   \   00000000   4144522F5041       DC8 "ADR/PARCEL"
+   \              5243454C00  
+   \   0000000B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ADR/DOM">`:
+   \   00000000   4144522F444F       DC8 "ADR/DOM"
+   \              4D00        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ADR/PREF">`:
+   \   00000000   4144522F5052       DC8 "ADR/PREF"
+   \              454600      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ADR/POBOX">`:
+   \   00000000   4144522F504F       DC8 "ADR/POBOX"
+   \              424F5800    
+   \   0000000A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ADR/EXTADD">`:
+   \   00000000   4144522F4558       DC8 "ADR/EXTADD"
+   \              5441444400  
+   \   0000000B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ADR/STREET">`:
+   \   00000000   4144522F5354       DC8 "ADR/STREET"
+   \              5245455400  
+   \   0000000B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ADR/LOCALITY">`:
+   \   00000000   4144522F4C4F       DC8 "ADR/LOCALITY"
+   \              43414C495459
+   \              00          
+   \   0000000D   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ADR/REGION">`:
+   \   00000000   4144522F5245       DC8 "ADR/REGION"
+   \              47494F4E00  
+   \   0000000B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ADR/PCODE">`:
+   \   00000000   4144522F5043       DC8 "ADR/PCODE"
+   \              4F444500    
+   \   0000000A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ADR/CTRY">`:
+   \   00000000   4144522F4354       DC8 "ADR/CTRY"
+   \              525900      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "URL">`:
+   \   00000000   55524C00           DC8 "URL"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "DESC">`:
+   \   00000000   4445534300         DC8 "DESC"
+   \   00000005   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \                     `?<Constant "TZ">`:
+   \   00000000   545A00             DC8 "TZ"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "JID">`:
+   \   00000000   4A494400           DC8 "JID"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\317\\356\\353\\355\\356\\345 \\350\\354\\`:
+   \   00000000   CFEEEBEDEEE5       DC8 "\317\356\353\355\356\345 \350\354\377"
+   \              20E8ECFF00  
+   \   0000000B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\324\\340\\354\\350\\353\\350\\377">`:
+   \   00000000   D4E0ECE8EBE8       DC8 "\324\340\354\350\353\350\377"
+   \              FF00        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\310\\354\\377">`:
+   \   00000000   C8ECFF00           DC8 "\310\354\377"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\316\\362\\367\\345\\361\\362\\342\\356">`:
+   \   00000000   CEF2F7E5F1F2       DC8 "\316\362\367\345\361\362\342\356"
+   \              E2EE00      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "N_PREFIX">`:
+   \   00000000   4E5F50524546       DC8 "N_PREFIX"
+   \              495800      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "N_SUFFIX">`:
+   \   00000000   4E5F53554646       DC8 "N_SUFFIX"
+   \              495800      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\315\\350\\352">`:
+   \   00000000   CDE8EA00           DC8 "\315\350\352"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\304\\345\\355\\374 \\360\\356\\346\\344\\`:
+   \   00000000   C4E5EDFC20F0       DC8 "\304\345\355\374 \360\356\346\344\345\355\350\377"
+   \              EEE6E4E5EDE8
+   \              FF00        
+   \   0000000E   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\317\\356\\353">`:
+   \   00000000   CFEEEB00           DC8 "\317\356\353"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\315\\340\\347\\342\\340\\355\\350\\345 \\`:
+   \   00000000   CDE0E7E2E0ED       DC8 "\315\340\347\342\340\355\350\345 \356\360\343\340\355\350\347\340\366\350\350"
+   \              E8E520EEF0E3
+   \              E0EDE8E7E0F6
+   \              E8E800      
+   \   00000015   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\316\\362\\344\\345\\353\\345\\355\\350\\3`:
+   \   00000000   CEF2E4E5EBE5       DC8 "\316\362\344\345\353\345\355\350\345 \356\360\343\340\355\350\347\340\366\350\350"
+   \              EDE8E520EEF0
+   \              E3E0EDE8E7E0
+   \              F6E8E800    
+   \   00000016   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\315\\340\\347\\342\\340\\355\\350\\345 \\_1`:
+   \   00000000   CDE0E7E2E0ED       DC8 "\315\340\347\342\340\355\350\345 \344\356\353\346\355\356\361\362\350"
+   \              E8E520E4EEEB
+   \              E6EDEEF1F2E8
+   \              00          
+   \   00000013   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\304\\356\\353\\346\\355\\356\\361\\362\\3`:
+   \   00000000   C4EEEBE6EDEE       DC8 "\304\356\353\346\355\356\361\362\374"
+   \              F1F2FC00    
+   \   0000000A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "E-Mail">`:
+   \   00000000   452D4D61696C       DC8 "E-Mail"
+   \              00          
+   \   00000007   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\313\\350\\367\\355\\373\\351 E-Mail">`:
+   \   00000000   CBE8F7EDFBE9       DC8 "\313\350\367\355\373\351 E-Mail"
+   \              20452D4D6169
+   \              6C00        
+   \   0000000E   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\320\\340\\341\\356\\367\\350\\351 E-Mai`:
+   \   00000000   D0E0E1EEF7E8       DC8 "\320\340\341\356\367\350\351 E-Mail"
+   \              E920452D4D61
+   \              696C00      
+   \   0000000F   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "EMAIL_INTERNET">`:
+   \   00000000   454D41494C5F       DC8 "EMAIL_INTERNET"
+   \              494E5445524E
+   \              455400      
+   \   0000000F   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "EMAIL_PREF">`:
+   \   00000000   454D41494C5F       DC8 "EMAIL_PREF"
+   \              5052454600  
+   \   0000000B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "EMAIL_X400">`:
+   \   00000000   454D41494C5F       DC8 "EMAIL_X400"
+   \              5834303000  
+   \   0000000B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\304\\356\\354\\340\\370\\355\\350\\351 \\`:
+   \   00000000   C4EEECE0F8ED       DC8 "\304\356\354\340\370\355\350\351 \362\345\353\345\364\356\355"
+   \              E8E920F2E5EB
+   \              E5F4EEED00  
+   \   00000011   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\320\\340\\341\\356\\367\\350\\351 \\362\\`:
+   \   00000000   D0E0E1EEF7E8       DC8 "\320\340\341\356\367\350\351 \362\345\353\345\364\356\355"
+   \              E920F2E5EBE5
+   \              F4EEED00    
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "TEL_VOICE">`:
+   \   00000000   54454C5F564F       DC8 "TEL_VOICE"
+   \              49434500    
+   \   0000000A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\324\\340\\352\\361">`:
+   \   00000000   D4E0EAF100         DC8 "\324\340\352\361"
+   \   00000005   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\317\\345\\351\\344\\346\\345\\360">`:
+   \   00000000   CFE5E9E4E6E5       DC8 "\317\345\351\344\346\345\360"
+   \              F000        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "TEL_MSG">`:
+   \   00000000   54454C5F4D53       DC8 "TEL_MSG"
+   \              4700        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\314\\356\\341\\350\\353\\374\\355\\373\\3`:
+   \   00000000   CCEEE1E8EBFC       DC8 "\314\356\341\350\353\374\355\373\351 \362\345\353\345\364\356\355"
+   \              EDFBE920F2E5
+   \              EBE5F4EEED00
+   \   00000012   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "TEL_VIDEO">`:
+   \   00000000   54454C5F5649       DC8 "TEL_VIDEO"
+   \              44454F00    
+   \   0000000A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "TEL_BBS">`:
+   \   00000000   54454C5F4242       DC8 "TEL_BBS"
+   \              5300        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "TEL_MODEM">`:
+   \   00000000   54454C5F4D4F       DC8 "TEL_MODEM"
+   \              44454D00    
+   \   0000000A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "TEL_ISDN">`:
+   \   00000000   54454C5F4953       DC8 "TEL_ISDN"
+   \              444E00      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "TEL_PCS">`:
+   \   00000000   54454C5F5043       DC8 "TEL_PCS"
+   \              5300        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "TEL_PREF">`:
+   \   00000000   54454C5F5052       DC8 "TEL_PREF"
+   \              454600      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\322\\345\\353\\345\\364\\356\\355">`:
+   \   00000000   D2E5EBE5F4EE       DC8 "\322\345\353\345\364\356\355"
+   \              ED00        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\304\\356\\354\\340\\370\\355\\350\\351 \\_1`:
+   \   00000000   C4EEECE0F8ED       DC8 "\304\356\354\340\370\355\350\351 \340\344\360\345\361"
+   \              E8E920E0E4F0
+   \              E5F100      
+   \   0000000F   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\320\\340\\341\\356\\367\\350\\351 \\340\\`:
+   \   00000000   D0E0E1EEF7E8       DC8 "\320\340\341\356\367\350\351 \340\344\360\345\361"
+   \              E920E0E4F0E5
+   \              F100        
+   \   0000000E   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ADR_POSTAL">`:
+   \   00000000   4144525F504F       DC8 "ADR_POSTAL"
+   \              5354414C00  
+   \   0000000B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ADR_PARCEL">`:
+   \   00000000   4144525F5041       DC8 "ADR_PARCEL"
+   \              5243454C00  
+   \   0000000B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ADR_DOM">`:
+   \   00000000   4144525F444F       DC8 "ADR_DOM"
+   \              4D00        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ADR_PREF">`:
+   \   00000000   4144525F5052       DC8 "ADR_PREF"
+   \              454600      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ADR_POBOX">`:
+   \   00000000   4144525F504F       DC8 "ADR_POBOX"
+   \              424F5800    
+   \   0000000A   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ADR_EXTADD">`:
+   \   00000000   4144525F4558       DC8 "ADR_EXTADD"
+   \              5441444400  
+   \   0000000B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ADR_STREET">`:
+   \   00000000   4144525F5354       DC8 "ADR_STREET"
+   \              5245455400  
+   \   0000000B   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "ADR_LOCALITY">`:
+   \   00000000   4144525F4C4F       DC8 "ADR_LOCALITY"
+   \              43414C495459
+   \              00          
+   \   0000000D   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\320\\345\\343\\350\\356\\355(\\356\\341\\`:
+   \   00000000   D0E5E3E8EEED       DC8 "\320\345\343\350\356\355(\356\341\353\340\361\362\374)"
+   \              28EEE1EBE0F1
+   \              F2FC2900    
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\317\\356\\367\\362\\356\\342\\373\\351 \\`:
+   \   00000000   CFEEF7F2EEE2       DC8 "\317\356\367\362\356\342\373\351 \352\356\344"
+   \              FBE920EAEEE4
+   \              00          
+   \   0000000D   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\321\\362\\360\\340\\355\\340">`:
+   \   00000000   D1F2F0E0EDE0       DC8 "\321\362\360\340\355\340"
+   \              00          
+   \   00000007   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\304\\356\\354\\340\\370\\355\\377\\377 \\`:
+   \   00000000   C4EEECE0F8ED       DC8 "\304\356\354\340\370\355\377\377 \361\362\360\340\355\350\366\340"
+   \              FFFF20F1F2F0
+   \              E0EDE8F6E000
+   \   00000012   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\316 \\361\\345\\341\\345">`:
+   \   00000000   CE20F1E5E1E5       DC8 "\316 \361\345\341\345"
+   \              00          
+   \   00000007   00                 DC8 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\327\\340\\361\\356\\342\\356\\351 \\357\\`:
+   \   00000000   D7E0F1EEE2EE       DC8 "\327\340\361\356\342\356\351 \357\356\377\361"
+   \              E920EFEEFFF1
+   \              00          
+   \   0000000D   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\300\\342\\340\\362\\340\\360\\340">`:
+   \   00000000   C0E2E0F2E0F0       DC8 "\300\342\340\362\340\360\340"
+   \              E000        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\313\\356\\343\\356\\362\\350\\357">`:
+   \   00000000   CBEEE3EEF2E8       DC8 "\313\356\343\356\362\350\357"
+   \              EF00        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\315\\340\\347\\340\\344">`:
+   \   00000000   CDE0E7E0E400       DC8 "\315\340\347\340\344"
+   \   00000006   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "vCard">`:
+   \   00000000   764361726400       DC8 "vCard"
+   \   00000006   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "malloc error!">`:
+   \   00000000   6D616C6C6F63       DC8 "malloc error!"
+   \              206572726F72
+   \              2100        
+   \   0000000E   0000               DC8 0, 0
+   \   00000010   6465636F6465       DC8 "decode error (zero length)!"
+   \              206572726F72
+   \              20287A65726F
+   \              206C656E6774
+   \              68292100    
+    632          
+    633          //EOL,EOF
+
+   Maximum stack usage in bytes:
+
+     Function            CSTACK
+     --------            ------
+     Add_vCard_Value        20
+     Create_vCard            8
+     DecodePhoto            48
+     Free_vCard             12
+     Get_Avatar_Path        20
+     Get_VCard_Value        16
+     MsgBoxError_locked      8
+     Process_vCard         296
+     SavePhoto             164
+     Show_vCard             92
+     vCard_Photo_Display    12
+     vcinfo_ghook           12
+     vcinfo_onkey           28
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     Add_vCard_Value                 112
+     Get_VCard_Value                  72
+     Create_vCard                     32
+     Free_vCard                       56
+     _slash                            2
+     Get_Avatar_Path                 236
+     vCard_Photo_Display              60
+     MsgBoxError_locked               32
+     DecodePhoto                     316
+     SavePhoto                       352
+     Process_vCard                   380
+     vcinfo_onkey                    396
+     vcinfo_ghook                    120
+     vcinfo_desc                     492
+     vcinfo_sk                        24
+     vcinfo_skt                        8
+     Show_vCard                      752
+     ??DataTable1                      4
+     ??DataTable4                      4
+     ?<Initializer for vcinfo_desc>  492
+     ?<Initializer for vcinfo_sk>     24
+     ?<Initializer for vcinfo_skt>     8
+     ?<Constant "GENDER">              8
+     ?<Constant ".jpg">              184
+     ?<Constant "%s/%s">              24
+     ?<Constant "JABBERID">           12
+     ?<Constant "FN">                  3
+     ?<Constant "N/FAMILY">           12
+     ?<Constant "N/GIVEN">             8
+     ?<Constant "N/MIDDLE">           12
+     ?<Constant "N/PREFIX">           12
+     ?<Constant "N/SUFFIX">           12
+     ?<Constant "NICKNAME">           12
+     ?<Constant "BDAY">                8
+     ?<Constant "TEL/MSG">             8
+     ?<Constant "ORG/ORGNAME">        12
+     ?<Constant "ORG/ORGUNIT">        12
+     ?<Constant "TITLE">               8
+     ?<Constant "ROLE">                8
+     ?<Constant "EMAIL/USERID">       16
+     ?<Constant "EMAIL/HOME">         12
+     ?<Constant "EMAIL/WORK">         12
+     ?<Constant "EMAIL/INTERNET">     16
+     ?<Constant "EMAIL/PREF">         12
+     ?<Constant "EMAIL/X400">         12
+     ?<Constant "TEL/HOME">           12
+     ?<Constant "TEL/WORK">           12
+     ?<Constant "TEL/VOICE">          12
+     ?<Constant "TEL/FAX">             8
+     ?<Constant "TEL/PAGER">          12
+     ?<Constant "TEL/CELL">           12
+     ?<Constant "TEL/VIDEO">          12
+     ?<Constant "TEL/BBS">             8
+     ?<Constant "TEL/MODEM">          12
+     ?<Constant "TEL/ISDN">           12
+     ?<Constant "TEL/PCS">             8
+     ?<Constant "TEL/PREF">           12
+     ?<Constant "TEL/NUMBER">         12
+     ?<Constant "ADR/HOME">           12
+     ?<Constant "ADR/WORK">           12
+     ?<Constant "ADR/POSTAL">         12
+     ?<Constant "ADR/PARCEL">         12
+     ?<Constant "ADR/DOM">             8
+     ?<Constant "ADR/PREF">           12
+     ?<Constant "ADR/POBOX">          12
+     ?<Constant "ADR/EXTADD">         12
+     ?<Constant "ADR/STREET">         12
+     ?<Constant "ADR/LOCALITY">       16
+     ?<Constant "ADR/REGION">         12
+     ?<Constant "ADR/PCODE">          12
+     ?<Constant "ADR/CTRY">           12
+     ?<Constant "URL">                 4
+     ?<Constant "DESC">                8
+     ?<Constant "TZ">                  3
+     ?<Constant "JID">                 4
+     ?<Constant "\317\356\353\355\356\345 \350\354\
+                                      12
+     ?<Constant "\324\340\354\350\353\350\377">
+                                       8
+     ?<Constant "\310\354\377">        4
+     ?<Constant "\316\362\367\345\361\362\342\356">
+                                      12
+     ?<Constant "N_PREFIX">           12
+     ?<Constant "N_SUFFIX">           12
+     ?<Constant "\315\350\352">        4
+     ?<Constant "\304\345\355\374 \360\356\346\344\
+                                      16
+     ?<Constant "\317\356\353">        4
+     ?<Constant "\315\340\347\342\340\355\350\345 \
+                                      24
+     ?<Constant "\316\362\344\345\353\345\355\350\3
+                                      24
+     ?<Constant "\315\340\347\342\340\355\350\345 \_1
+                                      20
+     ?<Constant "\304\356\353\346\355\356\361\362\3
+                                      12
+     ?<Constant "E-Mail">              8
+     ?<Constant "\313\350\367\355\373\351 E-Mail">
+                                      16
+     ?<Constant "\320\340\341\356\367\350\351 E-Mai
+                                      16
+     ?<Constant "EMAIL_INTERNET">     16
+     ?<Constant "EMAIL_PREF">         12
+     ?<Constant "EMAIL_X400">         12
+     ?<Constant "\304\356\354\340\370\355\350\351 \
+                                      20
+     ?<Constant "\320\340\341\356\367\350\351 \362\
+                                      16
+     ?<Constant "TEL_VOICE">          12
+     ?<Constant "\324\340\352\361">    8
+     ?<Constant "\317\345\351\344\346\345\360">
+                                       8
+     ?<Constant "TEL_MSG">             8
+     ?<Constant "\314\356\341\350\353\374\355\373\3
+                                      20
+     ?<Constant "TEL_VIDEO">          12
+     ?<Constant "TEL_BBS">             8
+     ?<Constant "TEL_MODEM">          12
+     ?<Constant "TEL_ISDN">           12
+     ?<Constant "TEL_PCS">             8
+     ?<Constant "TEL_PREF">           12
+     ?<Constant "\322\345\353\345\364\356\355">
+                                       8
+     ?<Constant "\304\356\354\340\370\355\350\351 \_1
+                                      16
+     ?<Constant "\320\340\341\356\367\350\351 \340\
+                                      16
+     ?<Constant "ADR_POSTAL">         12
+     ?<Constant "ADR_PARCEL">         12
+     ?<Constant "ADR_DOM">             8
+     ?<Constant "ADR_PREF">           12
+     ?<Constant "ADR_POBOX">          12
+     ?<Constant "ADR_EXTADD">         12
+     ?<Constant "ADR_STREET">         12
+     ?<Constant "ADR_LOCALITY">       16
+     ?<Constant "\320\345\343\350\356\355(\356\341\
+                                      16
+     ?<Constant "\317\356\367\362\356\342\373\351 \
+                                      16
+     ?<Constant "\321\362\360\340\355\340">
+                                       8
+     ?<Constant "\304\356\354\340\370\355\377\377 \
+                                      20
+     ?<Constant "\316 \361\345\341\345">
+                                       8
+     ?<Constant "\327\340\361\356\342\356\351 \357\
+                                      16
+     ?<Constant "\300\342\340\362\340\360\340">
+                                       8
+     ?<Constant "\313\356\343\356\362\350\357">
+                                       8
+     ?<Constant "\315\340\347\340\344">
+                                       8
+     ?<Constant "vCard">               8
+     ?<Constant "malloc error!">      44
+      Others                         148
+
+ 
+ 3 060 bytes in segment CODE
+ 1 452 bytes in segment DATA_C
+   524 bytes in segment DATA_I
+   524 bytes in segment DATA_ID
+    12 bytes in segment INITTAB
+ 
+ 2 924 bytes of CODE  memory (+ 148 bytes shared)
+ 1 976 bytes of CONST memory
+   524 bytes of DATA  memory
+
+Errors: none
+Warnings: none

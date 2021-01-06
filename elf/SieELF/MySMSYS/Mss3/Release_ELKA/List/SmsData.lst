@@ -1,0 +1,2192 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    07/May/2009  10:45:33 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\SmsData.cpp         #
+#    Command line    =  D:\pasha\elf\SieELF\MySMSYS\Mss3\SmsData.cpp -D      #
+#                       NEWSGOLD -D ELKA -D LANG_CN -lcN                     #
+#                       D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\List\  #
+#                       -o D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\Obj #
+#                       \ -s9 --no_unroll --cpu_mode arm --endian little     #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --eec++ --dlib_config "D:\pasha\Embedded  #
+#                       Workbench 4.0 Evaluation2\ARM\LIB\dl5tpainl8n.h" -I  #
+#                       "D:\pasha\Embedded Workbench 4.0                     #
+#                       Evaluation2\ARM\INC\" --inline_threshold=2           #
+#    List file       =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\List\S #
+#                       msData.lst                                           #
+#    Object file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\Obj\Sm #
+#                       sData.r79                                            #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\pasha\elf\SieELF\MySMSYS\Mss3\SmsData.cpp
+      1          #include "include.h"
+      2          
+      3          #include "SiemensPDU.h"
+      4          #include "MyIpcMessage.h"
+      5          #include "File.h"
+      6          #include "AdrList.h"
+      7          #include "SmsData.h"
+      8          
+      9          #define MAX_SMS 100
+     10          /*
+     11          typedef struct _EMS_ADM
+     12          {
+     13            char unk0;
+     14            char unk1;
+     15            unsigned short index_id; //0xFFFF, no
+     16            char num[12]; //hex, num[0],len
+     17            short txt_len;
+     18            short w_char[7]; //
+     19            char unk2;
+     20            char unk3;
+     21            short unk_0x160F;
+     22            char unk4[8];
+     23            int opmsg_id;
+     24            unsigned short data_id;//SMS: (data_id-0x2A)*sizeof(PDU)= the position of this sms in sms.dat, EMS: 0xFFF4 ?
+     25            short unk5; //0xA800 ?
+     26          }EMS_ADM;
+     27          */
+     28          //sd list---------
+     29          
+     30          
+     31          SDLIST *SmsData::AllocSDL(void)
+     32          {
+     33            SDLIST *sd=new SDLIST;
+     34            zeromem(sd, sizeof(SDLIST));
+     35            return sd;
+     36          }
+     37          
+     38          void SmsData::DeleteSDL(SDLIST *sdl)
+     39          {
+     40            SDLIST *sdn;
+     41            SDLIST *sdp;
+     42            if(sdl)
+     43            {
+     44              LockSched();
+     45              sdn=(SDLIST *)sdl->next;
+     46              sdp=(SDLIST *)sdl->prev;
+     47              if(sdp)
+     48                sdp->next=sdn;
+     49              else
+     50                sdltop=sdn;
+     51              if(sdn)
+     52                sdn->prev=sdp;
+     53              UnlockSched();
+     54              if((sdl->msg_prop&ISFILE) && sdl->fname)
+     55                delete sdl->fname;
+     56              if(sdl->text) FreeWS(sdl->text);
+     57              delete sdl;
+     58            }
+     59          }
+     60          
+     61          void SmsData::FreeAllSDL(void)
+     62          {
+     63            SDLIST *sdl;
+     64            SDLIST *sdx;
+     65            LockSched();
+     66            sdl=sdltop;
+     67            sdltop=0;
+     68            UnlockSched();
+     69            while(sdl)
+     70            {
+     71              sdx=(SDLIST *)sdl->next;
+     72              if((sdl->msg_prop&ISFILE) && sdl->fname)
+     73                delete sdl->fname;
+     74              if(sdl->text) FreeWS(sdl->text);
+     75              delete sdl;
+     76              sdl=sdx;
+     77            }
+     78          }
+     79          
+     80          void SmsData::AddByTimeSDL(SDLIST *sdl)
+     81          {
+     82            SDLIST *sdx;
+     83            SDLIST *sdp;
+     84            if(!sdl)
+     85              return;
+     86            if(!(sdx=sdltop))
+     87            {
+     88              sdltop=sdl;
+     89              return;
+     90            }
+     91            while(sdx)
+     92            {
+     93              if(strcmp(sdl->time, sdx->time)>=0)
+     94              {
+     95                sdp=(SDLIST *)sdx->prev;
+     96                if(sdp) sdp->next=sdl;
+     97                else sdltop=sdl;
+     98                sdl->prev=sdp;
+     99                sdl->next=sdx;
+    100                sdx->prev=sdl;
+    101                return;
+    102              }
+    103              if(!sdx->next)
+    104              {
+    105                sdx->next=sdl;
+    106                sdl->prev=sdx;
+    107                return;
+    108              }
+    109              sdx=(SDLIST *)sdx->next;
+    110            }
+    111          }
+    112          
+    113          void SmsData::FreeOneSDL(SDLIST *sdl)
+    114          {
+    115            if(IsExistSDL(sdl)) return; //if is in list
+    116            if(sdl->text)
+    117              FreeWS(sdl->text);
+    118            if((sdl->msg_prop&ISFILE) && sdl->fname)
+    119              delete (sdl->fname);
+    120            delete(sdl);
+    121          }
+    122          
+    123          SDLIST *SmsData::CopyOneSDL(SDLIST *sdl)
+    124          {
+    125            SDLIST *sdx;
+    126            if(!sdl) return 0;
+    127            sdx=new SDLIST;
+    128            memcpy(sdx, sdl, sizeof(SDLIST));
+    129            if((sdl->msg_prop&ISFILE) && sdl->fname)
+    130            {
+    131              sdx->fname=new char[128];
+    132              strcpy(sdx->fname, sdl->fname);
+    133            }
+    134            if(sdl->text)
+    135            {
+    136              sdx->text=AllocWS(sdl->text->wsbody[0]);
+    137              wstrcpy(sdx->text, sdl->text);
+    138            }
+    139            return sdx;
+    140          }
+    141          
+    142          SDLIST *SmsData::FindSDL(int dat_index)
+    143          {
+    144            SDLIST *sdl=sdltop;
+    145            while(sdl)
+    146            {
+    147              if(sdl->dat_index==dat_index)
+    148                return sdl;
+    149              sdl=(SDLIST *)sdl->next;
+    150            }
+    151            return 0;
+    152          }
+    153          
+    154          SDLIST *SmsData::FindOpmsgSDL(int opmsg_id)
+    155          {
+    156            RAM_EMS_ADMIN *ram_eam=RAM_EMS_Admin();
+    157            SDLIST *sdl=sdltop;
+    158            while(sdl)
+    159            {
+    160              if(sdl->opmsg_id==opmsg_id)
+    161                return sdl;
+    162              if(!(sdl->msg_prop&ISFILE) && sdl->dat_index)
+    163              {
+    164                if(opmsg_id==ram_eam->data[sdl->dat_index].opmsg_id)
+    165                {
+    166          	sdl->opmsg_id=opmsg_id;
+    167          	return sdl;
+    168                }
+    169              }
+    170              sdl=(SDLIST *)sdl->next;
+    171            }
+    172            return 0;
+    173          }
+    174          
+    175          SDLIST *SmsData::FindSDL(WSHDR *text, char *time, char *num)
+    176          {
+    177            SDLIST *sdl=sdltop;
+    178            if(!sdl || !text /*|| !time */|| !num) return 0;
+    179            while(sdl)
+    180            {
+    181              if(!wstrncmp_nocase(sdl->text, text, text->wsbody[0])
+    182                 && !strncmp(sdl->number, num, strlen(num)))
+    183              {
+    184                if(!time || !strlen(time))
+    185                  return sdl;
+    186                if(!strncmp(sdl->time, time, strlen(time)))
+    187                  return sdl;
+    188              }
+    189              sdl=(SDLIST *)sdl->next;
+    190            }
+    191            return 0;
+    192          }
+    193          
+    194          SDLIST *SmsData::FindSDL(char *filename)
+    195          {
+    196            SDLIST *sdl=sdltop;
+    197            if(!sdl || !filename) return 0;
+    198            while(sdl)
+    199            {
+    200              if((sdl->msg_prop&ISFILE) && sdl->fname && !strcmp(filename, sdl->fname))
+    201                return sdl;
+    202              sdl=(SDLIST *)sdl->next;
+    203            }
+    204            return 0;
+    205          }
+    206          
+    207          int SmsData::GetSMSCount(int type)
+    208          {
+    209            int i=0;
+    210            SDLIST *sdl=sdltop;
+    211            if(type>0&&type<5)
+    212            {
+    213              while(sdl)
+    214              {
+    215                if(sdl->type==type)
+    216                  i++;
+    217                sdl=(SDLIST *)sdl->next;
+    218              }
+    219            }
+    220            else if(type==TYPE_IN_ALL)
+    221            {
+    222              while(sdl)
+    223              {
+    224                if((sdl->type==TYPE_IN_R)||(sdl->type==TYPE_IN_N)||(sdl->type==TYPE_IN_ALL))
+    225                  i++;
+    226                sdl=(SDLIST *)sdl->next;
+    227              }
+    228            }
+    229            else if(type==TYPE_FILTER)
+    230            {
+    231              return (FilterGetCount());
+    232            }
+    233            else
+    234            {
+    235              while(sdl)
+    236              {
+    237                i++;
+    238                sdl=(SDLIST *)sdl->next;
+    239              }
+    240            }
+    241            return i;
+    242          }
+    243          
+    244          int SmsData::GetSMSCount(int isfile, int type)
+    245          {
+    246            int i=0;
+    247            SDLIST *sdl=sdltop;
+    248            if(type>0&&type<5)
+    249            {
+    250              while(sdl)
+    251              {
+    252                if((sdl->type==type) && (sdl->msg_prop&ISFILE)==isfile)
+    253          	i++;
+    254                sdl=(SDLIST *)sdl->next;
+    255              }
+    256            }
+    257            else if(type==TYPE_IN_ALL)
+    258            {
+    259              int t;
+    260              while(sdl)
+    261              {
+    262                t=sdl->type;
+    263                if(((t==TYPE_IN_R)||(t==TYPE_IN_N)||(t==TYPE_IN_ALL)) && (sdl->msg_prop&ISFILE)==isfile)
+    264          	i++;
+    265                sdl=(SDLIST *)sdl->next;
+    266              }
+    267            }
+    268            else
+    269            {
+    270              while(sdl)
+    271              {
+    272                if((sdl->msg_prop&ISFILE)==isfile)
+    273          	i++;
+    274                sdl=(SDLIST *)sdl->next;
+    275              }
+    276            }
+    277            return i;
+    278          }
+    279          
+    280          SDLIST *SmsData::FindSDL(int type, int n)
+    281          {
+    282            int i=0;
+    283            SDLIST *sdl=sdltop;
+    284            if(type>0&&type<5)
+    285            {
+    286              while(sdl)
+    287              {
+    288                if((i==n)&&(sdl->type==type))
+    289                  return sdl;
+    290                if(sdl->type==type)
+    291                  i++;
+    292                sdl=(SDLIST *)sdl->next;
+    293              }
+    294            }
+    295            else if(type==TYPE_IN_ALL)
+    296            {
+    297              while(sdl)
+    298              {
+    299                if((sdl->type==TYPE_IN_R)||(sdl->type==TYPE_IN_N)||(sdl->type==TYPE_IN_ALL))
+    300                {
+    301                  if(i==n) return sdl;
+    302                  i++;
+    303                }
+    304                sdl=(SDLIST *)sdl->next;
+    305              }
+    306            }
+    307            else if(type==TYPE_FILTER)
+    308            {
+    309              return (FilterFindSDL(n));
+    310            }
+    311            else
+    312            {
+    313              while(sdl)
+    314              {
+    315                if(i==n)
+    316                  return sdl;
+    317                sdl=(SDLIST *)sdl->next;
+    318                i++;
+    319              }
+    320            }
+    321            return 0;
+    322          }
+    323          
+    324          //-----------DatReader------------------
+    325          
+    326          int SmsData::ReadDat(void)
+    327          {
+    328            int fin, res=1;
+    329            if(sms_buf) delete sms_buf;
+    330          //  if(eam_buf) delete eam_buf;
+    331            if((fin=FOpen(sms_dat, A_BIN+A_ReadOnly, P_READ))!=-1)
+    332            {
+    333              sms_size=LSeek(fin, 0, S_END)-2;
+    334              sms_buf=new char[sms_size];
+    335              LSeek(fin, 2, S_SET);
+    336              if(FRead(fin, sms_buf, sms_size)!=sms_size) res=0;
+    337              FClose(fin);
+    338            }
+    339            else res=0;
+    340          /*  if((fin=FOpen(ems_admin_dat, A_BIN+A_ReadOnly, P_READ))!=-1)
+    341            {
+    342              eam_size=LSeek(fin, 0, S_END);
+    343              if(eam_size>0x9A4)
+    344              {
+    345                eam_size-=0x9A4;
+    346                eam_buf=new char[eam_size];
+    347                LSeek(fin, 0x9A4, S_SET);
+    348                if(FRead(fin, eam_buf, eam_size)!=eam_size) res=0;
+    349              }
+    350              else res=0;
+    351              FClose(fin);
+    352            }
+    353            else res=0;*/
+    354            return res;
+    355          }
+    356          
+    357          int SmsData::DeMsgDataList(SMS_DATA_LIST *lst)
+    358          {
+    359            SMS_POS_INDEX_DATA sid;
+    360            SDLIST *sdx;
+    361          //  EMS_ADM *pea;
+    362            EAM_DATA *ead;
+    363            INDEX_ID_DATA *idd;
+    364            unsigned short *pid;
+    365            char *pd;
+    366            int cnt, index, i, msg_prop=0;
+    367            char *sms_buf_end;
+    368          //  char *eam_buf_end;
+    369            if(!sms_buf ||/* !eam_buf || */!sms_size/* || !eam_size*/) return 0;
+    370            sms_buf_end=sms_buf+sms_size-sizeof(PDU);
+    371          //  eam_buf_end=eam_buf+eam_size-sizeof(EMS_ADM);
+    372            if(!(idd=lst->index_id_data))
+    373              return 0;
+    374            if(!(pid=idd->data_id))
+    375              return 0;
+    376            if(!(cnt=idd->cnt_all))
+    377              return 0;
+    378            if(cnt!=idd->cnt_received)
+    379              msg_prop=msg_prop|ISDES;
+    380            index=idd->index;
+    381            if(!index || index>MAX_SMS)
+    382              return 0;
+    383            ead=&RAM_EMS_Admin()->data[index];
+    384          //  pea=(EMS_ADM *)(eam_buf+(index-1)*sizeof(EMS_ADM));
+    385          //  if(pea>(EMS_ADM *)eam_buf_end)
+    386          //    return 0;
+    387            sdx=AllocSDL();
+    388            sdx->msg_prop=msg_prop;
+    389            for(i=0;i<cnt;i++)
+    390            {
+    391              if(pid[i]==0xFFF4) continue;
+    392              if(!GetSmsPosIndex(&sid, pid[i])) continue;
+    393              if((pd=sms_buf+sid.pos_index*sizeof(PDU))>sms_buf_end) continue;
+    394              if(!sdx->text) PduDecodeAll(sdx, pd);
+    395              else PduDecodeTxt(sdx, pd);
+    396            }
+    397            if(sdx->text)
+    398            {
+    399              if(i>1) sdx->msg_prop=sdx->msg_prop|ISEMS;
+    400              //sdx->opmsg_id=pea->opmsg_id;
+    401              sdx->opmsg_id=ead->opmsg_id;
+    402              sdx->dat_index=index;
+    403              sdx->cnt_r=idd->cnt_received;
+    404              LockSched();
+    405              AddByTimeSDL(sdx);
+    406              UnlockSched();
+    407              return 1;
+    408            }
+    409            else
+    410            {
+    411              FreeOneSDL(sdx);
+    412              return 0;
+    413            }
+    414          }
+    415          
+    416          int SmsData::ReadAllDatMsg(void)
+    417          {
+    418            SMS_DATA_ROOT *sdroot=SmsDataRoot();
+    419            SMS_DATA_LLIST inll=sdroot->in_msg;
+    420            SMS_DATA_LLIST outll=sdroot->out_msg;
+    421            SMS_DATA_LIST *lst;
+    422            int res=0;
+    423            if(!ReadDat()) return 0;
+    424            lst=inll.first;
+    425            while(lst)
+    426            {
+    427              if(DeMsgDataList(lst))
+    428              {
+    429                res++;
+    430                if(!(res%4)) SendMyIpc(SMSYS_IPC_SMS_DATA_UPDATE);
+    431              }
+    432              lst=(SMS_DATA_LIST *)lst->next;
+    433            }
+    434            lst=outll.first;
+    435            while(lst)
+    436            {
+    437              if(DeMsgDataList(lst))
+    438              {
+    439                res++;
+    440                if(!(res%4)) SendMyIpc(SMSYS_IPC_SMS_DATA_UPDATE);
+    441              }
+    442              lst=(SMS_DATA_LIST *)lst->next;
+    443            }
+    444            if((res%4)) SendMyIpc(SMSYS_IPC_SMS_DATA_UPDATE);
+    445            return res;
+    446          }
+    447          
+    448          
+    449          SMS_DATA_LIST *SmsData::FindMsgDataL(int dat_index)
+    450          {
+    451            SMS_DATA_LIST *lst;
+    452            SMS_DATA_ROOT *sdroot=SmsDataRoot();
+    453            SMS_DATA_LLIST inll=sdroot->in_msg;
+    454            SMS_DATA_LLIST outll=sdroot->out_msg;
+    455            INDEX_ID_DATA *idd;
+    456            if(!dat_index) return 0;
+    457            lst=inll.first;
+    458            while(lst)
+    459            {
+    460              if((idd=lst->index_id_data))
+    461              {
+    462                if(idd->index==dat_index)
+    463                {
+    464          	return lst;
+    465                }
+    466              }
+    467              lst=(SMS_DATA_LIST *)lst->next;
+    468            }
+    469            if(!lst) lst=outll.first;
+    470            while(lst)
+    471            {
+    472              if((idd=lst->index_id_data))
+    473              {
+    474                if(idd->index==dat_index)
+    475                {
+    476          	return lst;
+    477                }
+    478              }
+    479              lst=(SMS_DATA_LIST *)lst->next;
+    480            }
+    481            return 0;
+    482          }
+    483          
+    484          int SmsData::ReadMessageOne(int dat_index)
+    485          {
+    486            int res;
+    487            SMS_DATA_LIST *lst;
+    488            SDLIST *sdl;
+    489            if(!dat_index) return 0;
+    490            if(!(lst=FindMsgDataL(dat_index))) return 0;
+    491            if(!ReadDat()) return 0;
+    492            if((sdl=FindSDL(dat_index))) DeleteSDL(sdl);
+    493            if((res=DeMsgDataList(lst)))
+    494              this->n_new=GetSMSCount(TYPE_IN_N);
+    495            return res;
+    496          }
+    497          
+    498          void SmsData::FreeDatBuf(void)
+    499          {
+    500            if(sms_buf) delete sms_buf;
+    501          //  if(eam_buf) delete eam_buf;
+    502            sms_buf=NULL;
+    503          //  eam_buf=NULL;
+    504            sms_size=0;
+    505          //  eam_size=0;
+    506          }
+    507          //-----------FileReader----------
+    508          #define ELFNAME "MySMSYS"
+    509          int SmsData::ReadMss(char *fname, SDLIST *sdl)
+    510          {
+    511            int fin;
+    512            int size, len=0;
+    513            MSS_FILE_P1 msf1;
+    514            MSS_FILE_P2 msf2;
+    515            int version;
+    516            if((fin=FOpen(fname, A_BIN+A_ReadOnly, P_READ))<0)
+    517              return 0;
+    518            size=LSeek(fin, 0, S_END);
+    519            if(size<sizeof(MSS_FILE_P1))
+    520              goto ERR_BACK;
+    521            LSeek(fin, 8, S_SET);
+    522            if(FRead(fin, &version, sizeof(int))!=sizeof(int))
+    523            {
+    524            ERR_BACK:
+    525              FClose(fin);
+    526              return 0;
+    527            }
+    528            LSeek(fin, 0, S_SET);
+    529            if(version==1)
+    530            {
+    531              if(FRead(fin, &msf1, sizeof(MSS_FILE_P1))!=sizeof(MSS_FILE_P1))
+    532                goto ERR_BACK;
+    533              if(strncmp(msf1.header, ELFNAME, 7))
+    534                goto ERR_BACK;
+    535              strcpy(sdl->time, msf1.time);
+    536              strcpy(sdl->number, msf1.number);
+    537            }
+    538            else if(version==2)
+    539            {
+    540              if(FRead(fin, &msf2, sizeof(MSS_FILE_P2))!=sizeof(MSS_FILE_P2))
+    541                goto ERR_BACK;
+    542              if(strncmp(msf2.header, ELFNAME, 7))
+    543                goto ERR_BACK;
+    544              strcpy(sdl->time, msf2.time);
+    545              strcpy(sdl->number, msf2.number);
+    546              sdl->type=msf2.type;
+    547            }
+    548            else goto ERR_BACK;
+    549            if(FRead(fin, &len, 2)!=2) goto ERR_BACK;
+    550            sdl->text=AllocWS(len);
+    551            if(FRead(fin, sdl->text->wsbody+1, len*2)!=len*2)
+    552              goto ERR_BACK;
+    553            FClose(fin);
+    554            sdl->text->wsbody[0]=len;
+    555            sdl->msg_prop|=ISFILE;
+    556            sdl->fname=new char[128];
+    557            strcpy(sdl->fname, fname);
+    558            return 1;
+    559          }
+    560          
+    561          
+    562          int SmsData::ReadFolder(int type)
+    563          {
+    564            const char *folder;
+    565            char dir[128];
+    566            char fullpath[128];
+    567            int n=0,len;//, x;
+    568            DIR_ENTRY de;
+    569            SDLIST *sdx;
+    570            switch(type)
+    571            {
+    572            case TYPE_DRAFT:
+    573              folder=FLDR_DRAFT;
+    574              break;
+    575            case TYPE_SENT:
+    576              folder=FLDR_SENT;
+    577              break;
+    578            case TYPE_IN_N:
+    579            case TYPE_IN_R:
+    580            case TYPE_IN_ALL:
+    581              folder=FLDR_IN;
+    582              break;
+    583            default:
+    584              folder=FLDR_UNK;
+    585              break;
+    586            }
+    587            strcpy(dir, main_folder);
+    588            //if((len=strlen(dir))<=0) return 0;
+    589            //x=dir[len-1];
+    590            //if((x!='\\')&&(x!='/'))
+    591            //{
+    592            //  dir[len]='\\';
+    593            //  dir[len+1]=0;
+    594            //}
+    595            strcat(dir, folder);
+    596            if(!IsDir(dir))
+    597              return 0;
+    598            strcat(dir, "*.mss");
+    599            if(FindFirstFile(&de, dir))
+    600            {
+    601              do
+    602              {
+    603                strcpy(fullpath, de.folder_name);
+    604                if((len=strlen(fullpath))<=0) continue;
+    605                if(fullpath[len-1]!='\\'&&fullpath[len-1]!='/')
+    606                {
+    607          	fullpath[len++]='\\';
+    608          	fullpath[len]='\0';
+    609                }
+    610                strcat(fullpath, de.file_name);
+    611                sdx=AllocSDL();
+    612                if(ReadMss(fullpath, sdx))
+    613                {
+    614          	n++;
+    615          	LockSched();
+    616          	AddByTimeSDL(sdx);
+    617          	UnlockSched();
+    618          	if(!(n%4)) SendMyIpc(SMSYS_IPC_SMS_DATA_UPDATE);
+    619                }
+    620                else FreeOneSDL(sdx);
+    621              }
+    622              while(FindNextFile(&de));
+    623            }
+    624            FindClose(&de);
+    625            if((n%4)) SendMyIpc(SMSYS_IPC_SMS_DATA_UPDATE);
+    626            return n;
+    627          }
+    628          //-----------SmsDataMan--------------
+    629          
+    630          int SmsData::SaveMss(WSHDR *ws, const char *number, SDLIST *sdl, int type, int need_reload)
+    631          {
+    632            char path[128];
+    633            TTime time;
+    634            TDate date;
+    635            int f;//, len, x;
+    636            const char *folder;
+    637            char dir[128];
+    638            SDLIST *sdx=0;
+    639            MSS_FILE_P2 msf;
+    640            if(!ws || !number)
+    641              return 0;
+    642            switch(type)
+    643            {
+    644            case TYPE_DRAFT:
+    645              folder=FLDR_DRAFT;
+    646              break;
+    647            case TYPE_SENT:
+    648              folder=FLDR_SENT;
+    649              break;
+    650            case TYPE_IN_N:
+    651            case TYPE_IN_R:
+    652            case TYPE_IN_ALL:
+    653              folder=FLDR_IN;
+    654              break;
+    655            default:
+    656              folder=FLDR_UNK;
+    657              break;
+    658            }
+    659            zeromem(&msf, sizeof(MSS_FILE_P2));
+    660            GetDateTime(&date, &time);
+    661            strcpy(dir, main_folder);
+    662            //if((len=strlen(dir))<=0) return 0;
+    663            //x=dir[len-1];
+    664            //if((x!='\\')&&(x!='/'))
+    665            //{
+    666            //  dir[len]='\\';
+    667            //  dir[len+1]=0;
+    668            //}
+    669            if(!IsDir(dir))
+    670              MkDir(dir);
+    671            strcat(dir, folder);
+    672            if(!IsDir(dir))
+    673              MkDir(dir);
+    674            if(type==TYPE_DRAFT && sdl && sdl->type==TYPE_DRAFT && (sdl->msg_prop&ISFILE) && sdl->fname)
+    675              strcpy(path, sdl->fname);
+    676            else if(!GetMssPath(path, dir, &time, &date))
+    677              return 0;
+    678            if((f=FOpen(path, A_BIN+A_WriteOnly+A_Create+A_Truncate, P_WRITE))<0)
+    679            {
+    680              return 0;
+    681            }
+    682            strcpy(msf.header, ELFNAME);
+    683            strncpy(msf.number, number, 32);
+    684            msf.type=type;
+    685            msf.version=MSS_VERSION;
+    686            //如果是来短信,直接使用短信中的时间保存
+    687            if(((type==TYPE_IN_N)||(type==TYPE_IN_R)||(type==TYPE_IN_ALL))
+    688               &&(sdl!=0)
+    689                 &&(strlen(sdl->time)))
+    690            {
+    691              strcpy(msf.time, sdl->time);
+    692            }
+    693            else
+    694              sprintf(msf.time, "%02d-%02d-%02d %02d:%02d:%02d",
+    695          	    date.year%2000, // ? //2008 ->08
+    696          	    date.month, date.day,
+    697          	    time.hour, time.min,
+    698          	    time.sec);
+    699            if(FWrite(f, &msf, sizeof(MSS_FILE_P2))!=sizeof(MSS_FILE_P2))
+    700            {
+    701              FClose(f);
+    702              return 0;
+    703            }
+    704            FWrite(f, ws->wsbody, (ws->wsbody[0]+1)*2);
+    705            FClose(f);
+    706            if(need_reload==1)
+    707            {
+    708              SUBPROC((void*)ReadAllMessageCHK, this);
+    709            }
+    710            else if(need_reload==2)
+    711            {
+    712              sdx=AllocSDL();
+    713              if(ReadMss(path, sdx))
+    714              {
+    715                LockSched();
+    716                AddByTimeSDL(sdx);
+    717                UnlockSched();
+    718                return ((int)sdx);
+    719              }
+    720              else FreeOneSDL(sdx);
+    721            }
+    722            return 1;
+    723          }
+    724          
+    725          int SmsData::GetMssPath(char *path, char *folder, TTime *time, TDate *date)
+    726          {
+    727            char temp[128];
+    728            int i=0;
+    729            sprintf(path, "%04d%02d%02d%02d%02d%02d",
+    730          	  date->year,
+    731          	  date->month,
+    732          	  date->day,
+    733          	  time->hour,
+    734          	  time->min,
+    735          	  time->sec);
+    736            strcpy(temp, folder);
+    737            strcat(temp, path);
+    738            strcat(temp, ".mss");
+    739            if(!IsFileExist(temp))
+    740            {
+    741              strcpy(path, temp);
+    742              return 1;
+    743            }
+    744            while(i<MAX_FILE)
+    745            {
+    746              sprintf(temp, "%s%s_%04d%s", folder, path, i, ".mss");
+    747              if(!IsFileExist(temp))
+    748              {
+    749                strcpy(path, temp);
+    750                return 1;
+    751              }
+    752              i++;
+    753            }
+    754            return 0;
+    755          }
+    756          
+    757          int SmsData::DeleteMessage(SDLIST *sdl)
+    758          {
+    759            short cnt;
+    760            if(!sdl) return 0;
+    761            if((sdl->msg_prop&ISFILE) && sdl->fname)
+    762            {
+    763              FDelete(sdl->fname);
+    764            }
+    765            else if(sdl->dat_index)
+    766            {
+    767              if(DeleteSMS(sdl->dat_index, &cnt)!=0x3E8) return 0;
+    768            }
+    769            else return 0;
+    770            if(IsExistSDL(sdl)) DeleteSDL(sdl); //可能已经在onmessage中被删除
+    771            //if(need_reload==1) return (ReadAllMessage());
+    772            return 1;
+    773          }
+    774          
+    775          int SmsData::ReadAllMessage(void)
+    776          {
+    777            int n=0;
+    778            is_reading=1;
+    779            n=ReadAllDatMsg();
+    780            n+=ReadFolder(TYPE_IN_ALL);
+    781            n+=ReadFolder(TYPE_SENT);
+    782            n+=ReadFolder(TYPE_DRAFT);
+    783            SendMyIpc(SMSYS_IPC_SMS_DATA_UPDATE);
+    784            is_reading=0;
+    785            this->n_new=GetSMSCount(TYPE_IN_N);
+    786            return n;
+    787          }
+    788          
+    789          int SmsData::ReadAllMessageCHK(SmsData *data)
+    790          {
+    791            if(!data->sdltop) return data->ReadAllMessage();
+    792            return 0;
+    793          }
+    794          
+    795          
+    796          int SmsData::ReadAllMessageFRC(SmsData *data)
+    797          {
+    798            return data->ReadAllMessage();
+    799          }
+    800          
+    801          SmsData::SmsData()
+    802          {
+    803            sms_buf=NULL;
+    804          //  eam_buf=NULL;
+    805            sms_size=0;
+    806          //  eam_size=0;
+    807            sdltop=NULL;
+    808            is_reading=0;
+    809            this->n_new=0;
+    810            SUBPROC((void *)this->ReadAllMessageCHK, this);
+    811          }
+    812          
+    813          SmsData::~SmsData()
+    814          {
+    815            if(sms_buf) delete sms_buf;
+    816          //  if(eam_buf) delete eam_buf;
+    817            sms_size=0;
+    818          //  eam_size=0;
+    819            FreeAllSDL();
+    820          }
+    821          
+    822          
+    823          SmsData *SMSDATA=NULL;
+    824          
+    825          
+    826          int SmsData::IsNewSMS(int dat_index)
+    827          {
+    828            SMS_DATA_ROOT *sdroot=SmsDataRoot();
+    829            SMS_DATA_LLIST inll=sdroot->in_msg;
+    830            SMS_DATA_LIST *lst;
+    831            INDEX_ID_DATA *idd;
+    832            if(!dat_index)
+    833              return 0;
+    834            lst=inll.last;
+    835            while(lst)
+    836            {
+    837              if((idd=lst->index_id_data))
+    838              {
+    839                if(idd->index == dat_index)
+    840                {
+    841          	if(idd->cnt_all != idd->cnt_received)
+    842          	  return 0;
+    843          	if(idd->type==1)
+    844          	  return 1;
+    845          	return 0;
+    846                }
+    847              }
+    848              lst=(SMS_DATA_LIST *)lst->prev;
+    849            }
+    850            return 0;
+    851          }
+    852          
+    853          int SmsData::CheckSMS(int dat_index)
+    854          {
+    855            SDLIST *sdl;
+    856            SMS_DATA_ROOT *sdroot=SmsDataRoot();
+    857            SMS_DATA_LLIST inll=sdroot->in_msg;
+    858            SMS_DATA_LLIST outll=sdroot->out_msg;
+    859            SMS_DATA_LIST *lst;
+    860            INDEX_ID_DATA *idd;
+    861            if(!dat_index)
+    862              return 0;
+    863            lst=inll.first;
+    864            while(lst)
+    865            {
+    866              if((idd=lst->index_id_data))
+    867              {
+    868                if(idd->index==dat_index)
+    869                {
+    870          	if((sdl=FindSDL(dat_index)))
+    871          	{
+    872          	  if(sdl->cnt_r < idd->cnt_received)
+    873          	  {
+    874          	    //DeleteSDL(sdl);
+    875          	    return CHK_RES_RELOAD;
+    876          	  }
+    877          	  if(idd->type==1)
+    878          	  {
+    879          	    if(sdl->type!=TYPE_IN_N)
+    880          	    {
+    881          	      sdl->type=TYPE_IN_N;
+    882          	      return CHK_RES_REFRESH;
+    883          	    }
+    884          	  }
+    885          	  else
+    886          	  {
+    887          	    if(sdl->type==TYPE_IN_N)
+    888          	    {
+    889          	      sdl->type=TYPE_IN_R;
+    890          	      return CHK_RES_REFRESH;
+    891          	    }
+    892          	  }
+    893          	}
+    894          	else return CHK_RES_RELOAD;
+    895          	return CHK_RES_DONOTHING;
+    896                }
+    897              }
+    898              lst=(SMS_DATA_LIST *)lst->next;
+    899            }
+    900            lst=outll.first;
+    901            while(lst)
+    902            {
+    903              if((idd=lst->index_id_data))
+    904              {
+    905                if(idd->index==dat_index)
+    906                {
+    907          	if(!(sdl=FindSDL(dat_index))) return CHK_RES_RELOAD;
+    908          	else if(sdl->cnt_r < idd->cnt_received)
+    909          	{
+    910          	  //DeleteSDL(sdl);
+    911          	  return CHK_RES_RELOAD;
+    912          	}
+    913          	return CHK_RES_DONOTHING;
+    914                }
+    915              }
+    916              lst=(SMS_DATA_LIST *)lst->next;
+    917            }
+    918            //is not exist, del form list
+    919            if((sdl=FindSDL(dat_index)))
+    920            {
+    921              DeleteSDL(sdl);
+    922              return CHK_RES_REFRESH;
+    923            }
+    924            return CHK_RES_DONOTHING;
+    925          }
+    926          
+    927          int SmsData::CheckDat(void)
+    928          {
+    929            SDLIST *sdl;
+    930            SMS_DATA_ROOT *sdroot=SmsDataRoot();
+    931            SMS_DATA_LLIST inll=sdroot->in_msg;
+    932            SMS_DATA_LLIST outll=sdroot->out_msg;
+    933            SMS_DATA_LIST *lst;
+    934            INDEX_ID_DATA *idd;
+    935            int res=0;
+    936            lst=inll.first;
+    937            while(lst)
+    938            {
+    939              if((idd=lst->index_id_data))
+    940              {
+    941                if((sdl=FindSDL(idd->index)))
+    942                {
+    943          	if(sdl->cnt_r < idd->cnt_received)
+    944          	{
+    945          	  DeleteSDL(sdl);
+    946          	  if(ReadMessageOne(idd->index))
+    947          	  {
+    948          	    res++;
+    949          	    if(!(res%4)) SendMyIpc(SMSYS_IPC_SMS_DATA_UPDATE);
+    950          	  }
+    951          	  continue;
+    952          	}
+    953          	if(idd->type==1)
+    954          	{
+    955          	  if(sdl->type!=TYPE_IN_N)
+    956          	  {
+    957          	    sdl->type=TYPE_IN_N;
+    958          	    res++;
+    959          	    if(!(res%4)) SendMyIpc(SMSYS_IPC_SMS_DATA_UPDATE);
+    960          	    continue;
+    961          	  }
+    962          	}
+    963          	else
+    964          	{
+    965          	  if(sdl->type==TYPE_IN_N)
+    966          	  {
+    967          	    sdl->type=TYPE_IN_R;
+    968          	    res++;
+    969          	    if(!(res%4)) SendMyIpc(SMSYS_IPC_SMS_DATA_UPDATE);
+    970          	    continue;
+    971          	  }
+    972          	}
+    973                }
+    974                else
+    975                {
+    976          	if(ReadMessageOne(idd->index))
+    977          	{
+    978          	  res++;
+    979          	  if(!(res%4)) SendMyIpc(SMSYS_IPC_SMS_DATA_UPDATE);
+    980          	}
+    981                }
+    982              }
+    983              lst=(SMS_DATA_LIST *)lst->next;
+    984            }
+    985            lst=outll.first;
+    986            while(lst)
+    987            {
+    988              if((idd=lst->index_id_data))
+    989              {
+    990                if(!(sdl=FindSDL(idd->index)) || sdl->cnt_r < idd->cnt_received)
+    991                {
+    992          	if(ReadMessageOne(idd->index))
+    993          	{
+    994          	  res++;
+    995          	  if(res && !(res%4)) SendMyIpc(SMSYS_IPC_SMS_DATA_UPDATE);
+    996          	}
+    997                }
+    998              }
+    999              lst=(SMS_DATA_LIST *)lst->next;
+   1000            }
+   1001            if((res%4)) SendMyIpc(SMSYS_IPC_SMS_DATA_UPDATE);
+   1002            return res;
+   1003          }
+   1004          
+   1005          int SmsData::CheckFolder(int type)
+   1006          {
+   1007            char filepath[128];
+   1008            const char *folder;
+   1009            char dir[128];
+   1010            int x, len, res=0;
+   1011            DIR_ENTRY de;
+   1012            SDLIST *sdx;
+   1013            switch(type)
+   1014            {
+   1015            case TYPE_DRAFT:
+   1016              folder=FLDR_DRAFT;
+   1017              break;
+   1018            case TYPE_SENT:
+   1019              folder=FLDR_SENT;
+   1020              break;
+   1021            case TYPE_IN_N:
+   1022            case TYPE_IN_R:
+   1023            case TYPE_IN_ALL:
+   1024              folder=FLDR_IN;
+   1025              break;
+   1026            default:
+   1027              folder=FLDR_UNK;
+   1028              break;
+   1029            }
+   1030            //if(!IsDir(CFG_MAIN_FOLDER)) return 0;
+   1031            strcpy(dir, main_folder);
+   1032            //if((len=strlen(dir))<=0) return 0;
+   1033            //x=dir[len-1];
+   1034            //if((x!='\\')&&(x!='/'))
+   1035            //{
+   1036            //  dir[len]='\\';
+   1037            //  dir[len+1]=0;
+   1038            //}
+   1039            if(!IsDir(dir)) return 0;
+   1040            strcat(dir, folder);
+   1041            if(!IsDir(dir)) return 0;
+   1042            strcat(dir, "*.mss");
+   1043            if(FindFirstFile(&de, dir))
+   1044            {
+   1045              do
+   1046              {
+   1047                strcpy(filepath, de.folder_name);
+   1048                if((len=strlen(filepath))<=0) continue;
+   1049                x=filepath[len-1];
+   1050                if((x!='\\')&&(x!='/'))
+   1051                {
+   1052          	filepath[len]='\\';
+   1053          	filepath[len+1]=0;
+   1054                }
+   1055                strcat(filepath, de.file_name);
+   1056                if(!(sdx=FindSDL(filepath)))
+   1057                {
+   1058          	sdx=AllocSDL();
+   1059          	if(ReadMss(filepath, sdx))
+   1060          	{
+   1061          	  res++;
+   1062          	  LockSched();
+   1063          	  AddByTimeSDL(sdx);
+   1064          	  UnlockSched();
+   1065          	  if(!(res%4)) SendMyIpc(SMSYS_IPC_SMS_DATA_UPDATE);
+   1066          	}
+   1067          	else FreeOneSDL(sdx);
+   1068                }
+   1069              }while(FindNextFile(&de));
+   1070            }
+   1071            FindClose(&de);
+   1072            if((res%4)) SendMyIpc(SMSYS_IPC_SMS_DATA_UPDATE);
+   1073            return res;
+   1074          }
+   1075          
+   1076          int SmsData::IsDatExist(int dat_index)
+   1077          {
+   1078            SMS_DATA_ROOT *sdroot=SmsDataRoot();
+   1079            SMS_DATA_LLIST inll=sdroot->in_msg;
+   1080            SMS_DATA_LLIST outll=sdroot->out_msg;
+   1081            SMS_DATA_LIST *lst;
+   1082            INDEX_ID_DATA *idd;
+   1083            lst=inll.first;
+   1084            while(lst)
+   1085            {
+   1086              if((idd=lst->index_id_data))
+   1087              {
+   1088                if(idd->index==dat_index)
+   1089          	return 1;
+   1090              }
+   1091              lst=(SMS_DATA_LIST *)lst->next;
+   1092            }
+   1093            lst=outll.first;
+   1094            while(lst)
+   1095            {
+   1096              if((idd=lst->index_id_data))
+   1097              {
+   1098                if(idd->index==dat_index)
+   1099          	return 1;
+   1100              }
+   1101              lst=(SMS_DATA_LIST *)lst->next;
+   1102            }
+   1103            return 0;
+   1104          }
+   1105          
+   1106          int SmsData::CheckSDList(void)
+   1107          {
+   1108            SDLIST *sdl=sdltop;
+   1109            SDLIST *sdx;
+   1110            int n=0;
+   1111            while(sdl)
+   1112            {
+   1113              if((sdl->msg_prop&ISFILE))
+   1114              {
+   1115                if(sdl->fname)
+   1116                {
+   1117          	if(!IsFileExist(sdl->fname))
+   1118          	{
+   1119          	  sdx=sdl;
+   1120          	  sdl=(SDLIST *)sdl->next;
+   1121          	  DeleteSDL(sdx);
+   1122          	  n++;
+   1123          	  if(!(n%4)) SendMyIpc(SMSYS_IPC_SMS_DATA_UPDATE);
+   1124          	  continue;
+   1125          	}
+   1126                }
+   1127              }
+   1128              else if(sdl->dat_index)
+   1129              {
+   1130                if(!IsDatExist(sdl->dat_index))
+   1131                {
+   1132          	sdx=sdl;
+   1133          	sdl=(SDLIST *)sdl->next;
+   1134          	DeleteSDL(sdx);
+   1135          	n++;
+   1136          	if(!(n%4)) SendMyIpc(SMSYS_IPC_SMS_DATA_UPDATE);
+   1137          	continue;
+   1138                }
+   1139              }
+   1140              sdl=(SDLIST *)sdl->next;
+   1141            }
+   1142            if((n%4)) SendMyIpc(SMSYS_IPC_SMS_DATA_UPDATE);
+   1143            return n;
+   1144          }
+   1145          
+   1146          int SmsData::CheckAll(void)
+   1147          {
+   1148            int res=0;
+   1149            res=CheckSDList();
+   1150            res+=CheckDat();
+   1151            res+=CheckFolder(TYPE_IN_ALL);
+   1152            res+=CheckFolder(TYPE_SENT);
+   1153            res+=CheckFolder(TYPE_DRAFT);
+   1154            SendMyIpc(SMSYS_IPC_SMS_DATA_UPDATE);
+   1155            this->n_new=GetSMSCount(TYPE_IN_N);
+   1156            return res;
+   1157          }
+   1158          
+   1159          int SmsData::CheckAllCHK(SmsData *data)
+   1160          {
+   1161            if(!data->is_reading)
+   1162            {
+   1163              return data->CheckAll();
+   1164            }
+   1165            return 0;
+   1166          }
+   1167          
+   1168          //不支持1版本Mss文件
+   1169          int SmsData::NewToReadSMS(SDLIST *sdl)
+   1170          {
+   1171            if(sdl->type!=TYPE_IN_N) return 0;
+   1172            if ((sdl->msg_prop&ISFILE))
+   1173            {
+   1174              if (sdl->fname)
+   1175              {
+   1176                int fin;
+   1177                int version;
+   1178                int type;
+   1179                char filepath[128];
+   1180                strcpy(filepath, sdl->fname);
+   1181                if ((fin=FOpen(filepath, A_BIN+A_ReadWrite, P_READ+P_WRITE))!=-1)
+   1182                {
+   1183          	LSeek(fin, 8, S_SET);
+   1184          	if(FRead(fin, &version, sizeof(int))==sizeof(int))
+   1185          	{
+   1186          	  if(version==2)
+   1187          	  {
+   1188          	    type=TYPE_IN_R;
+   1189          	    LSeek(fin, 0xC, S_SET);
+   1190          	    FWrite(fin, &type, sizeof(int));
+   1191          	  }
+   1192          	}
+   1193          	FClose(fin);
+   1194          	sdl->type=TYPE_IN_R;
+   1195          	if(this->n_new) this->n_new--;
+   1196          	return 1;
+   1197                }
+   1198                return 0;
+   1199              }
+   1200              return 0;
+   1201            }
+   1202            else if (sdl->dat_index)
+   1203            {
+   1204              if (SetSmsStatus(sdl->dat_index, 1)==0x3E8)
+   1205              {
+   1206                sdl->type=TYPE_IN_R;
+   1207                if(this->n_new) this->n_new--;
+   1208                return 1;
+   1209              }
+   1210              return 0;
+   1211            }
+   1212            return 0;
+   1213          }
+   1214          
+   1215          
+   1216          int SmsData::IsExistSDL(SDLIST *sdl)
+   1217          {
+   1218            SDLIST *sdx=this->sdltop;
+   1219            while(sdx)
+   1220            {
+   1221              if(sdx==sdl) return 1;
+   1222              sdx=(SDLIST *)sdx->next;
+   1223            }
+   1224            return 0;
+   1225          }
+   1226          
+   1227          
+   1228          SDLIST *SmsData::FindNextSDL(SDLIST *sdl, int type)
+   1229          {
+   1230            if(!sdl) return 0;
+   1231            if((type==TYPE_SENT)||(type==TYPE_DRAFT))
+   1232            {
+   1233              sdl=(SDLIST *)sdl->next;
+   1234              while(sdl)
+   1235              {
+   1236                if(sdl->type==type)
+   1237          	return sdl;
+   1238                sdl=(SDLIST *)sdl->next;
+   1239              }
+   1240            }
+   1241            else if((type==TYPE_IN_ALL)||(type==TYPE_IN_N)||(type==TYPE_IN_R))
+   1242            {
+   1243              sdl=(SDLIST *)sdl->next;
+   1244              while(sdl)
+   1245              {
+   1246                if((sdl->type==TYPE_IN_R)||(sdl->type==TYPE_IN_N)||(sdl->type==TYPE_IN_ALL))
+   1247          	return sdl;
+   1248                sdl=(SDLIST *)sdl->next;
+   1249              }
+   1250            }
+   1251            else if(type==TYPE_FILTER)
+   1252            {
+   1253              return FilterFindNext(sdl);
+   1254            }
+   1255            else
+   1256            {
+   1257              sdl=(SDLIST *)sdl->next;
+   1258              return sdl;
+   1259            }
+   1260            return 0;
+   1261          }
+   1262          
+   1263          SDLIST *SmsData::FindPrevSDL(SDLIST *sdl, int type)
+   1264          {
+   1265            if(!sdl) return 0;
+   1266            if((type==TYPE_SENT)||(type==TYPE_DRAFT))
+   1267            {
+   1268              sdl=(SDLIST *)sdl->prev;
+   1269              while(sdl)
+   1270              {
+   1271                if(sdl->type==type)
+   1272          	return sdl;
+   1273                sdl=(SDLIST *)sdl->prev;
+   1274              }
+   1275            }
+   1276            else if((type==TYPE_IN_ALL)||(type==TYPE_IN_N)||(type==TYPE_IN_R))
+   1277            {
+   1278              sdl=(SDLIST *)sdl->prev;
+   1279              while(sdl)
+   1280              {
+   1281                if((sdl->type==TYPE_IN_R)||(sdl->type==TYPE_IN_N)||(sdl->type==TYPE_IN_ALL))
+   1282          	return sdl;
+   1283                sdl=(SDLIST *)sdl->prev;
+   1284              }
+   1285            }
+   1286            else if(type==TYPE_FILTER)
+   1287            {
+   1288              return (FilterFindPrev(sdl));
+   1289            }
+   1290            else
+   1291            {
+   1292              sdl=(SDLIST *)sdl->prev;
+   1293              return sdl;
+   1294            }
+   1295            return 0;
+   1296          }
+   1297          
+   1298          
+   1299          SDLIST *SmsData::FilterFindSDL(int n)
+   1300          {
+   1301            switch(CFG_FILTEROP)
+   1302            {
+   1303            case FILTER_ALL:
+   1304              return (FindSDL(0, n));
+   1305            case FILTER_NEW:
+   1306              return (FindSDL(TYPE_IN_N, n));
+   1307            case FILTER_DAT:
+   1308              return (FilterFindSDL(0, n));
+   1309            case FILTER_FILE:
+   1310              return (FilterFindSDL(ISFILE, n));
+   1311            case FILTER_NUM:
+   1312              return (FilterFindSDL(CFG_STRORNUM, n));
+   1313            case FILTER_STR:
+   1314              {
+   1315                WSHDR *ws, wsn;
+   1316                unsigned short wsb[64];
+   1317                ws=CreateLocalWS(&wsn, wsb, 64);
+   1318                utf8_2ws(ws, CFG_STRORNUM, 64);
+   1319                return (FilterFindSDL(ws, n));
+   1320              }
+   1321            default:
+   1322              return 0;
+   1323            }
+   1324          }
+   1325          
+   1326          SDLIST *SmsData::FilterFindSDL(int isfile, int n)
+   1327          {
+   1328            int i=0;
+   1329            SDLIST *sdl=sdltop;
+   1330            while(sdl)
+   1331            {
+   1332              if((sdl->msg_prop&ISFILE)==isfile)
+   1333              {
+   1334                if(i==n) return sdl;
+   1335                i++;
+   1336              }
+   1337              sdl=(SDLIST *)sdl->next;
+   1338            }
+   1339            return 0;
+   1340          }
+   1341          
+   1342          SDLIST *SmsData::FilterFindSDL(const char *number, int n)
+   1343          {
+   1344            int i=0;
+   1345            SDLIST *sdl=sdltop;
+   1346            while(sdl)
+   1347            {
+   1348              if(NumberMatch(sdl->number, number))
+   1349              {
+   1350                if(i==n)
+   1351          	return sdl;
+   1352                i++;
+   1353              }
+   1354              sdl=(SDLIST *)sdl->next;
+   1355            }
+   1356            return 0;
+   1357          }
+   1358          
+   1359          SDLIST *SmsData::FilterFindSDL(WSHDR *str, int n)
+   1360          {
+   1361            int i=0;
+   1362            SDLIST *sdl=sdltop;
+   1363            while(sdl)
+   1364            {
+   1365              if(wstrstr(sdl->text, str))
+   1366              {
+   1367                if(i==n)
+   1368          	return sdl;
+   1369                i++;
+   1370              }
+   1371              sdl=(SDLIST *)sdl->next;
+   1372            }
+   1373            return 0;
+   1374          }
+   1375          
+   1376          
+   1377          int SmsData::FilterGetCount(void)
+   1378          {
+   1379            //GetCPUClock();
+   1380            switch(CFG_FILTEROP)
+   1381            {
+   1382            case FILTER_ALL:
+   1383              return (GetSMSCount(0));
+   1384            case FILTER_NEW:
+   1385              return (GetSMSCount(TYPE_IN_N));
+   1386            case FILTER_DAT:
+   1387              return (GetSMSCount(0, 0));
+   1388            case FILTER_FILE:
+   1389              return (GetSMSCount(ISFILE, 0));
+   1390            case FILTER_NUM:
+   1391              return (FilterGetCount(CFG_STRORNUM));
+   1392            case FILTER_STR:
+   1393              {
+   1394                WSHDR *ws, wsn;
+   1395                unsigned short wsb[64];
+   1396                ws=CreateLocalWS(&wsn, wsb, 64);
+   1397                utf8_2ws(ws, CFG_STRORNUM, 64);
+   1398                return (FilterGetCount(ws));
+   1399              }
+   1400            default:
+   1401              return 0;
+   1402            }
+   1403          }
+   1404          
+   1405          
+   1406          int SmsData::FilterGetCount(const char *number)
+   1407          {
+   1408            int i=0;
+   1409            SDLIST *sdl=sdltop;
+   1410            while(sdl)
+   1411            {
+   1412              if(NumberMatch(sdl->number, number))
+   1413              {
+   1414                i++;
+   1415              }
+   1416              sdl=(SDLIST *)sdl->next;
+   1417            }
+   1418            return i;
+   1419          }
+   1420          
+   1421          int SmsData::FilterGetCount(WSHDR *str)
+   1422          {
+   1423            int i=0;
+   1424            SDLIST *sdl=sdltop;
+   1425            while(sdl)
+   1426            {
+   1427              if(wstrstr(sdl->text, str))
+   1428              {
+   1429                i++;
+   1430              }
+   1431              sdl=(SDLIST *)sdl->next;
+   1432            }
+   1433            return i;
+   1434          }
+   1435          
+   1436          
+   1437          SDLIST *SmsData::FilterFindNext(SDLIST *sdl)
+   1438          {
+   1439            if(!sdl) return 0;
+   1440            switch(CFG_FILTEROP)
+   1441            {
+   1442            case FILTER_ALL:
+   1443              return (FindNextSDL(sdl, 0));
+   1444            case FILTER_NEW:
+   1445              return (FindNextSDL(sdl, TYPE_IN_N));
+   1446            case FILTER_DAT:
+   1447              sdl=(SDLIST *)sdl->next;
+   1448              while(sdl)
+   1449              {
+   1450                if(!(sdl->msg_prop&ISFILE)) return sdl;
+   1451                sdl=(SDLIST *)sdl->next;
+   1452              }
+   1453              return 0;
+   1454            case FILTER_FILE:
+   1455              sdl=(SDLIST *)sdl->next;
+   1456              while(sdl)
+   1457              {
+   1458                if((sdl->msg_prop&ISFILE)) return sdl;
+   1459                sdl=(SDLIST *)sdl->next;
+   1460              }
+   1461              return 0;
+   1462            case FILTER_NUM:
+   1463              return (FilterFindNext(sdl, CFG_STRORNUM));
+   1464            case FILTER_STR:
+   1465              {
+   1466                WSHDR *ws, wsn;
+   1467                unsigned short wsb[64];
+   1468                ws=CreateLocalWS(&wsn, wsb, 64);
+   1469                utf8_2ws(ws, CFG_STRORNUM, 64);
+   1470                return (FilterFindNext(sdl, CFG_STRORNUM));
+   1471              }
+   1472            default:
+   1473              return 0;
+   1474            }
+   1475          }
+   1476          SDLIST *SmsData::FilterFindNext(SDLIST *sdl, const char *number)
+   1477          {
+   1478            if(!sdl) return 0;
+   1479            sdl=(SDLIST *)sdl->next;
+   1480            while(sdl)
+   1481            {
+   1482              if(NumberMatch(sdl->number, number))
+   1483                return sdl;
+   1484              sdl=(SDLIST *)sdl->next;
+   1485            }
+   1486            return 0;
+   1487          }
+   1488          SDLIST *SmsData::FilterFindNext(SDLIST *sdl, WSHDR *str)
+   1489          {
+   1490            if(!sdl) return 0;
+   1491            sdl=(SDLIST *)sdl->next;
+   1492            while(sdl)
+   1493            {
+   1494              if(wstrstr(sdl->text, str))
+   1495                return sdl;
+   1496              sdl=(SDLIST *)sdl->next;
+   1497            }
+   1498            return 0;
+   1499          }
+   1500          
+   1501          SDLIST *SmsData::FilterFindPrev(SDLIST *sdl)
+   1502          {
+   1503            if(!sdl) return 0;
+   1504            switch(CFG_FILTEROP)
+   1505            {
+   1506            case FILTER_ALL:
+   1507              return (FindPrevSDL(sdl, 0));
+   1508            case FILTER_NEW:
+   1509              return (FindPrevSDL(sdl, TYPE_IN_N));
+   1510            case FILTER_DAT:
+   1511              sdl=(SDLIST *)sdl->prev;
+   1512              while(sdl)
+   1513              {
+   1514                if(!(sdl->msg_prop&ISFILE)) return sdl;
+   1515                sdl=(SDLIST *)sdl->prev;
+   1516              }
+   1517              return 0;
+   1518            case FILTER_FILE:
+   1519              sdl=(SDLIST *)sdl->prev;
+   1520              while(sdl)
+   1521              {
+   1522                if((sdl->msg_prop&ISFILE)) return sdl;
+   1523                sdl=(SDLIST *)sdl->prev;
+   1524              }
+   1525              return 0;
+   1526            case FILTER_NUM:
+   1527              return (FilterFindPrev(sdl, CFG_STRORNUM));
+   1528            case FILTER_STR:
+   1529              {
+   1530                WSHDR *ws, wsn;
+   1531                unsigned short wsb[64];
+   1532                ws=CreateLocalWS(&wsn, wsb, 64);
+   1533                utf8_2ws(ws, CFG_STRORNUM, 64);
+   1534                return (FilterFindPrev(sdl, CFG_STRORNUM));
+   1535              }
+   1536            default:
+   1537              return 0;
+   1538            }
+   1539          }
+   1540          SDLIST *SmsData::FilterFindPrev(SDLIST *sdl, const char *number)
+   1541          {
+   1542            if(!sdl) return 0;
+   1543            sdl=(SDLIST *)sdl->prev;
+   1544            while(sdl)
+   1545            {
+   1546              if(NumberMatch(sdl->number, number))
+   1547                return sdl;
+   1548              sdl=(SDLIST *)sdl->prev;
+   1549            }
+   1550            return 0;
+   1551          }
+   1552          SDLIST *SmsData::FilterFindPrev(SDLIST *sdl, WSHDR *str)
+   1553          {
+   1554            if(!sdl) return 0;
+   1555            sdl=(SDLIST *)sdl->prev;
+   1556            while(sdl)
+   1557            {
+   1558              if(wstrstr(sdl->text, str))
+   1559                return sdl;
+   1560              sdl=(SDLIST *)sdl->prev;
+   1561            }
+   1562            return 0;
+   1563          }
+   1564          
+   1565          
+   1566          int SmsData::MoveToArchive(SDLIST *sdl) //只支持mss
+   1567          {
+   1568            char fullpath[128];
+   1569            char folder[128];
+   1570          //  unsigned int err;
+   1571          //  MSS_FILE_P2 msf;
+   1572            //int /*fin,*/ len, c;
+   1573            TTime time;
+   1574            TDate date;
+   1575            if(!sdl || !(sdl->msg_prop&ISFILE))
+   1576              return 0;
+   1577            GetDateTime(&date, &time);
+   1578            strcpy(folder, main_folder);
+   1579            //len=strlen(folder);
+   1580            //c=folder[len-1];
+   1581            //if(c!='\\' && c!='/')
+   1582            //{
+   1583            //  folder[len]='\\';
+   1584            //  folder[len+1]=0;
+   1585            //}
+   1586            if(!IsDir(folder))
+   1587              MkDir(folder);
+   1588            strcat(folder, FLDR_ARCHIVE);
+   1589            if(!IsDir(folder))
+   1590              MkDir(folder);
+   1591            if(strlen(sdl->time)>4)
+   1592            {
+   1593              strcpy(fullpath, "20");
+   1594              strncat(fullpath, sdl->time, 5);
+   1595              fullpath[7]='\\';
+   1596              fullpath[8]='\0';
+   1597              //sprintf(fullpath, "20%05s\\", sdl->time);
+   1598              StrClearChr(fullpath, '-');
+   1599            }
+   1600            else sprintf(fullpath, "%04d%02d\\", date.year, date.month); //借用~_~ , 按月份存储
+   1601            strcat(folder, fullpath);
+   1602            if(!IsDir(folder))
+   1603              MkDir(folder);
+   1604            switch(sdl->type)
+   1605            {
+   1606            case TYPE_DRAFT:
+   1607              strcat(folder, FLDR_DRAFT);
+   1608              break;
+   1609            case TYPE_SENT:
+   1610              strcat(folder, FLDR_SENT);
+   1611              break;
+   1612            case TYPE_IN_N:
+   1613            case TYPE_IN_R:
+   1614            case TYPE_IN_ALL:
+   1615              strcat(folder, FLDR_IN);
+   1616              break;
+   1617            default:
+   1618              strcat(folder, FLDR_UNK);
+   1619              break;
+   1620            }
+   1621            if(!IsDir(folder))
+   1622              MkDir(folder);
+   1623            if(!GetFilePathSDL(sdl, folder, fullpath, FTYPE_MSS))
+   1624              return 0;
+   1625            if (sdl->fname)
+   1626            {
+   1627              if(FMove(sdl->fname, fullpath))
+   1628              {
+   1629                DeleteSDL(sdl);
+   1630                return 1;
+   1631              }
+   1632            }
+   1633            return 0;
+   1634          }
+   1635          
+   1636          int SmsData::GetFilePathSDL(SDLIST *sdl, char *folder, char *filepath, int ftype)
+   1637          {
+   1638            int hasname;
+   1639            WSHDR *wname, nm;
+   1640            unsigned short nmb[64];
+   1641            char sname[65];
+   1642            char temp[128];
+   1643            TTime time;
+   1644            TDate date;
+   1645            int i=0;
+   1646            GetDateTime(&date, &time);
+   1647            wname=CreateLocalWS(&nm, nmb, 64);
+   1648            if(strlen(sdl->number))
+   1649            {
+   1650              if(!ADRLST->FindName(wname, sdl->number))
+   1651              {
+   1652                hasname=0;
+   1653              }
+   1654              else
+   1655              {
+   1656                hasname=1;
+   1657                ws_2str(wname, sname, 64);
+   1658              }
+   1659            }
+   1660            else
+   1661            {
+   1662              hasname=1;
+   1663              strcpy(sname, "Unk");
+   1664            }
+   1665            if(strlen(sdl->time))
+   1666            {
+   1667              snprintf(filepath, 128, "%s_%s", (hasname)?sname:sdl->number, sdl->time/*, (ftype==FTYPE_MSS)?"mss":"txt"*/);
+   1668            }
+   1669            else
+   1670              snprintf(filepath, 128, "%s_%02d-%02d-%02d %02d%02d%02d", (hasname)?sname:sdl->number,
+   1671          	    date.year%2000,
+   1672          	    date.month,
+   1673          	    date.day,
+   1674          	    time.hour,
+   1675          	    time.min,
+   1676          	    time.sec
+   1677          	      );
+   1678            StrClearChr(filepath, ':');
+   1679            StrClearChr(filepath, '*');
+   1680            StrClearChr(filepath, '?');
+   1681            StrClearChr(filepath, '<');
+   1682            StrClearChr(filepath, '>');
+   1683            StrClearChr(filepath, '|');
+   1684            StrClearChr(filepath, '\\');
+   1685            StrClearChr(filepath, '/');
+   1686            strcpy(temp, folder);
+   1687            strcat(temp, filepath);
+   1688            strcat(temp, (ftype==FTYPE_MSS)?".mss":".txt");
+   1689            if(!IsFileExist(temp))
+   1690            {
+   1691              strcpy(filepath, temp);
+   1692              return 1;
+   1693            }
+   1694            while(i<MAX_FILE)
+   1695            {
+   1696              sprintf(temp, "%s%s_%04d%s", folder, filepath, i, (ftype==FTYPE_MSS)?".mss":".txt");
+   1697              if(!IsFileExist(temp))
+   1698              {
+   1699                strcpy(filepath, temp);
+   1700                return 1;
+   1701              }
+   1702              i++;
+   1703            }
+   1704            return 0;
+   1705          }
+   1706          
+   1707          int SmsData::MoveAllToArchive(void)
+   1708          {
+   1709            int res=0;
+   1710            SDLIST *sdx;
+   1711            SDLIST *sdl=this->sdltop;
+   1712            while(sdl)
+   1713            {
+   1714              sdx=(SDLIST *)sdl->next;
+   1715              if(MoveToArchive(sdl))
+   1716              {
+   1717                res++;
+   1718                if(res%4) SendMyIpc(SMSYS_IPC_SMS_DATA_UPDATE);
+   1719              }
+   1720              sdl=sdx;
+   1721            }
+   1722            return res;
+   1723          }
+   1724          
+   1725          void SmsData::MoveAllToArchiveBG(SmsData *data)
+   1726          {
+   1727            char msgt[64];
+   1728            int res=data->MoveAllToArchive();
+   1729            sprintf(msgt, LGP->lgp.LGP_MOVE_MSSARCHIVER_N,res);
+   1730            ShowMSG(1, (int)msgt);
+   1731          }
+   1732          
+   1733          
+   1734          
+   1735          
+   1736          SDLIST * SmsData::FindLastNew(void)
+   1737          {
+   1738            SDLIST *sdl=this->sdltop;
+   1739            while(sdl)
+   1740            {
+   1741              if(sdl->type==TYPE_IN_N)
+   1742                return sdl;
+   1743              sdl=sdl->next;
+   1744            }
+   1745            return 0;
+   1746          }
+   1747          /*
+   1748          int SmsData::ExportText(SDLIST *sdl)
+   1749          {
+   1750          	if(!sdl)
+   1751          		return 0;
+   1752          	char *buf;
+   1753          	char folder[128];
+   1754          	char filepath[128];
+   1755          	char sname[64];
+   1756          	int len;
+   1757          	int c;
+   1758          	int fin;
+   1759          	strcpy(folder, CFG_MAIN_FOLDER);
+   1760          	if(!(len=strlen(folder)))
+   1761          		return 0;
+   1762          	c=folder[len-1];
+   1763          	if(c!='\\' && c!='/')
+   1764          	{
+   1765          		folder[len]='\\';
+   1766          		folder[le]='\0';
+   1767          	}
+   1768          	if(!IsDir(folder))
+   1769          		MkDir(folder);
+   1770          	strcat(folder, "Text\\");
+   1771          	if(!IsDir(folder))
+   1772          		MkDir(folder);
+   1773          	if(GetFilePathSDL(sdl, folder, filepath, FTYPE_TXT))
+   1774          		return 0;
+   1775          	if((fin=FOpen(filepath, A_BIN+A_WriteOnly+A_Create+A_Truncate, P_WRITE))==-1)
+   1776          		return 0;
+   1777          	len=sdl->text->wsbody[0]*3+4;
+   1778          	buf=new char[len];
+   1779          	buf[0]=0xEF;
+   1780          	buf[1]=0xBB;
+   1781          	buf[2]=0xBF;
+   1782          	if(FWrite(fin, buf, 3)!=3)
+   1783          	{
+   1784          		delete buf;
+   1785          		return 0;
+   1786          	}
+   1787          	ws_2utf8(sdl->text, buf, len);
+   1788          }*/
+   1789          
+   1790          const char *utf8_hdr="\xEF\xBB\xBF";
+   1791          int SmsData::ExportAllToText()
+   1792          {
+   1793            int fin;
+   1794            int res=0;
+   1795            //int c;
+   1796            int len;
+   1797            int utf8_res_len;
+   1798            char *buf;
+   1799            char folder[128];
+   1800            char filename[128];
+   1801            char temp[256];
+   1802            char sname[64];
+   1803            TTime time;
+   1804            TDate date;
+   1805            SDLIST *sdl;
+   1806            strcpy(folder, main_folder);
+   1807            //if(!(len=strlen(folder)))
+   1808            //  return 0;
+   1809            //c=folder[len-1];
+   1810            //if(c!='\\' && c!='/')
+   1811            //{
+   1812            //  folder[len++]='\\';
+   1813            //  folder[len]='\0';
+   1814            //}
+   1815            if(!IsDir(folder))
+   1816              MkDir(folder);
+   1817            strcat(folder, "Text\\");
+   1818            if(!IsDir(folder))
+   1819              MkDir(folder);
+   1820            GetDateTime(&date, &time);
+   1821            sprintf(filename, "%s%04d%02d%02d_%02d%02d.txt",
+   1822              folder,
+   1823              date.year,
+   1824              date.month,
+   1825              date.day,
+   1826              time.hour,
+   1827              time.min);
+   1828            if(IsFileExist(filename))
+   1829              return 0;
+   1830            if((fin=FOpen(filename, A_BIN+A_WriteOnly+A_Create+A_Truncate, P_WRITE))==-1)
+   1831              return 0;
+   1832            if(FWrite(fin, utf8_hdr, 3)!=3)
+   1833            {
+   1834              FClose(fin);
+   1835              return 0;
+   1836            }
+   1837            sdl=this->sdltop;
+   1838            buf=new char[MAX_TEXT*3];
+   1839            while(sdl)
+   1840            {
+   1841              CLIST *cl;
+   1842              if((cl=ADRLST->FindCList(sdl->number))
+   1843                && cl->name
+   1844                )
+   1845              {
+   1846                ws_2utf8(cl->name, sname, &utf8_res_len, 64);
+   1847              }
+   1848              else
+   1849              {
+   1850                strcpy(sname, sdl->number);
+   1851              }
+   1852              sprintf(temp, "%s: %s\r\n%s: %s\r\n%s: %s\r\n%s:\r\n",
+   1853                (sdl->type==TYPE_SENT||sdl->type==TYPE_DRAFT)?STR_TO_UTF8:STR_FROM_UTF8,
+   1854                sname,
+   1855                STR_NUMBER_UTF8,
+   1856                sdl->number,
+   1857                STR_TIME_UTF8,
+   1858                (strlen(sdl->time))?sdl->time:STR_UNK_UTF8,
+   1859                STR_TEXT_UTF8
+   1860                );
+   1861              len=strlen(temp);
+   1862              if(FWrite(fin, temp, len)!=len)
+   1863                break;
+   1864              ws_2utf8(sdl->text, buf, &utf8_res_len, MAX_TEXT*3);
+   1865              strcat(buf, "\r\n\r\n");
+   1866              len=strlen(buf);
+   1867              if(FWrite(fin, buf, len)!=len)
+   1868                break;
+   1869              res++;
+   1870              sdl=sdl->next;
+   1871            }
+   1872            delete buf;
+   1873            FClose(fin);
+   1874            return res;
+   1875          }
+   1876          
+   1877          void SmsData::ExportAllToTextBG(SmsData *smsdata)
+   1878          {
+   1879            char msgt[64];
+   1880            int res=smsdata->ExportAllToText();
+   1881            sprintf(msgt, LGP->lgp.LGP_EXPORT_N, res);
+   1882            ShowMSG(1, (int)msgt);
+   1883          }
+   1884          
+   1885          int SmsData::DeleteAllMss()
+   1886          {
+   1887            int res=0;
+   1888            SDLIST *s0;
+   1889            SDLIST *sdl=this->sdltop;
+   1890            while(sdl)
+   1891            {
+   1892              s0=sdl->next;
+   1893              if(
+   1894                (sdl->msg_prop&ISFILE)
+   1895                && sdl->fname
+   1896                && FDelete(sdl->fname)
+   1897                )
+   1898              {
+   1899                DeleteSDL(sdl);
+   1900                res++;
+   1901                if(res%4) SendMyIpc(SMSYS_IPC_SMS_DATA_UPDATE);
+   1902              }
+   1903              sdl=s0;
+   1904            }
+   1905            return res;
+   1906          }
+   1907          
+   1908          void SmsData::DeleteAllMssBG(SmsData *smsdata)
+   1909          {
+   1910            char msgt[64];
+   1911            int res=smsdata->DeleteAllMss();
+   1912            sprintf(msgt, LGP->lgp.LGP_DEL_N, res);
+   1913            ShowMSG(1, (int)msgt);
+   1914          }
+
+   Maximum stack usage in bytes:
+
+     Function                       CSTACK
+     --------                       ------
+     SmsData::AddByTimeSDL(_SDLIST *)
+                                       16
+     SmsData::AllocSDL()                8
+     SmsData::CheckAll()               12
+     SmsData::CheckAllCHK(SmsData *)
+                                        4
+     SmsData::CheckDat()               36
+     SmsData::CheckFolder(int)       1112
+     SmsData::CheckSDList()            24
+     SmsData::CheckSMS(int)            16
+     SmsData::CopyOneSDL(_SDLIST *)    12
+     SmsData::DeMsgDataList(SMS_DATA_LIST *)
+                                       44
+     SmsData::DeleteAllMss()           20
+     SmsData::DeleteAllMssBG(SmsData *)
+                                       68
+     SmsData::DeleteMessage(_SDLIST *)
+                                       16
+     SmsData::DeleteSDL(_SDLIST *)     12
+     SmsData::ExportAllToText()       648
+     SmsData::ExportAllToTextBG(SmsData *)
+                                       68
+     SmsData::FilterFindNext(_SDLIST *)
+                                      164
+     SmsData::FilterFindNext(_SDLIST *, WSHDR *)
+                                       12
+     SmsData::FilterFindNext(_SDLIST *, char const *)
+                                       12
+     SmsData::FilterFindPrev(_SDLIST *)
+                                      164
+     SmsData::FilterFindPrev(_SDLIST *, WSHDR *)
+                                       12
+     SmsData::FilterFindPrev(_SDLIST *, char const *)
+                                       12
+     SmsData::FilterFindSDL(WSHDR *, int)
+                                       20
+     SmsData::FilterFindSDL(char const *, int)
+                                       20
+     SmsData::FilterFindSDL(int)      168
+     SmsData::FilterFindSDL(int, int)
+                                        0
+     SmsData::FilterGetCount()        164
+     SmsData::FilterGetCount(WSHDR *)
+                                       16
+     SmsData::FilterGetCount(char const *)
+                                       16
+     SmsData::FindLastNew()             0
+     SmsData::FindMsgDataL(int)         8
+     SmsData::FindNextSDL(_SDLIST *, int)
+                                        4
+     SmsData::FindOpmsgSDL(int)        12
+     SmsData::FindPrevSDL(_SDLIST *, int)
+                                        4
+     SmsData::FindSDL(WSHDR *, char *, char *)
+                                       20
+     SmsData::FindSDL(char *)          12
+     SmsData::FindSDL(int)              0
+     SmsData::FindSDL(int, int)         4
+     SmsData::FreeAllSDL()             12
+     SmsData::FreeDatBuf()              8
+     SmsData::FreeOneSDL(_SDLIST *)     8
+     SmsData::GetFilePathSDL(_SDLIST *, char *, char *, int)
+                                      420
+     SmsData::GetMssPath(char *, char *, TTime *, TDate *)
+                                      168
+     SmsData::GetSMSCount(int)          4
+     SmsData::GetSMSCount(int, int)     0
+     SmsData::IsDatExist(int)           8
+     SmsData::IsExistSDL(_SDLIST *)     0
+     SmsData::IsNewSMS(int)             8
+     SmsData::MoveAllToArchive()       16
+     SmsData::MoveAllToArchiveBG(SmsData *)
+                                       68
+     SmsData::MoveToArchive(_SDLIST *)
+                                      288
+     SmsData::NewToReadSMS(_SDLIST *)
+                                      156
+     SmsData::ReadAllDatMsg()          24
+     SmsData::ReadAllMessage()         12
+     SmsData::ReadAllMessageCHK(SmsData *)
+                                        4
+     SmsData::ReadAllMessageFRC(SmsData *)
+                                        4
+     SmsData::ReadDat()                16
+     SmsData::ReadFolder(int)        1112
+     SmsData::ReadMessageOne(int)      16
+     SmsData::ReadMss(char *, _SDLIST *)
+                                      188
+     SmsData::SaveMss(WSHDR *, char const *, _SDLIST *, int, int)
+                                      404
+     SmsData::SmsData()                 8
+     SmsData::delete ~SmsData(SmsData *)
+                                        8
+     SmsData::new SmsData()             4
+     SmsData::~SmsData()                8
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     SmsData::AllocSDL()              32
+     SmsData::DeleteSDL(_SDLIST *)   104
+     SmsData::FreeAllSDL()           100
+     SmsData::AddByTimeSDL(_SDLIST *)
+                                     116
+     SmsData::FreeOneSDL(_SDLIST *)   72
+     SmsData::CopyOneSDL(_SDLIST *)  124
+     SmsData::FindSDL(int)            32
+     SmsData::FindOpmsgSDL(int)       96
+     SmsData::FindSDL(WSHDR *, char *, char *)
+                                     180
+     SmsData::FindSDL(char *)         88
+     SmsData::GetSMSCount(int)       140
+     SmsData::GetSMSCount(int, int)  164
+     SmsData::FindSDL(int, int)      180
+     SmsData::ReadDat()              184
+     SmsData::DeMsgDataList(SMS_DATA_LIST *)
+                                     360
+     SmsData::ReadAllDatMsg()        228
+     SmsData::FindMsgDataL(int)      112
+     SmsData::ReadMessageOne(int)    128
+     SmsData::FreeDatBuf()            40
+     SmsData::ReadMss(char *, _SDLIST *)
+                                     516
+     SmsData::ReadFolder(int)        432
+     SmsData::SaveMss(WSHDR *, char const *, _SDLIST *, int, int)
+                                     752
+     SmsData::GetMssPath(char *, char *, TTime *, TDate *)
+                                     260
+     SmsData::DeleteMessage(_SDLIST *)
+                                     128
+     SmsData::ReadAllMessage()       120
+     SmsData::ReadAllMessageCHK(SmsData *)
+                                      24
+     SmsData::ReadAllMessageFRC(SmsData *)
+                                       4
+     SmsData::SmsData()               52
+     SmsData::~SmsData()              44
+     SMSDATA                           4
+     SmsData::IsNewSMS(int)           96
+     SmsData::CheckSMS(int)          296
+     SmsData::CheckDat()             448
+     SmsData::CheckFolder(int)       472
+     SmsData::IsDatExist(int)        108
+     SmsData::CheckSDList()          200
+     SmsData::CheckAll()             112
+     SmsData::CheckAllCHK(SmsData *)
+                                      24
+     SmsData::NewToReadSMS(_SDLIST *)
+                                     288
+     SmsData::IsExistSDL(_SDLIST *)   36
+     SmsData::FindNextSDL(_SDLIST *, int)
+                                     156
+     SmsData::FindPrevSDL(_SDLIST *, int)
+                                     156
+     SmsData::FilterFindSDL(int)     208
+     SmsData::FilterFindSDL(int, int)
+                                      56
+     SmsData::FilterFindSDL(char const *, int)
+                                      84
+     SmsData::FilterFindSDL(WSHDR *, int)
+                                      84
+     SmsData::FilterGetCount()       188
+     SmsData::FilterGetCount(char const *)
+                                      64
+     SmsData::FilterGetCount(WSHDR *)
+                                      64
+     SmsData::FilterFindNext(_SDLIST *)
+                                     228
+     SmsData::FilterFindNext(_SDLIST *, char const *)
+                                      68
+     SmsData::FilterFindNext(_SDLIST *, WSHDR *)
+                                      68
+     SmsData::FilterFindPrev(_SDLIST *)
+                                     228
+     SmsData::FilterFindPrev(_SDLIST *, char const *)
+                                      68
+     SmsData::FilterFindPrev(_SDLIST *, WSHDR *)
+                                      68
+     SmsData::MoveToArchive(_SDLIST *)
+                                     496
+     SmsData::GetFilePathSDL(_SDLIST *, char *, char *, int)
+                                     604
+     SmsData::MoveAllToArchive()      96
+     SmsData::MoveAllToArchiveBG(SmsData *)
+                                      56
+     SmsData::FindLastNew()           32
+     utf8_hdr                          4
+     SmsData::ExportAllToText()      660
+     SmsData::ExportAllToTextBG(SmsData *)
+                                      56
+     SmsData::DeleteAllMss()         128
+     SmsData::DeleteAllMssBG(SmsData *)
+                                      56
+     ?<Initializer for utf8_hdr>       4
+     ?<Constant "\357\273\277">        4
+     ?<Constant "Text\\">             76
+     ?<Constant "MySMSYS">            40
+     ?<Constant "%04d%02d%02d%02d%02d%02d">
+                                      96
+     ?<Constant "*.mss">               8
+     ?<Constant "Unk">                 4
+     ?<Constant "20">                  3
+     ?<Constant "%04d%02d\\">         12
+     SmsData::new SmsData()           28
+     SmsData::delete ~SmsData(SmsData *)
+                                      28
+     ??DataTable12                     4
+     ??DataTable13                     4
+     ??DataTable15                     4
+     ??DataTable16                     4
+     ??DataTable17                     4
+     ??DataTable18                     4
+     ??DataTable19                     4
+     ??DataTable20                     4
+     ??DataTable21                     4
+     ??DataTable22                     4
+     ??DataTable29                     4
+     ??DataTable30                     4
+     ??DataTable32                     4
+     ??DataTable33                     4
+     ??DataTable34                     4
+     ??DataTable35                     4
+     ??DataTable37                     4
+     ??DataTable38                     4
+     ??DataTable40                     4
+     ??DataTable41                     4
+     ??DataTable43                     4
+      Others                         584
+
+ 
+ 11 564 bytes in segment CODE
+    243 bytes in segment DATA_C
+      4 bytes in segment DATA_I
+      4 bytes in segment DATA_ID
+      4 bytes in segment DATA_Z
+     24 bytes in segment INITTAB
+ 
+ 11 004 bytes of CODE  memory (+ 584 bytes shared)
+    247 bytes of CONST memory
+      8 bytes of DATA  memory
+
+Errors: none
+Warnings: none

@@ -1,0 +1,412 @@
+#include <swilib.h>
+#include "menu.h"
+#include "rect_patcher.h"
+
+extern void kill_data(void *p, void (*func_p)(void *));
+
+unsigned int pic_id=0;
+char MAIN_FOLDER[256]; //откуда запустился эльф
+
+/*typedef struct
+{
+  GUI gui;
+  WSHDR *ws;
+}MAIN_GUI;*/
+
+typedef struct
+{
+  CSM_RAM csm;
+  int gui_id;
+}MAIN_CSM;
+
+/*void DrwImg(int x, int y, IMGHDR *img)
+{
+  RECT rc;
+  DRWOBJ drwobj;
+  StoreXYWHtoRECT(&rc,x,y,img->w,img->h);
+  SetPropTo_Obj5(&drwobj,&rc,0,img);
+  SetColor(&drwobj, NULL, NULL);
+  DrawObject(&drwobj);
+}
+
+unsigned int get_pic_size(const int type, int pic)
+{
+  enum {width, height};
+  return (type==height) ? GetImgHeight(pic) : GetImgWidth(pic);
+}
+
+unsigned int get_ws_width(WSHDR *ws, int font)
+{
+  return Get_WS_width(ws, font)+1;
+}
+
+unsigned int x_pic, y_pic;
+
+void OnRedraw(MAIN_GUI *data)
+{ 
+  unsigned int x; unsigned int y;
+  const int y_bg=
+#ifdef ELKA
+  24;
+#else
+  0;
+#endif
+  DrawRectangle(0, y_bg, ScreenW()-1, ScreenH()-1, 0, GetPaletteAdrByColorIndex(0), GetPaletteAdrByColorIndex(1));
+  
+  const int head_h=HeaderH();
+  y=y_bg+head_h;
+  DrawRectangle(1, y, ScreenW()-2, ScreenH()-2, 0, GetPaletteAdrByColorIndex(0), GetPaletteAdrByColorIndex(23));
+  
+  x=3;
+  y=y_bg+1;
+  wsprintf(data->ws, "Pic ID: dec %d, hex 0x%x", pic_id, pic_id);
+  DrawString(data->ws, x, y, x+get_ws_width(data->ws, FONT_SMALL), y+GetFontYSIZE(FONT_SMALL), FONT_SMALL, 1, 
+	     GetPaletteAdrByColorIndex(0), GetPaletteAdrByColorIndex(23));
+  y=y+GetFontYSIZE(FONT_SMALL);
+  wsprintf(data->ws, "Size: %dx%d", get_pic_size(1, pic_id), get_pic_size(0, pic_id));
+  DrawString(data->ws, x, y, x+get_ws_width(data->ws, FONT_SMALL), y+GetFontYSIZE(FONT_SMALL), FONT_SMALL, 1,
+	     GetPaletteAdrByColorIndex(0), GetPaletteAdrByColorIndex(23));
+  
+  x_pic=x=(ScreenW()-get_pic_size(0, pic_id))/2;
+  y_pic=y=(ScreenH()-get_pic_size(1, pic_id) + head_h+y_bg)/2;
+  DrwImg(x, y, GetPITaddr(pic_id));
+  
+  DrawRectangle(x-1, y-1, x+get_pic_size(0, pic_id), y+get_pic_size(1, pic_id), 1, GetPaletteAdrByColorIndex(0), GetPaletteAdrByColorIndex(23));
+}
+
+
+void OnCreate(MAIN_GUI *data, void *(*malloc_adr)(int))
+{
+  data->gui.state=1;
+  data->ws=AllocWS(128);
+}
+
+void OnClose(MAIN_GUI *data, void (*mfree_adr)(void *))
+{
+  data->gui.state=0;
+  FreeWS(data->ws);
+}
+
+void OnFocus(MAIN_GUI *data, void *(*malloc_adr)(int), void (*mfree_adr)(void *))
+{
+  data->gui.state=2;
+}
+
+void OnUnfocus(MAIN_GUI *data, void (*mfree_adr)(void *))
+{
+  if (data->gui.state!=2) return;
+  data->gui.state=1;
+}
+
+
+int OnKey(MAIN_GUI *data, GUI_MSG *msg)
+{
+  int create_ed();
+  int style=msg->gbsmsg->msg;
+  if (style==KEY_DOWN || style==LONG_PRESS)
+  {
+    int key=msg->gbsmsg->submess;
+    switch(key)
+    {
+    case RIGHT_SOFT:
+      return(1);
+    case RIGHT_BUTTON: case UP_BUTTON:
+      pic_id++;
+      REDRAW();
+      break;
+    case LEFT_BUTTON: case DOWN_BUTTON:
+      if(pic_id) pic_id--;
+      REDRAW();
+      break;
+    case LEFT_SOFT:
+      CreateMyMenu();
+      break;
+    }
+    if(key>='0'&& key<='9')
+    {
+      
+    }
+  }
+  return (0);
+  
+}
+
+
+int method8(void){return(0);}
+
+int method9(void){return(0);}
+
+const void * const gui_methods[11]={
+  (void *)OnRedraw,	//Redraw
+  (void *)OnCreate,	//Create
+  (void *)OnClose,	//Close
+  (void *)OnFocus,	//Focus
+  (void *)OnUnfocus,	//Unfocus
+  (void *)OnKey,	//OnKey
+  0,
+  (void *)kill_data, //method7,	//Destroy
+  (void *)method8,
+  (void *)method9,
+  0
+};
+
+RECT Canvas={0,0,0,0};*/
+
+
+HEADER_DESC gui_hdr={0,0,0,0, NULL, 0, LGP_NULL};
+  
+void update_header(GUI* gui)
+{
+  static char gui_hdr_text[64];
+  sprintf(gui_hdr_text, "Pic ID:%d", pic_id);
+  gui_hdr.lgp_id=(int)gui_hdr_text; //Текст заголовка
+  ((int*)GetDataOfItemByID(gui, 2))[13]=(int)gui_hdr_text; //Текст заголовка
+}
+
+void gui_redraw(void *data)
+{ 
+  int y_bg=
+#ifdef ELKA
+24;
+#else
+0;
+#endif
+  int x1=(ScreenW()-GetImgWidth(pic_id))/2;
+  int y1=(ScreenH()-GetImgHeight(pic_id)+y_bg+HeaderH()-SoftkeyH())/2;
+  DrawImg(x1, y1, pic_id);
+  
+  DrawRectangle(x1-1, y1-1, x1+GetImgWidth(pic_id), y1+GetImgHeight(pic_id), 1,GetPaletteAdrByColorIndex(0), GetPaletteAdrByColorIndex(23));
+}
+
+int guisoftkeys[]={0,1,2};
+
+SOFTKEY_DESC gui_sk[]=
+{
+  {0x0018,0x0000,(int)"Options"},
+  {0x0001,0x0000,(int)"Close"},
+  {0x003D,0x0000,(int)"+"}
+};
+
+SOFTKEYSTAB gui_skt=
+{
+  gui_sk,0
+};
+
+void gui_locret(void){}
+
+int gui_onkey(GUI *data, GUI_MSG *msg)
+{
+  EDITCONTROL ec;
+  char str[128];
+  if (msg->keys==0xFFF)
+  {
+    /*ExtractEditControl(data,1,&ec);
+    ws_2str(ec.pWS,str,127);*/
+    CreateOptionsMenu();
+  }
+  if(msg->keys==0xFFE)
+  {
+    ShowMSG(1, (int)"Test2");
+  }
+  int style=msg->gbsmsg->msg;
+  int key=msg->gbsmsg->submess;
+  char z[128];
+  IMGHDR *img;
+  if(style==KEY_DOWN || style==LONG_PRESS)
+  {
+    switch(key)
+    {
+      case LEFT_BUTTON: case DOWN_BUTTON:
+	if(pic_id) pic_id--;
+	goto REDRAW;
+      case RIGHT_BUTTON: case UP_BUTTON:
+	if(GetPITaddr(pic_id+1)) pic_id++;
+	goto REDRAW;
+      case '0':
+	img=GetPITaddr(pic_id);
+		sprintf(z, "width:%d height:%d bpnum:&d", img->w, img->h, img->bpnum);
+	ShowMSG(1, (int)z);
+	break;
+    }
+    REDRAW:
+    update_header(data);
+    RefreshGUI();
+  }
+  return(0); //Do standart keys
+  //1: close
+}
+
+void gui_ghook(GUI *data, int cmd)
+{
+  static SOFTKEY_DESC sk={0x0FFF,0x0000,(int)"Меню"};
+  if (cmd==TI_CMD_CREATE)
+  {
+    /*EDIT_SetFocus(data,2);
+    EDIT_SetCursorPos(data,2);*/
+    static void *methods[16];
+        //Called after onCreate
+    void **m=GetDataOfItemByID(data,4);
+    memcpy(methods,m[1],sizeof(methods));
+    //    old_inp_redraw=methods[0];
+    methods[0]=(void *)gui_redraw;
+    m[1]=methods;
+  }
+  if(cmd==TI_CMD_FOCUS)
+  {
+    DisableIDLETMR();
+    update_header(data);
+  }
+  if(cmd==TI_CMD_REDRAW)
+  {
+    SetSoftKey(data,&sk,SET_SOFT_KEY_N);
+  }
+}
+
+INPUTDIA_DESC gui_desc =
+{
+  1,
+  gui_onkey,
+  gui_ghook,
+  (void *)gui_locret,
+  0,
+  &gui_skt,
+  {0,0,0,0},
+  FONT_SMALL,
+  100,
+  101,
+  0,
+  //  0x00000001 - Выровнять по правому краю
+  //  0x00000002 - Выровнять по центру
+  //  0x00000004 - Инверсия знакомест
+  //  0x00000008 - UnderLine
+  //  0x00000020 - Не переносить слова
+  //  0x00000200 - bold
+  0,
+  //  0x00000002 - ReadOnly
+  //  0x00000004 - Не двигается курсор
+  //  0x40000000 - Поменять местами софт-кнопки
+  0x40000000
+};
+char hdr[64];
+
+int create_gui_ed(void)
+{
+  void *ma=malloc_adr();
+  void *eq;  
+
+  EDITCONTROL ec;
+  PrepareEditControl(&ec);
+  eq=AllocEQueue(ma,mfree_adr());
+  
+  WSHDR *ews=AllocWS(128);
+  wsprintf(ews,"%t%d","Pic ID:", "pic_id");  
+  ConstructEditControl(&ec, ECT_HEADER, 0x40,ews,ews->wsbody[0]);
+  AddEditControlToEditQend(eq,&ec,ma);
+    
+  patch_header(&gui_hdr);
+  patch_input(&gui_desc);
+  
+  
+  
+  FreeWS(ews);
+  return CreateInputTextDialog(&gui_desc, &gui_hdr,eq,1,0);    
+}
+
+void maincsm_oncreate(CSM_RAM *data)
+{
+  //MAIN_GUI *main_gui=malloc(sizeof(MAIN_GUI));
+  MAIN_CSM*csm=(MAIN_CSM*)data;
+  /*zeromem(main_gui,sizeof(MAIN_GUI));
+  Canvas.x2=ScreenW()-1;
+  Canvas.y2=ScreenH()-1;
+  main_gui->gui.canvas=(void *)(&Canvas);
+  main_gui->gui.flag30=2;
+  main_gui->gui.methods=(void *)gui_methods;
+  main_gui->gui.item_ll.data_mfree=(void (*)(void *))mfree_adr();*/
+  csm->csm.state=0;
+  csm->csm.unk1=0;
+  //csm->gui_id=CreateGUI(main_gui);
+  csm->gui_id=create_gui_ed();
+}
+
+void ElfKiller(void)
+{
+  extern void *ELF_BEGIN;
+  kill_data(&ELF_BEGIN,(void (*)(void *))mfree_adr());
+}
+
+void maincsm_onclose(CSM_RAM *csm)
+{
+  SUBPROC((void *)ElfKiller);
+}
+
+
+int maincsm_onmessage(CSM_RAM *data, GBS_MSG *msg)
+{
+  MAIN_CSM *csm=(MAIN_CSM*)data;
+  if (msg->msg==MSG_GUI_DESTROYED)
+  {
+    if ((int)msg->data0==csm->gui_id)
+    {
+      csm->csm.state=-3;
+    }
+  }
+  return(1);
+}
+
+
+const int minus11=-11;
+unsigned short maincsm_name_body[140];
+
+const struct
+{
+  CSM_DESC maincsm;
+  WSHDR maincsm_name;
+}MAINCSM =
+{
+  {
+    maincsm_onmessage,
+    maincsm_oncreate,
+#ifdef NEWSGOLD
+0,
+0,
+0,
+0,
+#endif
+maincsm_onclose,
+sizeof(MAIN_CSM),
+1,
+&minus11
+  },
+  {
+    maincsm_name_body,
+    NAMECSM_MAGIC1,
+    NAMECSM_MAGIC2,
+    0x0,
+    139
+  }
+};
+
+void UpdateCSMname(void)
+{
+  wsprintf((WSHDR *)(&MAINCSM.maincsm_name),"SPView");
+}
+
+int main(const char *exename, const char *fname)
+{
+  char dummy[sizeof(MAIN_CSM)];
+  char *path=strrchr(exename, '\\');
+  path++;
+  int lenght=path-exename;
+  memcpy(MAIN_FOLDER, exename, lenght);
+  if(fname)
+  {
+    //load_lang
+  }
+  UpdateCSMname();
+  LockSched();
+  CreateCSM(&MAINCSM.maincsm,dummy,0);
+  UnlockSched();
+}
+
+//вывод бля, такие вещи надо на си++ писать....

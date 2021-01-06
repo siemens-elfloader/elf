@@ -1,0 +1,12 @@
+#define IPC_SPLAYER_ENTER 2
+#define IPC_SPLAYER_STOP 3
+#define IPC_SPLAYER_NEXT 4
+#define IPC_SPLAYER_PREV 5
+#define IPC_TO_SPLAYER "SPlayer"
+#define IPC_FROM_SPLAYER "Control"
+#define IPC_REFRESH         6
+#define IPC_SPLAYER_STARTED 1
+#define IPC_SPLAYER_CLOSED  0
+/*#define IPC_VOLUP 7
+#define IPC_VOLDOWN 8
+#define IPC_MUTE 9*/

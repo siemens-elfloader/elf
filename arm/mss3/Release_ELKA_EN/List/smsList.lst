@@ -1,0 +1,800 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    13/Jan/2011  22:52:17 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\mss3\smsList.c                                #
+#    Command line    =  C:\arm\mss3\smsList.c -D NEWSGOLD -D ELKA -D         #
+#                       LANG_EN -D NO_CS -lC C:\arm\mss3\Release_ELKA_EN\Lis #
+#                       t\ -o C:\arm\mss3\Release_ELKA_EN\Obj\ -s9           #
+#                       --no_unroll --cpu_mode arm --endian little --cpu     #
+#                       ARM926EJ-S --stack_align 4 --interwork -e --fpu      #
+#                       None --dlib_config "C:\arm2\Embedded Workbench 4.0   #
+#                       Evaluation\ARM\LIB\dl5tpainl8n.h" -I                 #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\mss3\Release_ELKA_EN\List\smsList.lst         #
+#    Object file     =  C:\arm\mss3\Release_ELKA_EN\Obj\smsList.r79          #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\mss3\smsList.c
+      1          #include "..\inc\swilib.h"
+      2          #include "main.h"
+      3          #include "sms_dat.h"
+      4          #include "rect_patcher.h"
+      5          #include "smsList.h"
+      6          #include "edGui.h"
+      7          #include "createMenu.h"
+      8          #include "adrList.h"
+      9          #include "language.h"
+     10          
+     11          #include "guiIdMan.h"
+     12          
+     13          #include "lgp_pic.h"
+     14          #include "CodeShow.h"
+     15          #include "popGui.h"
+     16          #include "config_data.h"
+     17          
+     18          #include "CSMswaper.h"
+     19          
+     20          #define MENU_MAX_TXT 30
+     21          
+     22          
+     23          typedef struct
+     24          {
+     25            int type;
+     26            int is_tab;
+     27            DLG_CSM *dlg_csm;
+     28          }SML_OP; //sms list menu user pointer
+     29          
+     30          typedef struct
+     31          {
+     32          	SMS_DATA *sd;
+     33          	DLG_CSM *dlg_csm;
+     34          }SL_UP; //sms list option menu user pointer.
+     35          
+     36          //const HEADER_DESC sms_menuhdr_all={0,0,0,0,NULL,(int)LGP_ALL,LGP_NULL};
+     37          //const HEADER_DESC sms_menuhdr_in_r={0,0,0,0,NULL,(int)LGP_IN_R,LGP_NULL};
+     38          //const HEADER_DESC sms_menuhdr_in_n={0,0,0,0,NULL,(int)LGP_IN_N,LGP_NULL};
+     39          //const HEADER_DESC sms_menuhdr_out={0,0,0,0,NULL,(int)LGP_OUT,LGP_NULL};
+     40          //const HEADER_DESC sms_menuhdr_draft={0,0,0,0,NULL,(int)LGP_DRAFT,LGP_NULL};
+     41          //const HEADER_DESC sms_menuhdr_in_a={0,0,0,0,NULL,(int)LGP_IN_A,LGP_NULL};
+     42          
+     43          //const HEADER_DESC sms_menuhdr={0,0,0,0,NULL,LGP_NULL,LGP_NULL};
+     44          //const int hdr_icon[]={(int)"0:\\ZBin\\MySMSYS\\new.png",0};
+     45          const HEADER_DESC sms_menuhdr={0,0,0,0,NULL,LGP_NULL,LGP_NULL};
+     46          
+     47          const HEADER_DESC slop_menuhdr={0,0,0,0,NULL,LGP_NULL,LGP_NULL};
+     48          //------------------------------------------------------
+     49          
+     50          //#define SLOP_MENU_N 7
+     51          //#define SLOP_MENU_N_2 (SLOP_MENU_N-1)
+     52          #define SLOP_MENU_N_DAT 7
+     53          #define SLOP_MENU_N_FILE (SLOP_MENU_N_DAT-1)
+     54          
+     55          const int slop_menusoftkeys[]={0,1,2};
+     56          /*
+     57          const SOFTKEY_DESC slop_menu_sk[]=
+     58          {
+     59            {0x0018,0x0000,(int)LGP_SELECT},
+     60            {0x0001,0x0000,(int)LGP_BACK},
+     61            {0x003D,0x0000,(int)LGP_DOIT_PIC}
+     62          };
+     63          */
+     64          extern SOFTKEY_DESC ed_menu_sk[];
+     65          const SOFTKEYSTAB slop_menu_skt=
+     66          {
+     67            ed_menu_sk,0
+     68            //slop_menu_sk,0
+     69          };
+     70          
+     71          //char slop_hdr_text[64];
+     72          //const HEADER_DESC slop_menu_hdr={0,0,0,0,NULL,(int)smshdr_text,LGP_NULL};
+     73          
+     74          void slop_menu_reply(GUI *data)
+     75          {
+     76          	SL_UP *su=MenuGetUserPointer(data);
+     77          	GeneralFuncF1(1);
+     78          	createEditGUI(su->dlg_csm, su->sd, ED_REPLY, 0);
+     79          }
+     80          
+     81          void slop_menu_edit(GUI *data)
+     82          {
+     83          	SL_UP *su=MenuGetUserPointer(data);
+     84          	GeneralFuncF1(1);
+     85          	createEditGUI(su->dlg_csm, su->sd, ED_EDIT, 0);
+     86          }
+     87          
+     88          void slop_menu_exit(GUI *data)
+     89          {
+     90          	SL_UP *su=MenuGetUserPointer(data);
+     91          	SGUI_ID *gstop=(SGUI_ID *)(su->dlg_csm->gstop);
+     92          	if(gstop)
+     93          	{
+     94          		GeneralFunc_flag1(gstop->id, 1);
+     95          		popGS(su->dlg_csm);
+     96          	}
+     97          	GeneralFuncF1(1);
+     98          }
+     99          
+    100          void slop_menu_del(GUI *data)
+    101          {
+    102          	SL_UP *su=MenuGetUserPointer(data);
+    103          	GeneralFuncF1(1);
+    104          	if(su->sd->isfile)
+    105          		deleteFile(su->sd, 0);
+    106          	else
+    107          		deleteDat(su->sd, 0);
+    108          	delSDList(su->sd);
+    109          }
+    110          
+    111          void slop_menu_save_as_file(GUI *data)
+    112          {
+    113            SL_UP *su=MenuGetUserPointer(data);
+    114            GeneralFuncF1(1);
+    115            if((!(su->sd->isfile))&&((su->sd->id)>0))
+    116            {
+    117              if(saveFile(su->sd->SMS_TEXT, su->sd->Number, su->sd, su->sd->type, 2))
+    118              {
+    119                deleteDat(su->sd, 0);
+    120                delSDList(su->sd);
+    121              }
+    122            }
+    123          }
+    124          
+    125          void slop_menu_export_txt(GUI *data)
+    126          {
+    127          	SL_UP *su=MenuGetUserPointer(data);
+    128          	GeneralFuncF1(1);
+    129          	if(su->sd)
+    130          		ShowFileErrCode(ExportOneToTxt(su->sd));
+    131          }
+    132          
+    133          void slop_menu_move_to_archive(GUI *data)
+    134          {
+    135          	SL_UP *su=MenuGetUserPointer(data);
+    136          	GeneralFuncF1(1);
+    137          	if(su->sd)
+    138          	{
+    139          		int k=MoveToArchive(su->sd);
+    140          		if(k==1)
+    141          		{
+    142          			if(!su->sd->isfile) deleteDat(su->sd, 0);
+    143          			delSDList(su->sd);
+    144          		}
+    145          		else
+    146          			ShowFileErrCode(k);
+    147          	}
+    148          }
+    149          
+    150          void slop_menu_send(GUI *data)
+    151          {
+    152          	char *num;
+    153          	WSHDR *wst;
+    154          	SL_UP *su=MenuGetUserPointer(data);
+    155          	GeneralFuncF1(1);
+    156          	if(su->sd)
+    157          	{
+    158          		num=su->sd->Number;
+    159          		wst=su->sd->SMS_TEXT;
+    160          		if(strlen(num))
+    161          		{
+    162          			WSHDR *ws=AllocWS(wst->wsbody[0]);
+    163          			wstrcpy(ws, wst);
+    164          			SNEDSMS_CSM_ID=SendSMS(ws, num, MMI_CEPID, MSG_SMS_RX-1, 6);
+                 			              ^
+Error[Pe513]: a value of type "void" cannot be assigned to an entity of type
+          "unsigned int"
+    165          			if(CFG_ENA_SAVE_SENT) saveFile(wst, num, su->sd, TYPE_OUT, 2);
+    166          			if(!su->sd->isfile) deleteDat(su->sd, 0);
+    167          			else deleteFile(su->sd, 0);
+    168          			delSDList(su->sd);
+    169          			DoSendBackGround(su->dlg_csm);
+    170          			//readAllSMS();
+    171          		}
+    172          	}
+    173          }
+    174          
+    175          const MENUPROCS_DESC slop_procs_dat[SLOP_MENU_N_DAT]=
+    176          {
+    177          	slop_menu_reply,
+    178          	slop_menu_edit,
+    179          	slop_menu_del,
+    180          	slop_menu_save_as_file,
+    181          	slop_menu_export_txt,
+    182          	slop_menu_move_to_archive,
+    183          	slop_menu_exit,
+    184          };
+    185          
+    186          int slop_lgp_dat[SLOP_MENU_N_DAT]=
+    187          {
+    188          	(int)LGP_NULL,
+    189          	(int)LGP_NULL,
+    190          	(int)LGP_NULL,
+    191          	(int)LGP_NULL,
+    192          	(int)LGP_NULL,
+    193          	(int)LGP_NULL,
+    194          	(int)LGP_NULL,
+    195          };
+    196          
+    197          const MENUPROCS_DESC slop_procs_file[SLOP_MENU_N_FILE]=
+    198          {
+    199          	slop_menu_reply,
+    200          	slop_menu_edit,
+    201          	slop_menu_del,
+    202          	slop_menu_export_txt,
+    203          	slop_menu_move_to_archive,
+    204          	slop_menu_exit,
+    205          };
+    206          
+    207          int slop_lgp_file[SLOP_MENU_N_FILE]=
+    208          {
+    209          	(int)LGP_NULL,
+    210          	(int)LGP_NULL,
+    211          	(int)LGP_NULL,
+    212          	(int)LGP_NULL,
+    213          	(int)LGP_NULL,
+    214          	(int)LGP_NULL,
+    215          };
+    216          
+    217          void slop_menu_ghook(void *data, int cmd)
+    218          {
+    219            if(cmd==3)
+    220            {
+    221              SL_UP *su=MenuGetUserPointer(data);
+    222              mfree(su);
+    223            }
+    224            if(cmd==2) //create
+    225            {
+    226              WSHDR *hdr_t=AllocWS(32);
+    227              wsprintf(hdr_t, PERCENT_T, lgp.LGP_OPTIONS);
+    228              SetHeaderText(GetHeaderPointer(data), hdr_t, malloc_adr(), mfree_adr());
+    229            }
+    230          }
+    231          
+    232          #pragma swi_number=0x44
+    233          __swi __arm void TempLightOn(int x, int y);
+    234          int slop_menu_onkey(void *data, GUI_MSG *msg)
+    235          {
+    236            int n;
+    237            SL_UP *su;
+    238            if(!IsUnlocked()) TempLightOn(3, 0x7FFF);
+    239            if(msg->keys==0x1)
+    240            {
+    241              return 1;
+    242            }
+    243            if((msg->keys==0x18)||(msg->keys==0x3D))
+    244            {
+    245              n=GetCurMenuItem(data);
+    246            DO_PROC:
+    247              su=MenuGetUserPointer(data);
+    248              if(!su->sd)
+    249                return 1;
+    250              if(n==0 && su->sd->type==TYPE_DRAFT)
+    251              {
+    252                slop_menu_send(data);
+    253                return 1;
+    254              }
+    255              if(su->sd->isfile)
+    256              {
+    257                if(n>=SLOP_MENU_N_FILE)
+    258          	return 0;
+    259                slop_procs_file[n](data);
+    260                return 1;
+    261              }
+    262              else
+    263              {
+    264                if(n>=SLOP_MENU_N_DAT)
+    265          	return 0;
+    266                slop_procs_dat[n](data);
+    267                return 1;
+    268              }
+    269            }
+    270            if(msg->gbsmsg->msg==KEY_DOWN)
+    271            {
+    272              n=msg->gbsmsg->submess;
+    273              if(n>='1' && n<='9')
+    274              {
+    275                n-='1';
+    276                goto DO_PROC;
+    277              }
+    278            }
+    279            return 0;
+    280          }
+    281          
+    282          #ifndef WITHOUT_OP_ICON
+    283          
+    284          #ifdef NEWSGOLD
+    285          #ifdef ELKA
+    286          int slop_item_icons[]={0x538,0};
+    287          #else
+    288          #ifdef S68
+    289          int slop_item_icons[]={0x576,0};
+    290          #else
+    291          int slop_item_icons[]={0x564,0};
+    292          #endif
+    293          #endif
+    294          #endif
+    295          
+    296          #endif
+    297          
+    298          void slop_menu_itemhndl(void *data, int curitem, void *user_pointer)
+    299          {
+    300            SL_UP *su=MenuGetUserPointer(data);
+    301            void *item=AllocMenuItem(data);
+    302            WSHDR *ws=AllocMenuWS(data, 150);
+    303            if(su->sd)
+    304            {
+    305              if(curitem==0 && su->sd->type==TYPE_DRAFT)
+    306              {
+    307                wsprintf(ws, PERCENT_T, lgp.LGP_SEND);
+    308                goto GO_P;
+    309              }
+    310              if(su->sd->isfile)
+    311              {
+    312                if(curitem>=SLOP_MENU_N_FILE)
+    313          	goto SLOP_ERR;
+    314                wsprintf(ws, PERCENT_T, slop_lgp_file[curitem]);
+    315              }
+    316              else
+    317              {
+    318                if(curitem>=SLOP_MENU_N_DAT)
+    319          	goto SLOP_ERR;
+    320                wsprintf(ws, PERCENT_T, slop_lgp_dat[curitem]);
+    321              }
+    322            }
+    323            else
+    324          SLOP_ERR:
+    325            wsprintf(ws, PERCENT_T, lgp.LGP_ERR);
+    326          GO_P:
+    327          #ifndef WITHOUT_OP_ICON
+    328            SetMenuItemIconArray(data, item, slop_item_icons);
+    329            SetMenuItemIcon(data, curitem, 0);
+    330          #endif
+    331            SetMenuItemText(data, item, ws, curitem);
+    332          }
+    333          
+    334          const MENU_DESC slop_menu=
+    335          {
+    336            8,slop_menu_onkey,slop_menu_ghook,NULL,
+    337            slop_menusoftkeys,
+    338            &slop_menu_skt,
+    339          #ifdef WITHOUT_OP_ICON
+    340            0x10,
+    341          #else
+    342            0x11,//Right align
+    343          #endif
+    344            slop_menu_itemhndl,
+    345            0,//menuitems,
+    346            0,//menuprocs,
+    347            0
+    348          };
+    349          int CreateslOpMenu(DLG_CSM *dlg_csm, SMS_DATA *sd, int type)
+    350          {
+    351          	int item_n;
+    352          	SL_UP *su=malloc(sizeof(SL_UP));
+    353          	su->dlg_csm=dlg_csm;
+    354          	su->sd=sd;
+    355          
+    356          	//patch_header(&sms_menuhdr);
+    357          	patch_option_header(&slop_menuhdr);
+    358          	if(sd->isfile==1)
+    359          		item_n=SLOP_MENU_N_FILE;
+    360          	else
+    361          		item_n=SLOP_MENU_N_DAT;
+    362          	return (CreateSLMenu_30or2(&slop_menu,&slop_menuhdr,0,item_n, su));
+    363          //	if(!sd)
+    364          //		return (CreateSLMenu(&slop_menu_3,&sms_menuhdr,0, 1, su));
+    365          //	if(sd->isfile==1)
+    366          //		return (CreateSLMenu(&slop_menu_2,&sms_menuhdr,0,SLOP_MENU_N_FILE, su));
+    367          //	else
+    368          //		return (CreateSLMenu(&slop_menu,&sms_menuhdr,0,SLOP_MENU_N_DAT, su));
+    369          }
+    370          
+    371          //------------------------------------------------------
+    372          
+    373          const int sms_menusoftkeys[]={0,1,2};
+    374          
+    375          SOFTKEY_DESC sms_menu_sk[]=
+    376          {
+    377            {0x0018,0x0000,(int)LGP_NULL},
+    378            {0x0001,0x0000,(int)LGP_NULL},
+    379            {0x003D,0x0000,(int)LGP_DOIT_PIC}
+    380          };
+    381          
+    382          const SOFTKEYSTAB sms_menu_skt=
+    383          {
+    384            sms_menu_sk,0
+    385          };
+    386          
+    387          int sms_menu_onkey(void *data, GUI_MSG *msg)
+    388          {
+    389            SML_OP *so=MenuGetUserPointer(data);
+    390            SMS_DATA *sd=getSMSDataByType(GetCurMenuItem(data), so->type);
+    391            int n=GetMenuItemCount(data);
+                         ^
+Warning[Pe223]: function "GetMenuItemCount" declared implicitly
+    392          	
+    393            if(!IsUnlocked())
+    394              TempLightOn(3, 0x7FFF);
+    395          
+    396            if(msg->keys==0x05)
+    397            {
+    398              if(n) createEditGUI(so->dlg_csm, sd, (sd->type==TYPE_DRAFT)?ED_EDIT:ED_REPLY, 0);
+    399            }
+    400            else if((msg->keys==0x18))//||(msg->keys==0x3D))
+    401            {
+    402              //if(!n)
+    403              //	CreateslOpMenu(so->dlg_csm, 0, so->type);
+    404              //else
+    405              if(n) CreateslOpMenu(so->dlg_csm, sd, so->type);
+    406              else return 1;
+    407            }
+    408            else if(msg->keys==0x3D)
+    409            {
+    410              if(n) createEditGUI(so->dlg_csm, sd, ED_VIEW, so->type);
+    411              else return 1;
+    412            }
+    413            else if(msg->keys==0x1)
+    414            {
+    415              popGS(so->dlg_csm);
+    416              return 1;
+    417            }
+    418            if((msg->gbsmsg->msg==KEY_DOWN)&&(n>0)&&(sd))
+    419            {
+    420              int i=msg->gbsmsg->submess;
+    421              if((i=='7')) //key 7 for delete
+    422              {
+    423                if(sd->isfile)
+    424          	deleteFile(sd, 0);
+    425                else
+    426          	deleteDat(sd, 0);
+    427                delSDList(sd);
+    428                //Menu_SetItemCountDyn(data, getCountByType(so->type));
+    429                RefreshGUI();
+    430                return (-1);
+    431              }
+    432              else if((i=='9')&&(!sd->isfile))
+    433              {
+    434                if(saveFile(sd->SMS_TEXT, sd->Number, sd, sd->type, 2))
+    435                {
+    436          	int k=GetCurMenuItem(data);
+    437          	deleteDat(sd, 0);
+    438          	delSDList(sd);
+    439          	SetCursorToMenuItem(data, (k==(n-1))?k:(k+1));
+    440                }
+    441                RefreshGUI();
+    442                return (-1);
+    443              }
+    444              else if((i=='*')) //*键,查看号码信息
+    445              {
+    446                WSHDR *msg=AllocWS(128);
+    447          #ifdef NO_CS
+    448                wsprintf(msg, "%t:\n%s", (sd->type==TYPE_OUT||sd->type==TYPE_DRAFT)?lgp.LGP_TO:lgp.LGP_FROM, sd->Number);
+    449          #else
+    450                {
+    451          	char num[32];
+    452          	WSHDR csloc, *cs;
+    453          	unsigned short csb[30];
+    454          	cs=CreateLocalWS(&csloc,csb,30);
+    455          	strcpy(num, sd->Number);
+    456          	GetProvAndCity(cs->wsbody, num);
+    457          	wsprintf(msg, "%t:\n%s\n%t:\n%w", (sd->type==TYPE_OUT||sd->type==TYPE_DRAFT)?lgp.LGP_TO:lgp.LGP_FROM, sd->Number, lgp.LGP_CODESHOW, cs);
+    458                }
+    459          #endif
+    460                ShowMSG_ws(1, msg);
+    461              }
+    462              else if((i=='8'))
+    463              {
+    464                int k;
+    465                //	extern int ExportOneToTxt(SMS_DATA *sd);
+    466                k=ExportOneToTxt(sd);
+    467                ShowFileErrCode(k);
+    468              }
+    469              else if(i=='4')
+    470              {	
+    471                int k;
+    472                //extern int MoveToArchive(SMS_DATA *sd);
+    473                k=MoveToArchive(sd);
+    474                if(k==1)
+    475                {
+    476          	if(!sd->isfile) deleteDat(sd, 0);
+    477          	delSDList(sd);
+    478          	RefreshGUI();
+    479          	return (-1);
+    480                }
+    481                ShowFileErrCode(k);
+    482              }
+    483              else if(i==RIGHT_BUTTON && !so->is_tab)
+    484              {
+    485                createEditGUI(so->dlg_csm, sd, ED_EDIT, 0);
+    486                return 1;
+    487              }
+    488              else if(i==LEFT_BUTTON && !so->is_tab)
+    489              {
+    490                return 1;
+    491              }
+    492            }
+    493            return 0;
+    494          }
+    495          
+    496          #ifdef ELKA
+    497          #define ICON_UNK 0x5B8
+    498          #define ICON_OUT 0x5B8
+    499          #define ICON_IN_R 0x5B5
+    500          #define ICON_IN_N	0x5B6
+    501          #define ICON_DRAFT 0x5B2
+    502          #define ICON_IN_ALL 0x5B5
+    503          #define ICON_LINE 0x537
+    504          #else
+    505          #define ICON_UNK 0x5E4
+    506          #define ICON_OUT 0x5E4
+    507          #define ICON_IN_R 0x5E1
+    508          #define ICON_IN_N	0x5E2
+    509          #define ICON_DRAFT 0x5DE
+    510          #define ICON_IN_ALL 0x5E1
+    511          #define ICON_LINE 0x563
+    512          #endif
+    513          
+    514          //const int hdr_icon[]={0X5D0,0};
+    515          //main 0x347
+    516          //sent 0x515
+    517          //draft 0x5C4
+    518          //inbox 0x5C5
+    519          //edit 0x4BD
+    520          //view 0x29A
+    521          //adrbk 0x290
+    522          /*
+    523          const int HDRIC_UNK[]={0x347, 0};
+    524          const int HDRIC_OUT[]={0x515, 0};
+    525          const int HDRIC_IN_R[]={0x5C5, 0};
+    526          const int HDRIC_IN_N[]={0x5C5, 0};
+    527          const int HDRIC_DRAFT[]={0x5C4, 0};
+    528          const int HDRIC_IN_ALL[]={0x5C5, 0};
+    529          */
+    530          int SL_HDR_ICONS[7][2]=
+    531          {
+    532          #ifdef NEWSGOLD
+    533          #ifdef ELKA
+    534            {0x2AB, 0},
+    535            {0x5A4, 0},
+    536            {0x2AB, 0},
+    537            {0x2AB, 0},
+    538            {0x598, 0},
+    539            {0x2AB, 0},
+    540            {0,0}
+    541          #else
+    542            {0x347, 0},
+    543            {0x515, 0},
+    544            {0x5C5, 0},
+    545            {0x5C5, 0},
+    546            {0x5C4, 0},
+    547            {0x5C5, 0},
+    548            {0,0}
+    549          #endif
+    550          #endif
+    551          };
+    552          //extern void SetHeaderIcon(void *hdr_pointer, const int *icon, void *malloc_adr, void *mfree_adr);
+    553          #ifdef S68
+    554          int SL_ICONS[8]={0, 0, 0, 0, 0, 0, 0x575, 0};
+    555          int ESL_ICONS[8]={0, 0, 0, 0, 0, 0, 0x575, 0};
+    556          #else
+    557          int SL_ICONS[8]={ICON_UNK, ICON_OUT, ICON_IN_R, ICON_IN_N, ICON_DRAFT, ICON_IN_ALL, ICON_LINE, 0};
+    558          int ESL_ICONS[8]={ICON_UNK, ICON_OUT, ICON_IN_R, ICON_IN_N, ICON_DRAFT, ICON_IN_ALL, ICON_LINE, 0};
+    559          #endif
+    560          void sms_menu_itemhndl(void *data, int curitem, void *user_pointer)
+    561          {
+    562          	SML_OP *so=(SML_OP *)user_pointer;
+    563          	int type=so->type;
+    564          	int isems=0;
+    565          	void *item=AllocMLMenuItem(data);
+    566          	WSHDR *ws1=AllocMenuWS(data, MENU_MAX_TXT);
+    567          	WSHDR *ws2=AllocMenuWS(data, 150);
+    568          	WSHDR wsloc, *wn;
+    569          	unsigned short wsb[150];
+    570          	wn=CreateLocalWS(&wsloc,wsb,150);
+    571          	SMS_DATA *sdl=getSMSDataByType(curitem, type);
+    572          	if(sdl)
+    573          	{
+    574          		if(sdl->SMS_TEXT)
+    575          			wstrncpy(ws1, sdl->SMS_TEXT, MENU_MAX_TXT);
+    576          		else
+    577          			goto AL_ERR;
+    578          			
+    579          		if(!strlen(sdl->Number))
+    580          			CutWSTR(ws2, 0);
+    581          	#ifdef LANG_CN
+    582          		else
+    583          		{
+    584          			int is_fetion=0;
+    585          			if(!strncmp(num_fetion, sdl->Number, 5)) is_fetion=1;
+    586          			if(findNameByNum(wn, is_fetion?(sdl->Number+5):sdl->Number))
+    587          			{
+    588          				if(is_fetion) wsprintf(ws2, "%w(%t)", wn, lgp.LGP_FETION);
+    589          				else	wstrcpy(ws2, wn);
+    590          			}
+    591          			else
+    592          				wsprintf(ws2, PERCENT_S, sdl->Number);
+    593          		}
+    594          	#else
+    595          		else if(findNameByNum(wn, sdl->Number))
+    596          			wstrcpy(ws2, wn);
+    597          		else
+    598          			wsprintf(ws2, PERCENT_S, sdl->Number);
+    599          	#endif
+    600          	}
+    601          	else
+    602          	{
+    603          AL_ERR:
+    604          		wsprintf(ws1, PERCENT_T, lgp.LGP_ERR);
+    605          		CutWSTR(ws2, 0);
+    606          	}
+    607          	if(sdl)
+    608          	{
+    609          	  extern int IsWsSmall(WSHDR *ws);
+    610          	  if((sdl->msg_type&ISEMS) || sdl->cnt_r>1)
+    611          	    isems=1;
+    612          	  else
+    613          	  {
+    614          	    if((sdl->msg_type&IS7BIT) || IsWsSmall(sdl->SMS_TEXT))
+    615          	    {
+    616          	      if(sdl->SMS_TEXT->wsbody[0]>SEG7_MAX) isems=1;
+    617          	    }
+    618          	    else
+    619          	    {
+    620          	      if(sdl->SMS_TEXT->wsbody[0]>SEGN_MAX) isems=1;
+    621          	    }
+    622          	  }
+    623          	}
+    624          	SetMenuItemIconArray(data, item, (isems)?ESL_ICONS:SL_ICONS);
+    625          	SetMenuItemIcon(data, curitem, (sdl)?(sdl->type):6);
+    626          	SetMLMenuItemText(data, item, ws1, ws2, curitem);
+    627          }
+    628          
+    629          const char SM_FORMAT[]="%t%c%d/%d";
+    630          const SOFTKEY_DESC SK_VIEW_PIC={0x003D,0x0000,(int)LGP_VIEW_PIC};
+    631          SOFTKEY_DESC SK_OK2={0x0018,0x0000,LGP_NULL};
+    632          void sms_menu_ghook(void *data, int cmd)
+    633          {
+    634            SML_OP *so=MenuGetUserPointer(data);
+    635            if(cmd==0x0A)
+    636            {
+    637              int n=getCountByType(so->type);
+    638              int cur=GetCurMenuItem(data);
+    639              if(cur>=n) SetCursorToMenuItem(data, 0);
+    640              Menu_SetItemCountDyn(data, n);
+    641              //patch_header(&sms_menuhdr);
+    642              DisableIDLETMR();
+    643            }
+    644            else if(cmd==7)
+    645            {
+    646              //extern void SetMenuSoftKey(void *gui, const SOFTKEY_DESC *,int n);
+    647              int n=getCountByType(so->type);
+    648              int cur_n=GetCurMenuItem(data)+1;
+    649              if(!n) cur_n=0;
+    650              WSHDR *hdr_t=AllocWS(64);
+    651              void *hdr_p=GetHeaderPointer(data);
+    652              void *ma=malloc_adr();
+    653              void *mf=mfree_adr();
+    654              switch(so->type)
+    655              {
+    656              case 0:
+    657                wsprintf(hdr_t, SM_FORMAT, lgp.LGP_ALL, 0xE01D, cur_n, n);
+    658                break;
+    659              case TYPE_IN_R:
+    660                wsprintf(hdr_t, SM_FORMAT, lgp.LGP_IN_R, 0xE01D, cur_n, n);
+    661                break;
+    662              case TYPE_IN_N:
+    663                wsprintf(hdr_t, SM_FORMAT, lgp.LGP_IN_N, 0xE01D, cur_n, n);
+    664                break;
+    665              case TYPE_OUT:
+    666                wsprintf(hdr_t, SM_FORMAT, lgp.LGP_OUT, 0xE01D, cur_n, n);
+    667                break;
+    668              case TYPE_DRAFT:
+    669                wsprintf(hdr_t, SM_FORMAT, lgp.LGP_DRAFT, 0xE01D, cur_n, n);
+    670                break;
+    671              case TYPE_IN_ALL:
+    672                wsprintf(hdr_t, SM_FORMAT, lgp.LGP_IN_A, 0xE01D, cur_n, n);
+    673                break;
+    674              case TYPE_FILTER:
+    675                wsprintf(hdr_t, SM_FORMAT, lgp.LGP_FILTER, 0xE01D, cur_n, n);
+    676                break;
+    677              default:
+    678                CutWSTR(hdr_t, 0);
+    679                break;
+    680              }
+    681              SetHeaderText(hdr_p, hdr_t, ma, mf);
+    682              extern int MM_HDR_ICONS[]; //main.c
+    683              if(!so->is_tab) SetHeaderIcon(hdr_p, SL_HDR_ICONS[(so->type>6)?0:so->type], ma, mf);
+                                     ^
+Warning[Pe223]: function "SetHeaderIcon" declared implicitly
+    684              else SetHeaderIcon(hdr_p, MM_HDR_ICONS, ma, mf);
+    685              //if(n) SetSoftKey(data,&SK_VIEW_PIC,SET_SOFT_KEY_M);
+    686              if(n) SetMenuSoftKey(data,&SK_VIEW_PIC,SET_SOFT_KEY_M);
+                           ^
+Warning[Pe223]: function "SetMenuSoftKey" declared implicitly
+
+      if(n) SetMenuSoftKey(data,&SK_VIEW_PIC,SET_SOFT_KEY_M);
+                                             ^
+"C:\arm\mss3\smsList.c",686  Error[Pe020]: identifier "SET_SOFT_KEY_M" is
+          undefined
+    687              else SetMenuSoftKey(data,&SK_OK2,SET_SOFT_KEY_N);
+    688            }
+    689            else if(cmd==3)
+    690            {
+    691              mfree(so);
+    692            }
+    693            else if(cmd==5)
+    694            {
+    695              const char *lgpN;
+    696              switch(so->type)
+    697              {
+    698              case 0:
+    699                lgpN=lgp.LGP_ALL;
+    700                break;
+    701              case TYPE_IN_R:
+    702                lgpN=lgp.LGP_IN_R;
+    703                break;
+    704              case TYPE_IN_N:
+    705                lgpN=lgp.LGP_IN_N;
+    706                break;
+    707              case TYPE_OUT:
+    708                lgpN=lgp.LGP_OUT;
+    709                break;
+    710              case TYPE_DRAFT:
+    711                lgpN=lgp.LGP_DRAFT;
+    712                break;
+    713              case TYPE_IN_ALL:
+    714                lgpN=lgp.LGP_IN_A;
+    715                break;
+    716              case TYPE_FILTER:
+    717                lgpN=lgp.LGP_FILTER;
+    718                break;
+    719              default:
+    720                lgpN=0;
+    721              }
+    722              if(lgpN) UpdateDlgCsmName(so->dlg_csm, lgpN);
+    723            }
+    724          }
+    725          const ML_MENU_DESC sms_menu=
+    726          {
+    727            8,sms_menu_onkey,sms_menu_ghook,NULL,
+    728            sms_menusoftkeys,
+    729            &sms_menu_skt,
+    730            0x11,//0x11,
+    731            sms_menu_itemhndl,
+    732            NULL,   //Items
+    733            NULL,   //Procs
+    734            0,   //n
+    735            1 //line
+    736          };
+    737          
+    738          void *GetSLUserPointer(void *dlg_csm, int type, int is_tab)
+    739          {
+    740            SML_OP *so=malloc(sizeof(SML_OP));
+    741            so->type=type;
+    742            so->is_tab=is_tab;
+    743            so->dlg_csm=dlg_csm;
+    744            return so;
+    745          }
+    746          
+    747          int showSMSList(void *dlg_csm, int type)
+    748          {
+    749            unsigned int id;
+    750            SML_OP *so=GetSLUserPointer(dlg_csm, type, 0);//=malloc(sizeof(SML_OP));
+    751            //so->type=type;
+    752            //so->is_tab=0;
+    753            //so->dlg_csm=dlg_csm;
+    754            patch_header(&sms_menuhdr);
+    755            id=CreateMLMenu(&sms_menu,&sms_menuhdr,0,getCountByType(type), so);
+    756            pushGS(dlg_csm, id);
+    757            return id;
+    758          }
+
+Errors: 2
+Warnings: 3

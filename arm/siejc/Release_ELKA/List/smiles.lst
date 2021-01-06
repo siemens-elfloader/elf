@@ -1,0 +1,791 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    23/Feb/2011  16:38:19 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\siejc\smiles.c                                #
+#    Command line    =  C:\arm\siejc\smiles.c -D NEWSGOLD -D ELKA            #
+#                       --preprocess C:\arm\siejc\Release_ELKA\List\ -lC     #
+#                       C:\arm\siejc\Release_ELKA\List\ -o                   #
+#                       C:\arm\siejc\Release_ELKA\Obj\ -s9 --no_unroll       #
+#                       --cpu_mode arm --endian little --cpu ARM926EJ-S      #
+#                       --stack_align 4 --interwork -e --fpu None            #
+#                       --dlib_config "C:\arm2\Embedded Workbench 4.0        #
+#                       Evaluation\ARM\LIB\dl5tpainl8f.h" -I                 #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\siejc\Release_ELKA\List\smiles.lst            #
+#    Object file     =  C:\arm\siejc\Release_ELKA\Obj\smiles.r79             #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\siejc\smiles.c
+      1          #include "../inc/swilib.h"
+      2          #include "siejc_ipc.h"
+      3          #include "smiles.h"
+      4          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+      5          S_SMILES *s_top=0;
+      6          
+      7          DYNPNGICONLIST *SmilesImgList;
+      8          
+      9          int smiles_max;
+     10          int smiles_loaded;
+     11          
+     12          extern const char SMILE_FILE[];
+     13          extern const char SMILE_PATH[];
+     14          extern const char ipc_my_name[32];
+     15          
+     16          static IPC_REQ gipc;
+   \                     gipc:
+   \   00000000                      DS8 12
+   \                     s_top:
+   \   0000000C                      DS8 4
+   \                     SmilesImgList:
+   \   00000010                      DS8 4
+   \                     smiles_max:
+   \   00000014                      DS8 4
+   \                     smiles_loaded:
+   \   00000018                      DS8 4
+   \   0000001C                      DS8 4
+   \   00000020                      DS8 4
+   \   00000024                      DS8 4
+   \   00000028                      DS8 4
+     17          static char *p_buf;
+     18          static char *s_buf;
+     19          static S_SMILES *s_bot;
+     20          static int n_pic;
+     21          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     22          S_SMILES *FindSmileById(int n)
+     23          {
+     24            int i=0;
+     25            S_SMILES *sl=(S_SMILES *)s_top;
+   \                     FindSmileById:
+   \   00000000   ........           LDR      R1,??DataTable1  ;; gipc + 12
+   \   00000004   0020A0E3           MOV      R2,#+0
+   \   00000008   001091E5           LDR      R1,[R1, #+0]
+   \   0000000C   010000EA           B        ??FindSmileById_0
+     26            while(sl && i!=n)
+     27            {
+     28              sl=sl->next;
+   \                     ??FindSmileById_1:
+   \   00000010   001091E5           LDR      R1,[R1, #+0]
+     29              i++;
+   \   00000014   012082E2           ADD      R2,R2,#+1
+     30            }
+   \                     ??FindSmileById_0:
+   \   00000018   000051E3           CMP      R1,#+0
+   \   0000001C   00005211           CMPNE    R2,R0
+   \   00000020   FAFFFF1A           BNE      ??FindSmileById_1
+     31            return sl;
+   \   00000024   0100A0E1           MOV      R0,R1
+   \   00000028   1EFF2FE1           BX       LR               ;; return
+     32          }
+     33          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     34          S_SMILES *FindSmileByUni(int wchar)
+     35          {
+     36            S_SMILES *sl=(S_SMILES *)s_top;
+   \                     FindSmileByUni:
+   \   00000000   ........           LDR      R1,??DataTable1  ;; gipc + 12
+     37            while(sl)
+     38            {
+     39              if (sl->uni_smile == wchar) return (sl);
+     40              sl=sl->next;
+   \                     ??FindSmileByUni_0:
+   \   00000004   001091E5           LDR      R1,[R1, #+0]
+   \   00000008   000051E3           CMP      R1,#+0
+   \   0000000C   0400000A           BEQ      ??FindSmileByUni_1
+   \   00000010   042091E5           LDR      R2,[R1, #+4]
+   \   00000014   000052E1           CMP      R2,R0
+   \   00000018   F9FFFF1A           BNE      ??FindSmileByUni_0
+   \   0000001C   0100A0E1           MOV      R0,R1
+   \   00000020   1EFF2FE1           BX       LR
+     41            }
+     42            return (0);
+   \                     ??FindSmileByUni_1:
+   \   00000024   0000A0E3           MOV      R0,#+0
+   \   00000028   1EFF2FE1           BX       LR               ;; return
+     43          }
+     44          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     45          void FreeSmiles(void)
+     46          {
+   \                     FreeSmiles:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+     47            S_SMILES *s_smile;
+     48            STXT_SMILES *n;
+     49            STXT_SMILES *st;
+     50            DYNPNGICONLIST *d;
+     51            DYNPNGICONLIST *nd;
+     52            LockSched();
+     53            smiles_loaded = 0;
+   \   00000004   ........           LDR      R4,??DataTable4  ;; gipc
+   \   00000008   04D04DE2           SUB      SP,SP,#+4
+   \   0000000C   0050A0E3           MOV      R5,#+0
+   \   00000010   460100EF           SWI      +326
+     54            smiles_max = 0;
+     55            s_smile=(S_SMILES *)s_top;
+   \   00000014   0C6094E5           LDR      R6,[R4, #+12]
+   \   00000018   185084E5           STR      R5,[R4, #+24]
+   \   0000001C   145084E5           STR      R5,[R4, #+20]
+     56            s_top=0;
+   \   00000020   0C5084E5           STR      R5,[R4, #+12]
+     57            s_bot=0;
+   \   00000024   245084E5           STR      R5,[R4, #+36]
+     58            UnlockSched();
+   \   00000028   470100EF           SWI      +327
+   \   0000002C   000056E3           CMP      R6,#+0
+   \   00000030   1300000A           BEQ      ??FreeSmiles_0
+     59            while(s_smile)
+     60            {
+     61              S_SMILES *s;
+     62              s=s_smile;
+   \                     ??FreeSmiles_1:
+   \   00000034   0670A0E1           MOV      R7,R6
+     63              st=s->lines;
+   \   00000038   080097E5           LDR      R0,[R7, #+8]
+   \   0000003C   000050E3           CMP      R0,#+0
+   \   00000040   0A00000A           BEQ      ??FreeSmiles_2
+     64              while(st)
+     65              {
+     66                n=st->next;
+   \                     ??FreeSmiles_3:
+   \   00000044   0010A0E3           MOV      R1,#+0
+   \   00000048   0D20A0E1           MOV      R2,SP
+   \                     ??FreeSmiles_4:
+   \   0000004C   0030D1E7           LDRB     R3,[R1, +R0]
+   \   00000050   0230C1E7           STRB     R3,[R1, +R2]
+   \   00000054   011081E2           ADD      R1,R1,#+1
+   \   00000058   040051E3           CMP      R1,#+4
+   \   0000005C   FAFFFFBA           BLT      ??FreeSmiles_4
+   \   00000060   00809DE5           LDR      R8,[SP, #+0]
+     67                mfree(st);
+   \   00000064   150000EF           SWI      +21
+     68                st=n;
+   \   00000068   0800B0E1           MOVS     R0,R8
+     69              }
+   \   0000006C   F4FFFF1A           BNE      ??FreeSmiles_3
+     70              s_smile=(S_SMILES *)(s_smile->next);
+   \                     ??FreeSmiles_2:
+   \   00000070   006096E5           LDR      R6,[R6, #+0]
+     71              mfree(s);
+   \   00000074   0700A0E1           MOV      R0,R7
+   \   00000078   150000EF           SWI      +21
+     72            }
+   \   0000007C   000056E3           CMP      R6,#+0
+   \   00000080   EBFFFF1A           BNE      ??FreeSmiles_1
+     73            LockSched();
+   \                     ??FreeSmiles_0:
+   \   00000084   460100EF           SWI      +326
+     74            d=SmilesImgList;
+   \   00000088   106094E5           LDR      R6,[R4, #+16]
+     75            SmilesImgList=0;
+   \   0000008C   105084E5           STR      R5,[R4, #+16]
+     76            UnlockSched();
+   \   00000090   470100EF           SWI      +327
+   \   00000094   000056E3           CMP      R6,#+0
+   \   00000098   0B00000A           BEQ      ??FreeSmiles_5
+     77            while(d)
+     78            {
+     79              if (d->img)
+   \                     ??FreeSmiles_6:
+   \   0000009C   080096E5           LDR      R0,[R6, #+8]
+   \   000000A0   000050E3           CMP      R0,#+0
+   \   000000A4   0300000A           BEQ      ??FreeSmiles_7
+     80              {
+     81                mfree(d->img->bitmap);
+   \   000000A8   080090E5           LDR      R0,[R0, #+8]
+   \   000000AC   150000EF           SWI      +21
+     82                mfree(d->img);
+   \   000000B0   080096E5           LDR      R0,[R6, #+8]
+   \   000000B4   150000EF           SWI      +21
+     83              }
+     84              nd=d->next;
+   \                     ??FreeSmiles_7:
+   \   000000B8   005096E5           LDR      R5,[R6, #+0]
+     85              mfree(d);
+   \   000000BC   0600A0E1           MOV      R0,R6
+   \   000000C0   150000EF           SWI      +21
+     86              d=nd;
+   \   000000C4   0560B0E1           MOVS     R6,R5
+     87            }
+   \   000000C8   F3FFFF1A           BNE      ??FreeSmiles_6
+     88            mfree(s_buf);
+   \                     ??FreeSmiles_5:
+   \   000000CC   200094E5           LDR      R0,[R4, #+32]
+   \   000000D0   150000EF           SWI      +21
+     89          }
+   \   000000D4   F181BDE8           POP      {R0,R4-R8,PC}    ;; return
+     90          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     91          void CheckSmiles(void)
+     92          {
+   \                     CheckSmiles:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+     93            int f;
+     94            unsigned int err;
+     95            int fsize;
+     96            char *buf, *p_buf;
+     97            FSTATS stat;
+     98          
+     99            if (GetFileStats(SMILE_FILE,&stat,&err)==-1)
+   \   00000004   ........           LDR      R5,??DataTable6  ;; SMILE_FILE
+   \   00000008   2CD04DE2           SUB      SP,SP,#+44
+   \   0000000C   0040E0E3           MVN      R4,#+0
+   \   00000010   0D20A0E1           MOV      R2,SP
+   \   00000014   04108DE2           ADD      R1,SP,#+4
+   \   00000018   0500A0E1           MOV      R0,R5
+   \   0000001C   840000EF           SWI      +132
+   \   00000020   040050E1           CMP      R0,R4
+   \   00000024   2B00000A           BEQ      ??CheckSmiles_0
+    100              return;
+    101          
+    102            if ((fsize=stat.size)<=0)
+   \   00000028   08609DE5           LDR      R6,[SP, #+8]
+   \   0000002C   010056E3           CMP      R6,#+1
+   \   00000030   280000BA           BLT      ??CheckSmiles_0
+    103              return;
+    104          
+    105            if ((f=fopen(SMILE_FILE,A_ReadOnly+A_BIN,P_READ,&err))==-1)
+   \   00000034   0D30A0E1           MOV      R3,SP
+   \   00000038   8020A0E3           MOV      R2,#+128
+   \   0000003C   801CA0E3           MOV      R1,#+32768
+   \   00000040   0500A0E1           MOV      R0,R5
+   \   00000044   0A0000EF           SWI      +10
+   \   00000048   0070A0E1           MOV      R7,R0
+   \   0000004C   040057E1           CMP      R7,R4
+   \   00000050   2000000A           BEQ      ??CheckSmiles_0
+    106              return;
+    107          
+    108            buf=p_buf=malloc(fsize+1);
+   \   00000054   010086E2           ADD      R0,R6,#+1
+   \   00000058   140000EF           SWI      +20
+   \   0000005C   0040A0E1           MOV      R4,R0
+   \   00000060   0450A0E1           MOV      R5,R4
+    109            buf[fread(f,buf,fsize,&err)]=0;
+   \   00000064   0D30A0E1           MOV      R3,SP
+   \   00000068   0620A0E1           MOV      R2,R6
+   \   0000006C   0410A0E1           MOV      R1,R4
+   \   00000070   0700A0E1           MOV      R0,R7
+   \   00000074   0B0000EF           SWI      +11
+   \   00000078   0010A0E3           MOV      R1,#+0
+   \   0000007C   0410C0E7           STRB     R1,[R0, +R4]
+    110            fclose(f,&err);
+   \   00000080   0D10A0E1           MOV      R1,SP
+   \   00000084   0700A0E1           MOV      R0,R7
+   \   00000088   0D0000EF           SWI      +13
+    111            
+    112            f = smiles_max;
+    113            for(buf=p_buf;*buf; buf++)
+   \   0000008C   0000D5E5           LDRB     R0,[R5, #+0]
+   \   00000090   000050E3           CMP      R0,#+0
+   \   00000094   0D00000A           BEQ      ??CheckSmiles_1
+    114              if(*buf == ':')
+   \                     ??CheckSmiles_2:
+   \   00000098   0000D5E5           LDRB     R0,[R5, #+0]
+   \   0000009C   3A0050E3           CMP      R0,#+58
+   \   000000A0   0700001A           BNE      ??CheckSmiles_3
+    115              {
+    116                buf++;
+    117                while(*buf && *buf != 0x0D) buf++;
+   \                     ??CheckSmiles_4:
+   \   000000A4   0100F5E5           LDRB     R0,[R5, #+1]!
+   \   000000A8   000050E3           CMP      R0,#+0
+   \   000000AC   0D005013           CMPNE    R0,#+13
+   \   000000B0   FBFFFF1A           BNE      ??CheckSmiles_4
+    118                smiles_max++;
+   \   000000B4   ........           LDR      R0,??DataTable4  ;; gipc
+   \   000000B8   141090E5           LDR      R1,[R0, #+20]
+   \   000000BC   011081E2           ADD      R1,R1,#+1
+   \   000000C0   141080E5           STR      R1,[R0, #+20]
+    119              }
+   \                     ??CheckSmiles_3:
+   \   000000C4   0100F5E5           LDRB     R0,[R5, #+1]!
+   \   000000C8   000050E3           CMP      R0,#+0
+   \   000000CC   F1FFFF1A           BNE      ??CheckSmiles_2
+    120            mfree(p_buf);
+   \                     ??CheckSmiles_1:
+   \   000000D0   0400A0E1           MOV      R0,R4
+   \   000000D4   150000EF           SWI      +21
+    121          }
+   \                     ??CheckSmiles_0:
+   \   000000D8   2CD08DE2           ADD      SP,SP,#+44       ;; stack cleaning
+   \   000000DC   F080BDE8           POP      {R4-R7,PC}       ;; return
+    122          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    123          void InitSmiles(void)
+    124          {
+   \                     InitSmiles:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+    125            int f;
+    126            unsigned int err;
+    127            int fsize;
+    128            char *buf;
+    129            FSTATS stat;
+    130          
+    131            FreeSmiles();
+    132            CheckSmiles();
+    133            
+    134            n_pic=FIRST_UCS2_BITMAP;
+   \   00000004   ........           LDR      R4,??DataTable8  ;; gipc
+    135            if (GetFileStats(SMILE_FILE,&stat,&err)==-1)
+   \   00000008   ........           LDR      R6,??DataTable6  ;; SMILE_FILE
+   \   0000000C   2CD04DE2           SUB      SP,SP,#+44
+   \   00000010   ........           BL       FreeSmiles
+   \   00000014   ........           BL       CheckSmiles
+   \   00000018   2A00A0E3           MOV      R0,#+42
+   \   0000001C   E10C80E3           ORR      R0,R0,#0xE100
+   \   00000020   280084E5           STR      R0,[R4, #+40]
+   \   00000024   0050E0E3           MVN      R5,#+0
+   \   00000028   0D20A0E1           MOV      R2,SP
+   \   0000002C   04108DE2           ADD      R1,SP,#+4
+   \   00000030   0600A0E1           MOV      R0,R6
+   \   00000034   840000EF           SWI      +132
+   \   00000038   050050E1           CMP      R0,R5
+   \   0000003C   2400000A           BEQ      ??InitSmiles_0
+    136              return;
+    137          
+    138            if ((fsize=stat.size)<=0)
+   \   00000040   08709DE5           LDR      R7,[SP, #+8]
+   \   00000044   010057E3           CMP      R7,#+1
+   \   00000048   210000BA           BLT      ??InitSmiles_0
+    139              return;
+    140          
+    141            if ((f=fopen(SMILE_FILE,A_ReadOnly+A_BIN,P_READ,&err))==-1)
+   \   0000004C   0D30A0E1           MOV      R3,SP
+   \   00000050   8020A0E3           MOV      R2,#+128
+   \   00000054   801CA0E3           MOV      R1,#+32768
+   \   00000058   0600A0E1           MOV      R0,R6
+   \   0000005C   0A0000EF           SWI      +10
+   \   00000060   0060A0E1           MOV      R6,R0
+   \   00000064   050056E1           CMP      R6,R5
+   \   00000068   1900000A           BEQ      ??InitSmiles_0
+    142              return;
+    143          
+    144            buf=s_buf=p_buf=malloc(fsize+1);
+   \   0000006C   010087E2           ADD      R0,R7,#+1
+   \   00000070   140000EF           SWI      +20
+   \   00000074   0050A0E1           MOV      R5,R0
+   \   00000078   1C5084E5           STR      R5,[R4, #+28]
+   \   0000007C   205084E5           STR      R5,[R4, #+32]
+    145            buf[fread(f,buf,fsize,&err)]=0;
+   \   00000080   0080A0E3           MOV      R8,#+0
+   \   00000084   0D30A0E1           MOV      R3,SP
+   \   00000088   0720A0E1           MOV      R2,R7
+   \   0000008C   0510A0E1           MOV      R1,R5
+   \   00000090   0600A0E1           MOV      R0,R6
+   \   00000094   0B0000EF           SWI      +11
+   \   00000098   0580C0E7           STRB     R8,[R0, +R5]
+    146            fclose(f,&err);
+   \   0000009C   0D10A0E1           MOV      R1,SP
+   \   000000A0   0600A0E1           MOV      R0,R6
+   \   000000A4   0D0000EF           SWI      +13
+    147          
+    148            gipc.name_to=ipc_my_name;
+   \   000000A8   ........           LDR      R0,??DataTable9  ;; ipc_my_name
+    149            gipc.name_from=ipc_my_name;
+    150            gipc.data=0;
+   \   000000AC   088084E5           STR      R8,[R4, #+8]
+   \   000000B0   000084E5           STR      R0,[R4, #+0]
+   \   000000B4   040084E5           STR      R0,[R4, #+4]
+    151            GBS_SendMessage(MMI_CEPID,MSG_IPC,IPC_SMILE_PROCESSED,&gipc);
+   \   000000B8   0430A0E1           MOV      R3,R4
+   \   000000BC   0120A0E3           MOV      R2,#+1
+   \   000000C0   B010A0E3           MOV      R1,#+176
+   \   000000C4   DE1C81E3           ORR      R1,R1,#0xDE00
+   \   000000C8   0900A0E3           MOV      R0,#+9
+   \   000000CC   420C80E3           ORR      R0,R0,#0x4200
+   \   000000D0   000100EF           SWI      +256
+    152          }
+   \                     ??InitSmiles_0:
+   \   000000D4   2CD08DE2           ADD      SP,SP,#+44       ;; stack cleaning
+   \   000000D8   F081BDE8           POP      {R4-R8,PC}       ;; return
+    153          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    154          void ProcessNextSmile(void)  
+    155          {  
+   \                     ProcessNextSmile:
+   \   00000000   F0432DE9           PUSH     {R4-R9,LR}
+    156            int c;
+    157            char fn[128];
+    158            DYNPNGICONLIST *dp;
+    159            S_SMILES *si;
+    160            STXT_SMILES *st;
+    161            char *buf=p_buf;
+   \   00000004   ........           LDR      R4,??DataTable8  ;; gipc
+   \   00000008   84D04DE2           SUB      SP,SP,#+132
+   \   0000000C   1C6094E5           LDR      R6,[R4, #+28]
+    162            if (!buf) return;
+   \   00000010   0050A0E3           MOV      R5,#+0
+   \   00000014   000056E3           CMP      R6,#+0
+   \   00000018   0300001A           BNE      ??ProcessNextSmile_0
+   \   0000001C   150000EA           B        ??ProcessNextSmile_1
+    163            while ((c=*buf))
+    164            {
+    165              char *p;
+    166              if ((c==10)||(c==13))
+    167              {
+    168                buf++;
+    169                gipc.name_to=ipc_my_name;
+    170                gipc.name_from=ipc_my_name;
+    171                gipc.data=0;
+    172                GBS_SendMessage(MMI_CEPID,MSG_IPC,IPC_SMILE_PROCESSED,&gipc);
+    173                p_buf=buf;
+    174                return;
+    175              }
+    176              p=strchr(buf,':');
+    177              if (!p) break;
+    178              zeromem(fn,128);
+    179              strcpy(fn,SMILE_PATH);
+    180              if (fn[strlen(fn)-1]!='\\') strcat(fn,"\\");
+    181              c=p-buf;
+    182              if (c>(127-strlen(fn))) break;
+    183              strncpy(fn+strlen(fn),buf,c);
+    184              buf=p;
+    185              dp=malloc(sizeof(DYNPNGICONLIST));
+    186              zeromem(dp,sizeof(DYNPNGICONLIST));
+    187              dp->icon=GetPicNByUnicodeSymbol(n_pic);
+    188              dp->img=CreateIMGHDRFromPngFile(fn,0);
+    189              LockSched();
+    190              if (SmilesImgList)
+    191              {
+    192                dp->next=SmilesImgList;
+    193              }
+    194              SmilesImgList=dp;
+    195              UnlockSched();
+    196              si=malloc(sizeof(S_SMILES));
+    197              si->next=NULL;
+    198              si->lines=NULL;
+    199              si->botlines=NULL;
+    200              si->uni_smile=n_pic;
+    201              if (s_bot)
+    202              {
+    203                //Не первый
+    204                s_bot->next=si;
+    205                s_bot=si;
+    206              }
+    207              else
+    208              {
+    209                //Первый
+    210                s_top=si;
+    211                s_bot=si;
+    212              }
+    213              n_pic++;
+    214              while (*buf!=10 && *buf!=13 && *buf!=0)
+    215              {
+    216                buf++;
+    217                int i=0;
+    218                while (buf[i]!=0&&buf [i]!=','&&buf [i]!=10&&buf[i]!=13)  i++;
+    219                st=malloc(sizeof(STXT_SMILES)+i);
+    220                strncpy(st->text,buf,i);
+    221                st->text[i]=0;
+    222                
+    223                st->next=NULL;
+    224                st->key=*((unsigned long *)st->text);
+    225                st->mask=~(0xFFFFFFFFUL<<(8*i));
+    226                st->key&=st->mask;
+    227                if (si->botlines)
+    228                {
+    229          	si->botlines->next=st;
+    230          	si->botlines=st;
+    231                }
+    232                else
+    233                {
+    234          	si->lines=st;
+    235          	si->botlines=st;
+    236                }
+    237                buf+=i;
+    238              }
+    239              smiles_loaded++;
+   \                     ??ProcessNextSmile_2:
+   \   00000020   180094E5           LDR      R0,[R4, #+24]
+   \   00000024   010080E2           ADD      R0,R0,#+1
+   \   00000028   180084E5           STR      R0,[R4, #+24]
+   \                     ??ProcessNextSmile_0:
+   \   0000002C   0080D6E5           LDRB     R8,[R6, #+0]
+   \   00000030   000058E3           CMP      R8,#+0
+   \   00000034   B000000A           BEQ      ??ProcessNextSmile_3
+   \   00000038   0A0058E3           CMP      R8,#+10
+   \   0000003C   0D005813           CMPNE    R8,#+13
+   \   00000040   0E00001A           BNE      ??ProcessNextSmile_4
+   \   00000044   ........           LDR      R0,??DataTable9  ;; ipc_my_name
+   \   00000048   085084E5           STR      R5,[R4, #+8]
+   \   0000004C   000084E5           STR      R0,[R4, #+0]
+   \   00000050   040084E5           STR      R0,[R4, #+4]
+   \   00000054   0430A0E1           MOV      R3,R4
+   \   00000058   0120A0E3           MOV      R2,#+1
+   \   0000005C   B010A0E3           MOV      R1,#+176
+   \   00000060   DE1C81E3           ORR      R1,R1,#0xDE00
+   \   00000064   0900A0E3           MOV      R0,#+9
+   \   00000068   420C80E3           ORR      R0,R0,#0x4200
+   \   0000006C   000100EF           SWI      +256
+   \   00000070   016086E2           ADD      R6,R6,#+1
+   \   00000074   1C6084E5           STR      R6,[R4, #+28]
+   \                     ??ProcessNextSmile_1:
+   \   00000078   84D08DE2           ADD      SP,SP,#+132
+   \   0000007C   F083BDE8           POP      {R4-R9,PC}
+   \                     ??ProcessNextSmile_4:
+   \   00000080   3A10A0E3           MOV      R1,#+58
+   \   00000084   0600A0E1           MOV      R0,R6
+   \   00000088   180000EF           SWI      +24
+   \   0000008C   0070B0E1           MOVS     R7,R0
+   \   00000090   9900000A           BEQ      ??ProcessNextSmile_3
+   \   00000094   8010A0E3           MOV      R1,#+128
+   \   00000098   04008DE2           ADD      R0,SP,#+4
+   \   0000009C   1D0100EF           SWI      +285
+   \   000000A0   74129FE5           LDR      R1,??ProcessNextSmile_5+0x4  ;; SMILE_PATH
+   \   000000A4   04008DE2           ADD      R0,SP,#+4
+   \   000000A8   1A0000EF           SWI      +26
+   \   000000AC   04008DE2           ADD      R0,SP,#+4
+   \   000000B0   1B0000EF           SWI      +27
+   \   000000B4   04108DE2           ADD      R1,SP,#+4
+   \   000000B8   010080E0           ADD      R0,R0,R1
+   \   000000BC   010050E5           LDRB     R0,[R0, #-1]
+   \   000000C0   5C0050E3           CMP      R0,#+92
+   \   000000C4   0200000A           BEQ      ??ProcessNextSmile_6
+   \   000000C8   921F8FE2           ADR      R1,??ProcessNextSmile_5  ;; "\\"
+   \   000000CC   04008DE2           ADD      R0,SP,#+4
+   \   000000D0   170000EF           SWI      +23
+   \                     ??ProcessNextSmile_6:
+   \   000000D4   068047E0           SUB      R8,R7,R6
+   \   000000D8   04008DE2           ADD      R0,SP,#+4
+   \   000000DC   1B0000EF           SWI      +27
+   \   000000E0   7F0060E2           RSB      R0,R0,#+127
+   \   000000E4   080050E1           CMP      R0,R8
+   \   000000E8   8300003A           BCC      ??ProcessNextSmile_3
+   \   000000EC   04008DE2           ADD      R0,SP,#+4
+   \   000000F0   1B0000EF           SWI      +27
+   \   000000F4   0820A0E1           MOV      R2,R8
+   \   000000F8   0610A0E1           MOV      R1,R6
+   \   000000FC   04308DE2           ADD      R3,SP,#+4
+   \   00000100   030080E0           ADD      R0,R0,R3
+   \   00000104   160100EF           SWI      +278
+   \   00000108   0760A0E1           MOV      R6,R7
+   \   0000010C   0C00A0E3           MOV      R0,#+12
+   \   00000110   140000EF           SWI      +20
+   \   00000114   0070A0E1           MOV      R7,R0
+   \   00000118   0C10A0E3           MOV      R1,#+12
+   \   0000011C   1D0100EF           SWI      +285
+   \   00000120   280094E5           LDR      R0,[R4, #+40]
+   \   00000124   E40100EF           SWI      +484
+   \   00000128   040087E5           STR      R0,[R7, #+4]
+   \   0000012C   0010A0E3           MOV      R1,#+0
+   \   00000130   04008DE2           ADD      R0,SP,#+4
+   \   00000134   E90100EF           SWI      +489
+   \   00000138   080087E5           STR      R0,[R7, #+8]
+   \   0000013C   460100EF           SWI      +326
+   \   00000140   100094E5           LDR      R0,[R4, #+16]
+   \   00000144   000050E3           CMP      R0,#+0
+   \   00000148   00008715           STRNE    R0,[R7, #+0]
+   \   0000014C   107084E5           STR      R7,[R4, #+16]
+   \   00000150   470100EF           SWI      +327
+   \   00000154   1000A0E3           MOV      R0,#+16
+   \   00000158   140000EF           SWI      +20
+   \   0000015C   0070A0E1           MOV      R7,R0
+   \   00000160   005087E5           STR      R5,[R7, #+0]
+   \   00000164   085087E5           STR      R5,[R7, #+8]
+   \   00000168   0C5087E5           STR      R5,[R7, #+12]
+   \   0000016C   280094E5           LDR      R0,[R4, #+40]
+   \   00000170   040087E5           STR      R0,[R7, #+4]
+   \   00000174   241094E5           LDR      R1,[R4, #+36]
+   \   00000178   010080E2           ADD      R0,R0,#+1
+   \   0000017C   000051E3           CMP      R1,#+0
+   \   00000180   00708115           STRNE    R7,[R1, #+0]
+   \   00000184   0C708405           STREQ    R7,[R4, #+12]
+   \   00000188   0710A0E1           MOV      R1,R7
+   \   0000018C   241084E5           STR      R1,[R4, #+36]
+   \   00000190   280084E5           STR      R0,[R4, #+40]
+   \   00000194   020000EA           B        ??ProcessNextSmile_7
+   \                     ??ProcessNextSmile_8:
+   \   00000198   089087E5           STR      R9,[R7, #+8]
+   \                     ??ProcessNextSmile_9:
+   \   0000019C   0C9087E5           STR      R9,[R7, #+12]
+   \   000001A0   066088E0           ADD      R6,R8,R6
+   \                     ??ProcessNextSmile_7:
+   \   000001A4   0000D6E5           LDRB     R0,[R6, #+0]
+   \   000001A8   0A0050E3           CMP      R0,#+10
+   \   000001AC   0D005013           CMPNE    R0,#+13
+   \   000001B0   00005013           CMPNE    R0,#+0
+   \   000001B4   99FFFF0A           BEQ      ??ProcessNextSmile_2
+   \   000001B8   016086E2           ADD      R6,R6,#+1
+   \   000001BC   0080A0E3           MOV      R8,#+0
+   \   000001C0   000000EA           B        ??ProcessNextSmile_10
+   \                     ??ProcessNextSmile_11:
+   \   000001C4   018088E2           ADD      R8,R8,#+1
+   \                     ??ProcessNextSmile_10:
+   \   000001C8   0600D8E7           LDRB     R0,[R8, +R6]
+   \   000001CC   000050E3           CMP      R0,#+0
+   \   000001D0   2C005013           CMPNE    R0,#+44
+   \   000001D4   0A005013           CMPNE    R0,#+10
+   \   000001D8   0D005013           CMPNE    R0,#+13
+   \   000001DC   F8FFFF1A           BNE      ??ProcessNextSmile_11
+   \   000001E0   0D0088E2           ADD      R0,R8,#+13
+   \   000001E4   140000EF           SWI      +20
+   \   000001E8   0090A0E1           MOV      R9,R0
+   \   000001EC   0820A0E1           MOV      R2,R8
+   \   000001F0   0610A0E1           MOV      R1,R6
+   \   000001F4   0C0089E2           ADD      R0,R9,#+12
+   \   000001F8   160100EF           SWI      +278
+   \   000001FC   090088E0           ADD      R0,R8,R9
+   \   00000200   0C50C0E5           STRB     R5,[R0, #+12]
+   \   00000204   00508DE5           STR      R5,[SP, #+0]
+   \   00000208   0000A0E3           MOV      R0,#+0
+   \                     ??ProcessNextSmile_12:
+   \   0000020C   0D10A0E1           MOV      R1,SP
+   \   00000210   0110D0E7           LDRB     R1,[R0, +R1]
+   \   00000214   0910C0E7           STRB     R1,[R0, +R9]
+   \   00000218   010080E2           ADD      R0,R0,#+1
+   \   0000021C   040050E3           CMP      R0,#+4
+   \   00000220   F9FFFFBA           BLT      ??ProcessNextSmile_12
+   \   00000224   0C0099E5           LDR      R0,[R9, #+12]
+   \   00000228   0810A0E1           MOV      R1,R8
+   \   0000022C   0400C9E5           STRB     R0,[R9, #+4]
+   \   00000230   2004A0E1           LSR      R0,R0,#+8
+   \   00000234   0500C9E5           STRB     R0,[R9, #+5]
+   \   00000238   2004A0E1           LSR      R0,R0,#+8
+   \   0000023C   0600C9E5           STRB     R0,[R9, #+6]
+   \   00000240   2004A0E1           LSR      R0,R0,#+8
+   \   00000244   0700C9E5           STRB     R0,[R9, #+7]
+   \   00000248   0500E0E1           MVN      R0,R5
+   \   0000024C   8111A0E1           LSL      R1,R1,#+3
+   \   00000250   1001E0E1           MVN      R0,R0, LSL R1
+   \   00000254   0800C9E5           STRB     R0,[R9, #+8]
+   \   00000258   2004A0E1           LSR      R0,R0,#+8
+   \   0000025C   0900C9E5           STRB     R0,[R9, #+9]
+   \   00000260   2004A0E1           LSR      R0,R0,#+8
+   \   00000264   0A00C9E5           STRB     R0,[R9, #+10]
+   \   00000268   2004A0E1           LSR      R0,R0,#+8
+   \   0000026C   0B00C9E5           STRB     R0,[R9, #+11]
+   \   00000270   0700D9E5           LDRB     R0,[R9, #+7]
+   \   00000274   0610D9E5           LDRB     R1,[R9, #+6]
+   \   00000278   0A20D9E5           LDRB     R2,[R9, #+10]
+   \   0000027C   000481E1           ORR      R0,R1,R0, LSL #+8
+   \   00000280   0510D9E5           LDRB     R1,[R9, #+5]
+   \   00000284   000481E1           ORR      R0,R1,R0, LSL #+8
+   \   00000288   0410D9E5           LDRB     R1,[R9, #+4]
+   \   0000028C   000481E1           ORR      R0,R1,R0, LSL #+8
+   \   00000290   0B10D9E5           LDRB     R1,[R9, #+11]
+   \   00000294   011482E1           ORR      R1,R2,R1, LSL #+8
+   \   00000298   0920D9E5           LDRB     R2,[R9, #+9]
+   \   0000029C   011482E1           ORR      R1,R2,R1, LSL #+8
+   \   000002A0   0820D9E5           LDRB     R2,[R9, #+8]
+   \   000002A4   011482E1           ORR      R1,R2,R1, LSL #+8
+   \   000002A8   000001E0           AND      R0,R1,R0
+   \   000002AC   0400C9E5           STRB     R0,[R9, #+4]
+   \   000002B0   2004A0E1           LSR      R0,R0,#+8
+   \   000002B4   0500C9E5           STRB     R0,[R9, #+5]
+   \   000002B8   2004A0E1           LSR      R0,R0,#+8
+   \   000002BC   0600C9E5           STRB     R0,[R9, #+6]
+   \   000002C0   2004A0E1           LSR      R0,R0,#+8
+   \   000002C4   0700C9E5           STRB     R0,[R9, #+7]
+   \   000002C8   0C0097E5           LDR      R0,[R7, #+12]
+   \   000002CC   000050E3           CMP      R0,#+0
+   \   000002D0   B0FFFF0A           BEQ      ??ProcessNextSmile_8
+   \   000002D4   00908DE5           STR      R9,[SP, #+0]
+   \   000002D8   0000A0E3           MOV      R0,#+0
+   \                     ??ProcessNextSmile_13:
+   \   000002DC   0C1097E5           LDR      R1,[R7, #+12]
+   \   000002E0   0D20A0E1           MOV      R2,SP
+   \   000002E4   0220D0E7           LDRB     R2,[R0, +R2]
+   \   000002E8   0120C0E7           STRB     R2,[R0, +R1]
+   \   000002EC   010080E2           ADD      R0,R0,#+1
+   \   000002F0   040050E3           CMP      R0,#+4
+   \   000002F4   F8FFFFBA           BLT      ??ProcessNextSmile_13
+   \   000002F8   A7FFFFEA           B        ??ProcessNextSmile_9
+    240            }
+    241            p_buf=NULL;
+    242            mfree(s_buf);
+   \                     ??ProcessNextSmile_3:
+   \   000002FC   200094E5           LDR      R0,[R4, #+32]
+   \   00000300   1C5084E5           STR      R5,[R4, #+28]
+   \   00000304   150000EF           SWI      +21
+    243            s_buf=NULL;
+   \   00000308   205084E5           STR      R5,[R4, #+32]
+    244            REDRAW();
+   \   0000030C   720100EF           SWI      +370
+    245          }
+   \   00000310   84D08DE2           ADD      SP,SP,#+132
+   \   00000314   F083BDE8           POP      {R4-R9,PC}       ;; return
+   \                     ??ProcessNextSmile_5:
+   \   00000318   5C000000           DC8      "\\",+0,+0
+   \   0000031C   ........           DC32     SMILE_PATH
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable1:
+   \   00000000   ........           DC32     gipc + 12
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable4:
+   \   00000000   ........           DC32     gipc
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable6:
+   \   00000000   ........           DC32     SMILE_FILE
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable8:
+   \   00000000   ........           DC32     gipc
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable9:
+   \   00000000   ........           DC32     ipc_my_name
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \   00000000   5C00               DC8 "\\"
+
+   Maximum stack usage in bytes:
+
+     Function         CSTACK
+     --------         ------
+     CheckSmiles         64
+     FindSmileById        0
+     FindSmileByUni       0
+     FreeSmiles          28
+     InitSmiles          68
+     ProcessNextSmile   160
+
+
+   Segment part sizes:
+
+     Function/Label   Bytes
+     --------------   -----
+     gipc               44
+     FindSmileById      44
+     FindSmileByUni     44
+     FreeSmiles        216
+     CheckSmiles       224
+     InitSmiles        220
+     ProcessNextSmile  800
+     ??DataTable1        4
+     ??DataTable4        4
+     ??DataTable6        4
+     ??DataTable8        4
+     ??DataTable9        4
+     ?<Constant "\\">    2
+      Others            36
+
+ 
+ 1 592 bytes in segment CODE
+     2 bytes in segment DATA_C
+    44 bytes in segment DATA_Z
+    12 bytes in segment INITTAB
+ 
+ 1 568 bytes of CODE  memory (+ 36 bytes shared)
+     2 bytes of CONST memory
+    44 bytes of DATA  memory
+
+Errors: none
+Warnings: none

@@ -1,0 +1,1695 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    09/Mar/2011  21:06:12 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\miosd_src\main.c                              #
+#    Command line    =  C:\arm\miosd_src\main.c -D NEWSGOLD -D EVILFOX -D    #
+#                       NATICQ -lC C:\arm\miosd_src\EVILFOX_S75\List\ -lA    #
+#                       C:\arm\miosd_src\EVILFOX_S75\List\ -o                #
+#                       C:\arm\miosd_src\EVILFOX_S75\Obj\ -s9 --no_unroll    #
+#                       --cpu_mode arm --endian little --cpu ARM926EJ-S      #
+#                       --stack_align 4 --interwork -e --fpu None            #
+#                       --dlib_config "C:\arm2\Embedded Workbench 4.0        #
+#                       Evaluation\ARM\LIB\dl5tpainl8n.h" -I                 #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\miosd_src\EVILFOX_S75\List\main.lst           #
+#    Object file     =  C:\arm\miosd_src\EVILFOX_S75\Obj\main.r79            #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\miosd_src\main.c
+      1          #include "..\inc\swilib.h"
+      2          //#include "..\inc\cfg_items.h"
+      3          #ifdef EVILFOX
+      4          #else
+      5          #include "conf_loader.h"
+      6          #endif
+      7          #include "gprs_write.h"
+      8          #include "string_works.h"
+      9          #include "missed_events.h"
+     10          #include "language.h"
+     11          #ifdef EVILFOX
+     12          #include "clock.h"
+     13          int main_clock;
+     14          #endif
+     15          #define NATICQ
+                         ^
+Warning[Pe047]: incompatible redefinition of macro "NATICQ"
+     16          
+     17          #ifdef EVILFOX
+     18          #define BUFSIZE 5000
+     19          #else
+     20          #define BUFSIZE 10000
+     21          #endif
+     22          
+     23          #ifdef NATICQ
+     24          #ifdef EVILFOX
+     25          #else
+     26          extern const int use_plugin;
+     27          extern const char COLORfont1[4];
+     28          extern const char COLORfont2[4];
+     29          extern const unsigned int font1;
+     30          extern const unsigned int font2;
+     31          
+     32          #endif
+     33          int naticq_plugin;
+     34          char naticq_time[16];
+     35          char naticq_ping[16]="none";
+     36          #endif
+     37          
+     38          #ifdef EVILFOX
+     39          #else
+     40          extern const int engade_mis;
+     41          #endif
+     42          extern unsigned long  strtoul (const char *nptr,char **endptr,int base);
+     43          
+     44          extern const char linksound[64];
+     45          
+     46          
+     47          
+     48          CSM_DESC icsmd;
+     49          int ker_state;
+     50          
+     51          int r_s=20;
+     52          int r_m;
+     53          int r_h;
+     54          
+     55          
+     56          
+     57          
+     58          
+     59          int (*old_icsm_onMessage)(CSM_RAM*,GBS_MSG*);
+     60          void (*old_icsm_onClose)(CSM_RAM*);
+     61          
+     62          unsigned short maincsm_name_body[140];
+     63          const int minus11=-11;
+     64          int MAINCSM_ID;
+     65          int first_con;
+     66          int key_mode;
+     67          
+     68          typedef struct
+     69          {
+     70            CSM_RAM csm;
+     71            int gui_id;
+     72          }MAIN_CSM;
+     73          
+     74          typedef struct
+     75          {
+     76            GUI gui;
+     77            WSHDR *ws1;
+     78            WSHDR *ws2;
+     79            int i1;
+     80          }MAIN_GUI;
+     81          
+     82          int pos;
+     83          int phase;
+     84          int pos_main_x;
+     85          int pos_main_y;
+     86          int lock_keys;
+     87          GBSTMR mytmr;
+     88          int pos_link_x;
+     89          int pos_link_y;
+     90          int pos_msg_x;
+     91          int pos_msg_y;
+     92          char chinfo[32];
+     93          char start_g[32];
+     94          char start_g2[32];
+     95          
+     96          
+     97          
+     98          IMGHDR screen={0,0,8,""};
+     99          
+    100          void DrwImg(IMGHDR *img, int x, int y, char *pen, char *brush)
+    101          {
+    102            RECT rc;
+    103            DRWOBJ drwobj;
+    104            StoreXYWHtoRECT(&rc,x,y,img->w,img->h);
+    105            SetPropTo_Obj5(&drwobj,&rc,0,img);
+    106            SetColor(&drwobj,pen,brush);
+    107            DrawObject(&drwobj);
+    108          }
+    109          
+    110          void DoScreen()
+    111          {
+    112              int ScrH=ScreenH();
+    113              int ScrW=ScreenW();
+    114              char *ms=RamScreenBuffer();
+    115              screen.w=ScrW;
+    116              screen.h=ScrH;
+    117              screen.bitmap=malloc(ScrW*ScrH*2);
+    118              memcpy(screen.bitmap, ms, ScrW*ScrH*2);
+    119          }
+    120          
+    121          int app_pos=1;
+    122          int pos_link2_x;
+    123          int pos_link2_y;
+    124          
+    125          void DoShowIt()
+    126          {
+    127            switch(phase)
+    128            {
+    129          case 1:
+    130            {
+    131              if(key_mode==1)
+    132              {
+    133              if(pos_main_x<0)
+    134              {
+    135                pos_main_x++;
+    136              }
+    137              else
+    138                phase=2;
+    139              DirectRedrawGUI();
+    140              GBS_StartTimerProc(&mytmr, 3, DoShowIt);
+    141              }
+    142              if(key_mode==2)
+    143              {
+    144              if(pos_main_x>112)
+    145              {
+    146                pos_main_x--;
+    147              }
+    148              else
+    149                phase=2;
+    150              DirectRedrawGUI();
+    151              GBS_StartTimerProc(&mytmr, 3, DoShowIt);
+    152              }
+    153            }
+    154            break;
+    155          case 2:
+    156            {
+    157              if(key_mode==1)
+    158              {
+    159              if(pos_link_x<20)
+    160              {
+    161                pos_link_x++;
+    162                DirectRedrawGUI();
+    163              }
+    164              else
+    165              {
+    166                DirectRedrawGUI();
+    167                if(pos==5)
+    168                {
+    169                  pos_msg_y=pos_link_y-34;
+    170                  pos_link2_y=pos_msg_y+24;
+    171                  pos_link2_x=pos_msg_x-12+(app_pos*20);
+    172                  phase=7;
+    173                }
+    174                else
+    175                phase=3;
+    176              }
+    177              GBS_StartTimerProc(&mytmr, 3, DoShowIt);
+    178              }
+    179              if(key_mode==2)
+    180              {
+    181              if(pos_link_x>102)
+    182              {
+    183                pos_link_x--;
+    184                DirectRedrawGUI();
+    185              }
+    186              else
+    187              {
+    188                DirectRedrawGUI();
+    189                if(pos==5)
+    190                {
+    191                  pos_msg_y=pos_link_y-34;
+    192                  pos_link2_y=pos_msg_y+24;
+    193                  pos_link2_x=pos_msg_x-12+(app_pos*20);
+    194                  phase=7;
+    195                }
+    196                else
+    197                phase=3;
+    198              }
+    199              GBS_StartTimerProc(&mytmr, 3, DoShowIt);
+    200              }
+    201            }
+    202            break;
+    203          case 3:
+    204            {
+    205              pos_msg_y=pos_link_y-34;
+    206              lock_keys=1;
+    207              DirectRedrawGUI();
+    208            }
+    209            break;
+    210          case 4:
+    211            {
+    212              if(key_mode==1)
+    213              {
+    214              if(pos_link_x>10)
+    215              {
+    216                pos_link_x--;
+    217              }
+    218              else
+    219              {
+    220                pos_link_y=pos_main_y-12+(pos*20);
+    221                phase=2;
+    222              }
+    223              DirectRedrawGUI();
+    224              GBS_StartTimerProc(&mytmr, 3, DoShowIt);
+    225              }
+    226              if(key_mode==2)
+    227              {
+    228              if(pos_link_x<112)
+    229              {
+    230                pos_link_x++;
+    231              }
+    232              else
+    233              {
+    234                pos_link_y=pos_main_y-12+(pos*20);
+    235                phase=2;
+    236              }
+    237              DirectRedrawGUI();
+    238              GBS_StartTimerProc(&mytmr, 3, DoShowIt);
+    239              }
+    240            }
+    241            break;
+    242          case 5:
+    243            {
+    244              if(key_mode==1)
+    245              {
+    246              if(pos_link_x>10)
+    247                pos_link_x--;
+    248              else
+    249                phase=6;
+    250              DirectRedrawGUI();
+    251              GBS_StartTimerProc(&mytmr, 3, DoShowIt);
+    252              }
+    253              if(key_mode==2)
+    254              {
+    255              if(pos_link_x<112)
+    256                pos_link_x++;
+    257              else
+    258                phase=6;
+    259              DirectRedrawGUI();
+    260              GBS_StartTimerProc(&mytmr, 3, DoShowIt);
+    261              }
+    262            }
+    263            break;
+    264          case 6:
+    265            {
+    266              if(key_mode==1)
+    267              {
+    268              if(pos_main_x>-20)
+    269              {
+    270                pos_main_x--;
+    271                DirectRedrawGUI();
+    272                GBS_StartTimerProc(&mytmr, 3, DoShowIt);
+    273              }
+    274              else
+    275                CloseCSM(MAINCSM_ID);
+    276              }
+    277              if(key_mode==2)
+    278              {
+    279              if(pos_main_x<240)
+    280              {
+    281                pos_main_x++;
+    282                DirectRedrawGUI();
+    283                GBS_StartTimerProc(&mytmr, 3, DoShowIt);
+    284              }
+    285              else
+    286                CloseCSM(MAINCSM_ID);
+    287              }
+    288            }
+    289            break;
+    290          case 7:
+    291            {
+    292              if(pos_link2_y>(pos_msg_y+14))
+    293              {
+    294                pos_link2_y--;
+    295              }
+    296              else
+    297                phase=3;
+    298              DirectRedrawGUI();
+    299              GBS_StartTimerProc(&mytmr, 3, DoShowIt);
+    300            }
+    301            break;
+    302          case 8:
+    303            {
+    304              {
+    305              if(pos_link2_y<pos_msg_y+24)
+    306              {
+    307                pos_link2_y++;
+    308              }
+    309              else
+    310              {
+    311                phase=7;
+    312                pos_link2_x=pos_msg_x-12+(app_pos*20);
+    313              }
+    314              DirectRedrawGUI();
+    315              GBS_StartTimerProc(&mytmr, 3, DoShowIt);
+    316            }
+    317            }
+    318            break;
+    319            }
+    320          }
+    321          
+    322          ////#ifdef EVILFOX
+    323          ////  void DrawWeatherLog()
+    324          ////  {
+    325          ////    WSHDR *ws=AllocWS(64);
+    326          ////    wsprintf(ws, "Weather: Ventspils");
+    327          ////    DrawString(ws,pos_msg_x+3,pos_msg_y+3,pos_msg_x+Get_WS_width(ws,font1)+3,pos_msg_y+GetFontYSIZE(font1)+3,font1,0,GetPaletteAdrByColorIndex(2),GetPaletteAdrByColorIndex(23));
+    328          ////    if(engade_weather)
+    329          ////    {
+    330          ////      wsprintf(ws, "On: %s", weather_time);
+    331          ////      DrawString(ws,pos_msg_x+3,pos_msg_y+18,pos_msg_x+Get_WS_width(ws,font2)+3,pos_msg_y+GetFontYSIZE(font2)+18,font2,0,GetPaletteAdrByColorIndex(4),GetPaletteAdrByColorIndex(23));
+    332          ////      wsprintf(ws, temp2);
+    333          ////      DrawString(ws,pos_msg_x+3,pos_msg_y+28,pos_msg_x+Get_WS_width(ws,font2)+3,pos_msg_y+GetFontYSIZE(font2)+28,font2,0,GetPaletteAdrByColorIndex(4),GetPaletteAdrByColorIndex(23));
+    334          ////      wsprintf(ws, vejsh2);
+    335          ////      DrawString(ws,pos_msg_x+3,pos_msg_y+38,pos_msg_x+Get_WS_width(ws,font2)+3,pos_msg_y+GetFontYSIZE(font2)+38,font2,0,GetPaletteAdrByColorIndex(4),GetPaletteAdrByColorIndex(23));
+    336          ////      wsprintf(ws, s_icon1);
+    337          ////      DrawString(ws,pos_msg_x+3,pos_msg_y+48,pos_msg_x+Get_WS_width(ws,font2)+3,pos_msg_y+GetFontYSIZE(font2)+48,font2,0,GetPaletteAdrByColorIndex(4),GetPaletteAdrByColorIndex(23));
+    338          ////    }
+    339          ////    else
+    340          ////    {
+    341          ////      wsprintf(ws, "  ");
+    342          ////      DrawString(ws,pos_msg_x+3,pos_msg_y+25,pos_msg_x+Get_WS_width(ws,font2)+3,pos_msg_y+GetFontYSIZE(font2)+25,font2,0,GetPaletteAdrByColorIndex(4),GetPaletteAdrByColorIndex(23));
+    343          ////    }
+    344          ////    FreeWS(ws);
+    345          ////  }
+    346          ////  #else
+    347          ////  void DrawWeatherLog()
+    348          ////  {
+    349          ////    WSHDR *ws=AllocWS(64);
+    350          
+    351          ////    DrawString(ws,pos_msg_x+3,pos_msg_y+3,pos_msg_x+Get_WS_width(ws,font1)+3,pos_msg_y+GetFontYSIZE(font1)+3,font1,0,COLORfont1,GetPaletteAdrByColorIndex(23));
+    352          ////    if(engade_weather)
+    353          ////    {
+    354          ////      wsprintf(ws, "On: %s", weather_time);
+    355          ////      DrawString(ws,pos_msg_x+3,pos_msg_y+18,pos_msg_x+Get_WS_width(ws,font2)+3,pos_msg_y+GetFontYSIZE(font2)+18,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+    356          ////      ascii2ws(ws, temp2);
+    357          ////      DrawString(ws,pos_msg_x+3,pos_msg_y+28,pos_msg_x+Get_WS_width(ws,font2)+3,pos_msg_y+GetFontYSIZE(font2)+28,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+    358          ////      ascii2ws(ws, vejsh2);
+    359          ////      //wsprintf(ws, vejsh2);
+    360          ////      DrawString(ws,pos_msg_x+3,pos_msg_y+38,pos_msg_x+Get_WS_width(ws,font2)+3,pos_msg_y+GetFontYSIZE(font2)+38,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+    361          ////      ascii2ws(ws, pressure2);
+    362          ////     // wsprintf(ws, pressure2);
+    363          ////      DrawString(ws,pos_msg_x+3,pos_msg_y+48,pos_msg_x+Get_WS_width(ws,font2)+3,pos_msg_y+GetFontYSIZE(font2)+48,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+    364          ////    }
+    365          ////    else
+    366          ////    {
+    367          ////      wsprintf(ws, "   ");
+    368          ////      DrawString(ws,pos_msg_x+3,pos_msg_y+25,pos_msg_x+Get_WS_width(ws,font2)+3,pos_msg_y+GetFontYSIZE(font2)+25,font2,0,GetPaletteAdrByColorIndex(4),GetPaletteAdrByColorIndex(23));
+    369          ////    }
+    370          ////    FreeWS(ws);
+    371          ////  }
+    372          ////  #endif
+    373          
+    374          int battery;
+    375          
+    376          void DrawBatteryLog()
+    377          {
+    378            battery = *RamCap();
+    379            WSHDR *ws=AllocWS(64);
+    380            wsprintf(ws, "[%t]", LG_BATI);
+    381            DrawString(ws,pos_msg_x+113,pos_msg_y+13,pos_msg_x+Get_WS_width(ws,font1)+113,pos_msg_y+GetFontYSIZE(font1)+13,font1,0,COLORfont1,GetPaletteAdrByColorIndex(23));
+                                                                                      ^
+Error[Pe020]: identifier "font1" is undefined
+
+    DrawString(ws,pos_msg_x+113,pos_msg_y+13,pos_msg_x+Get_WS_width(ws,font1)+113,pos_msg_y+GetFontYSIZE(font1)+13,font1,0,COLORfont1,GetPaletteAdrByColorIndex(23));
+                                                                                                                           ^
+"C:\arm\miosd_src\main.c",381  Error[Pe020]: identifier "COLORfont1" is
+          undefined
+    382            wsprintf(ws,"%t: %d%", LG_BCAP, battery);
+    383            DrawString(ws,pos_msg_x+113,pos_msg_y+28,pos_msg_x+Get_WS_width(ws,font2)+113,pos_msg_y+GetFontYSIZE(font2)+28,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+                                                                                      ^
+Error[Pe020]: identifier "font2" is undefined
+
+    DrawString(ws,pos_msg_x+113,pos_msg_y+28,pos_msg_x+Get_WS_width(ws,font2)+113,pos_msg_y+GetFontYSIZE(font2)+28,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+                                                                                                                           ^
+"C:\arm\miosd_src\main.c",383  Error[Pe020]: identifier "COLORfont2" is
+          undefined
+    384            if(GetAccessoryType()==13) wsprintf(ws, "%t: On", LG_BCON); else wsprintf(ws, "%t: Off", LG_BCON);
+    385            DrawString(ws,pos_msg_x+113,pos_msg_y+38,pos_msg_x+Get_WS_width(ws,font2)+113,pos_msg_y+GetFontYSIZE(font2)+38,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+    386            wsprintf(ws, "%t:", LG_CLCH);
+    387            DrawString(ws,pos_msg_x+113,pos_msg_y+48,pos_msg_x+Get_WS_width(ws,font2)+113,pos_msg_y+GetFontYSIZE(font2)+48,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+    388            wsprintf(ws, chinfo);
+    389            DrawString(ws,pos_msg_x+1118,pos_msg_y+58,pos_msg_x+Get_WS_width(ws,font2)+1118,pos_msg_y+GetFontYSIZE(font2)+58,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+    390            FreeWS(ws);
+    391          }
+    392          
+    393          #pragma swi_number=0x41
+    394          __swi __arm char GetProvider(WSHDR *ws, int zero); //for provider info
+    395          int monthc;
+    396          char month[10];
+    397          
+    398          void get_month()
+    399          {
+    400            TDate date;
+    401            GetDateTime(&date, NULL);
+    402            if(date.month==1) strcpy(month, " января");
+    403            if(date.month==2) strcpy(month, " февраля");
+    404            if(date.month==3) strcpy(month, " марта");
+    405            if(date.month==4) strcpy(month, " апреля");
+    406            if(date.month==5) strcpy(month, " мая");
+    407            if(date.month==6) strcpy(month, " июня");
+    408            if(date.month==7) strcpy(month, " июля");
+    409            if(date.month==8) strcpy(month, " августа");
+    410            if(date.month==9) strcpy(month, " сентября");
+    411            if(date.month==10) strcpy(month, " октября");
+    412            if(date.month==11) strcpy(month, " ноября");
+    413            if(date.month==12) strcpy(month, " декабря");
+    414            monthc=date.month;
+    415          }
+    416          
+    417          void DrawSystemLog()
+    418          {
+    419            //ttttttt
+    420            int ram = GetFreeRamAvail();
+    421            ram=ram/1024;
+    422            WSHDR *ws=AllocWS(64);
+    423            wsprintf(ws, "[%t]", LG_SYSI);
+    424            DrawString(ws,pos_msg_x+16,pos_msg_y+73,pos_msg_x+Get_WS_width(ws,font1)+16,pos_msg_y+GetFontYSIZE(font1)+73,font1,0,COLORfont1,GetPaletteAdrByColorIndex(23));
+                                                                                     ^
+Error[Pe020]: identifier "font1" is undefined
+
+    DrawString(ws,pos_msg_x+16,pos_msg_y+73,pos_msg_x+Get_WS_width(ws,font1)+16,pos_msg_y+GetFontYSIZE(font1)+73,font1,0,COLORfont1,GetPaletteAdrByColorIndex(23));
+                                                                                                                         ^
+"C:\arm\miosd_src\main.c",424  Error[Pe020]: identifier "COLORfont1" is
+          undefined
+    425            TTime time;
+    426            TDate date;
+    427            GetDateTime(&date, &time);
+    428            if(monthc!=date.month) get_month();
+    429            //wsprintf(ws, "%02d%s, %02d:%02d:%02d", date.day, month, time.hour, time.min, time.sec);
+    430            
+    431               RAMNET *net_data;
+    432            net_data=RamNet();
+    433            wsprintf(ws,"%t %d db",LG_NET, net_data->power); 
+    434            
+    435            
+    436          
+    437            
+    438            
+    439            DrawString(ws,pos_msg_x+16,pos_msg_y+88,pos_msg_x+Get_WS_width(ws,font2)+16,pos_msg_y+GetFontYSIZE(font2)+88,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+                                                                                     ^
+Error[Pe020]: identifier "font2" is undefined
+
+    DrawString(ws,pos_msg_x+16,pos_msg_y+88,pos_msg_x+Get_WS_width(ws,font2)+16,pos_msg_y+GetFontYSIZE(font2)+88,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+                                                                                                                         ^
+"C:\arm\miosd_src\main.c",439  Error[Pe020]: identifier "COLORfont2" is
+          undefined
+    440             
+    441          
+    442            unsigned int err;
+    443            int freemem0 = GetFreeFlexSpace(0, &err)/1024;
+    444            int freemem4 = GetFreeFlexSpace(4, &err)/1024; 
+    445            wsprintf(ws,"0:= %d Kb",freemem0);
+    446            //GetProvider(ws,0);
+    447            DrawString(ws,pos_msg_x+16,pos_msg_y+98,pos_msg_x+Get_WS_width(ws,font2)+16,pos_msg_y+GetFontYSIZE(font2)+98,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+    448            wsprintf(ws,"4:= %d Kb",freemem4);
+    449            // wsprintf(ws, "%t: %02d:%02d:%02d", LG_SRUN, r_h, r_m, r_s);
+    450            DrawString(ws,pos_msg_x+16,pos_msg_y+108,pos_msg_x+Get_WS_width(ws,font2)+16,pos_msg_y+GetFontYSIZE(font2)+108,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+    451            wsprintf(ws,"%t: %dKb", LG_SRAM, ram);
+    452            DrawString(ws,pos_msg_x+16,pos_msg_y+118,pos_msg_x+Get_WS_width(ws,font2)+16,pos_msg_y+GetFontYSIZE(font2)+118,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+    453           
+    454            // RAMNET *net_data;
+    455           // net_data=RamNet();
+    456            //wsprintf(ws,"%t %d db",LG_NET, net_data->power); 
+    457           //********************************************************************************** 
+    458           // unsigned int err;
+    459          //int freemem = GetFreeFlexSpace(4, &err);
+    460          
+    461            //DrawString(ws,pos_msg_x+3,pos_msg_y+58,pos_msg_x+Get_WS_width(ws,font2)+3,pos_msg_y+GetFontYSIZE(font2)+58,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+    462            
+    463            FreeWS(ws);
+    464            
+    465          }
+    466          #ifdef NATICQ
+    467          void DrawNaticqLog()
+    468          {
+    469            WSHDR *ws=AllocWS(64);
+    470            wsprintf(ws, "[Naticq plugin]");
+    471            DrawString(ws,pos_msg_x+3,pos_msg_y+3,pos_msg_x+Get_WS_width(ws,font2)+3,pos_msg_y+GetFontYSIZE(font2)+3,font2,0,GetPaletteAdrByColorIndex(2),GetPaletteAdrByColorIndex(23));
+                                                                                   ^
+Error[Pe020]: identifier "font2" is undefined
+    472            if(!naticq_plugin)
+    473            {
+    474            wsprintf(ws, "Naticq not running or wrong version");
+    475            DrawString(ws,pos_msg_x+3,pos_msg_y+25,pos_msg_x+80,pos_msg_y+50+25,font2,0,GetPaletteAdrByColorIndex(4),GetPaletteAdrByColorIndex(23));
+    476            }
+    477            else
+    478            {
+    479              wsprintf(ws, "Online: %s", naticq_time);
+    480              DrawString(ws,pos_msg_x+3,pos_msg_y+20,pos_msg_x+Get_WS_width(ws,font2)+3,pos_msg_y+GetFontYSIZE(font2)+25,font2,0,GetPaletteAdrByColorIndex(4),GetPaletteAdrByColorIndex(23));
+    481              wsprintf(ws, "Ping: %s", naticq_ping);
+    482              DrawString(ws,pos_msg_x+3,pos_msg_y+30,pos_msg_x+Get_WS_width(ws,font2)+3,pos_msg_y+GetFontYSIZE(font2)+35,font2,0,GetPaletteAdrByColorIndex(4),GetPaletteAdrByColorIndex(23));
+    483            }
+    484           // DrawString(ws,pos_msg_x+3,pos_msg_y+35,pos_msg_x+Get_WS_width(ws,font2)+3,pos_msg_y+GetFontYSIZE(font2)+35,font2,0,GetPaletteAdrByColorIndex(4),GetPaletteAdrByColorIndex(23));
+    485           // wsprintf(ws, "Runtime: %02d:%02d:%02d", r_h, r_m, r_s);
+    486           // DrawString(ws,pos_msg_x+3,pos_msg_y+45,pos_msg_x+Get_WS_width(ws,font2)+3,pos_msg_y+GetFontYSIZE(font2)+45,font2,0,GetPaletteAdrByColorIndex(4),GetPaletteAdrByColorIndex(23));
+    487           // wsprintf(ws,"FreeRam: %dKb", ram);
+    488           // DrawString(ws,pos_msg_x+3,pos_msg_y+55,pos_msg_x+Get_WS_width(ws,font2)+3,pos_msg_y+GetFontYSIZE(font2)+55,font2,0,GetPaletteAdrByColorIndex(4),GetPaletteAdrByColorIndex(23));
+    489            FreeWS(ws);
+    490          }
+    491          #endif
+    492          
+    493          int hmm;
+    494          int ggg;
+    495          int trafiks;
+    496          int start_traffic;
+    497          GBSTMR mytmr2;
+    498          
+    499          void reboot_ref()
+    500          {
+    501            DirectRedrawGUI();
+    502          }
+    503          
+    504          int ffq;
+    505          char gpinfo[32];
+    506          int isfile;
+    507          extern int result3;
+    508          int switch_gprs_info;
+    509          int do_st=3;
+    510          
+    511          void DrawGPRSLog()
+    512          {
+    513            WSHDR *ws=AllocWS(64);
+    514            if(IsGPRSConnected())
+    515            {
+    516              RefreshGPRSTraffic();
+    517              int *traf = GetGPRSTrafficPointer();
+    518              hmm=*traf-ggg;
+    519          #ifdef Evilfox
+    520              wsprintf(ws,start_g2);
+    521          #else
+    522              ascii2ws(ws, start_g2);
+    523          #endif
+    524              DrawString(ws,pos_msg_x+16,pos_msg_y+28,pos_msg_x+Get_WS_width(ws,font2)+16,pos_msg_y+GetFontYSIZE(font2)+28,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+                                                                                       ^
+Error[Pe020]: identifier "font2" is undefined
+
+      DrawString(ws,pos_msg_x+16,pos_msg_y+28,pos_msg_x+Get_WS_width(ws,font2)+16,pos_msg_y+GetFontYSIZE(font2)+28,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+                                                                                                                           ^
+"C:\arm\miosd_src\main.c",524  Error[Pe020]: identifier "COLORfont2" is
+          undefined
+    525              if(ffq) 
+    526              {
+    527                hmm=0;
+    528                ffq=0;
+    529              }
+    530              wsprintf(ws, "%t: %dB/s", LG_GSPE, hmm);
+    531              DrawString(ws,pos_msg_x+16,pos_msg_y+38,pos_msg_x+Get_WS_width(ws,font2)+16,pos_msg_y+GetFontYSIZE(font2)+38,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+    532              ggg=*traf;
+    533              trafiks=(*traf-start_traffic)/1024;
+    534              wsprintf(ws, "%t: %dKb", LG_GSES, trafiks);
+    535              DrawString(ws,pos_msg_x+16,pos_msg_y+48,pos_msg_x+Get_WS_width(ws,font2)+16,pos_msg_y+GetFontYSIZE(font2)+48,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+    536              if(!do_st) 
+    537              {
+    538                switch_gprs_info=(!switch_gprs_info);
+    539                do_st=3;
+    540              }
+    541              else
+    542                do_st--;
+    543              if(!switch_gprs_info)
+    544              {
+    545                if(isfile)
+    546                wsprintf(ws, "%t: %sKb", LG_GLAS, gpinfo);
+    547                else
+    548                  wsprintf(ws, "%t: %s", LG_GLAS, gpinfo);
+    549              }
+    550              else
+    551                wsprintf(ws, "%t: %dKb", LG_GTOT, result3);
+    552                DrawString(ws,pos_msg_x+16,pos_msg_y+58,pos_msg_x+Get_WS_width(ws,font2)+16,pos_msg_y+GetFontYSIZE(font2)+58,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));    
+    553            }
+    554            else
+    555            {
+    556              wsprintf(ws, "%t ", LG_GPOF);
+    557              DrawString(ws,pos_msg_x+16,pos_msg_y+28,pos_msg_x+Get_WS_width(ws, font2)+16,pos_msg_y+GetFontYSIZE(font2)+28,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+                                                                                        ^
+Error[Pe020]: identifier "font2" is undefined
+
+      DrawString(ws,pos_msg_x+16,pos_msg_y+28,pos_msg_x+Get_WS_width(ws, font2)+16,pos_msg_y+GetFontYSIZE(font2)+28,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+                                                                                                                            ^
+"C:\arm\miosd_src\main.c",557  Error[Pe020]: identifier "COLORfont2" is
+          undefined
+    558            }
+    559            wsprintf(ws, "[%t]", LG_GINF);
+    560            DrawString(ws,pos_msg_x+16,pos_msg_y+13,pos_msg_x+Get_WS_width(ws, font1)+16,pos_msg_y+GetFontYSIZE(font1)+13,font1,0,COLORfont1,GetPaletteAdrByColorIndex(23));
+                                                                                      ^
+Error[Pe020]: identifier "font1" is undefined
+
+    DrawString(ws,pos_msg_x+16,pos_msg_y+13,pos_msg_x+Get_WS_width(ws, font1)+16,pos_msg_y+GetFontYSIZE(font1)+13,font1,0,COLORfont1,GetPaletteAdrByColorIndex(23));
+                                                                                                                          ^
+"C:\arm\miosd_src\main.c",560  Error[Pe020]: identifier "COLORfont1" is
+          undefined
+    561            FreeWS(ws);
+    562          }
+    563          
+    564          #ifdef EVILFOX
+    565          #else
+    566          extern const char link1_name[64];
+    567          extern const char link2_name[64];
+    568          extern const char link3_name[64];
+    569          extern const char link1[64];
+    570          extern const char link2[64];
+    571          extern const char link3[64];
+    572          #endif
+    573          
+    574          void DrawAppLog()
+    575          {
+    576            WSHDR *ws=AllocWS(64);
+    577            switch(app_pos)
+    578            {
+    579            case 1:
+    580              {
+    581          #ifdef EVILFOX
+    582              wsprintf(ws, "Naticq");
+    583          #else
+    584              wsprintf(ws, link1_name);
+    585          #endif
+    586              DrawString(ws,pos_link2_x+3,pos_link2_y-14,pos_link2_x+Get_WS_width(ws,font2)+3,pos_link2_y+GetFontYSIZE(font2)-14,font2,0, COLORfont2,GetPaletteAdrByColorIndex(23));
+                                                                                            ^
+Error[Pe020]: identifier "font2" is undefined
+
+      DrawString(ws,pos_link2_x+3,pos_link2_y-14,pos_link2_x+Get_WS_width(ws,font2)+3,pos_link2_y+GetFontYSIZE(font2)-14,font2,0, COLORfont2,GetPaletteAdrByColorIndex(23));
+                                                                                                                                  ^
+"C:\arm\miosd_src\main.c",586  Error[Pe020]: identifier "COLORfont2" is
+          undefined
+    587              FreeWS(ws);
+    588              }
+    589              break;
+    590            case 2:
+    591             // WSHDR *ws=AllocWS(64);
+    592          #ifdef EVILFOX
+    593              wsprintf(ws, "Ballet");
+    594          #else
+    595              wsprintf(ws, link2_name);
+    596          #endif
+    597              DrawString(ws,pos_link2_x-7,pos_link2_y-14,pos_link2_x+Get_WS_width(ws,font2)-7,pos_link2_y+GetFontYSIZE(font2)-14,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+                                                                                            ^
+Error[Pe020]: identifier "font2" is undefined
+
+      DrawString(ws,pos_link2_x-7,pos_link2_y-14,pos_link2_x+Get_WS_width(ws,font2)-7,pos_link2_y+GetFontYSIZE(font2)-14,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+                                                                                                                                 ^
+"C:\arm\miosd_src\main.c",597  Error[Pe020]: identifier "COLORfont2" is
+          undefined
+    598              FreeWS(ws);
+    599              break;
+    600            case 3:
+    601            //  WSHDR *ws=AllocWS(64);
+    602          #ifdef EVILFOX
+    603              wsprintf(ws, "SieJC");
+    604          #else
+    605              wsprintf(ws, link3_name);
+    606          #endif
+    607              DrawString(ws,pos_link2_x-7,pos_link2_y-14,pos_link2_x+Get_WS_width(ws,font2)-7,pos_link2_y+GetFontYSIZE(font2)-14,font2,0,COLORfont2,GetPaletteAdrByColorIndex(23));
+    608              FreeWS(ws);
+    609              break;
+    610            }
+    611          }
+    612          
+    613          
+    614          
+    615          void OnRedraw(MAIN_GUI *data) // OnRedraw
+    616          {
+    617            DrwImg2(&screen, 0, 0, NULL, NULL);
+                   ^
+Warning[Pe223]: function "DrwImg2" declared implicitly
+    618            void *canvasdata = BuildCanvas();
+    619            switch(phase)
+    620            {
+    621            case 1:
+    622          #ifdef NATICQ
+    623          #ifdef EVILFOX
+    624              DrawImg(pos_main_x, pos_main_y-20, (int)"0:\\zbin\\miosd\\img8.png");
+    625          #else
+    626              if(use_plugin)
+    627              DrawImg(pos_main_x, pos_main_y-20, (int)"0:\\zbin\\miosd\\img8.png");
+    628          #endif
+    629              DrawImg(pos_main_x, pos_main_y, (int)"0:\\zbin\\miosd\\img1.png");
+    630          #else
+    631              DrawImg(pos_main_x, pos_main_y, (int)"0:\\zbin\\miosd\\img1.png");
+    632          #endif
+    633              break;
+    634            case 2:
+    635              DrawImg(pos_link_x, pos_link_y, (int)"0:\\zbin\\miosd\\img2.png");
+    636          #ifdef NATICQ
+    637          #ifdef EVILFOX
+    638              DrawImg(pos_main_x, pos_main_y-20, (int)"0:\\zbin\\miosd\\img8.png");
+    639          #else
+    640              if(use_plugin)
+    641              DrawImg(pos_main_x, pos_main_y-20, (int)"0:\\zbin\\miosd\\img8.png");
+    642          #endif
+    643              DrawImg(pos_main_x, pos_main_y, (int)"0:\\zbin\\miosd\\img1.png");
+    644          #else
+    645              DrawImg(pos_main_x, pos_main_y, (int)"0:\\zbin\\miosd\\img1.png");
+    646          #endif   
+    647              break;
+    648            case 3:
+    649              if(pos==5)
+    650              {
+    651                DrawImg(pos_link_x, pos_link_y, (int)"0:\\zbin\\miosd\\img2.png");
+    652          #ifdef NATICQ
+    653          #ifdef EVILFOX
+    654              DrawImg(pos_main_x, pos_main_y-20, (int)"0:\\zbin\\miosd\\img8.png");
+    655          #else
+    656              if(use_plugin)
+    657              DrawImg(pos_main_x, pos_main_y-20, (int)"0:\\zbin\\miosd\\img8.png");
+    658          #endif
+    659              DrawImg(pos_main_x, pos_main_y, (int)"0:\\zbin\\miosd\\img1.png");
+    660          #else
+    661              DrawImg(pos_main_x, pos_main_y, (int)"0:\\zbin\\miosd\\img1.png");
+    662          #endif
+    663                DrawImg(pos_link2_x+10, pos_link2_y, (int)"0:\\zbin\\miosd\\img6.png");
+    664                if(app_pos==1)
+    665                  DrawImg(pos_link2_x, pos_link2_y-17, (int)"0:\\zbin\\miosd\\img7.png");
+    666                else
+    667                  DrawImg(pos_link2_x-10, pos_link2_y-17, (int)"0:\\zbin\\miosd\\img7.png");
+    668                DrawAppLog();
+    669                DrawImg(pos_msg_x+10, pos_msg_y+24, (int)"0:\\zbin\\miosd\\img4.png"); 
+    670              }
+    671              else
+    672              {
+    673                DrawImg(pos_link_x, pos_link_y, (int)"0:\\zbin\\miosd\\img2.png");
+    674          #ifdef NATICQ
+    675          #ifdef EVILFOX
+    676              DrawImg(pos_main_x, pos_main_y-20, (int)"0:\\zbin\\miosd\\img8.png");
+    677          #else
+    678              if(use_plugin)
+    679              DrawImg(pos_main_x, pos_main_y-20, (int)"0:\\zbin\\miosd\\img8.png");
+    680          #endif
+    681                DrawImg(pos_main_x, pos_main_y, (int)"0:\\zbin\\miosd\\img1.png");
+    682          #else
+    683                DrawImg(pos_main_x, pos_main_y, (int)"0:\\zbin\\miosd\\img1.png");
+    684          #endif 
+    685                DrawImg(pos_msg_x+10, pos_msg_y, (int)"0:\\zbin\\miosd\\img3.png");
+    686              }
+    687              switch(pos)
+    688              {
+    689          #ifdef NATICQ
+    690              case 0:
+    691                DrawNaticqLog();
+    692                GBS_StartTimerProc(&mytmr2, 216, reboot_ref);
+    693                break;
+    694          #endif
+    695              case 1:
+    696                DrawImg(pos_msg_x+10, pos_msg_y+10, (int)"0:\\zbin\\miosd\\1.png");
+    697                DrawBatteryLog();
+    698                DrawSystemLog();
+    699                DrawGPRSLog();
+    700                GBS_StartTimerProc(&mytmr2, 216, reboot_ref);
+    701                break;
+    702              case 2:
+    703                DrawImg(pos_msg_x+10, pos_msg_y, (int)"0:\\zbin\\miosd\\2.png");
+    704                GBS_StartTimerProc(&mytmr2, 216, reboot_ref);
+    705                break;
+    706              case 3:
+    707                DrawImg(pos_msg_x+10, pos_msg_y, (int)"0:\\zbin\\miosd\\3.png");
+    708                GBS_StartTimerProc(&mytmr2, 216, reboot_ref);
+    709                break;
+    710              case 4:
+    711                DrawImg(pos_msg_x+10, pos_msg_y, (int)"0:\\zbin\\miosd\\4.png");
+    712                GBS_StartTimerProc(&mytmr2, 216, reboot_ref);
+    713                break;
+    714              case 5: 
+    715                switch(app_pos)
+    716                {
+    717                case 1:
+    718                  DrawImg(pos_msg_x+10, pos_msg_y+24, (int)"0:\\zbin\\miosd\\img5.png"); 
+    719                  DrawImg(pos_msg_x+10, pos_msg_y+24, (int)"0:\\zbin\\miosd\\app1.png"); 
+    720                  DrawImg(pos_msg_x+30, pos_msg_y+24, (int)"0:\\zbin\\miosd\\app2.png"); 
+    721                  DrawImg(pos_msg_x+50, pos_msg_y+24, (int)"0:\\zbin\\miosd\\app3.png");
+    722                  GBS_StartTimerProc(&mytmr2, 216, reboot_ref);
+    723                  break;
+    724                case 2:
+    725                  DrawImg(pos_msg_x+30, pos_msg_y+24, (int)"0:\\zbin\\miosd\\img5.png"); 
+    726                  DrawImg(pos_msg_x+10, pos_msg_y+24, (int)"0:\\zbin\\miosd\\app1.png"); 
+    727                  DrawImg(pos_msg_x+30, pos_msg_y+24, (int)"0:\\zbin\\miosd\\app2.png"); 
+    728                  DrawImg(pos_msg_x+50, pos_msg_y+24, (int)"0:\\zbin\\miosd\\app3.png"); 
+    729                  GBS_StartTimerProc(&mytmr2, 216, reboot_ref);
+    730                  break;
+    731                case 3:
+    732                  DrawImg(pos_msg_x+50, pos_msg_y+24, (int)"0:\\zbin\\miosd\\img5.png");
+    733                  DrawImg(pos_msg_x+10, pos_msg_y+24, (int)"0:\\zbin\\miosd\\app1.png"); 
+    734                  DrawImg(pos_msg_x+30, pos_msg_y+24, (int)"0:\\zbin\\miosd\\app2.png"); 
+    735                  DrawImg(pos_msg_x+50, pos_msg_y+24, (int)"0:\\zbin\\miosd\\app3.png");
+    736                  GBS_StartTimerProc(&mytmr2, 216, reboot_ref);
+    737                  break;
+    738                }
+    739                break;
+    740              }
+    741              break;
+    742            case 4:
+    743              DrawImg(pos_link_x, pos_link_y, (int)"0:\\zbin\\miosd\\img2.png");
+    744          #ifdef NATICQ
+    745          #ifdef EVILFOX
+    746              DrawImg(pos_main_x, pos_main_y-20, (int)"0:\\zbin\\miosd\\img8.png");
+    747          #else
+    748              if(use_plugin)
+    749              DrawImg(pos_main_x, pos_main_y-20, (int)"0:\\zbin\\miosd\\img8.png");
+    750          #endif
+    751              DrawImg(pos_main_x, pos_main_y, (int)"0:\\zbin\\miosd\\img1.png");
+    752          #else
+    753              DrawImg(pos_main_x, pos_main_y, (int)"0:\\zbin\\miosd\\img1.png");
+    754          #endif   
+    755              break;
+    756            case 5:
+    757              DrawImg(pos_link_x, pos_link_y, (int)"0:\\zbin\\miosd\\img2.png");
+    758          #ifdef NATICQ
+    759          #ifdef EVILFOX
+    760              DrawImg(pos_main_x, pos_main_y-20, (int)"0:\\zbin\\miosd\\img8.png");
+    761          #else
+    762              if(use_plugin)
+    763              DrawImg(pos_main_x, pos_main_y-20, (int)"0:\\zbin\\miosd\\img8.png");
+    764          #endif
+    765              DrawImg(pos_main_x, pos_main_y, (int)"0:\\zbin\\miosd\\img1.png");
+    766          #else
+    767              DrawImg(pos_main_x, pos_main_y, (int)"0:\\zbin\\miosd\\img1.png");
+    768          #endif  
+    769              break;
+    770            case 6:
+    771          #ifdef NATICQ
+    772          #ifdef EVILFOX
+    773              DrawImg(pos_main_x, pos_main_y-20, (int)"0:\\zbin\\miosd\\img8.png");
+    774          #else
+    775              if(use_plugin)
+    776              DrawImg(pos_main_x, pos_main_y-20, (int)"0:\\zbin\\miosd\\img8.png");
+    777          #endif
+    778              DrawImg(pos_main_x, pos_main_y, (int)"0:\\zbin\\miosd\\img1.png");
+    779          #else
+    780              DrawImg(pos_main_x, pos_main_y, (int)"0:\\zbin\\miosd\\img1.png");
+    781          #endif
+    782              break;
+    783            case 7:
+    784            case 8:
+    785              DrawImg(pos_link_x, pos_link_y, (int)"0:\\zbin\\miosd\\img2.png");
+    786          #ifdef NATICQ
+    787          #ifdef EVILFOX
+    788              DrawImg(pos_main_x, pos_main_y-20, (int)"0:\\zbin\\miosd\\img8.png");
+    789          #else
+    790              if(use_plugin)
+    791              DrawImg(pos_main_x, pos_main_y-20, (int)"0:\\zbin\\miosd\\img8.png");
+    792          #endif
+    793              DrawImg(pos_main_x, pos_main_y, (int)"0:\\zbin\\miosd\\img1.png");
+    794          #else
+    795              DrawImg(pos_main_x, pos_main_y, (int)"0:\\zbin\\miosd\\img1.png");
+    796          #endif 
+    797              DrawImg(pos_link2_x+10, pos_link2_y, (int)"0:\\zbin\\miosd\\img6.png"); 
+    798              DrawImg(pos_msg_x+10, pos_msg_y+24, (int)"0:\\zbin\\miosd\\img4.png"); 
+    799              switch(app_pos)
+    800                {
+    801                case 1:
+    802                  DrawImg(pos_msg_x+10, pos_msg_y+24, (int)"0:\\zbin\\miosd\\img5.png"); 
+    803                  DrawImg(pos_msg_x+10, pos_msg_y+24, (int)"0:\\zbin\\miosd\\app1.png"); 
+    804                  DrawImg(pos_msg_x+30, pos_msg_y+24, (int)"0:\\zbin\\miosd\\app2.png"); 
+    805                  DrawImg(pos_msg_x+50, pos_msg_y+24, (int)"0:\\zbin\\miosd\\app3.png"); 
+    806                  break;
+    807                case 2:
+    808                  DrawImg(pos_msg_x+30, pos_msg_y+24, (int)"0:\\zbin\\miosd\\img5.png"); 
+    809                  DrawImg(pos_msg_x+10, pos_msg_y+24, (int)"0:\\zbin\\miosd\\app1.png"); 
+    810                  DrawImg(pos_msg_x+30, pos_msg_y+24, (int)"0:\\zbin\\miosd\\app2.png"); 
+    811                  DrawImg(pos_msg_x+50, pos_msg_y+24, (int)"0:\\zbin\\miosd\\app3.png"); 
+    812                  break;
+    813                case 3:
+    814                  DrawImg(pos_msg_x+50, pos_msg_y+24, (int)"0:\\zbin\\miosd\\img5.png");
+    815                  DrawImg(pos_msg_x+10, pos_msg_y+24, (int)"0:\\zbin\\miosd\\app1.png"); 
+    816                  DrawImg(pos_msg_x+30, pos_msg_y+24, (int)"0:\\zbin\\miosd\\app2.png"); 
+    817                  DrawImg(pos_msg_x+50, pos_msg_y+24, (int)"0:\\zbin\\miosd\\app3.png");
+    818                  break;
+    819                }
+    820              break;
+    821            }
+    822          }
+    823          
+    824          void onCreate(MAIN_GUI *data, void *(*malloc_adr)(int)) //Create
+    825          {
+    826            // Тут можно создать переменные
+    827            data->gui.state=1;
+    828          //  pos=1;
+    829          }
+    830          
+    831          void onClose(MAIN_GUI *data, void (*mfree_adr)(void *)) //Close
+    832          {
+    833            MAINCSM_ID=0;
+    834            ker_state=0;
+    835            mfree(screen.bitmap);
+    836            // Тут можно освободить выделяемую память
+    837            data->gui.state=0;
+    838          }
+    839          
+    840          void onFocus(MAIN_GUI *data, void *(*malloc_adr)(int), void (*mfree_adr)(void *))//Focus
+    841          {
+    842            data->gui.state=2;
+    843          }
+    844          
+    845          void onUnfocus(MAIN_GUI *data, void (*mfree_adr)(void *)) //Unfocus
+    846          {
+    847            CloseCSM(MAINCSM_ID);
+    848            if (data->gui.state!=2) return;
+    849            data->gui.state=1;
+    850          }
+    851          
+    852          int OnKey(MAIN_GUI *data, GUI_MSG *msg) //OnKey
+    853          {
+    854            if(lock_keys)
+    855            {
+    856              DirectRedrawGUI();
+    857              
+    858          ///    if(GetMissedEventCount(0)>0) play(linksound);
+    859              
+    860            if (msg->gbsmsg->msg==KEY_DOWN)
+    861            {          
+    862              switch(msg->gbsmsg->submess)
+    863              {
+    864              case 0x35:
+    865                if(pos==1)
+    866                {
+    867                  ffq=1;
+    868                  GBS_DelTimer(&mytmr2);
+    869          ////      engade_weather=0;
+    870          
+    871                DirectRedrawGUI();
+    872                }
+    873          /*      if(pos==3)
+    874                {
+    875                  switch_gprs_info=(!switch_gprs_info);
+    876                  DirectRedrawGUI();
+    877                }*/
+    878                break;
+    879                case RIGHT_SOFT:
+    880                if(key_mode==1) goto set1;
+    881                else goto set2;
+    882                case LEFT_BUTTON:
+    883                  if((pos==5)&&(app_pos>1))
+    884                  {
+    885                    app_pos--;
+    886                    lock_keys=0;
+    887                    phase=8;
+    888                    DoShowIt();
+    889                 //   DirectRedrawGUI();
+    890                  }
+    891                  else
+    892                  {
+    893                  set1:
+    894                    ffq=1;
+    895                    GBS_DelTimer(&mytmr2);
+    896                    if(key_mode==1)
+    897                    {
+    898                lock_keys=0;
+    899                phase=5;
+    900                DoShowIt();
+    901                    }
+    902                  }
+    903                break;
+    904                case RIGHT_BUTTON:
+    905                  if(pos==5)
+    906                  {
+    907                    app_pos++;
+    908                    if(app_pos==4) app_pos--;
+    909                    else
+    910                    {
+    911                      lock_keys=0;
+    912                      phase=8;
+    913                      DoShowIt();
+    914               //       DirectRedrawGUI();
+    915                    }
+    916                  }
+    917                  else
+    918                  {
+    919                  set2:
+    920                    ffq=1;
+    921                    GBS_DelTimer(&mytmr2);
+    922                    if(key_mode==2)
+    923                    {
+    924                lock_keys=0;
+    925                phase=5;
+    926                DoShowIt();
+    927                    }
+    928                  }
+    929                break;
+    930              case ENTER_BUTTON:
+    931                if(pos==5)
+    932                {
+    933                  WSHDR *elfname=AllocWS(256);
+    934                  switch(app_pos)
+    935                  {
+    936                  case 1:
+    937                    app_pos=1;
+    938          #ifdef EVILFOX
+    939                    wsprintf(elfname,(char*)"0:\\zbin\\naticq\\naticq.elf");
+    940          #else
+    941                    wsprintf(elfname, link1);
+    942          #endif
+    943                    ExecuteFile(elfname,NULL,NULL);
+    944                    FreeWS(elfname);
+    945                    return(1);
+    946          //          break;
+    947                  case 2:
+    948                    app_pos=1;
+    949          #ifdef EVILFOX
+    950                    wsprintf(elfname,(char*)"0:\\Zbin\\balletmini\\BalletMini.elf");
+    951          #else
+    952                    wsprintf(elfname, link2);
+    953          #endif
+    954                    ExecuteFile(elfname,NULL,NULL);
+    955                    FreeWS(elfname);
+    956                    return(1);
+    957          //          break;
+    958                  case 3:
+    959                    app_pos=1;
+    960          #ifdef EVILFOX
+    961                    wsprintf(elfname,(char*)"0:\\Zbin\\siejc\\siejc.elf");
+    962          #else
+    963                    wsprintf(elfname, link3);
+    964          #endif
+    965                    ExecuteFile(elfname,NULL,NULL);
+    966                    FreeWS(elfname);
+    967                    return(1);
+    968          //          break;
+    969                  }
+    970                }
+    971                break;
+    972              case DOWN_BUTTON:
+    973                {
+    974                  ffq=1;
+    975                  GBS_DelTimer(&mytmr2);
+    976                  pos++;
+    977          #ifdef NATICQ
+    978          #ifdef EVILFOX
+    979                  if (pos==6) pos=0;
+    980          #else
+    981                  if(use_plugin)
+    982                  {
+    983                  if (pos==6) pos=0;
+    984                  }
+    985                  else
+    986                  {
+    987                    if (pos==6) pos=1;
+    988                  }
+    989          #endif
+    990          #else
+    991                  if (pos==6) pos=1;
+    992          #endif
+    993                  lock_keys=0;
+    994                  phase=4;
+    995                  DoShowIt();
+    996                }
+    997                  break;
+    998              case UP_BUTTON:
+    999                 {
+   1000                   ffq=1;
+   1001                   GBS_DelTimer(&mytmr2);
+   1002                    pos--;
+   1003          #ifdef NATICQ
+   1004          #ifdef EVILFOX
+   1005                    if (pos==-1) pos=5;
+   1006          #else
+   1007                    if(use_plugin)
+   1008                    {
+   1009                    if (pos==-1) pos=5;
+   1010                    }
+   1011                    else
+   1012                    {
+   1013                      if (pos==0) pos=5;
+   1014                    }
+   1015          #endif
+   1016          #else
+   1017                    if (pos==0) pos=5;
+   1018          #endif
+   1019                    lock_keys=0;
+   1020                    phase=4;
+   1021                    DoShowIt();
+   1022                 }
+   1023                  break;        
+   1024              }
+   1025            }
+   1026            }
+   1027            return(0);
+   1028          }
+   1029          
+   1030          int method8(void){return(0);}
+   1031          
+   1032          int method9(void){return(0);}
+   1033          
+   1034          extern void kill_data(void *p,void (*func_p)(void *));
+   1035          void ElfKiller(void)
+   1036          {
+   1037            extern void *ELF_BEGIN;
+   1038            kill_data(&ELF_BEGIN,(void (*)(void *))mfree_adr());
+   1039          }
+   1040          
+   1041          // Массив с методами, чтобы дать ОС информацию, какие когда вызывать
+   1042          const void * const gui_methods[11]={
+   1043            (void *)OnRedraw,	//Redraw
+   1044            (void *)onCreate,	//Create
+   1045            (void *)onClose,	//Close
+   1046            (void *)onFocus,	//Focus
+   1047            (void *)onUnfocus,	//Unfocus
+   1048            (void *)OnKey,	//OnKey
+   1049            0,
+   1050            (void *)kill_data,	//Destroy
+   1051            (void *)method8,
+   1052            (void *)method9,
+   1053            0
+   1054          };
+   1055          
+   1056          // Канвас для основного GUI
+   1057          const RECT Canvas={0,0,0,0};
+   1058          
+   1059          // Вызывается при создании главного CSM. В данном примере
+   1060          // создаётся GUI, его ID записывается в MAINGUI_ID
+   1061          // на всякий случай - вдруг понадобится ;)
+   1062          
+   1063          #pragma inline
+   1064          void patch_rect(const RECT*rcc,int x,int y, int x2, int y2)
+   1065          {
+   1066            RECT *rc=(RECT *)rcc;
+   1067            rc->x=x;
+   1068            rc->y=y;
+   1069            rc->x2=x2;
+   1070            rc->y2=y2;
+   1071          }
+   1072          
+   1073          void maincsm_oncreate(CSM_RAM *data)
+   1074          {
+   1075            MAIN_GUI *main_gui=malloc(sizeof(MAIN_GUI));
+   1076            MAIN_CSM*csm=(MAIN_CSM*)data;
+   1077            zeromem(main_gui,sizeof(MAIN_GUI));
+   1078            main_gui->gui.canvas=(void *)(&Canvas);
+   1079            //main_gui->gui.flag30=2;
+   1080            main_gui->gui.methods=(void *)gui_methods;
+   1081            main_gui->gui.item_ll.data_mfree=(void (*)(void *))mfree_adr();
+   1082            patch_rect((RECT*)&Canvas,0,YDISP,ScreenW()-1,ScreenH()-1);
+   1083            csm->csm.state=0;
+   1084            csm->csm.unk1=0;
+   1085            csm->gui_id=CreateGUI(main_gui);
+   1086          }
+   1087          
+   1088          // Вызывается при закрытии главного CSM. Тут и вызывается киллер
+   1089          void maincsm_onclose(CSM_RAM *csm)
+   1090          {
+   1091            //SUBPROC((void *)ElfKiller);
+   1092          }
+   1093          
+   1094          // Обработчик событий главного CSM
+   1095          int maincsm_onmessage(CSM_RAM *data, GBS_MSG *msg)
+   1096          {
+   1097            MAIN_CSM *csm=(MAIN_CSM*)data;
+   1098             if ((msg->msg==MSG_GUI_DESTROYED)&&((int)msg->data0==csm->gui_id))
+   1099            {
+   1100              csm->csm.state=-3;
+   1101            } 
+   1102            return(1); 
+   1103          }
+   1104          
+   1105          // Инициализация структуры MAINCSM
+   1106          const struct
+   1107          {
+   1108            CSM_DESC maincsm;
+   1109            WSHDR maincsm_name;
+   1110          }MAINCSM =
+   1111          {
+   1112            {
+   1113            maincsm_onmessage,
+   1114            maincsm_oncreate,
+   1115          #ifdef NEWSGOLD
+   1116            0,
+   1117            0,
+   1118            0,
+   1119            0,
+   1120          #endif
+   1121            maincsm_onclose,
+   1122            sizeof(MAIN_CSM),
+   1123            1,
+   1124            &minus11
+   1125            },
+   1126            {
+   1127              maincsm_name_body,
+   1128              NAMECSM_MAGIC1,
+   1129              NAMECSM_MAGIC2,
+   1130              0x0,
+   1131              139
+   1132            }
+   1133          };
+   1134          
+   1135          // Функция, которая устанавливает название этого CSM для X-Task.
+   1136          void UpdateCSMname(void)
+   1137          {
+   1138            wsprintf((WSHDR *)(&MAINCSM.maincsm_name),"MIOSD");
+   1139          }
+   1140          
+   1141          
+   1142          void MyIDLECSM_onClose(CSM_RAM *data)
+   1143          {
+   1144            extern void seqkill(void *data, void(*next_in_seq)(CSM_RAM *), void *data_to_kill, void *seqkiller);
+   1145            extern void *ELF_BEGIN;
+   1146            seqkill(data,old_icsm_onClose,&ELF_BEGIN,SEQKILLER_ADR());
+   1147          }
+   1148          
+   1149          #pragma inline=forced
+   1150          int toupper(int c)
+   1151          {
+   1152            if ((c>='a')&&(c<='z')) c+='A'-'a';
+   1153            return(c);
+   1154          }
+   1155          #pragma inline
+   1156          int strcmp_nocase(const char *s1,const char *s2)
+   1157          {
+   1158            int i;
+   1159            int c;
+   1160            while(!(i=(c=toupper(*s1++))-toupper(*s2++))) if (!c) break;
+   1161            return(i);
+   1162          }
+   1163          
+   1164          int con;
+   1165          #ifdef EVILFOX
+   1166          //============================================weather
+   1167          
+   1168          //============================================weather
+   1169          #endif
+   1170          int charge_m;
+   1171          int charge_s;
+   1172          GBSTMR charger;
+   1173          
+   1174          void charger_c()
+   1175          {
+   1176            charge_s++;
+   1177            if (charge_s==60)
+   1178            {
+   1179              charge_s=0;
+   1180              charge_m++;
+   1181            }
+   1182            GBS_StartTimerProc(&charger, 216, charger_c);
+   1183          }
+   1184          
+   1185          int g_min;
+   1186          int g_sec;
+   1187          int g_hour;
+   1188          GBSTMR gipi;
+   1189          
+   1190          void write_log(int zzz)
+   1191          {
+   1192            volatile int hFile;
+   1193                unsigned int io_error = 0;
+   1194                unsigned int ul;
+   1195                FSTATS stat;
+   1196                GetFileStats("0:\\zbin\\miosd\\miosd2.file",&stat,&ul);
+   1197                hFile = fopen("0:\\zbin\\miosd\\miosd2.file",A_ReadWrite+A_Create+A_Truncate+ A_BIN,P_READ+P_WRITE, &io_error);
+   1198                if(hFile!=-1)
+   1199                {
+   1200                  char *writer=malloc(32);
+   1201                  sprintf(writer, "%d", zzz);
+   1202                  fwrite(hFile, writer, strlen(writer), &io_error);
+   1203                  fclose(hFile, &io_error);
+   1204                }
+   1205          }
+   1206          
+   1207          int rewriter;
+   1208          
+   1209          void Count_GPRS()
+   1210          {
+   1211            g_sec++;
+   1212            if (g_sec==60)
+   1213            {
+   1214              g_sec=0;
+   1215              g_min++;
+   1216            }
+   1217            if(g_min==60)
+   1218            {
+   1219              g_min=0;
+   1220              g_hour++;
+   1221            }
+   1222            int r=g_min;
+   1223            while(r>0)
+   1224              r=r-2;
+   1225            if((r==0)&&(g_min!=0)&&(rewriter!=g_min)) 
+   1226            {
+   1227              int *trafik2 = GetGPRSTrafficPointer();
+   1228              int trafiks2=(*trafik2-start_traffic)/1024;
+   1229              SUBPROC((void *)write_log,trafiks2);   //latest fix
+   1230             // write_log(trafiks2);
+   1231              rewriter=g_min;
+   1232            }
+   1233          //  sprintf(start_g2, "%s(%dm)", start_g, g_min);
+   1234          #ifdef EVILFOX
+   1235            sprintf(start_g2, "Active: %02d:%02d:%02d", g_hour, g_min, g_sec);
+   1236          #else
+   1237            sprintf(start_g2, "вр. сес.: %02d:%02d:%02d", g_hour, g_min, g_sec);
+   1238          #endif
+   1239            GBS_StartTimerProc(&gipi, 216, Count_GPRS);
+   1240          }
+   1241          
+   1242          #ifdef NATICQ
+   1243          #define IPC_RECIEVE_MSG 55
+   1244          const char ipc_my_name[]="MioSD";
+   1245          #endif
+   1246          extern GBSTMR missedt;
+   1247          int rem_mis;
+   1248            
+   1249          
+   1250          int MyIDLECSM_onMessage(CSM_RAM* data, GBS_MSG* msg)
+   1251          {
+   1252            int csm_result;
+   1253            csm_result=old_icsm_onMessage(data,msg);
+   1254            
+   1255            if(msg->msg == MSG_RECONFIGURE_REQ) // Перечитывание конфига по сообщению
+   1256            {
+   1257              extern const char *successed_config_filename;
+   1258              if (strcmp_nocase(successed_config_filename,(char *)msg->data0)==0)
+   1259              {
+   1260           //     void RereadSettings(void);
+   1261           //     RereadSettings();
+   1262          #ifdef EVILFOX
+   1263          #else
+   1264                InitConfig();
+   1265          #endif
+   1266                ShowMSG(1,(int)"MIOSD_mod update");
+   1267              }
+   1268            }
+   1269            //=========================================weather
+   1270          
+   1271            
+   1272            //ветер коннектился тут
+   1273          
+   1274          
+   1275          
+   1276            //==========================================weather
+   1277          #ifdef NATICQ
+   1278            //==========================================ipc naticq
+   1279            if (msg->msg==MSG_IPC)
+   1280              {
+   1281                IPC_REQ *ipc;
+   1282                if ((ipc=(IPC_REQ*)msg->data0))
+   1283                {
+   1284          	if (strcmp_nocase(ipc->name_to,ipc_my_name)==0)
+   1285          	{
+   1286          	  switch (msg->submess)
+   1287          	  {
+   1288          	  case IPC_RECIEVE_MSG:
+   1289                      {
+   1290                        char test[64];
+   1291                        int len=strlen(ipc->data);
+   1292                        sprintf(test,"%s",ipc->data);
+   1293                        test[len]='\0';
+   1294                        if(test[0]!='0')
+   1295                        {
+   1296                          if(test[0]=='1') naticq_plugin=1;
+   1297                          if(test[0]=='2') 
+   1298                          {
+   1299                            naticq_plugin=0;
+   1300                            sprintf(naticq_ping, "none");
+   1301                          }
+   1302                        }
+   1303                        if(naticq_plugin)
+   1304                        {
+   1305                          if(test[1]!='0')
+   1306                          {
+   1307                            if(test[1]=='1');
+   1308                            {
+   1309                              strncpy(naticq_time,test+2,8);
+   1310                              naticq_time[8]='\0';
+   1311                            }
+   1312                            if(test[1]=='2')
+   1313                            {
+   1314                              strncpy(naticq_time,test+2,8);
+   1315                              naticq_time[8]='\0';
+   1316                              strncpy(naticq_ping,test+10,6);
+   1317                              naticq_ping[6]='\0';
+   1318                            }
+   1319                          }
+   1320                        }
+   1321                      }
+   1322          	    break;
+   1323                    }
+   1324                  }
+   1325                }
+   1326              }
+   1327            //==========================================ipc naticq
+   1328          #endif
+   1329          #ifdef EVILFOX
+   1330            if((!main_clock)&&(IsIdleUiOnTop()))
+   1331            {
+   1332              EngadeClock();
+   1333              main_clock=1;
+   1334            }
+   1335          #endif
+   1336            if(rem_mis!=GetMissedEventCount(0))
+   1337            {
+   1338              if(GetMissedEventCount(0)<rem_mis) rem_mis=GetMissedEventCount(0);
+   1339              else
+   1340              {
+   1341                rem_mis=GetMissedEventCount(0);
+   1342          #ifdef EVILFOX
+   1343                GBS_StartTimerProc(&missedt, 216*3, start_timerize);
+   1344          #else
+   1345                if(engade_mis) GBS_StartTimerProc(&missedt, 216*3, start_timerize);
+   1346          #endif
+   1347              }
+   1348            }
+   1349            if((IsGPRSConnected())&&(first_con))
+   1350            {
+   1351            int *trafik = GetGPRSTrafficPointer();
+   1352            start_traffic=*trafik;
+   1353          
+   1354            g_min=0;
+   1355            g_sec=0;
+   1356            g_hour=0;
+   1357            GBS_DelTimer(&gipi);
+   1358            Count_GPRS();
+   1359            first_con=0;
+   1360            }
+   1361            if(!IsGPRSConnected()) first_con=1;
+   1362            if(GetAccessoryType()==13) 
+   1363            {
+   1364              if(!con) 
+   1365              {
+   1366                charge_s=0;
+   1367                charge_m=0;
+   1368                charger_c();
+   1369                con=1;
+   1370              }
+   1371              sprintf(chinfo, "Charging(%dmin)", charge_m);
+   1372            }
+   1373            else 
+   1374            {
+   1375              if(con)
+   1376              {
+   1377                GBS_DelTimer(&charger);
+   1378                TTime time;
+   1379                TDate date;
+   1380                GetDateTime(&date, &time);
+   1381                sprintf(chinfo, "%02d:%02d, %02d-%02d", time.hour, time.min, date.month, date.day);
+   1382                volatile int hFile;
+   1383                unsigned int io_error = 0;
+   1384                unsigned int ul;
+   1385                FSTATS stat;
+   1386                GetFileStats("0:\\zbin\\miosd\\miosd.file",&stat,&ul);
+   1387                hFile = fopen("0:\\zbin\\miosd\\miosd.file",A_ReadWrite+A_Create+A_Truncate+ A_BIN,P_READ+P_WRITE, &io_error);
+   1388                if(hFile!=-1)
+   1389                {
+   1390                  fwrite(hFile, chinfo, strlen(chinfo), &io_error);
+   1391                  fclose(hFile, &io_error);
+   1392                }
+   1393                con=0;
+   1394              }
+   1395            }
+   1396            return(csm_result);
+   1397          }  
+   1398          
+   1399          
+   1400          
+   1401          int mode_enter;
+   1402          int mode;
+   1403          #ifdef EVILFOX
+   1404          int CALL_BUTTON=1;
+   1405          #else
+   1406          extern const unsigned int CALL_BUTTON;
+   1407          extern const unsigned int CALL_BUTTON2;
+   1408          #endif
+   1409          
+   1410          void Execute()
+   1411          {
+   1412            LockSched();
+   1413            char dummy[sizeof(MAIN_CSM)];
+   1414            UpdateCSMname();
+   1415            MAINCSM_ID=CreateCSM(&MAINCSM.maincsm,dummy,2);
+   1416            UnlockSched();
+   1417            lock_keys=0;
+   1418            phase=1;
+   1419            ker_state=1;
+   1420            pos_main_x=-20;
+   1421            pos_main_y=50;
+   1422            pos_link_x=0;
+   1423            pos_link_y=pos_main_y-12+(pos*20);
+   1424            pos_msg_x=21;
+   1425            key_mode=1;
+   1426            DoScreen();
+   1427            DoShowIt();
+   1428          }
+   1429          
+   1430          extern int alt_state;
+   1431          
+   1432          int my_keyhook(int submsg, int msg)
+   1433          {
+   1434            if((submsg==9)&&(IsIdleUiOnTop())&&(IsUnlocked())) Execute();
+   1435          #ifdef EVILFOX
+   1436          #else
+   1437            if(submsg==CALL_BUTTON2) {
+   1438             // DoScreen2();
+   1439              alt_state=1;
+   1440              process_missed();
+   1441            }
+   1442          #endif
+   1443            if (submsg!=CALL_BUTTON) return(0);
+   1444            switch(msg)
+   1445            {
+   1446            case KEY_DOWN:
+   1447              if (mode_enter==2)
+   1448              {
+   1449                GBS_SendMessage(MMI_CEPID,KEY_UP,CALL_BUTTON);
+   1450                return (0);
+   1451              }
+   1452              mode_enter=0;
+   1453              return (2);
+   1454            case KEY_UP:
+   1455              if (mode==1)mode=0;
+   1456              if (mode_enter==0)
+   1457              {
+   1458                mode_enter=2;
+   1459                GBS_SendMessage(MMI_CEPID,KEY_DOWN,CALL_BUTTON);
+   1460                return (2);
+   1461              }
+   1462              if (mode_enter==2)
+   1463              {
+   1464                mode_enter=0;
+   1465                return (0);
+   1466              }
+   1467              mode_enter=0;
+   1468              return (2);      
+   1469            case LONG_PRESS:
+   1470              mode_enter=1;
+   1471              if(mode==0)
+   1472              {
+   1473                if (IsUnlocked()&&(!MAINCSM_ID)&&(!IsIdleUiOnTop())) Execute();
+   1474              }
+   1475              mode=1;
+   1476              break;
+   1477            }
+   1478          return(2); 
+   1479          }
+   1480          
+   1481          void check_battery()
+   1482          {
+   1483            volatile int hFile_ex;
+   1484            unsigned int io_error_ex = 0;
+   1485            hFile_ex = fopen("0:\\zbin\\miosd\\miosd.file",A_ReadOnly + A_BIN,P_READ, &io_error_ex);
+   1486            if(hFile_ex!=-1)
+   1487            {
+   1488               fclose(hFile_ex, &io_error_ex);
+   1489               int f;
+   1490              int fsize;
+   1491              FSTATS stat;
+   1492              unsigned int ul;
+   1493              GetFileStats("0:\\zbin\\miosd\\miosd.file",&stat,&ul);
+   1494              if(stat.size>0)
+   1495              {
+   1496                f=fopen("0:\\zbin\\miosd\\miosd.file",A_ReadOnly+A_BIN,P_READ,&ul);
+   1497                fsize=stat.size;
+   1498                char *p=malloc(fsize);
+   1499                p[fread(f,p,fsize,&ul)];
+   1500                fclose(f,&ul);
+   1501                strcpy(chinfo, p);
+   1502                chinfo[fsize]='\0';
+   1503                mfree(p);
+   1504              }
+   1505            }
+   1506            else
+   1507              sprintf(chinfo, "Never");
+   1508          }
+   1509          
+   1510          void check_gprs()
+   1511          {
+   1512            volatile int hFile_ex;
+   1513            unsigned int io_error_ex = 0;
+   1514            hFile_ex = fopen("0:\\zbin\\miosd\\miosd2.file",A_ReadOnly + A_BIN,P_READ, &io_error_ex);
+   1515            if(hFile_ex!=-1)
+   1516            {
+   1517               fclose(hFile_ex, &io_error_ex);
+   1518               int f;
+   1519              int fsize;
+   1520              FSTATS stat;
+   1521              unsigned int ul;
+   1522              GetFileStats("0:\\zbin\\miosd\\miosd2.file",&stat,&ul);
+   1523              if(stat.size>0)
+   1524              {
+   1525                f=fopen("0:\\zbin\\miosd\\miosd2.file",A_ReadOnly+A_BIN,P_READ,&ul);
+   1526                fsize=stat.size;
+   1527                char *p=malloc(fsize);
+   1528                p[fread(f,p,fsize,&ul)];
+   1529                fclose(f,&ul);
+   1530                strcpy(gpinfo, p);
+   1531                gpinfo[fsize]='\0';
+   1532                mfree(p);
+   1533                isfile=1;
+   1534                write_total();
+   1535              }
+   1536            }
+   1537            else
+   1538              sprintf(gpinfo, "Unknown");
+   1539          }
+   1540          
+   1541          GBSTMR rs_tmr;
+   1542          
+   1543          void runtime_count()
+   1544          {
+   1545            r_s++;
+   1546            if(r_s==60) 
+   1547            {
+   1548              r_s=0;
+   1549              r_m++;
+   1550            }
+   1551            if(r_m==60)
+   1552            {
+   1553              r_m=0;
+   1554              r_h++;
+   1555            }
+   1556          
+   1557            GBS_StartTimerProc(&rs_tmr, 216, runtime_count);
+   1558          }
+   1559          // Основная процедура. Она первой получает управление при старте эльфа.
+   1560          int main(void)
+   1561          {
+   1562            LockSched();
+   1563          #ifdef EVILFOX
+   1564          #else
+   1565            InitConfig();
+   1566          #endif
+   1567            CSM_RAM *icsm=FindCSMbyID(CSM_root()->idle_id);
+   1568            memcpy(&icsmd,icsm->constr,sizeof(icsmd));
+   1569            old_icsm_onMessage=icsmd.onMessage;
+   1570            icsmd.onMessage=MyIDLECSM_onMessage;
+   1571            old_icsm_onClose=icsmd.onClose;
+   1572            icsmd.onClose=MyIDLECSM_onClose;  
+   1573            icsm->constr=&icsmd;  
+   1574            
+   1575            AddKeybMsgHook((void *)my_keyhook);
+   1576          
+   1577            UnlockSched();
+   1578            check_battery();
+   1579            check_gprs();
+   1580          
+   1581            runtime_count();
+   1582            first_con=1;
+   1583            pos=1;  
+   1584            return 0;
+   1585          }
+   1586          ////17декабря2010 14:24
+   1587          ///19декабря 11.42
+   1588          ///поменял местами вкладки 1 и 2
+   1589          /// GBS_StartTimerProc(&mytmr, 3, DoShowIt);
+   1590          ///^ меняем число 3 и скорость анимации меняется,
+   1591          ///^ число + медленно. число - быстро, было 5
+   1592          ///
+   1593          ///
+   1594          ///
+   1595          ///
+                    ^
+Warning[Pe001]: last line of file ends without a newline
+
+Errors: 19
+Warnings: 3

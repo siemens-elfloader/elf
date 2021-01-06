@@ -1,0 +1,260 @@
+// map standard header -*- Mode: C++ -*- 
+#ifndef _MAP_
+#define _MAP_
+
+#ifndef _SYSTEM_BUILD
+#pragma system_include
+#endif
+
+#include <xtree>
+_STD_BEGIN
+
+// TEMPLATE CLASS _Tmap_traits
+template<class _Kty,   // key type
+         class _Ty,    // mapped type
+         class _Pr,    // comparator predicate type
+         class _Alloc, // actual allocator type (should be value allocator)
+         bool _Mfl>    // true if multiple equivalent keys are permitted
+class _Tmap_traits
+{       // traits required to make _Tree behave like a map
+public:
+  typedef _Kty key_type;
+  typedef typename _TypeUtil::_ParameterType<_Kty>::_Type _KeyParamTy;
+
+  typedef pair<const _Kty, _Ty> value_type;
+  // This one does not work, the other one does; odd...
+  //  typedef typename _TypeUtil::_ParameterType<value_type>::_Type _ValParamTy;
+  typedef value_type const& _ValParamTy;
+
+  typedef _Pr key_compare;
+  typedef typename _Alloc::template rebind<value_type>::other
+    allocator_type;
+  typedef _POINTER_X(value_type, allocator_type) _ITptr;
+  typedef _REFERENCE_X(value_type, allocator_type) _IReft;
+
+  enum
+  {       // make multi parameter visible as an enum constant
+    _Multi = _Mfl
+  };
+
+  _Tmap_traits()
+    : comp()
+  {}      // construct with default comparator
+
+  _Tmap_traits(_Pr _Parg)
+    : comp(_Parg)
+  {}      // construct with specified comparator
+
+  class value_compare
+    : public binary_function<value_type, value_type, bool>
+  {       // functor for comparing two element values
+    friend class _Tmap_traits<_Kty, _Ty, _Pr, _Alloc, _Mfl>;
+
+  public:
+    bool operator()(const value_type& _Left,
+                    const value_type& _Right) const
+    {       // test if _Left precedes _Right by comparing just keys
+      return (comp(_Left.first, _Right.first)); 
+    }
+
+    value_compare(key_compare _Pred)
+      : comp(_Pred)
+    {}      // construct with specified predicate
+
+  protected:
+    key_compare comp;       // the comparator predicate for keys
+  };
+
+  static _KeyParamTy _Kfn(_ValParamTy _Val)
+  {       // extract key from element value
+    return (_Val.first); 
+  }
+
+  _Pr comp;       // the comparator predicate for keys
+};
+
+// TEMPLATE CLASS map
+template<class _Kty,
+         class _Ty,
+         class _Pr = less<_Kty>,
+         class _Alloc = allocator<pair<const _Kty, _Ty> > >
+class __memory_of(_Ty) map
+  : public _Tree<_Tmap_traits<_Kty, _Ty, _Pr, _Alloc, false> >
+{       // ordered red-black tree of {key, mapped} values, unique keys
+public:
+  typedef map<_Kty, _Ty, _Pr, _Alloc> _Myt;
+  typedef _Tmap_traits<_Kty, _Ty, _Pr, _Alloc, false> _Traits;
+  typedef _Tree< _Traits > _Mybase;
+  typedef typename _Traits::_KeyParamTy _KeyParamTy;
+  typedef typename _Traits::_ValParamTy _ValParamTy;
+
+  typedef _Kty key_type;
+  typedef _Ty mapped_type;
+  typedef _Ty referent_type;      // retained
+
+  typedef typename _Mybase::key_compare key_compare;
+  typedef typename _Mybase::value_compare value_compare;
+  typedef typename _Mybase::allocator_type allocator_type;
+  typedef typename _Mybase::size_type size_type;
+  typedef typename _Mybase::difference_type difference_type;
+  typedef typename _Mybase::pointer pointer;
+  typedef typename _Mybase::const_pointer const_pointer;
+  typedef typename _Mybase::reference reference;
+  typedef typename _Mybase::const_reference const_reference;
+  typedef typename _Mybase::iterator iterator;
+  typedef typename _Mybase::const_iterator const_iterator;
+  typedef typename _Mybase::reverse_iterator reverse_iterator;
+  typedef typename _Mybase::const_reverse_iterator
+  const_reverse_iterator;
+  typedef typename _Mybase::value_type value_type;
+#pragma important_typedef
+  typedef typename _Mybase::_Nodeptr _Nodeptr;
+
+  map()
+    : _Mybase(key_compare(), allocator_type())
+  {}      // construct empty map from defaults
+
+  explicit map(const key_compare& _Pred)
+    : _Mybase(_Pred, allocator_type())
+  {}      // construct empty map from comparator
+
+  map(const key_compare& _Pred, 
+      const allocator_type& _Al)
+    : _Mybase(_Pred, _Al)
+  {}      // construct empty map from comparator and allocator
+
+  template<class _Iter>
+  map(_Iter _First,
+      _ALLOW_ONLY_ITERATORS(_Iter, _Iter) _Last)
+    : _Mybase(key_compare(), allocator_type())
+  {       // construct map from [_First, _Last), defaults
+    this->insert(_First, _Last);
+  }
+
+  template<class _Iter>
+  map(_Iter _First, 
+      _ALLOW_ONLY_ITERATORS(_Iter, _Iter) _Last, 
+      const key_compare& _Pred)
+    : _Mybase(_Pred, allocator_type())
+  {       // construct map from [_First, _Last), comparator
+    this->insert(_First, _Last);
+  }
+
+  template<class _Iter>
+  map(_Iter _First, 
+      _ALLOW_ONLY_ITERATORS(_Iter, _Iter) _Last, 
+      const key_compare& _Pred,
+      const allocator_type& _Al)
+    : _Mybase(_Pred, _Al)
+  {       // construct map from [_First, _Last), comparator, and allocator
+    this->insert(_First, _Last);
+  }
+
+  mapped_type& operator[](_KeyParamTy _Keyval)
+  {       // find element matching _Keyval or insert with default mapped
+    typename _ClassUtil::_TmpHolder<value_type>::_Type
+                           _Val(_Keyval); // mapped_type is default constructed
+    iterator _Where = this->insert(_Val).first;
+    return ((*_Where).second); 
+  }
+};
+
+// TEMPLATE CLASS multimap
+template<class _Kty,
+         class _Ty,
+         class _Pr = less<_Kty>,
+         class _Alloc = allocator<pair<const _Kty, _Ty> > >
+class __memory_of(_Ty) multimap
+  : public _Tree<_Tmap_traits<_Kty, _Ty, _Pr, _Alloc, true> >
+{       // ordered red-black tree of {key, mapped} values, non-unique keys
+public:
+  typedef multimap<_Kty, _Ty, _Pr, _Alloc> _Myt;
+  typedef _Tmap_traits<_Kty, _Ty, _Pr, _Alloc, true> _Traits;
+  typedef _Tree< _Traits > _Mybase;
+
+  typedef typename _Mybase::_KeyParamTy _KeyParamTy;
+  typedef typename _Mybase::_ValParamTy _ValParamTy;
+
+  typedef _Kty key_type;
+  typedef _Ty mapped_type;
+  typedef _Ty referent_type;      // retained
+  typedef _Pr key_compare;
+  typedef typename _Mybase::value_compare value_compare;
+  typedef typename _Mybase::allocator_type allocator_type;
+  typedef typename _Mybase::size_type size_type;
+  typedef typename _Mybase::difference_type difference_type;
+  typedef typename _Mybase::pointer pointer;
+  typedef typename _Mybase::const_pointer const_pointer;
+  typedef typename _Mybase::reference reference;
+  typedef typename _Mybase::const_reference const_reference;
+  typedef typename _Mybase::iterator iterator;
+  typedef typename _Mybase::const_iterator const_iterator;
+  typedef typename _Mybase::reverse_iterator reverse_iterator;
+  typedef typename _Mybase::const_reverse_iterator
+  const_reverse_iterator;
+  typedef typename _Mybase::value_type value_type;
+#pragma important_typedef
+  typedef typename _Mybase::_Nodeptr _Nodeptr;
+
+  multimap()
+    : _Mybase(key_compare(), allocator_type())
+  {}      // construct empty map from defaults
+
+  explicit multimap(const key_compare& _Pred)
+    : _Mybase(_Pred, allocator_type())
+  {}      // construct empty map from comparator
+  multimap(const key_compare& _Pred, const allocator_type& _Al)
+    : _Mybase(_Pred, _Al)
+  {}      // construct empty map from comparator and allocator
+
+  template<class _Iter>
+  multimap(_Iter _First, 
+	   _ALLOW_ONLY_ITERATORS(_Iter, _Iter) _Last)
+    : _Mybase(key_compare(), allocator_type())
+  {       // construct map from [_First, _Last), defaults
+    _Mybase::insert(_First, _Last);
+  }
+
+  template<class _Iter>
+  multimap(_Iter _First, 
+	   _ALLOW_ONLY_ITERATORS(_Iter, _Iter) _Last, 
+	   const key_compare& _Pred)
+    : _Mybase(_Pred, allocator_type())
+  {       // construct map from [_First, _Last), comparator
+    _Mybase::insert(_First, _Last);
+  }
+
+  template<class _Iter>
+  multimap(_Iter _First, 
+	   _ALLOW_ONLY_ITERATORS(_Iter, _Iter) _Last, 
+	   const key_compare& _Pred,
+           const allocator_type& _Al)
+    : _Mybase(_Pred, _Al)
+  {       // construct map from [_First, _Last), comparator, and allocator
+    _Mybase::insert(_First, _Last);
+  }
+
+  iterator insert(_ValParamTy _Val)
+  {       // insert a {key, mapped} value
+    return (_Mybase::insert(_Val).first); 
+  }
+
+  iterator insert(iterator _Where, _ValParamTy _Val)
+  {       // insert a {key, mapped} value, with hint
+    return (_Mybase::insert(_Where, _Val)); 
+  }
+
+  template<class _Iter>
+  _ALLOW_ONLY_ITERATORS(_Iter, void)
+  insert(_Iter _First, _Iter _Last)
+  {
+    _Mybase::insert(_First, _Last);
+  }
+};
+_STD_END
+#endif /* _MAP_ */
+
+/*
+ * Copyright (c) 1992-2002 by P.J. Plauger.  ALL RIGHTS RESERVED.
+ * Consult your license regarding permissions and restrictions.
+V3.12:0576 */

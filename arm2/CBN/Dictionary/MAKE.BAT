@@ -1,0 +1,1 @@
+exe copy dict.7z 0 0 dict.elf 64h

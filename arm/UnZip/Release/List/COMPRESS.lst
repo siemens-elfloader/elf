@@ -1,0 +1,202 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    24/Aug/2010  13:15:04 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\UnZip\COMPRESS.C                              #
+#    Command line    =  C:\arm\UnZip\COMPRESS.C -lC                          #
+#                       C:\arm\UnZip\Release\List\ -o                        #
+#                       C:\arm\UnZip\Release\Obj\ -s9 --no_cse --no_unroll   #
+#                       --no_inline --no_code_motion --no_tbaa               #
+#                       --no_clustering --no_scheduling --cpu_mode arm       #
+#                       --endian little --cpu ARM926EJ-S --stack_align 4     #
+#                       --interwork -e --fpu None -I "C:\arm2\Embedded       #
+#                       Workbench 4.0 Evaluation\ARM\INC\"                   #
+#    List file       =  C:\arm\UnZip\Release\List\COMPRESS.lst               #
+#    Object file     =  C:\arm\UnZip\Release\Obj\COMPRESS.r79                #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\UnZip\COMPRESS.C
+      1          /* compress.c -- compress a memory buffer
+      2           * Copyright (C) 1995-2003 Jean-loup Gailly.
+      3           * For conditions of distribution and use, see copyright notice in zlib.h
+      4           */
+      5          
+      6          /* @(#) $Id$ */
+      7          
+      8          #define ZLIB_INTERNAL
+      9          #include "zlib.h"
+     10          
+     11          /* ===========================================================================
+     12               Compresses the source buffer into the destination buffer. The level
+     13             parameter has the same meaning as in deflateInit.  sourceLen is the byte
+     14             length of the source buffer. Upon entry, destLen is the total size of the
+     15             destination buffer, which must be at least 0.1% larger than sourceLen plus
+     16             12 bytes. Upon exit, destLen is the actual size of the compressed buffer.
+     17          
+     18               compress2 returns Z_OK if success, Z_MEM_ERROR if there was not enough
+     19             memory, Z_BUF_ERROR if there was not enough room in the output buffer,
+     20             Z_STREAM_ERROR if the level parameter is invalid.
+     21          */
+
+   \                                 In segment CODE, align 4, keep-with-next
+     22          int ZEXPORT compress2 (dest, destLen, source, sourceLen, level)
+     23              Bytef *dest;
+     24              uLongf *destLen;
+     25              const Bytef *source;
+     26              uLong sourceLen;
+     27              int level;
+     28          {
+   \                     compress2:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   38D04DE2           SUB      SP,SP,#+56
+   \   00000008   0140A0E1           MOV      R4,R1
+   \   0000000C   44109DE5           LDR      R1,[SP, #+68]
+     29              z_stream stream;
+     30              int err;
+     31          
+     32              stream.next_in = (Bytef*)source;
+   \   00000010   00208DE5           STR      R2,[SP, #+0]
+     33              stream.avail_in = (uInt)sourceLen;
+   \   00000014   04308DE5           STR      R3,[SP, #+4]
+     34          #ifdef MAXSEG_64K
+     35              /* Check for source > 64K on 16-bit machine: */
+     36              if ((uLong)stream.avail_in != sourceLen) return Z_BUF_ERROR;
+     37          #endif
+     38              stream.next_out = dest;
+   \   00000018   0C008DE5           STR      R0,[SP, #+12]
+     39              stream.avail_out = (uInt)*destLen;
+   \   0000001C   002094E5           LDR      R2,[R4, #+0]
+   \   00000020   10208DE5           STR      R2,[SP, #+16]
+     40              if ((uLong)stream.avail_out != *destLen) return Z_BUF_ERROR;
+   \   00000024   0200A0E1           MOV      R0,R2
+   \   00000028   002094E5           LDR      R2,[R4, #+0]
+   \   0000002C   020050E1           CMP      R0,R2
+   \   00000030   0400E013           MVNNE    R0,#+4
+   \   00000034   1A00001A           BNE      ??compress2_0
+     41          
+     42              stream.zalloc = (alloc_func)0;
+   \   00000038   0020A0E3           MOV      R2,#+0
+   \   0000003C   20208DE5           STR      R2,[SP, #+32]
+     43              stream.zfree = (free_func)0;
+   \   00000040   24208DE5           STR      R2,[SP, #+36]
+     44              stream.opaque = (voidpf)0;
+   \   00000044   28208DE5           STR      R2,[SP, #+40]
+     45          
+     46              err = deflateInit(&stream, level);
+   \   00000048   3830A0E3           MOV      R3,#+56
+   \   0000004C   58209FE5           LDR      R2,??compress2_1  ;; `?<Constant "1.2.3">`
+   \   00000050   0D00A0E1           MOV      R0,SP
+   \   00000054   ........           _BLF     deflateInit_,??deflateInit_??rA
+   \   00000058   0050B0E1           MOVS     R5,R0
+     47              if (err != Z_OK) return err;
+   \   0000005C   1000001A           BNE      ??compress2_0
+     48          
+     49              err = deflate(&stream, Z_FINISH);
+   \   00000060   0410A0E3           MOV      R1,#+4
+   \   00000064   0D00A0E1           MOV      R0,SP
+   \   00000068   ........           _BLF     deflate,??deflate??rA
+   \   0000006C   0050A0E1           MOV      R5,R0
+     50              if (err != Z_STREAM_END) {
+   \   00000070   010055E3           CMP      R5,#+1
+   \   00000074   0600000A           BEQ      ??compress2_2
+     51                  deflateEnd(&stream);
+   \   00000078   0D00A0E1           MOV      R0,SP
+   \   0000007C   ........           _BLF     deflateEnd,??deflateEnd??rA
+     52                  return err == Z_OK ? Z_BUF_ERROR : err;
+   \   00000080   000055E3           CMP      R5,#+0
+   \   00000084   0450E003           MVNEQ    R5,#+4
+   \   00000088   0500A0E1           MOV      R0,R5
+   \   0000008C   38D08DE2           ADD      SP,SP,#+56
+   \   00000090   3080BDE8           POP      {R4,R5,PC}
+     53              }
+     54              *destLen = stream.total_out;
+   \                     ??compress2_2:
+   \   00000094   14009DE5           LDR      R0,[SP, #+20]
+   \   00000098   000084E5           STR      R0,[R4, #+0]
+     55          
+     56              err = deflateEnd(&stream);
+     57              return err;
+   \   0000009C   0D00A0E1           MOV      R0,SP
+   \   000000A0   ........           _BLF     deflateEnd,??deflateEnd??rA
+   \                     ??compress2_0:
+   \   000000A4   38D08DE2           ADD      SP,SP,#+56       ;; stack cleaning
+   \   000000A8   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??compress2_1:
+   \   000000AC   ........           DC32     `?<Constant "1.2.3">`
+     58          }
+     59          
+     60          /* ===========================================================================
+     61           */
+
+   \                                 In segment CODE, align 4, keep-with-next
+     62          int ZEXPORT compress (dest, destLen, source, sourceLen)
+     63              Bytef *dest;
+     64              uLongf *destLen;
+     65              const Bytef *source;
+     66              uLong sourceLen;
+     67          {
+   \                     compress:
+   \   00000000   00402DE9           PUSH     {LR}
+     68              return compress2(dest, destLen, source, sourceLen, Z_DEFAULT_COMPRESSION);
+   \   00000004   00C0E0E3           MVN      R12,#+0
+   \   00000008   00102DE9           PUSH     {R12}
+   \   0000000C   ........           BL       compress2
+   \   00000010   0280BDE8           POP      {R1,PC}          ;; return
+     69          }
+     70          
+     71          /* ===========================================================================
+     72               If the default memLevel or windowBits for deflateInit() is changed, then
+     73             this function needs to be updated.
+     74           */
+
+   \                                 In segment CODE, align 4, keep-with-next
+     75          uLong ZEXPORT compressBound (sourceLen)
+     76              uLong sourceLen;
+     77          {
+     78              return sourceLen + (sourceLen >> 12) + (sourceLen >> 14) + 11;
+   \                     compressBound:
+   \   00000000   201680E0           ADD      R1,R0,R0, LSR #+12
+   \   00000004   200781E0           ADD      R0,R1,R0, LSR #+14
+   \   00000008   0B0080E2           ADD      R0,R0,#+11
+   \   0000000C   1EFF2FE1           BX       LR               ;; return
+     79          }
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "1.2.3">`:
+   \   00000000   312E322E3300       DC8 "1.2.3"
+   \   00000006   0000               DC8 0, 0
+
+   Maximum stack usage in bytes:
+
+     Function      CSTACK
+     --------      ------
+     compress          8
+     compress2        68
+     compressBound     0
+
+
+   Segment part sizes:
+
+     Function/Label      Bytes
+     --------------      -----
+     compress2            176
+     compress              20
+     compressBound         16
+     ?<Constant "1.2.3">    8
+      Others               48
+
+ 
+ 260 bytes in segment CODE
+   8 bytes in segment DATA_C
+ 
+ 212 bytes of CODE  memory (+ 48 bytes shared)
+   8 bytes of CONST memory
+
+Errors: none
+Warnings: none

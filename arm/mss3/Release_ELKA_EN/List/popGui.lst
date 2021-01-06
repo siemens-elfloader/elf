@@ -1,0 +1,558 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    13/Jan/2011  22:52:17 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\mss3\popGui.c                                 #
+#    Command line    =  C:\arm\mss3\popGui.c -D NEWSGOLD -D ELKA -D LANG_EN  #
+#                       -D NO_CS -lC C:\arm\mss3\Release_ELKA_EN\List\ -o    #
+#                       C:\arm\mss3\Release_ELKA_EN\Obj\ -s9 --no_unroll     #
+#                       --cpu_mode arm --endian little --cpu ARM926EJ-S      #
+#                       --stack_align 4 --interwork -e --fpu None            #
+#                       --dlib_config "C:\arm2\Embedded Workbench 4.0        #
+#                       Evaluation\ARM\LIB\dl5tpainl8n.h" -I                 #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\mss3\Release_ELKA_EN\List\popGui.lst          #
+#    Object file     =  C:\arm\mss3\Release_ELKA_EN\Obj\popGui.r79           #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\mss3\popGui.c
+      1          #include "..\inc\swilib.h"
+      2          #include "..\inc\mplayer.h"
+      3          #include "language.h"
+      4          #include "sms_dat.h"
+      5          #include "popGui.h"
+      6          #include "main.h"
+      7          #include "edGui.h"
+      8          #include "adrList.h"
+      9          #include "CodeShow.h" 
+     10          #include "config_data.h"
+     11          #include "lgp_pic.h"
+     12          #include "NewDatReader.h"
+     13          //int sndVolume=5;
+     14          short PLAY_ID=0;
+     15          
+     16          int vibra_power=0;
+     17          int sound_vol=0;
+     18          void SetSoundVibraByProfile(void)
+     19          {
+     20            int c=GetProfile()+1;
+     21            switch(c)
+     22            {
+     23            case 1:
+     24              vibra_power=CFG_VIBRA_POWER1;
+     25              sound_vol=CFG_SOUND_VOL1;
+     26              break;
+     27            case 2:
+     28              vibra_power=CFG_VIBRA_POWER2;
+     29              sound_vol=CFG_SOUND_VOL2;
+     30              break;
+     31            case 3:
+     32              vibra_power=CFG_VIBRA_POWER3;
+     33              sound_vol=CFG_SOUND_VOL3;
+     34              break;
+     35            case 4:
+     36              vibra_power=CFG_VIBRA_POWER4;
+     37              sound_vol=CFG_SOUND_VOL4;
+     38              break;
+     39            case 5:
+     40              vibra_power=CFG_VIBRA_POWER5;
+     41              sound_vol=CFG_SOUND_VOL5;
+     42              break;
+     43            case 6:
+     44              vibra_power=CFG_VIBRA_POWER6;
+     45              sound_vol=CFG_SOUND_VOL6;
+     46              break;
+     47            case 7:
+     48              vibra_power=CFG_VIBRA_POWER7;
+     49              sound_vol=CFG_SOUND_VOL7;
+     50              break;
+     51            case 8:
+     52              vibra_power=CFG_VIBRA_POWER8;
+     53              sound_vol=CFG_SOUND_VOL8;
+     54              break;
+     55            default:
+     56              vibra_power=0;
+     57              sound_vol=0;
+     58              break;
+     59            }
+     60          }
+     61          void Play(const char *fname)
+     62          {
+     63            PLAYFILE_OPT _sfo1;
+     64            WSHDR *sndPath,sndPathn;
+     65            WSHDR *sndFName,sndFNamen;
+     66            unsigned short sndPathb[128];
+     67            unsigned short sndFNameb[128];
+     68            char s[128];
+     69            const char *p;
+     70            if(!IsFileExist(fname))
+     71              return;
+     72            sndPath=CreateLocalWS(&sndPathn, sndPathb, 128);
+     73            sndFName=CreateLocalWS(&sndFNamen, sndFNameb, 128);
+     74            p=strrchr(fname,'\\')+1;
+     75            str_2ws(sndFName,p,128);
+     76            strncpy(s,fname,p-fname);
+     77            s[p-fname]='\0';
+     78            str_2ws(sndPath,s,128);
+     79            zeromem(&_sfo1,sizeof(PLAYFILE_OPT));
+     80            _sfo1.repeat_num=1;
+     81            _sfo1.time_between_play=0;
+     82            _sfo1.play_first=0;
+     83            _sfo1.volume=sound_vol;//
+     84          #ifdef NEWSGOLD
+     85            _sfo1.unk6=1;
+     86            _sfo1.unk7=1;
+     87            _sfo1.unk9=2;
+     88            PLAY_ID=PlayFile(0x10, sndPath, sndFName, GBS_GetCurCepid(), MSG_PLAYFILE_REPORT, &_sfo1);
+     89          #else
+     90          #ifdef X75
+     91            _sfo1.unk4=0x80000000;
+     92            _sfo1.unk5=1;
+     93            PLAY_ID=PlayFile(0xC, sndPath, sndFName, 0,GBS_GetCurCepid(), MSG_PLAYFILE_REPORT, &_sfo1);
+     94          #else
+     95            _sfo1.unk5=1;
+     96            PLAY_ID=PlayFile(0xC, sndPath, sndFName, GBS_GetCurCepid(), MSG_PLAYFILE_REPORT, &_sfo1);
+     97          #endif
+     98          #endif
+     99          }
+    100          
+    101          #pragma swi_number=0x44
+    102          __swi __arm void TempLightOn(int x, int y);
+    103          
+    104          #pragma swi_number=0x80CB
+    105          __swi __arm char *RamRingtoneStatus(); //0 on, 1, off
+    106          
+    107          const int popup_softkeys[]={0, 1, 2};
+    108          SOFTKEY_DESC popup_sk[]=
+    109          {
+    110            {0x0018,0x0000,(int)LGP_NULL},
+    111            {0x0001,0x0000,(int)LGP_NULL},
+    112            {0x003D,0x0000,LGP_DOIT_PIC}
+    113          };
+    114          const SOFTKEYSTAB popup_skt={popup_sk, 0};
+    115          
+    116          #ifdef ELKA
+    117          int pp_incoming_icons[]={0x282, 0};
+    118          int pp_showmsg_icons[]={0x52C, 0};
+    119          #else
+    120          int pp_incoming_icons[]={0x278, 0};
+    121          int pp_showmsg_icons[]={0x558, 0};
+    122          #endif
+    123          
+    124          #define TIME_SECOND 216
+    125          
+    126          int popup_onkey(void *data, GUI_MSG *msg)
+    127          {
+    128            if((msg->keys==0x18)||(msg->keys==0x3D))
+    129            {
+    130              DLG_CSM *dlg_csm=GetPopupUserPointer(data);
+                                      ^
+Warning[Pe223]: function "GetPopupUserPointer" declared implicitly
+
+      DLG_CSM *dlg_csm=GetPopupUserPointer(data);
+                       ^
+"C:\arm\mss3\popGui.c",130  Error[Pe144]: a value of type "int" cannot be used
+          to initialize an entity of type "DLG_CSM *"
+    131              if(dlg_csm)
+    132              {
+    133                if(!(dlg_csm->gui_id=viewTheLastNew(dlg_csm)))
+    134                  dlg_csm->csm.state=-3; //close
+    135          	//dlg_csm->gui_id=CreateMainMenu(dlg_csm);
+    136              }
+    137              return 1;
+    138            }
+    139            if(msg->keys==0x1)
+    140              return 1;
+    141            if(msg->gbsmsg->msg==KEY_DOWN)
+    142            {	 
+    143              if(!IsUnlocked())
+    144                TempLightOn(3, 0x7FFF);
+    145              if(PLAY_ID)
+    146              {
+    147                PlayMelody_StopPlayback(PLAY_ID);
+    148                PLAY_ID=0;
+    149              }
+    150              if(CFG_ENA_SOUND && IsPlayerOn() && !GetPlayStatus()) MPlayer_Start();
+    151              SetVibration(0);
+    152            }
+    153            return 0;
+    154          }
+    155          
+    156          void popup_ghook(void *data, int cmd)
+    157          {
+    158          /*  if(cmd==2) //Create
+    159            {
+    160              TempLightOn(3, 0x7FFF);
+    161              if(CFG_NOTIFY_TIME && !IsCalling())
+    162              {
+    163                SetSoundVibraByProfile();
+    164                if(CFG_ENA_SOUND&& sound_vol && !(*(RamRingtoneStatus())) && IsFileExist(CFG_SOUND_PATH))
+    165                {
+    166          	if(GetPlayStatus()) MPlayer_Stop();
+    167          	if(!PLAY_ID)
+    168          	{
+    169          	  Play(CFG_SOUND_PATH);
+    170          	}
+    171                }
+    172                SetVibration(vibra_power);
+    173              }
+    174            }
+    175            else*/
+    176            if(cmd==3) //Close
+    177            {
+    178              POPUP_DESC *pd;
+                     ^
+Error[Pe020]: identifier "POPUP_DESC" is undefined
+
+      POPUP_DESC *pd;
+                  ^
+"C:\arm\mss3\popGui.c",178  Error[Pe020]: identifier "pd" is undefined
+    179              if(PLAY_ID)
+    180              {
+    181                PlayMelody_StopPlayback(PLAY_ID);
+    182                PLAY_ID=0;
+    183              }
+    184              if(CFG_ENA_SOUND && IsPlayerOn() && !GetPlayStatus()) MPlayer_Start();
+    185              SetVibration(0);
+    186              //get POPUP_DESC
+    187              pd=(POPUP_DESC *)(((void **)data)[8/4]);
+                                     ^
+Error[Pe029]: expected an expression
+    188              mfree(pd);
+    189            }
+    190          }
+    191          
+    192          const POPUP_DESC popup=
+                       ^
+Error[Pe020]: identifier "POPUP_DESC" is undefined
+    193          {
+    194            8,
+    195            popup_onkey,
+    196            popup_ghook,
+    197            NULL,
+    198            popup_softkeys,
+    199            &popup_skt,
+    200            0x1,
+    201            LGP_NULL,
+    202            pp_incoming_icons,//popup_icons,
+    203            0,
+    204            FONT_MEDIUM,
+    205            100,
+    206            101,
+    207            0
+    208          };
+    209          int ShowMSG_report(void *dlg_csm, SMS_DATA *sd);
+    210          int StartIncomingWin(void *dlg_csm)
+    211          {
+    212            SMS_DATA *sd;
+    213            WSHDR *ws;
+    214          //  WSHDR wsloc, *wn;
+    215          //  unsigned short wsb[150];
+    216            POPUP_DESC *pd;
+                   ^
+Error[Pe020]: identifier "POPUP_DESC" is undefined
+
+    POPUP_DESC *pd;
+                ^
+"C:\arm\mss3\popGui.c",216  Error[Pe020]: identifier "pd" is undefined
+    217            CLIST *cl;
+    218            const char *melody_filepath;
+    219            extern unsigned int DlgCsmIDs[]; //main.c
+    220            extern int IsNoDlg(unsigned int *id_pool); //main.c
+    221            //if(IsNoDlg(DlgCsmIDs))
+    222            //  sd=GetTheLastNew(1);
+    223            //else
+    224            //{
+    225            //  readAllSMS();
+    226            //  sd=GetTheLastNew(0);
+    227            //}
+    228            sd=GetTheLastNew(0);
+    229            if(!sd) return 0;
+    230            if(!CFG_NOTIFY_TIME) return 0;
+    231            if((sd->msg_type&ISREPORT)) return (ShowMSG_report(dlg_csm, sd));
+    232            ws=AllocWS(150);
+    233          //  wn=CreateLocalWS(&wsloc,wsb,150);
+    234          #ifndef LANG_CN
+    235            cl=FindClByNum(sd->Number);
+    236            if(cl)
+    237            {
+    238              wsprintf(ws, "%t\n%t:\n%w", lgp.LGP_NEW_MSG, lgp.LGP_FROM, cl->name);
+    239            }
+    240            else
+    241            {
+    242              wsprintf(ws, "%t\n%t:\n%s", lgp.LGP_NEW_MSG, lgp.LGP_FROM, sd->Number);
+    243            }
+    244          #else
+    245            char num[32];
+    246            int is_fetion=0;
+    247            WSHDR csloc, *cs;
+    248            unsigned short csb[30];
+    249            cs=CreateLocalWS(&csloc,csb,30);
+    250            if(!strncmp(num_fetion, sd->Number, 5)) is_fetion=1;
+    251            strcpy(num, is_fetion?(sd->Number+5):sd->Number);
+    252            cl=FindClByNum(num);
+    253            GetProvAndCity(cs->wsbody, num);
+    254            if(cl)
+    255            {
+    256              if(is_fetion) wsprintf(ws, "%t\n%t:\n%w (%t)\n%w", lgp.LGP_NEW_MSG, lgp.LGP_FROM, cl->name, lgp.LGP_FETION, cs);
+    257              else wsprintf(ws, "%t\n%t:\n%w\n%w", lgp.LGP_NEW_MSG, lgp.LGP_FROM, cl->name, cs);
+    258            }
+    259            else
+    260            {
+    261              wsprintf(ws, "%t\n%t:\n%s\n%w", lgp.LGP_NEW_MSG, lgp.LGP_FROM, sd->Number, cs);
+    262            }
+    263          #endif
+    264            //---------------------- notify
+    265            TempLightOn(3, 0x7FFF);
+    266            if(CFG_NOTIFY_TIME && !IsCalling())
+    267            {
+    268              SetSoundVibraByProfile();
+    269              if(!cl || !cl->sms_melody_filepath) melody_filepath=CFG_SOUND_PATH;
+    270              else melody_filepath=cl->sms_melody_filepath;
+    271              if(CFG_ENA_SOUND&& sound_vol && !(*(RamRingtoneStatus())) && IsFileExist(melody_filepath))
+    272              {
+    273                if(GetPlayStatus()) MPlayer_Stop();
+    274                if(!PLAY_ID)
+    275                {
+    276          	Play(melody_filepath);
+    277                }
+    278              }
+    279              SetVibration(vibra_power);
+    280            }
+    281            //---------------------
+    282          /*  if(sd)
+    283            {
+    284          #ifdef NO_CS 
+    285              if(findNameByNum(wn, sd->Number))
+    286                wsprintf(ws, "%t\n%t:\n%w", lgp.LGP_NEW_MSG, lgp.LGP_FROM, wn);
+    287              else
+    288                wsprintf(ws, "%t\n%t:\n%s", lgp.LGP_NEW_MSG, lgp.LGP_FROM, sd->Number);
+    289          #else
+    290              char num[32];
+    291              int is_fetion=0;
+    292              if(!strncmp(num_fetion, sd->Number, 5)) is_fetion=1;
+    293              strcpy(num, is_fetion?(sd->Number+5):sd->Number);
+    294              GetProvAndCity(cs->wsbody, num);
+    295              if(findNameByNum(wn, is_fetion?(sd->Number+5):sd->Number))
+    296              {
+    297                if(is_fetion) wsprintf(ws, "%t\n%t:\n%w (%t)\n%w", lgp.LGP_NEW_MSG, lgp.LGP_FROM, wn, lgp.LGP_FETION, cs);
+    298                else wsprintf(ws, "%t\n%t:\n%w\n%w", lgp.LGP_NEW_MSG, lgp.LGP_FROM, wn, cs);
+    299              }
+    300              else
+    301                wsprintf(ws, "%t\n%t:\n%s\n%w", lgp.LGP_NEW_MSG, lgp.LGP_FROM, sd->Number, cs);
+    302          #endif
+    303            }*/
+    304            pd=malloc(sizeof(POPUP_DESC));
+    305            memcpy(pd, &popup, sizeof(POPUP_DESC));
+    306            pd->time=CFG_NOTIFY_TIME*1300; //1300=1s
+    307            UpdateDlgCsmName(dlg_csm, lgp.LGP_NEW_MSG);
+    308            return (CreatePopupGUI_ws(1, dlg_csm, pd, ws));
+                           ^
+Warning[Pe223]: function "CreatePopupGUI_ws" declared implicitly
+    309          }
+    310          
+    311          SOFTKEY_DESC msg_popup_sk[]=
+    312          {
+    313            {0x0018,0x0000,(int)LGP_NULL},
+    314            {0x0001,0x0000,(int)LGP_NONE_PIC},
+    315            {0x003D,0x0000,LGP_DOIT_PIC}
+    316          };
+    317          const SOFTKEYSTAB msg_popup_skt={msg_popup_sk, 0};
+    318          
+    319          int msg_popup_onkey(void *data, GUI_MSG *msg)
+    320          {
+    321            if((msg->keys==0x18)||(msg->keys==0x3D))
+    322              return 1;
+    323            return 0;
+    324          }
+    325          const POPUP_DESC msg_popup=
+                       ^
+Error[Pe020]: identifier "POPUP_DESC" is undefined
+    326          {
+    327            8,
+    328            msg_popup_onkey,
+    329            NULL,
+    330            NULL,
+    331            popup_softkeys,
+    332            &msg_popup_skt,
+    333            0x1,
+    334            LGP_NULL,
+    335            pp_showmsg_icons,
+    336            0, // pos, 0:left, 1:top mid, 2:top right, 3: top left
+    337            FONT_MEDIUM,
+    338            100,
+    339            101,
+    340            0x7D0 //flag2 ? auto off time?
+    341          };
+    342          
+    343          /*
+    344          // pos, 0:left, 1:top mid, 2:top right, 3: top left
+    345          // p, t
+    346          0: left, right
+    347          1: mid top, left
+    348          2: top right, left top
+    349          3: top left, left top
+    350          */
+    351          int ShowMSG_ws(int flag, WSHDR *msg)
+    352          {
+    353            return (CreatePopupGUI_ws(flag, 0, &msg_popup, msg));
+                           ^
+Warning[Pe223]: function "CreatePopupGUI_ws" declared implicitly
+    354          }
+    355          
+    356          
+    357          int offproc_popup_onkey(void *data, GUI_MSG *msg)
+    358          {
+    359            if((msg->keys==0x18)||(msg->keys==0x3D))
+    360              return 1;
+    361            return 0;
+    362          }
+    363          void offproc_popup_ghook(void *data, int cmd)
+    364          {
+    365            if(cmd==3)
+    366            {
+    367              void *proc=GetPopupUserPointer(data);
+                                ^
+Warning[Pe223]: function "GetPopupUserPointer" declared implicitly
+
+      void *proc=GetPopupUserPointer(data);
+                 ^
+"C:\arm\mss3\popGui.c",367  Error[Pe144]: a value of type "int" cannot be used
+          to initialize an entity of type "void *"
+    368              ((void (*)(void))proc)();
+    369            }
+    370          }
+    371          const POPUP_DESC offproc_popup=
+                       ^
+Error[Pe020]: identifier "POPUP_DESC" is undefined
+    372          {
+    373            0,
+    374            offproc_popup_onkey,
+    375            offproc_popup_ghook,
+    376            NULL,
+    377            popup_softkeys,
+    378            &msg_popup_skt,
+    379            0x1,
+    380            LGP_NULL,
+    381            pp_showmsg_icons,
+    382            0,
+    383            FONT_MEDIUM,
+    384            100,
+    385            101,
+    386            0x7D0 //flag2 ? auto off time?
+    387          };
+    388          
+    389          int ShowMSG_offproc(int flag, const char *msg, void proc(void))
+    390          {
+    391            return (CreatePopupGUI(flag, (void *)proc, &offproc_popup, (int)msg));
+                           ^
+Warning[Pe223]: function "CreatePopupGUI" declared implicitly
+    392          }
+    393          
+    394          const POPUP_DESC msg_noff_popup=
+                       ^
+Error[Pe020]: identifier "POPUP_DESC" is undefined
+    395          {
+    396            0,
+    397            msg_popup_onkey,
+    398            NULL,
+    399            NULL,
+    400            popup_softkeys,
+    401            &msg_popup_skt,
+    402            0x1,
+    403            LGP_NULL,
+    404            NULL,
+    405            0,
+    406            FONT_MEDIUM,
+    407            100,
+    408            101,
+    409            0 //flag2 ? auto off time?
+    410          };
+    411          
+    412          int ShowMSG_noff(int flag, const char *msg)
+    413          {
+    414            return (CreatePopupGUI(flag, 0, &msg_noff_popup, (int)msg));
+                           ^
+Warning[Pe223]: function "CreatePopupGUI" declared implicitly
+    415          }
+    416          
+    417          void report_popup_ghook(void *data, int cmd)
+    418          {
+    419            if(cmd==3)
+    420            {
+    421              SMS_DATA *sd=GetPopupUserPointer(data);
+                                  ^
+Warning[Pe223]: function "GetPopupUserPointer" declared implicitly
+
+      SMS_DATA *sd=GetPopupUserPointer(data);
+                   ^
+"C:\arm\mss3\popGui.c",421  Error[Pe144]: a value of type "int" cannot be used
+          to initialize an entity of type "struct <unnamed> *"
+    422              if(CFG_ENA_AUTO_DEL_RP && IsSdInList(sd) && deleteDat(sd, 0))
+    423                delSDList(sd);
+    424            }
+    425          }
+    426          
+    427          const POPUP_DESC msg_report=
+                       ^
+Error[Pe020]: identifier "POPUP_DESC" is undefined
+    428          {
+    429            0,
+    430            msg_popup_onkey,
+    431            report_popup_ghook,
+    432            NULL,
+    433            popup_softkeys,
+    434            &msg_popup_skt,
+    435            0x1,
+    436            LGP_NULL,
+    437            NULL,
+    438            0,
+    439            FONT_MEDIUM,
+    440            100,
+    441            101,
+    442            0x7D0 //flag2 ? auto off time?
+    443          };
+    444          
+    445          int ShowMSG_report(void *dlg_csm, SMS_DATA *sd)
+    446          {
+    447            WSHDR wsloc, *wn;
+    448            unsigned short wsb[150];
+    449            WSHDR *ws=AllocWS(256);
+    450            wn=CreateLocalWS(&wsloc,wsb,150);
+    451          #ifdef NO_CS 
+    452            if(findNameByNum(wn, sd->Number))
+    453              wsprintf(ws, "%w\n%t:\n%w", sd->SMS_TEXT, lgp.LGP_FROM, wn);
+    454            else
+    455              wsprintf(ws, "%w\n%t:\n%s", sd->SMS_TEXT, lgp.LGP_FROM, sd->Number);
+    456          #else
+    457            char num[32];
+    458            int is_fetion=0;
+    459            WSHDR csloc, *cs;
+    460            unsigned short csb[30];
+    461            cs=CreateLocalWS(&csloc,csb,30);
+    462            if(!strncmp(num_fetion, sd->Number, 5)) is_fetion=1;
+    463            strcpy(num, sd->Number);
+    464            GetProvAndCity(cs->wsbody, num);
+    465            if(findNameByNum(wn, is_fetion?(sd->Number+5):sd->Number))
+    466            {
+    467              if(is_fetion) wsprintf(ws, "%w\n%t:\n%w(%t)\n%w", sd->SMS_TEXT, lgp.LGP_FROM, wn, lgp.LGP_FETION, cs);
+    468              else wsprintf(ws, "%w\n%t:\n%w\n%w", sd->SMS_TEXT, lgp.LGP_FROM, wn, cs);
+    469            }
+    470            else
+    471              wsprintf(ws, "%w\n%t:\n%s\n%w", sd->SMS_TEXT, lgp.LGP_FROM, sd->Number, cs);
+    472          #endif
+    473            UpdateDlgCsmName(dlg_csm, lgp.LGP_MSG_REPORT);
+    474            return (CreatePopupGUI_ws(0, sd, &msg_report, ws));
+                           ^
+Warning[Pe223]: function "CreatePopupGUI_ws" declared implicitly
+    475          }
+
+Errors: 13
+Warnings: 8

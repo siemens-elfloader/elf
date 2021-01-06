@@ -1,0 +1,180 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    07/May/2009  10:45:43 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Mss3App.cpp         #
+#    Command line    =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Mss3App.cpp -D      #
+#                       NEWSGOLD -D ELKA -D LANG_CN -lcN                     #
+#                       D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\List\  #
+#                       -o D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\Obj #
+#                       \ -s9 --no_unroll --cpu_mode arm --endian little     #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --eec++ --dlib_config "D:\pasha\Embedded  #
+#                       Workbench 4.0 Evaluation2\ARM\LIB\dl5tpainl8n.h" -I  #
+#                       "D:\pasha\Embedded Workbench 4.0                     #
+#                       Evaluation2\ARM\INC\" --inline_threshold=2           #
+#    List file       =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\List\M #
+#                       ss3App.lst                                           #
+#    Object file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\Obj\Ms #
+#                       s3App.r79                                            #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\pasha\elf\SieELF\MySMSYS\Mss3\Mss3App.cpp
+      1          // Mss3App.cpp: implementation of the Mss3App class.
+      2          //
+      3          //////////////////////////////////////////////////////////////////////
+      4          #include "include.h"
+      5          #include "SiemensPDU.h"
+      6          #include "MyIpcMessage.h"
+      7          #include "File.h"
+      8          #include "SmsData.h"
+      9          #include "CreateMenu.h"
+     10          #include "SmsListMenu.h"
+     11          #include "DialogCSM.h"
+     12          #include "LangPack.h"
+     13          #include "Vibra.h"
+     14          #include "SendList.h"
+     15          #include "DaemonCSM.h"
+     16          #include "CSMswaper.h"
+     17          #include "Mss3App.h"
+     18          
+     19          //////////////////////////////////////////////////////////////////////
+     20          // Construction/Destruction
+     21          //////////////////////////////////////////////////////////////////////
+     22          
+     23          //DEL Mss3App::Mss3App()
+     24          //DEL {
+     25          //DEL 
+     26          //DEL }
+     27          
+     28          //DEL Mss3App::~Mss3App()
+     29          //DEL {
+     30          //DEL 
+     31          //DEL }
+     32          extern "C"
+     33          {
+     34            extern void kill_data(void *p, void (*func_p)(void *));
+     35            extern void InitConfig(void);
+     36          }
+     37          
+     38          int Mss3App::Start(char *exename, char *fname)
+     39          {
+     40            if(IsAlreadyRuning())
+     41            {
+     42              if(!fname)
+     43                SendMyIpc(SMSYS_IPC_MAIN);
+     44              else if (fname[0] >= '0' && fname[0] <= '4' && fname[1] == ':' && strlen(fname) < 128)
+     45              {
+     46                char *filename=new char[128];
+     47                strcpy(filename, fname);
+     48                SendMyIpc(SMSYS_IPC_FVIEW, filename);
+     49              }
+     50              SUBPROC((void *)Mss3App::Killer);
+     51              return 0;
+     52            }
+     53            InitSetting();
+     54            DaemonCSM *daemon=new DaemonCSM;
+     55            daemon->CreateDaemonCSM();
+     56            CSMSwaper::InitUnderIdleCSM();
+     57            return 0;
+     58          }
+     59          
+     60          void Mss3App::InitSetting()
+     61          {
+     62            InitConfig();
+     63            InitDatPath();
+     64          }
+     65          
+     66          void Mss3App::InitDatPath()
+     67          {
+     68            int x, xl;
+     69            strcpy(sms_dat, CFG_SYSTEM_FOLDER);
+     70            if((xl=strlen(sms_dat))>0)
+     71            {
+     72              x=sms_dat[xl-1];
+     73              if((x!='\\')&&(x!='/'))
+     74              {
+     75                sms_dat[xl]='\\';
+     76                sms_dat[xl+1]=0;
+     77              }
+     78              strcat(sms_dat, "SMS\\SMS.dat");
+     79            }
+     80            extern const char CFG_MAIN_FOLDER[128];
+     81            strcpy(main_folder, CFG_MAIN_FOLDER);
+     82            if((xl=strlen(main_folder))>0)
+     83            {
+     84              x=main_folder[xl-1];
+     85              if((x!='\\')&&(x!='/'))
+     86              {
+     87                main_folder[xl]='\\';
+     88                main_folder[xl+1]=0;
+     89              }
+     90            }
+     91          }
+     92          
+     93          void Mss3App::Killer()
+     94          {
+     95            extern void *ELF_BEGIN;
+     96            kill_data(&ELF_BEGIN,(void (*)(void *))mfree_adr());
+     97          }
+     98          
+     99          int Mss3App::IsAlreadyRuning()
+    100          {
+    101            CSM_RAM *icsm;
+    102            WSHDR *ws, wsn;
+    103            unsigned short wsb[16];
+    104            ws=CreateLocalWS(&wsn, wsb, 16);
+    105            wsprintf(ws, ELFFNAMED);
+    106            icsm=(CSM_RAM *)((CSM_RAM *)(CSM_root()->csm_q->csm.first))->next;
+    107            while(((unsigned int)(icsm->constr)>>27)==0x15)
+    108            {
+    109              WSHDR *tws=(WSHDR *)(((char *)icsm->constr)+sizeof(CSM_DESC));
+    110              if((tws->ws_malloc==NAMECSM_MAGIC1)&&(tws->ws_mfree==NAMECSM_MAGIC2))
+    111              {
+    112                if(!wstrncmp_nocase(tws, ws, sizeof(ELFFNAMED)))
+    113                  return 1;
+    114              }
+    115              icsm=(CSM_RAM *)icsm->next;
+    116            }
+    117            return 0;
+    118          }
+
+   Maximum stack usage in bytes:
+
+     Function                       CSTACK
+     --------                       ------
+     Mss3App::InitDatPath()            16
+     Mss3App::InitSetting()             4
+     Mss3App::IsAlreadyRuning()        64
+     Mss3App::Killer()                  4
+     Mss3App::Start(char *, char *)    12
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     Mss3App::Start(char *, char *)  168
+     Mss3App::InitSetting()           16
+     Mss3App::InitDatPath()          168
+     Mss3App::Killer()                28
+     Mss3App::IsAlreadyRuning()      168
+     ?<Constant "Mss3D">               8
+     ?<Constant "SMS\\SMS.dat">       12
+      Others                         128
+
+ 
+ 676 bytes in segment CODE
+  20 bytes in segment DATA_C
+ 
+ 548 bytes of CODE  memory (+ 128 bytes shared)
+  20 bytes of CONST memory
+
+Errors: none
+Warnings: none

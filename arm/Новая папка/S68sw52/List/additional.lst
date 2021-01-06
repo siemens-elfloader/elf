@@ -1,0 +1,317 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    14/Apr/2011  12:26:50 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\Новая папка\additional.c                      #
+#    Command line    =  "C:\arm\Новая папка\additional.c" -D NDEBUG -D       #
+#                       NEWSGOLD -lC "C:\arm\Новая папка\S68sw52\List\" -o   #
+#                       "C:\arm\Новая папка\S68sw52\Obj\" -s9 --no_unroll    #
+#                       --cpu_mode thumb --endian little --cpu ARM926EJ-S    #
+#                       --stack_align 4 --interwork -e --fpu None -I         #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\Новая папка\S68sw52\List\additional.lst       #
+#    Object file     =  C:\arm\Новая папка\S68sw52\Obj\additional.r79        #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\Новая папка\additional.c
+      1          #include "..\inc\swilib.h"
+      2          
+      3          #ifndef NEWSGOLD
+      4          extern TREGEXPLEXT *EXT2_REALLOC(void);
+      5          extern TREGEXPLEXT *EXT2_AREA;
+      6          extern int EXT2_CNT;
+      7          
+      8          // В этот файл включены некоторые функции которых нет в прошивке для SGOLD
+      9          
+     10          // ========================================== Reg Files =============================================
+     11          __arm void RegFile(WSHDR*ext,int unical_id,int menu_flag,unsigned int* icon1,int obex_path_id,int enabled_options,void *proc1,void *proc2,unsigned int *icon2)
+     12          {
+     13            TREGEXPLEXT *reg;
+     14            unsigned int *icon2new;
+     15            reg=EXT2_REALLOC();
+     16            LockSched();
+     17            reg->zero=0;
+     18            reg->icon1=icon1;
+     19            reg->unical_id=unical_id;
+     20            reg->obex_path_id=obex_path_id;
+     21            reg->menu_flag=menu_flag;
+     22            reg->enabled_options=enabled_options;
+     23            reg->ext=ext;
+     24            reg->proc=proc1;
+     25            reg->altproc=proc2;
+     26             
+     27            icon2new=malloc(sizeof(int)*2);
+     28            icon2new[0]=*icon1>>28==0xA?*icon2:*icon1+1;
+     29            icon2new[1]=0;
+     30            reg->icon2=icon2new;
+     31            UnlockSched();
+     32          }
+     33          
+     34          __arm int GetBigIcon(const unsigned int icon, int uid)
+     35          {
+     36            asm("mov r1, r8");
+     37            TREGEXPLEXT *reg;
+     38            if ((icon>>28)!=0xA) return (icon+1);
+     39            reg=get_regextpnt_by_uid(uid);
+     40            if (!reg) return (0);
+     41            return (*(reg->icon2));
+     42          }
+     43          
+     44          __arm void UnregExplExt_impl(REGEXPLEXT const * reg_orig)
+     45          {
+     46            char ext[16];
+     47            TREGEXPLEXT *reg=(TREGEXPLEXT*)EXT2_AREA;
+     48            for (int i=0;i!=EXT2_CNT;i++)
+     49            {
+     50              if (reg_orig->unical_id==reg[i].unical_id)
+     51              {
+     52                ws_2str(reg[i].ext,ext,15);
+     53                if (!strcmp(ext,reg_orig->ext))
+     54                {
+     55                  FreeWS(reg[i].ext);
+     56                  mfree((void*)reg[i].icon2);
+     57                  EXT2_CNT--;
+     58                  memcpy(&reg[i],&reg[i+1],sizeof(TREGEXPLEXT)*(EXT2_CNT-i));
+     59                  return;
+     60                }
+     61              }
+     62            }
+     63          }
+     64          
+     65          // ========================================= Keyb Hooks ===========================================
+     66          typedef struct
+     67          {
+     68            void *next;
+     69            void *prev;
+     70            int (*proc)(int submsg,int msg);
+     71            char is_first;
+     72          }PLIST;
+     73          
+     74          
+     75          
+     76          __no_init LLQ _plistq;
+     77          
+     78          #pragma optimize=no_inline
+     79          static void LLaddToEnd(LLQ *ll, void *data)
+     80          {
+     81            LLIST *d=data;
+     82            d->next=NULL;
+     83            d->prev=ll->last;
+     84            if (ll->last)
+     85            {
+     86              ((LLIST *)ll->last)->next=d;
+     87            }
+     88            else
+     89            {
+     90              ll->first=d;
+     91            }
+     92            ll->last=d;
+     93          }
+     94          
+     95          #pragma optimize=no_inline
+     96          static void LLaddToBegin(LLQ *ll, void *data)
+     97          {
+     98            LLIST *d=data;
+     99            d->next=ll->first;
+    100            d->prev=0;
+    101            if (!ll->last)
+    102            {
+    103              ll->last=d;
+    104            }
+    105            else
+    106            {
+    107              ((LLIST *)ll->first)->prev=d;
+    108            }
+    109            ll->first=d;
+    110          }
+    111          
+    112          #pragma optimize=no_inline
+    113          static void LLremoveFromQ(LLQ *ll, void *data, int is_free)
+    114          {
+    115            LLIST *d=data;
+    116            if (d->prev)
+    117            {
+    118              ((LLIST *)d->prev)->next=d->next;
+    119            }
+    120            else
+    121            {
+    122              ll->first=d->next;
+    123            }
+    124            if (d->next)
+    125            {
+    126              ((LLIST *)d->next)->prev=d->prev;
+    127            }
+    128            else
+    129            {
+    130              ll->last=d->prev;
+    131            }
+    132            if (is_free)
+    133            {
+    134              ll->data_mfree(d);
+    135            }
+    136          }
+    137          
+    138          __arm void AddKeybMsgHook_impl(int (*proc)(int submsg,int msg))
+    139          {
+    140            LLQ *plistq=&_plistq;
+    141            PLIST *newp;
+    142            if (!plistq->data_mfree)
+    143            {
+    144              plistq->first=0;
+    145              plistq->last=0;
+    146              plistq->data_mfree=(void(*)(void *))mfree_adr();
+    147            }
+    148            newp=malloc(sizeof(PLIST));
+    149            if (newp)
+    150            {
+    151              newp->proc=proc;
+    152              newp->is_first=0;
+    153              LLaddToEnd(plistq,newp);
+    154            }
+    155          }
+    156          
+    157          
+    158          __arm int AddKeybMsgHook_end_impl(int (*proc)(int submsg,int msg))
+    159          {
+    160            LLQ *plistq=&_plistq;
+    161            PLIST *newp, *pfirst;
+    162            if (!plistq->data_mfree)
+    163            {
+    164              plistq->first=0;
+    165              plistq->last=0;
+    166              plistq->data_mfree=(void(*)(void *))mfree_adr();
+    167            }
+    168            if ((pfirst=plistq->first))
+    169            {
+    170              if (pfirst->is_first==1) return 0;
+    171            }
+    172            newp=malloc(sizeof(PLIST));
+    173            if (!newp) return 0;
+    174            newp->proc=proc;
+    175            newp->is_first=1;
+    176            LLaddToBegin(plistq,newp);
+    177            return 1;
+    178          }  
+    179          
+    180          extern BXR1(void *, void (*)(void *));
+    181          
+    182          
+    183          __arm void RemoveKeybMsgHook_impl(int (*proc)(int submsg,int msg))
+    184          {
+    185            LLQ *plistq=&_plistq;
+    186            PLIST *plist=plistq->first;
+    187            while(plist)
+    188            {
+    189              if (plist->proc==proc)
+    190              {
+    191                LLremoveFromQ(plistq,plist,1);
+    192                return;      
+    193              }  
+    194              plist=plist->next;    
+    195            }
+    196          }
+    197          
+    198          
+    199          int PatchKeybMsg(int submsg, int msg)
+    200          {
+    201            LLQ *plistq=&_plistq;
+    202            PLIST *plist=plistq->first;
+    203            int proc_ret;
+    204            int is_no_gui=0;
+    205            while(plist)
+    206            {
+    207              if (plist->proc)
+    208              {
+    209                proc_ret=plist->proc(submsg,msg);
+    210                switch(proc_ret)
+    211                {
+    212                case KEYHOOK_NEXT:
+    213                  break;
+    214                case KEYHOOK_NEXT_NOT2GUI:
+    215                  is_no_gui=1;
+    216                  break;
+    217                case KEYHOOK_BREAK:
+    218                  return (2);
+    219                case KEYHOOK_ENDQ:
+    220                  return is_no_gui==1?2:0;
+    221                default:
+    222                  break;
+    223                }      
+    224              }
+    225              plist=plist->next;
+    226            }
+    227            return is_no_gui;
+    228          }
+    229          
+    230          // ========================================= fread/fwrite ===========================================
+    231          extern int (*FReadOld)(int FileHandler, void *cBuffer, int iByteCount, unsigned int *ErrorNumber);
+    232          extern unsigned int(*FWriteOld)(int FileHandler, char * cBuffer, int iByteCount, unsigned int *ErrorNumber);
+    233          
+    234          int fread32(int fh, void *buf, int len, unsigned int *err)
+    235          {
+    236            int clen;
+    237            int rlen;
+    238            int total=0;
+    239            while(len)
+    240            {
+    241              clen=len>=0x4000?0x4000:len;
+    242              total+=(rlen=FReadOld(fh, buf, clen, err));
+    243              if (rlen!=clen) break;
+    244              buf=(char *)buf+rlen;
+    245              len-=clen;
+    246            }
+    247            return(total);
+    248          }
+    249          
+    250          
+    251          unsigned int fwrite32(int fh, void *buf, int len, unsigned int *err)
+    252          {
+    253            int clen;
+    254            unsigned int wlen;
+    255            int total=0;
+    256            while(len)
+    257            {
+    258              clen=len>=0x4000?0x4000:len;
+    259              total+=(wlen=FWriteOld(fh, buf, clen, err));
+    260              if (wlen!=clen) break;
+    261              buf=(char *)buf+wlen;
+    262              len-=clen;
+    263            }
+    264            return(total);
+    265          }
+    266          
+    267          
+    268          
+    269          #pragma diag_suppress=Pe177
+    270          __root static const int SWILIB_FUNC00B @ "SWILIB_FUNC00B" = (int)fread32;
+    271          __root static const int SWILIB_FUNC00C @ "SWILIB_FUNC00C" = (int)fwrite32;
+    272          __root static const int SWILIB_FUNC095 @ "SWILIB_FUNC095" = (int)UnregExplExt_impl;
+    273          __root static const int SWILIB_FUNC12B @ "SWILIB_FUNC12B_12D" = (int)AddKeybMsgHook_impl;
+    274          __root static const int SWILIB_FUNC12C @ "SWILIB_FUNC12B_12D" = (int)AddKeybMsgHook_end_impl;
+    275          __root static const int SWILIB_FUNC12D @ "SWILIB_FUNC12B_12D" = (int)RemoveKeybMsgHook_impl;
+    276          #pragma diag_default=Pe177
+    277          
+    278          
+    279          
+    280          #endif
+    281          
+
+
+   Segment part sizes:
+
+     Function/Label Bytes
+     -------------- -----
+
+ 
+ 
+ 0 bytes of memory
+
+Errors: none
+Warnings: none

@@ -1,0 +1,1530 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    23/Feb/2011  16:38:03 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\siejc\item_info.c                             #
+#    Command line    =  C:\arm\siejc\item_info.c -D NEWSGOLD -D ELKA         #
+#                       --preprocess C:\arm\siejc\Release_ELKA\List\ -lC     #
+#                       C:\arm\siejc\Release_ELKA\List\ -o                   #
+#                       C:\arm\siejc\Release_ELKA\Obj\ -s9 --no_unroll       #
+#                       --cpu_mode arm --endian little --cpu ARM926EJ-S      #
+#                       --stack_align 4 --interwork -e --fpu None            #
+#                       --dlib_config "C:\arm2\Embedded Workbench 4.0        #
+#                       Evaluation\ARM\LIB\dl5tpainl8f.h" -I                 #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\siejc\Release_ELKA\List\item_info.lst         #
+#    Object file     =  C:\arm\siejc\Release_ELKA\Obj\item_info.r79          #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\siejc\item_info.c
+      1          #include "..\inc\swilib.h"
+      2          #include "main.h"
+      3          #include "clist_util.h"
+      4          #include "jabber_util.h"
+      5          #include "string_util.h"
+      6          #include "xml_parser.h"
+      7          #include "item_info.h"
+      8          #include "lang.h"
+      9          #include "rect_patcher.h"
+     10          
+     11          #define MAX_SYMB 1024
+     12          WSHDR* ws_info = NULL;
+     13          
+     14          extern const char KNOW_FEATURES_PATH[];
+
+   \                                 In segment CODE, align 4, keep-with-next
+     15          int info_onkey(GUI *gui, GUI_MSG *msg)
+     16          {
+     17            if (msg->keys==0x18)
+   \                     info_onkey:
+   \   00000000   F200D1E1           LDRSH    R0,[R1, #+2]
+   \   00000004   180050E3           CMP      R0,#+24
+     18            {
+     19              return(-1); //do redraw
+   \   00000008   0000E003           MVNEQ    R0,#+0
+   \   0000000C   1EFF2F01           BXEQ     LR
+     20            }
+     21            return(0); //Do standart keys
+   \   00000010   0000A0E3           MOV      R0,#+0
+   \   00000014   1EFF2FE1           BX       LR               ;; return
+     22          
+     23          }
+     24          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     25          void info_ghook(GUI *gui, int cmd)
+     26          {
+   \                     info_ghook:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+     27            if (cmd==TI_CMD_CREATE)
+     28            {
+     29              //Called after onCreate
+     30            }
+     31          
+     32            if (cmd==TI_CMD_REDRAW)
+     33            {
+     34          
+     35            }
+     36          
+     37            if(cmd==TI_CMD_FOCUS)
+   \   00000004   0A0051E3           CMP      R1,#+10
+   \   00000008   0100001A           BNE      ??info_ghook_0
+     38            {
+     39              DisableIDLETMR();   // Отключаем таймер выхода по таймауту
+   \   0000000C   7F0100EF           SWI      +383
+   \   00000010   1080BDE8           POP      {R4,PC}
+     40            }
+     41          
+     42            if(cmd==TI_CMD_DESTROY)     // onDestroy
+   \                     ??info_ghook_0:
+   \   00000014   030051E3           CMP      R1,#+3
+   \   00000018   1080BD18           POPNE    {R4,PC}
+     43            {
+     44              FreeWS(ws_info);
+   \   0000001C   ........           LDR      R4,??DataTable3  ;; info_desc
+   \   00000020   4C0094E5           LDR      R0,[R4, #+76]
+   \   00000024   290100EF           SWI      +297
+     45              ws_info = NULL;
+   \   00000028   0000A0E3           MOV      R0,#+0
+   \   0000002C   4C0084E5           STR      R0,[R4, #+76]
+     46            }
+     47          }
+   \   00000030   1080BDE8           POP      {R4,PC}          ;; return
+     48          
+     49          extern void inp_locret(void);
+     50          extern const char percent_s[];
+     51          extern const char* PRESENCES[PRES_COUNT];
+     52          extern const char* JABBER_AFFS[];
+     53          extern const char* JABBER_ROLS[];
+     54          
+     55          SOFTKEY_DESC info_sk[]=
+     56          {
+     57            {0x0018,0x0000,(int)LG_SELECT},
+     58            {0x0001,0x0000,(int)LG_BACK},
+     59            {0x003D,0x0000,(int)LGP_DOIT_PIC}
+     60          };
+     61          
+     62          SOFTKEYSTAB info_skt=
+     63          {
+     64            info_sk,0
+     65          };
+     66          
+     67          INPUTDIA_DESC info_desc=
+     68          {
+     69            1,
+     70            info_onkey,
+     71            info_ghook,
+     72            (void *)inp_locret,
+     73            0,
+     74            &info_skt,
+     75            {0,0,0,0},
+     76            4,
+     77            100,
+     78            101,
+     79            0,
+     80            0,
+     81            0x40000000// Поменять софт-кнопки
+     82          };
+     83          
+     84          HEADER_DESC info_hdr={0,0,0,0,NULL,(int)LG_ITEMIHDR,LGP_NULL};
+     85          
+     86          
+     87          // Показ информации о контакте
+
+   \                                 In segment CODE, align 4, keep-with-next
+     88          void Disp_Info(TRESOURCE* ResEx)
+     89          {
+   \                     Disp_Info:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+     90          
+     91            // Сначала получим инфу о том, на какой контакт это всё приходится
+     92            CLIST* ClEx = CList_FindContactByJID(ResEx->full_name);
+     93          
+     94            // Теперь выполним приготовление самого диалога ввода
+     95            ws_info = AllocWS(MAX_SYMB);
+   \   00000004   ........           LDR      R6,??DataTable4  ;; info_desc
+   \   00000008   2CD04DE2           SUB      SP,SP,#+44
+     96            EDITCONTROL ec;
+     97            void *ma=malloc_adr();
+     98            void *eq;
+     99            PrepareEditControl(&ec);
+    100            eq=AllocEQueue(ma,mfree_adr());
+    101          
+    102            // Маленькая хитрость - пустой элемент, принимающий фокус ввода, в начале списка
+    103            wsprintf(ws_info,"");
+    104            ConstructEditControl(&ec,ECT_READ_ONLY,ECF_NORMAL_STR,ws_info,256);
+    105            AddEditControlToEditQend(eq,&ec,ma);
+    106          
+    107            // Создаём поля
+    108            /*
+    109            T_NORMAL,       // Обычный (просто ресурс)
+    110            T_VIRTUAL,      // Создаётся при создании контакта, для удаления
+    111            T_CONF_ROOT,    // Корень конференции (место доставки публичных сообщений)
+    112            T_CONF_NODE,    // Участник конференции (отображаем только "ресурс" жида)
+    113            T_TRANSPORT,    // Транспортный агент
+    114            T_GROUP         // Элемент "группа"
+    115            */
+    116            if(ResEx->entry_type==T_NORMAL)   ascii2ws(ws_info, LG_ELROSTER);
+   \   0000000C   ........           LDR      R9,??DataTable5  ;; `?<Constant "\\317\\360\\350\\356\\360\\350\\362\\345\\3`
+   \   00000010   0040A0E1           MOV      R4,R0
+   \   00000014   040094E5           LDR      R0,[R4, #+4]
+   \   00000018   ........           _BLF     CList_FindContactByJID,??CList_FindContactByJID??rA
+   \   0000001C   0050A0E1           MOV      R5,R0
+   \   00000020   400EA0E3           MOV      R0,#+1024
+   \   00000024   250100EF           SWI      +293
+   \   00000028   4C0086E5           STR      R0,[R6, #+76]
+   \   0000002C   148000EF           SWI      +32788
+   \   00000030   0070A0E1           MOV      R7,R0
+   \   00000034   0D00A0E1           MOV      R0,SP
+   \   00000038   640100EF           SWI      +356
+   \   0000003C   158000EF           SWI      +32789
+   \   00000040   0010A0E1           MOV      R1,R0
+   \   00000044   0700A0E1           MOV      R0,R7
+   \   00000048   630100EF           SWI      +355
+   \   0000004C   0080A0E1           MOV      R8,R0
+   \   00000050   4C0096E5           LDR      R0,[R6, #+76]
+   \   00000054   F21F8FE2           ADR      R1,??Disp_Info_0  ;; ""
+   \   00000058   240100EF           SWI      +292
+   \   0000005C   400FA0E3           MOV      R0,#+256
+   \   00000060   01002DE9           PUSH     {R0}
+   \   00000064   4C3096E5           LDR      R3,[R6, #+76]
+   \   00000068   0020A0E3           MOV      R2,#+0
+   \   0000006C   0010A0E3           MOV      R1,#+0
+   \   00000070   04008DE2           ADD      R0,SP,#+4
+   \   00000074   650100EF           SWI      +357
+   \   00000078   0720A0E1           MOV      R2,R7
+   \   0000007C   04108DE2           ADD      R1,SP,#+4
+   \   00000080   0800A0E1           MOV      R0,R8
+   \   00000084   660100EF           SWI      +358
+   \   00000088   0800D4E5           LDRB     R0,[R4, #+8]
+   \   0000008C   04D08DE2           ADD      SP,SP,#+4
+   \   00000090   000050E3           CMP      R0,#+0
+   \   00000094   0200001A           BNE      ??Disp_Info_1
+   \   00000098   4C0096E5           LDR      R0,[R6, #+76]
+   \   0000009C   401089E2           ADD      R1,R9,#+64
+   \   000000A0   ........           _BLF     ascii2ws,??ascii2ws??rA
+    117            if(ResEx->entry_type==T_VIRTUAL)  ascii2ws(ws_info, LG_OFFLORCONTTR);
+   \                     ??Disp_Info_1:
+   \   000000A4   0800D4E5           LDRB     R0,[R4, #+8]
+   \   000000A8   010050E3           CMP      R0,#+1
+   \   000000AC   0200001A           BNE      ??Disp_Info_2
+   \   000000B0   4C0096E5           LDR      R0,[R6, #+76]
+   \   000000B4   501089E2           ADD      R1,R9,#+80
+   \   000000B8   ........           _BLF     ascii2ws,??ascii2ws??rA
+    118            if(ResEx->entry_type==T_CONF_ROOT)ascii2ws(ws_info, LG_MUC);
+   \                     ??Disp_Info_2:
+   \   000000BC   0800D4E5           LDRB     R0,[R4, #+8]
+   \   000000C0   020050E3           CMP      R0,#+2
+   \   000000C4   0200001A           BNE      ??Disp_Info_3
+   \   000000C8   4C0096E5           LDR      R0,[R6, #+76]
+   \   000000CC   741089E2           ADD      R1,R9,#+116
+   \   000000D0   ........           _BLF     ascii2ws,??ascii2ws??rA
+    119            if(ResEx->entry_type==T_CONF_NODE)ascii2ws(ws_info, LG_MUCPART);
+   \                     ??Disp_Info_3:
+   \   000000D4   0800D4E5           LDRB     R0,[R4, #+8]
+   \   000000D8   030050E3           CMP      R0,#+3
+   \   000000DC   0200001A           BNE      ??Disp_Info_4
+   \   000000E0   4C0096E5           LDR      R0,[R6, #+76]
+   \   000000E4   801089E2           ADD      R1,R9,#+128
+   \   000000E8   ........           _BLF     ascii2ws,??ascii2ws??rA
+    120            if(ResEx->entry_type==T_TRANSPORT)ascii2ws(ws_info, LG_JTRANSP);
+   \                     ??Disp_Info_4:
+   \   000000EC   0800D4E5           LDRB     R0,[R4, #+8]
+   \   000000F0   040050E3           CMP      R0,#+4
+   \   000000F4   0200001A           BNE      ??Disp_Info_5
+   \   000000F8   4C0096E5           LDR      R0,[R6, #+76]
+   \   000000FC   981089E2           ADD      R1,R9,#+152
+   \   00000100   ........           _BLF     ascii2ws,??ascii2ws??rA
+    121            if(ResEx->entry_type==T_GROUP)    ascii2ws(ws_info, LG_GROUPROSTER);
+   \                     ??Disp_Info_5:
+   \   00000104   0800D4E5           LDRB     R0,[R4, #+8]
+   \   00000108   050050E3           CMP      R0,#+5
+   \   0000010C   0200001A           BNE      ??Disp_Info_6
+   \   00000110   4C0096E5           LDR      R0,[R6, #+76]
+   \   00000114   C41089E2           ADD      R1,R9,#+196
+   \   00000118   ........           _BLF     ascii2ws,??ascii2ws??rA
+    122          
+    123            ConstructEditControl(&ec,ECT_HEADER,ECF_APPEND_EOL,ws_info,256);
+   \                     ??Disp_Info_6:
+   \   0000011C   400FA0E3           MOV      R0,#+256
+   \   00000120   01002DE9           PUSH     {R0}
+   \   00000124   4C3096E5           LDR      R3,[R6, #+76]
+   \   00000128   4020A0E3           MOV      R2,#+64
+   \   0000012C   0110A0E3           MOV      R1,#+1
+   \   00000130   04008DE2           ADD      R0,SP,#+4
+   \   00000134   650100EF           SWI      +357
+    124            AddEditControlToEditQend(eq,&ec,ma);
+   \   00000138   0720A0E1           MOV      R2,R7
+   \   0000013C   04108DE2           ADD      R1,SP,#+4
+   \   00000140   0800A0E1           MOV      R0,R8
+   \   00000144   660100EF           SWI      +358
+    125          
+    126            //  if(ResEx->entry_type==T_NORMAL || ResEx->entry_type==T_VIRTUAL || ResEx->entry_type==T_CONF_ROOT || ResEx->entry_type==T_TRANSPORT)
+    127            if(ResEx->entry_type!=T_GROUP&& ResEx->entry_type!=T_CONF_NODE)
+   \   00000148   0800D4E5           LDRB     R0,[R4, #+8]
+   \   0000014C   04D08DE2           ADD      SP,SP,#+4
+   \   00000150   050050E3           CMP      R0,#+5
+   \   00000154   03005013           CMPNE    R0,#+3
+   \   00000158   1D00000A           BEQ      ??Disp_Info_7
+    128            {
+    129              // JID
+    130              ascii2ws(ws_info, "JID:");
+   \   0000015C   4C0096E5           LDR      R0,[R6, #+76]
+   \   00000160   D41089E2           ADD      R1,R9,#+212
+   \   00000164   ........           _BLF     ascii2ws,??ascii2ws??rA
+    131              ConstructEditControl(&ec,ECT_HEADER,ECF_APPEND_EOL,ws_info,256);
+   \   00000168   400FA0E3           MOV      R0,#+256
+   \   0000016C   01002DE9           PUSH     {R0}
+   \   00000170   4C3096E5           LDR      R3,[R6, #+76]
+   \   00000174   4020A0E3           MOV      R2,#+64
+   \   00000178   0110A0E3           MOV      R1,#+1
+   \   0000017C   04008DE2           ADD      R0,SP,#+4
+   \   00000180   650100EF           SWI      +357
+    132              AddEditControlToEditQend(eq,&ec,ma);
+   \   00000184   0720A0E1           MOV      R2,R7
+   \   00000188   04108DE2           ADD      R1,SP,#+4
+   \   0000018C   0800A0E1           MOV      R0,R8
+   \   00000190   660100EF           SWI      +358
+    133          
+    134              utf8_2ws(ws_info, ClEx->JID, 128);
+   \   00000194   001095E5           LDR      R1,[R5, #+0]
+   \   00000198   4C0096E5           LDR      R0,[R6, #+76]
+   \   0000019C   8020A0E3           MOV      R2,#+128
+   \   000001A0   E30100EF           SWI      +483
+    135              ConstructEditControl(&ec,ECT_NORMAL_TEXT,ECF_APPEND_EOL,ws_info,256);
+   \   000001A4   400FA0E3           MOV      R0,#+256
+   \   000001A8   01002DE9           PUSH     {R0}
+   \   000001AC   4C3096E5           LDR      R3,[R6, #+76]
+   \   000001B0   4020A0E3           MOV      R2,#+64
+   \   000001B4   0310A0E3           MOV      R1,#+3
+   \   000001B8   08008DE2           ADD      R0,SP,#+8
+   \   000001BC   650100EF           SWI      +357
+    136              AddEditControlToEditQend(eq,&ec,ma);
+   \   000001C0   0720A0E1           MOV      R2,R7
+   \   000001C4   08108DE2           ADD      R1,SP,#+8
+   \   000001C8   0800A0E1           MOV      R0,R8
+   \   000001CC   660100EF           SWI      +358
+   \   000001D0   08D08DE2           ADD      SP,SP,#+8
+    137            }
+    138          
+    139            if(ResEx->entry_type==T_CONF_ROOT)
+   \                     ??Disp_Info_7:
+   \   000001D4   0800D4E5           LDRB     R0,[R4, #+8]
+   \   000001D8   020050E3           CMP      R0,#+2
+   \   000001DC   2600001A           BNE      ??Disp_Info_8
+    140            {
+    141              // тема конфы
+    142              MUC_ITEM* TmpMUC= CList_FindMUCByJID(ClEx->JID);
+   \   000001E0   000095E5           LDR      R0,[R5, #+0]
+   \   000001E4   ........           _BLF     CList_FindMUCByJID,??CList_FindMUCByJID??rA
+   \   000001E8   00A0B0E1           MOVS     R10,R0
+    143              if(TmpMUC)
+    144              {
+    145                if(TmpMUC->muctema)
+   \   000001EC   04009A15           LDRNE    R0,[R10, #+4]
+   \   000001F0   00005013           CMPNE    R0,#+0
+   \   000001F4   2000000A           BEQ      ??Disp_Info_8
+    146                {
+    147                  ascii2ws(ws_info, LG_MUCSABJECT);
+   \   000001F8   4C0096E5           LDR      R0,[R6, #+76]
+   \   000001FC   DC1089E2           ADD      R1,R9,#+220
+   \   00000200   ........           _BLF     ascii2ws,??ascii2ws??rA
+    148                  ConstructEditControl(&ec,ECT_HEADER,ECF_APPEND_EOL,ws_info,256);
+   \   00000204   400FA0E3           MOV      R0,#+256
+   \   00000208   01002DE9           PUSH     {R0}
+   \   0000020C   4C3096E5           LDR      R3,[R6, #+76]
+   \   00000210   4020A0E3           MOV      R2,#+64
+   \   00000214   0110A0E3           MOV      R1,#+1
+   \   00000218   04008DE2           ADD      R0,SP,#+4
+   \   0000021C   650100EF           SWI      +357
+    149                  AddEditControlToEditQend(eq,&ec,ma);
+   \   00000220   0720A0E1           MOV      R2,R7
+   \   00000224   04108DE2           ADD      R1,SP,#+4
+   \   00000228   0800A0E1           MOV      R0,R8
+   \   0000022C   660100EF           SWI      +358
+    150                  utf8_2ws(ws_info, TmpMUC->muctema, strlen(TmpMUC->muctema)*2);
+   \   00000230   04009AE5           LDR      R0,[R10, #+4]
+   \   00000234   1B0000EF           SWI      +27
+   \   00000238   04109AE5           LDR      R1,[R10, #+4]
+   \   0000023C   8020A0E1           LSL      R2,R0,#+1
+   \   00000240   4C0096E5           LDR      R0,[R6, #+76]
+   \   00000244   E30100EF           SWI      +483
+    151                  ConstructEditControl(&ec,ECT_NORMAL_TEXT,ECF_APPEND_EOL,ws_info,wstrlen(ws_info));
+   \   00000248   4C0096E5           LDR      R0,[R6, #+76]
+   \   0000024C   230100EF           SWI      +291
+   \   00000250   01002DE9           PUSH     {R0}
+   \   00000254   4C3096E5           LDR      R3,[R6, #+76]
+   \   00000258   4020A0E3           MOV      R2,#+64
+   \   0000025C   0310A0E3           MOV      R1,#+3
+   \   00000260   08008DE2           ADD      R0,SP,#+8
+   \   00000264   650100EF           SWI      +357
+    152                  AddEditControlToEditQend(eq,&ec,ma);
+   \   00000268   0720A0E1           MOV      R2,R7
+   \   0000026C   08108DE2           ADD      R1,SP,#+8
+   \   00000270   0800A0E1           MOV      R0,R8
+   \   00000274   660100EF           SWI      +358
+   \   00000278   08D08DE2           ADD      SP,SP,#+8
+    153                }
+    154              }
+    155            }
+    156            if(ResEx->entry_type==T_CONF_NODE)
+   \                     ??Disp_Info_8:
+   \   0000027C   0800D4E5           LDRB     R0,[R4, #+8]
+   \   00000280   030050E3           CMP      R0,#+3
+   \   00000284   1D00001A           BNE      ??Disp_Info_9
+    157            {
+    158              // nick
+    159              ascii2ws(ws_info, LG_NICK);
+   \   00000288   4C0096E5           LDR      R0,[R6, #+76]
+   \   0000028C   E41089E2           ADD      R1,R9,#+228
+   \   00000290   ........           _BLF     ascii2ws,??ascii2ws??rA
+    160              ConstructEditControl(&ec,ECT_HEADER,ECF_APPEND_EOL,ws_info,256);
+   \   00000294   400FA0E3           MOV      R0,#+256
+   \   00000298   01002DE9           PUSH     {R0}
+   \   0000029C   4C3096E5           LDR      R3,[R6, #+76]
+   \   000002A0   4020A0E3           MOV      R2,#+64
+   \   000002A4   0110A0E3           MOV      R1,#+1
+   \   000002A8   04008DE2           ADD      R0,SP,#+4
+   \   000002AC   650100EF           SWI      +357
+    161              AddEditControlToEditQend(eq,&ec,ma);
+   \   000002B0   0720A0E1           MOV      R2,R7
+   \   000002B4   04108DE2           ADD      R1,SP,#+4
+   \   000002B8   0800A0E1           MOV      R0,R8
+   \   000002BC   660100EF           SWI      +358
+    162          
+    163              utf8_2ws(ws_info, ResEx->name, 128);
+   \   000002C0   001094E5           LDR      R1,[R4, #+0]
+   \   000002C4   4C0096E5           LDR      R0,[R6, #+76]
+   \   000002C8   8020A0E3           MOV      R2,#+128
+   \   000002CC   E30100EF           SWI      +483
+    164              ConstructEditControl(&ec,ECT_NORMAL_TEXT,ECF_APPEND_EOL,ws_info,256);
+   \   000002D0   400FA0E3           MOV      R0,#+256
+   \   000002D4   01002DE9           PUSH     {R0}
+   \   000002D8   4C3096E5           LDR      R3,[R6, #+76]
+   \   000002DC   4020A0E3           MOV      R2,#+64
+   \   000002E0   0310A0E3           MOV      R1,#+3
+   \   000002E4   08008DE2           ADD      R0,SP,#+8
+   \   000002E8   650100EF           SWI      +357
+    165              AddEditControlToEditQend(eq,&ec,ma);
+   \   000002EC   0720A0E1           MOV      R2,R7
+   \   000002F0   08108DE2           ADD      R1,SP,#+8
+   \   000002F4   0800A0E1           MOV      R0,R8
+   \   000002F8   660100EF           SWI      +358
+   \   000002FC   08D08DE2           ADD      SP,SP,#+8
+    166            }
+    167          
+    168            if((ResEx->entry_type==T_NORMAL || ResEx->entry_type==T_VIRTUAL)&&(ResEx->name))
+   \                     ??Disp_Info_9:
+   \   00000300   0800D4E5           LDRB     R0,[R4, #+8]
+   \   00000304   000050E3           CMP      R0,#+0
+   \   00000308   01005013           CMPNE    R0,#+1
+   \   0000030C   3D00001A           BNE      ??Disp_Info_10
+   \   00000310   000094E5           LDR      R0,[R4, #+0]
+   \   00000314   000050E3           CMP      R0,#+0
+   \   00000318   3A00000A           BEQ      ??Disp_Info_10
+    169            {
+    170              // Ресурс
+    171              ascii2ws(ws_info, LG_RESOURCE);
+   \   0000031C   4C0096E5           LDR      R0,[R6, #+76]
+   \   00000320   EC1089E2           ADD      R1,R9,#+236
+   \   00000324   ........           _BLF     ascii2ws,??ascii2ws??rA
+    172              ConstructEditControl(&ec,ECT_HEADER,ECF_APPEND_EOL,ws_info,256);
+   \   00000328   400FA0E3           MOV      R0,#+256
+   \   0000032C   01002DE9           PUSH     {R0}
+   \   00000330   4C3096E5           LDR      R3,[R6, #+76]
+   \   00000334   4020A0E3           MOV      R2,#+64
+   \   00000338   0110A0E3           MOV      R1,#+1
+   \   0000033C   04008DE2           ADD      R0,SP,#+4
+   \   00000340   650100EF           SWI      +357
+    173              AddEditControlToEditQend(eq,&ec,ma);
+   \   00000344   0720A0E1           MOV      R2,R7
+   \   00000348   04108DE2           ADD      R1,SP,#+4
+   \   0000034C   0800A0E1           MOV      R0,R8
+   \   00000350   660100EF           SWI      +358
+    174          
+    175              utf8_2ws(ws_info, ResEx->name, 128);
+   \   00000354   001094E5           LDR      R1,[R4, #+0]
+   \   00000358   4C0096E5           LDR      R0,[R6, #+76]
+   \   0000035C   8020A0E3           MOV      R2,#+128
+   \   00000360   E30100EF           SWI      +483
+    176              ConstructEditControl(&ec,ECT_NORMAL_TEXT,ECF_APPEND_EOL,ws_info,256);
+   \   00000364   400FA0E3           MOV      R0,#+256
+   \   00000368   01002DE9           PUSH     {R0}
+   \   0000036C   4C3096E5           LDR      R3,[R6, #+76]
+   \   00000370   4020A0E3           MOV      R2,#+64
+   \   00000374   0310A0E3           MOV      R1,#+3
+   \   00000378   08008DE2           ADD      R0,SP,#+8
+   \   0000037C   650100EF           SWI      +357
+    177              AddEditControlToEditQend(eq,&ec,ma);
+   \   00000380   0720A0E1           MOV      R2,R7
+   \   00000384   08108DE2           ADD      R1,SP,#+8
+   \   00000388   0800A0E1           MOV      R0,R8
+   \   0000038C   660100EF           SWI      +358
+    178          
+    179          ////   if (ResEx->priority != 0)
+    180          ////    {
+    181              // Приоритет
+    182              ascii2ws(ws_info, LG_PRIORITY);
+   \   00000390   4C0096E5           LDR      R0,[R6, #+76]
+   \   00000394   0910A0E1           MOV      R1,R9
+   \   00000398   ........           _BLF     ascii2ws,??ascii2ws??rA
+    183              ConstructEditControl(&ec,ECT_HEADER,ECF_APPEND_EOL,ws_info,256);
+   \   0000039C   400FA0E3           MOV      R0,#+256
+   \   000003A0   01002DE9           PUSH     {R0}
+   \   000003A4   4C3096E5           LDR      R3,[R6, #+76]
+   \   000003A8   4020A0E3           MOV      R2,#+64
+   \   000003AC   0110A0E3           MOV      R1,#+1
+   \   000003B0   0C008DE2           ADD      R0,SP,#+12
+   \   000003B4   650100EF           SWI      +357
+    184              AddEditControlToEditQend(eq,&ec,ma);
+   \   000003B8   0720A0E1           MOV      R2,R7
+   \   000003BC   0C108DE2           ADD      R1,SP,#+12
+   \   000003C0   0800A0E1           MOV      R0,R8
+   \   000003C4   660100EF           SWI      +358
+    185          
+    186              wsprintf(ws_info, "%i", ResEx->priority);
+   \   000003C8   F021D4E1           LDRSH    R2,[R4, #+16]
+   \   000003CC   4C0096E5           LDR      R0,[R6, #+76]
+   \   000003D0   141F8FE2           ADR      R1,??Disp_Info_0+0x4  ;; "%i"
+   \   000003D4   240100EF           SWI      +292
+    187              ConstructEditControl(&ec,ECT_NORMAL_TEXT,ECF_APPEND_EOL,ws_info,256);
+   \   000003D8   400FA0E3           MOV      R0,#+256
+   \   000003DC   01002DE9           PUSH     {R0}
+   \   000003E0   4C3096E5           LDR      R3,[R6, #+76]
+   \   000003E4   4020A0E3           MOV      R2,#+64
+   \   000003E8   0310A0E3           MOV      R1,#+3
+   \   000003EC   10008DE2           ADD      R0,SP,#+16
+   \   000003F0   650100EF           SWI      +357
+    188              AddEditControlToEditQend(eq,&ec,ma);
+   \   000003F4   0720A0E1           MOV      R2,R7
+   \   000003F8   10108DE2           ADD      R1,SP,#+16
+   \   000003FC   0800A0E1           MOV      R0,R8
+   \   00000400   660100EF           SWI      +358
+   \   00000404   10D08DE2           ADD      SP,SP,#+16
+    189          ////    }
+    190            }
+    191          
+    192            //  if(ResEx->entry_type==T_NORMAL || ResEx->entry_type==T_CONF_NODE || ResEx->entry_type==T_TRANSPORT ||ResEx->entry_type==T_VIRTUAL)
+    193            if(ResEx->entry_type!=T_GROUP && ResEx->entry_type!=T_CONF_ROOT)
+   \                     ??Disp_Info_10:
+   \   00000408   0800D4E5           LDRB     R0,[R4, #+8]
+   \   0000040C   D8A39FE5           LDR      R10,??Disp_Info_11+0x4  ;; percent_s
+   \   00000410   050050E3           CMP      R0,#+5
+   \   00000414   02005013           CMPNE    R0,#+2
+   \   00000418   5A00000A           BEQ      ??Disp_Info_12
+    194            {
+    195          
+    196              if(ResEx->muc_privs.real_jid)
+   \   0000041C   240094E5           LDR      R0,[R4, #+36]
+   \   00000420   010000EA           B        ??Disp_Info_13
+   \                     ??Disp_Info_0:
+   \   00000424   00000000           DC8      "",+0,+0,+0
+   \   00000428   25690000           DC8      "%i",+0
+   \                     ??Disp_Info_13:
+   \   0000042C   000050E3           CMP      R0,#+0
+   \   00000430   1D00000A           BEQ      ??Disp_Info_14
+    197              {
+    198                ascii2ws(ws_info, LG_REALJID);
+   \   00000434   4C0096E5           LDR      R0,[R6, #+76]
+   \   00000438   FC1089E2           ADD      R1,R9,#+252
+   \   0000043C   ........           _BLF     ascii2ws,??ascii2ws??rA
+    199                ConstructEditControl(&ec,ECT_HEADER,ECF_APPEND_EOL,ws_info,256);
+   \   00000440   400FA0E3           MOV      R0,#+256
+   \   00000444   01002DE9           PUSH     {R0}
+   \   00000448   4C3096E5           LDR      R3,[R6, #+76]
+   \   0000044C   4020A0E3           MOV      R2,#+64
+   \   00000450   0110A0E3           MOV      R1,#+1
+   \   00000454   04008DE2           ADD      R0,SP,#+4
+   \   00000458   650100EF           SWI      +357
+    200                AddEditControlToEditQend(eq,&ec,ma);
+   \   0000045C   0720A0E1           MOV      R2,R7
+   \   00000460   04108DE2           ADD      R1,SP,#+4
+   \   00000464   0800A0E1           MOV      R0,R8
+   \   00000468   660100EF           SWI      +358
+    201          
+    202                utf8_2ws(ws_info, ResEx->muc_privs.real_jid, 128);
+   \   0000046C   241094E5           LDR      R1,[R4, #+36]
+   \   00000470   4C0096E5           LDR      R0,[R6, #+76]
+   \   00000474   8020A0E3           MOV      R2,#+128
+   \   00000478   E30100EF           SWI      +483
+    203                ConstructEditControl(&ec,ECT_NORMAL_TEXT,ECF_APPEND_EOL,ws_info,600);
+   \   0000047C   960FA0E3           MOV      R0,#+600
+   \   00000480   01002DE9           PUSH     {R0}
+   \   00000484   4C3096E5           LDR      R3,[R6, #+76]
+   \   00000488   4020A0E3           MOV      R2,#+64
+   \   0000048C   0310A0E3           MOV      R1,#+3
+   \   00000490   08008DE2           ADD      R0,SP,#+8
+   \   00000494   650100EF           SWI      +357
+    204                AddEditControlToEditQend(eq,&ec,ma);
+   \   00000498   0720A0E1           MOV      R2,R7
+   \   0000049C   08108DE2           ADD      R1,SP,#+8
+   \   000004A0   0800A0E1           MOV      R0,R8
+   \   000004A4   660100EF           SWI      +358
+   \   000004A8   08D08DE2           ADD      SP,SP,#+8
+    205              }
+    206          
+    207              // Статус и сообщение статуса
+    208              ascii2ws(ws_info, LG_STATUS2);
+   \                     ??Disp_Info_14:
+   \   000004AC   4C0096E5           LDR      R0,[R6, #+76]
+   \   000004B0   431F89E2           ADD      R1,R9,#+268
+   \   000004B4   ........           _BLF     ascii2ws,??ascii2ws??rA
+    209              ConstructEditControl(&ec,ECT_HEADER,ECF_APPEND_EOL,ws_info,256);
+   \   000004B8   400FA0E3           MOV      R0,#+256
+   \   000004BC   01002DE9           PUSH     {R0}
+   \   000004C0   4C3096E5           LDR      R3,[R6, #+76]
+   \   000004C4   4020A0E3           MOV      R2,#+64
+   \   000004C8   0110A0E3           MOV      R1,#+1
+   \   000004CC   04008DE2           ADD      R0,SP,#+4
+   \   000004D0   650100EF           SWI      +357
+    210              AddEditControlToEditQend(eq,&ec,ma);
+   \   000004D4   0720A0E1           MOV      R2,R7
+   \   000004D8   04108DE2           ADD      R1,SP,#+4
+   \   000004DC   0800A0E1           MOV      R0,R8
+   \   000004E0   660100EF           SWI      +358
+    211              if(ResEx->status_msg)
+   \   000004E4   0C0094E5           LDR      R0,[R4, #+12]
+   \   000004E8   04D08DE2           ADD      SP,SP,#+4
+   \   000004EC   000050E3           CMP      R0,#+0
+   \   000004F0   1200000A           BEQ      ??Disp_Info_15
+    212              {
+    213                if(strlen(ResEx->status_msg)<512)
+   \   000004F4   1B0000EF           SWI      +27
+   \   000004F8   800F50E3           CMP      R0,#+512
+   \   000004FC   1500002A           BCS      ??Disp_Info_16
+    214                {
+    215                  WSHDR *s=AllocWS(512);
+   \   00000500   800FA0E3           MOV      R0,#+512
+   \   00000504   250100EF           SWI      +293
+    216                  utf8_2ws(s, ResEx->status_msg, 512);
+   \   00000508   0C1094E5           LDR      R1,[R4, #+12]
+   \   0000050C   00B0A0E1           MOV      R11,R0
+   \   00000510   802FA0E3           MOV      R2,#+512
+   \   00000514   E30100EF           SWI      +483
+    217                  wsprintf(ws_info,"%s: %w",PRESENCES[ResEx->status], s);
+   \   00000518   0900D4E5           LDRB     R0,[R4, #+9]
+   \   0000051C   CC129FE5           LDR      R1,??Disp_Info_11+0x8  ;; PRESENCES
+   \   00000520   0B30A0E1           MOV      R3,R11
+   \   00000524   002191E7           LDR      R2,[R1, +R0, LSL #+2]
+   \   00000528   4C0096E5           LDR      R0,[R6, #+76]
+   \   0000052C   451F89E2           ADD      R1,R9,#+276
+   \   00000530   240100EF           SWI      +292
+    218                  FreeWS(s);
+   \   00000534   0B00A0E1           MOV      R0,R11
+   \   00000538   290100EF           SWI      +297
+   \   0000053C   050000EA           B        ??Disp_Info_16
+    219                }
+    220              }
+    221              else wsprintf(ws_info,percent_s,PRESENCES[ResEx->status]);
+   \                     ??Disp_Info_15:
+   \   00000540   0900D4E5           LDRB     R0,[R4, #+9]
+   \   00000544   A4129FE5           LDR      R1,??Disp_Info_11+0x8  ;; PRESENCES
+   \   00000548   002191E7           LDR      R2,[R1, +R0, LSL #+2]
+   \   0000054C   4C0096E5           LDR      R0,[R6, #+76]
+   \   00000550   0A10A0E1           MOV      R1,R10
+   \   00000554   240100EF           SWI      +292
+    222              ConstructEditControl(&ec,ECT_NORMAL_TEXT,ECF_APPEND_EOL,ws_info,600);
+   \                     ??Disp_Info_16:
+   \   00000558   960FA0E3           MOV      R0,#+600
+   \   0000055C   01002DE9           PUSH     {R0}
+   \   00000560   4C3096E5           LDR      R3,[R6, #+76]
+   \   00000564   4020A0E3           MOV      R2,#+64
+   \   00000568   0310A0E3           MOV      R1,#+3
+   \   0000056C   04008DE2           ADD      R0,SP,#+4
+   \   00000570   650100EF           SWI      +357
+    223              AddEditControlToEditQend(eq,&ec,ma);
+   \   00000574   0720A0E1           MOV      R2,R7
+   \   00000578   04108DE2           ADD      R1,SP,#+4
+   \   0000057C   0800A0E1           MOV      R0,R8
+   \   00000580   660100EF           SWI      +358
+   \   00000584   04D08DE2           ADD      SP,SP,#+4
+    224            }
+    225          
+    226          
+    227            if(ResEx->entry_type==T_CONF_NODE)
+   \                     ??Disp_Info_12:
+   \   00000588   0800D4E5           LDRB     R0,[R4, #+8]
+   \   0000058C   030050E3           CMP      R0,#+3
+   \   00000590   3E00001A           BNE      ??Disp_Info_17
+    228            {
+    229              // Afflliation, role
+    230              ascii2ws(ws_info, LG_PRIVILEGES);
+   \   00000594   4C0096E5           LDR      R0,[R6, #+76]
+   \   00000598   471F89E2           ADD      R1,R9,#+284
+   \   0000059C   ........           _BLF     ascii2ws,??ascii2ws??rA
+    231              ConstructEditControl(&ec,ECT_HEADER,ECF_APPEND_EOL,ws_info,256);
+   \   000005A0   400FA0E3           MOV      R0,#+256
+   \   000005A4   01002DE9           PUSH     {R0}
+   \   000005A8   4C3096E5           LDR      R3,[R6, #+76]
+   \   000005AC   4020A0E3           MOV      R2,#+64
+   \   000005B0   0110A0E3           MOV      R1,#+1
+   \   000005B4   04008DE2           ADD      R0,SP,#+4
+   \   000005B8   650100EF           SWI      +357
+    232              AddEditControlToEditQend(eq,&ec,ma);
+   \   000005BC   0720A0E1           MOV      R2,R7
+   \   000005C0   04108DE2           ADD      R1,SP,#+4
+   \   000005C4   0800A0E1           MOV      R0,R8
+   \   000005C8   660100EF           SWI      +358
+    233          
+    234              wsprintf(ws_info, percent_s, JABBER_AFFS[ResEx->muc_privs.aff]);
+   \   000005CC   2000D4E5           LDRB     R0,[R4, #+32]
+   \   000005D0   1C129FE5           LDR      R1,??Disp_Info_11+0xC  ;; JABBER_AFFS
+   \   000005D4   002191E7           LDR      R2,[R1, +R0, LSL #+2]
+   \   000005D8   4C0096E5           LDR      R0,[R6, #+76]
+   \   000005DC   0A10A0E1           MOV      R1,R10
+   \   000005E0   240100EF           SWI      +292
+    235              ConstructEditControl(&ec,ECT_NORMAL_TEXT,ECF_APPEND_EOL,ws_info,256);
+   \   000005E4   400FA0E3           MOV      R0,#+256
+   \   000005E8   01002DE9           PUSH     {R0}
+   \   000005EC   4C3096E5           LDR      R3,[R6, #+76]
+   \   000005F0   4020A0E3           MOV      R2,#+64
+   \   000005F4   0310A0E3           MOV      R1,#+3
+   \   000005F8   08008DE2           ADD      R0,SP,#+8
+   \   000005FC   650100EF           SWI      +357
+    236              AddEditControlToEditQend(eq,&ec,ma);
+   \   00000600   0720A0E1           MOV      R2,R7
+   \   00000604   08108DE2           ADD      R1,SP,#+8
+   \   00000608   0800A0E1           MOV      R0,R8
+   \   0000060C   660100EF           SWI      +358
+    237          
+    238              ascii2ws(ws_info, LG_ROLE);
+   \   00000610   4C0096E5           LDR      R0,[R6, #+76]
+   \   00000614   4A1F89E2           ADD      R1,R9,#+296
+   \   00000618   ........           _BLF     ascii2ws,??ascii2ws??rA
+    239              ConstructEditControl(&ec,ECT_HEADER,ECF_APPEND_EOL,ws_info,256);
+   \   0000061C   400FA0E3           MOV      R0,#+256
+   \   00000620   01002DE9           PUSH     {R0}
+   \   00000624   4C3096E5           LDR      R3,[R6, #+76]
+   \   00000628   4020A0E3           MOV      R2,#+64
+   \   0000062C   0110A0E3           MOV      R1,#+1
+   \   00000630   0C008DE2           ADD      R0,SP,#+12
+   \   00000634   650100EF           SWI      +357
+    240              AddEditControlToEditQend(eq,&ec,ma);
+   \   00000638   0720A0E1           MOV      R2,R7
+   \   0000063C   0C108DE2           ADD      R1,SP,#+12
+   \   00000640   0800A0E1           MOV      R0,R8
+   \   00000644   660100EF           SWI      +358
+    241          
+    242              wsprintf(ws_info, percent_s, JABBER_ROLS[ResEx->muc_privs.role]);
+   \   00000648   2100D4E5           LDRB     R0,[R4, #+33]
+   \   0000064C   A4119FE5           LDR      R1,??Disp_Info_11+0x10  ;; JABBER_ROLS
+   \   00000650   002191E7           LDR      R2,[R1, +R0, LSL #+2]
+   \   00000654   4C0096E5           LDR      R0,[R6, #+76]
+   \   00000658   0A10A0E1           MOV      R1,R10
+   \   0000065C   240100EF           SWI      +292
+    243              ConstructEditControl(&ec,ECT_NORMAL_TEXT,ECF_APPEND_EOL,ws_info,256);
+   \   00000660   400FA0E3           MOV      R0,#+256
+   \   00000664   01002DE9           PUSH     {R0}
+   \   00000668   4C3096E5           LDR      R3,[R6, #+76]
+   \   0000066C   4020A0E3           MOV      R2,#+64
+   \   00000670   0310A0E3           MOV      R1,#+3
+   \   00000674   10008DE2           ADD      R0,SP,#+16
+   \   00000678   650100EF           SWI      +357
+    244              AddEditControlToEditQend(eq,&ec,ma);
+   \   0000067C   0720A0E1           MOV      R2,R7
+   \   00000680   10108DE2           ADD      R1,SP,#+16
+   \   00000684   0800A0E1           MOV      R0,R8
+   \   00000688   660100EF           SWI      +358
+   \   0000068C   10D08DE2           ADD      SP,SP,#+16
+    245            }
+    246            
+    247            if ((ResEx->entry_type!=T_GROUP)&&(ResEx->entry_type!=T_CONF_NODE)&&(ResEx->entry_type!=T_CONF_ROOT))
+   \                     ??Disp_Info_17:
+   \   00000690   0800D4E5           LDRB     R0,[R4, #+8]
+   \   00000694   050050E3           CMP      R0,#+5
+   \   00000698   03005013           CMPNE    R0,#+3
+   \   0000069C   02005013           CMPNE    R0,#+2
+   \   000006A0   3000000A           BEQ      ??Disp_Info_18
+    248            {    // подписка
+    249              ascii2ws(ws_info, LG_ISUBSCRIBE);
+   \   000006A4   4C0096E5           LDR      R0,[R6, #+76]
+   \   000006A8   4C1F89E2           ADD      R1,R9,#+304
+   \   000006AC   ........           _BLF     ascii2ws,??ascii2ws??rA
+    250              ConstructEditControl(&ec,ECT_HEADER,ECF_APPEND_EOL,ws_info,256);
+   \   000006B0   400FA0E3           MOV      R0,#+256
+   \   000006B4   01002DE9           PUSH     {R0}
+   \   000006B8   4C3096E5           LDR      R3,[R6, #+76]
+   \   000006BC   4020A0E3           MOV      R2,#+64
+   \   000006C0   0110A0E3           MOV      R1,#+1
+   \   000006C4   04008DE2           ADD      R0,SP,#+4
+   \   000006C8   650100EF           SWI      +357
+    251              AddEditControlToEditQend(eq,&ec,ma);
+   \   000006CC   0720A0E1           MOV      R2,R7
+   \   000006D0   04108DE2           ADD      R1,SP,#+4
+   \   000006D4   0800A0E1           MOV      R0,R8
+   \   000006D8   660100EF           SWI      +358
+    252              switch (ClEx->subscription)
+   \   000006DC   1400D5E5           LDRB     R0,[R5, #+20]
+   \   000006E0   04D08DE2           ADD      SP,SP,#+4
+   \   000006E4   000050E3           CMP      R0,#+0
+   \   000006E8   0600000A           BEQ      ??Disp_Info_19
+   \   000006EC   010050E2           SUBS     R0,R0,#+1
+   \   000006F0   0600000A           BEQ      ??Disp_Info_20
+   \   000006F4   010050E2           SUBS     R0,R0,#+1
+   \   000006F8   0600000A           BEQ      ??Disp_Info_21
+   \   000006FC   010050E2           SUBS     R0,R0,#+1
+   \   00000700   0600000A           BEQ      ??Disp_Info_22
+   \   00000704   070000EA           B        ??Disp_Info_23
+    253              {
+    254              case SUB_NONE:
+    255                {
+    256                  wsprintf(ws_info, percent_s, "NONE");
+   \                     ??Disp_Info_19:
+   \   00000708   502F89E2           ADD      R2,R9,#+320
+   \   0000070C   060000EA           B        ??Disp_Info_24
+    257                  break;
+    258                }
+    259              case SUB_TO:
+    260                {
+    261                  wsprintf(ws_info, percent_s, "TO");
+   \                     ??Disp_Info_20:
+   \   00000710   342F8FE2           ADR      R2,??Disp_Info_11  ;; "TO"
+   \   00000714   040000EA           B        ??Disp_Info_24
+    262                  break;
+    263                }
+    264              case SUB_FROM:
+    265                {
+    266                  wsprintf(ws_info, percent_s, "FROM");
+   \                     ??Disp_Info_21:
+   \   00000718   522F89E2           ADD      R2,R9,#+328
+   \   0000071C   020000EA           B        ??Disp_Info_24
+    267                  break;
+    268                }
+    269              case SUB_BOTH:
+    270                {
+    271                  wsprintf(ws_info, percent_s, "BOTH");
+   \                     ??Disp_Info_22:
+   \   00000720   542F89E2           ADD      R2,R9,#+336
+   \   00000724   000000EA           B        ??Disp_Info_24
+    272                  break;
+    273                }
+    274              default:
+    275                {
+    276                  wsprintf(ws_info, percent_s, "X.3.");
+   \                     ??Disp_Info_23:
+   \   00000728   562F89E2           ADD      R2,R9,#+344
+   \                     ??Disp_Info_24:
+   \   0000072C   4C0096E5           LDR      R0,[R6, #+76]
+   \   00000730   0A10A0E1           MOV      R1,R10
+   \   00000734   240100EF           SWI      +292
+    277                  break;
+    278                }
+    279              }
+    280          
+    281              ConstructEditControl(&ec,ECT_NORMAL_TEXT,ECF_APPEND_EOL,ws_info,256);
+   \   00000738   400FA0E3           MOV      R0,#+256
+   \   0000073C   01002DE9           PUSH     {R0}
+   \   00000740   4C3096E5           LDR      R3,[R6, #+76]
+   \   00000744   4020A0E3           MOV      R2,#+64
+   \   00000748   0310A0E3           MOV      R1,#+3
+   \   0000074C   04008DE2           ADD      R0,SP,#+4
+   \   00000750   650100EF           SWI      +357
+    282              AddEditControlToEditQend(eq,&ec,ma);
+   \   00000754   0720A0E1           MOV      R2,R7
+   \   00000758   04108DE2           ADD      R1,SP,#+4
+   \   0000075C   0800A0E1           MOV      R0,R8
+   \   00000760   660100EF           SWI      +358
+   \   00000764   04D08DE2           ADD      SP,SP,#+4
+    283            }
+    284            
+    285            patch_header(&info_hdr);
+   \                     ??Disp_Info_18:
+   \   00000768   0040A0E3           MOV      R4,#+0
+   \   0000076C   B843C6E1           STRH     R4,[R6, #+56]
+   \   00000770   1800A0E3           MOV      R0,#+24
+   \   00000774   BA03C6E1           STRH     R0,[R6, #+58]
+   \   00000778   888100EF           SWI      +33160
+   \   0000077C   010040E2           SUB      R0,R0,#+1
+   \   00000780   BC03C6E1           STRH     R0,[R6, #+60]
+   \   00000784   8A8100EF           SWI      +33162
+   \   00000788   180080E2           ADD      R0,R0,#+24
+   \   0000078C   BE03C6E1           STRH     R0,[R6, #+62]
+    286            patch_input(&info_desc);
+   \   00000790   B841C6E1           STRH     R4,[R6, #+24]
+   \   00000794   8A8100EF           SWI      +33162
+   \   00000798   190080E2           ADD      R0,R0,#+25
+   \   0000079C   BA01C6E1           STRH     R0,[R6, #+26]
+   \   000007A0   888100EF           SWI      +33160
+   \   000007A4   010040E2           SUB      R0,R0,#+1
+   \   000007A8   BC01C6E1           STRH     R0,[R6, #+28]
+   \   000007AC   898100EF           SWI      +33161
+   \   000007B0   0040A0E1           MOV      R4,R0
+   \   000007B4   8B8100EF           SWI      +33163
+   \   000007B8   000044E0           SUB      R0,R4,R0
+   \   000007BC   010040E2           SUB      R0,R0,#+1
+   \   000007C0   BE01C6E1           STRH     R0,[R6, #+30]
+    287            CreateInputTextDialog(&info_desc,&info_hdr,eq,1,0);
+   \   000007C4   0000A0E3           MOV      R0,#+0
+   \   000007C8   01002DE9           PUSH     {R0}
+   \   000007CC   0130A0E3           MOV      R3,#+1
+   \   000007D0   0820A0E1           MOV      R2,R8
+   \   000007D4   381086E2           ADD      R1,R6,#+56
+   \   000007D8   0600A0E1           MOV      R0,R6
+   \   000007DC   670100EF           SWI      +359
+    288          }
+   \   000007E0   30D08DE2           ADD      SP,SP,#+48
+   \   000007E4   F08FBDE8           POP      {R4-R11,PC}      ;; return
+   \                     ??Disp_Info_11:
+   \   000007E8   544F0000           DC8      "TO",+0
+   \   000007EC   ........           DC32     percent_s
+   \   000007F0   ........           DC32     PRESENCES
+   \   000007F4   ........           DC32     JABBER_AFFS
+   \   000007F8   ........           DC32     JABBER_ROLS
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     info_desc:
+   \   00000000                      DS8 56
+   \   00000038                      REQUIRE `?<Initializer for info_desc>`
+   \                     info_hdr:
+   \   00000038                      DS8 20
+   \   0000004C                      REQUIRE `?<Initializer for info_hdr>`
+   \                     ws_info:
+   \   0000004C                      DS8 4
+   \   00000050                      REQUIRE `?<Initializer for ws_info>`
+   \   00000050                      DS8 4
+   \   00000054                      REQUIRE `?<Initializer for Known_Features>`
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     info_sk:
+   \   00000000                      DS8 24
+   \   00000018                      REQUIRE `?<Initializer for info_sk>`
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     info_skt:
+   \   00000000                      DS8 8
+   \   00000008                      REQUIRE `?<Initializer for info_skt>`
+    289          
+    290          static char *Known_Features = NULL;
+    291          
+    292          extern const char DEFAULT_DISC[128];
+    293          extern const char KNOW_FEATURES_PATH[];
+    294          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    295          char *Lookup_Known_Vars(char *var_name)
+    296          {
+   \                     Lookup_Known_Vars:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+    297            if(!Known_Features)
+   \   00000004   ........           LDR      R5,??DataTable3  ;; info_desc
+   \   00000008   42DF4DE2           SUB      SP,SP,#+264
+   \   0000000C   0040A0E1           MOV      R4,R0
+   \   00000010   500095E5           LDR      R0,[R5, #+80]
+   \   00000014   000050E3           CMP      R0,#+0
+   \   00000018   1C00001A           BNE      ??Lookup_Known_Vars_0
+    298            {
+    299              // Грузим фичи из файла
+    300              unsigned int io_error = 0;
+   \   0000001C   0010A0E3           MOV      R1,#+0
+   \   00000020   00108DE5           STR      R1,[SP, #+0]
+    301              char path[255];
+    302              strcpy(path,KNOW_FEATURES_PATH);
+   \   00000024   88109FE5           LDR      R1,??Lookup_Known_Vars_1  ;; KNOW_FEATURES_PATH
+   \   00000028   08008DE2           ADD      R0,SP,#+8
+   \   0000002C   1A0000EF           SWI      +26
+    303              volatile int hF=fopen(path ,A_ReadWrite + A_BIN,P_READ + P_WRITE, &io_error);
+   \   00000030   0D30A0E1           MOV      R3,SP
+   \   00000034   602FA0E3           MOV      R2,#+384
+   \   00000038   0210A0E3           MOV      R1,#+2
+   \   0000003C   801C81E3           ORR      R1,R1,#0x8000
+   \   00000040   08008DE2           ADD      R0,SP,#+8
+   \   00000044   0A0000EF           SWI      +10
+   \   00000048   04008DE5           STR      R0,[SP, #+4]
+    304              if(io_error) return var_name; //ненашли файл, ну и фиг с ним
+   \   0000004C   00009DE5           LDR      R0,[SP, #+0]
+   \   00000050   000050E3           CMP      R0,#+0
+   \   00000054   1300001A           BNE      ??Lookup_Known_Vars_2
+    305              Known_Features=malloc(4096);
+   \   00000058   400DA0E3           MOV      R0,#+4096
+   \   0000005C   140000EF           SWI      +20
+   \   00000060   500085E5           STR      R0,[R5, #+80]
+    306              zeromem(Known_Features,4096);
+   \   00000064   401DA0E3           MOV      R1,#+4096
+   \   00000068   1D0100EF           SWI      +285
+    307              fread(hF, Known_Features, 4095, &io_error);
+   \   0000006C   501095E5           LDR      R1,[R5, #+80]
+   \   00000070   04009DE5           LDR      R0,[SP, #+4]
+   \   00000074   0D30A0E1           MOV      R3,SP
+   \   00000078   FF20A0E3           MOV      R2,#+255
+   \   0000007C   F02E82E3           ORR      R2,R2,#0xF00
+   \   00000080   0B0000EF           SWI      +11
+    308              fclose(hF, &io_error);
+   \   00000084   04009DE5           LDR      R0,[SP, #+4]
+   \   00000088   0D10A0E1           MOV      R1,SP
+   \   0000008C   0D0000EF           SWI      +13
+    309            }
+    310            char *vn = Get_Param_Value(Known_Features, var_name, 1);
+   \                     ??Lookup_Known_Vars_0:
+   \   00000090   500095E5           LDR      R0,[R5, #+80]
+   \   00000094   0120A0E3           MOV      R2,#+1
+   \   00000098   0410A0E1           MOV      R1,R4
+   \   0000009C   ........           _BLF     Get_Param_Value,??Get_Param_Value??rA
+    311            if(vn!=NULL)
+   \   000000A0   000050E3           CMP      R0,#+0
+   \   000000A4   0000001A           BNE      ??Lookup_Known_Vars_3
+    312            {return vn;
+    313            }else return var_name;
+   \                     ??Lookup_Known_Vars_2:
+   \   000000A8   0400A0E1           MOV      R0,R4
+   \                     ??Lookup_Known_Vars_3:
+   \   000000AC   42DF8DE2           ADD      SP,SP,#+264      ;; stack cleaning
+   \   000000B0   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??Lookup_Known_Vars_1:
+   \   000000B4   ........           DC32     KNOW_FEATURES_PATH
+    314          }
+    315          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    316          void Disp_From_Disco(char *jid, XMLNode *info)
+    317          {
+   \                     Disp_From_Disco:
+   \   00000000   F0472DE9           PUSH     {R4-R10,LR}
+    318          
+    319            // Сначала получим инфу о том, на какой контакт это всё приходится
+    320            CLIST* ClEx = CList_FindContactByJID(jid);
+    321          
+    322            // Теперь выполним приготовление самого диалога ввода
+    323            ws_info = AllocWS(MAX_SYMB);
+   \   00000004   ........           LDR      R6,??DataTable4  ;; info_desc
+    324            EDITCONTROL ec;
+    325            void *ma=malloc_adr();
+    326            void *eq;
+    327            PrepareEditControl(&ec);
+    328            eq=AllocEQueue(ma,mfree_adr());
+    329          
+    330            ascii2ws(ws_info, "Identity:");
+   \   00000008   ........           LDR      R9,??DataTable5  ;; `?<Constant "\\317\\360\\350\\356\\360\\350\\362\\345\\3`
+   \   0000000C   2CD04DE2           SUB      SP,SP,#+44
+   \   00000010   0040A0E1           MOV      R4,R0
+   \   00000014   0150A0E1           MOV      R5,R1
+   \   00000018   ........           _BLF     CList_FindContactByJID,??CList_FindContactByJID??rA
+   \   0000001C   400EA0E3           MOV      R0,#+1024
+   \   00000020   250100EF           SWI      +293
+   \   00000024   4C0086E5           STR      R0,[R6, #+76]
+   \   00000028   148000EF           SWI      +32788
+   \   0000002C   0070A0E1           MOV      R7,R0
+   \   00000030   0D00A0E1           MOV      R0,SP
+   \   00000034   640100EF           SWI      +356
+   \   00000038   158000EF           SWI      +32789
+   \   0000003C   0010A0E1           MOV      R1,R0
+   \   00000040   0700A0E1           MOV      R0,R7
+   \   00000044   630100EF           SWI      +355
+   \   00000048   0080A0E1           MOV      R8,R0
+   \   0000004C   4C0096E5           LDR      R0,[R6, #+76]
+   \   00000050   581F89E2           ADD      R1,R9,#+352
+   \   00000054   ........           _BLF     ascii2ws,??ascii2ws??rA
+    331            ConstructEditControl(&ec,ECT_HEADER,ECF_APPEND_EOL,ws_info,256);
+   \   00000058   400FA0E3           MOV      R0,#+256
+   \   0000005C   01002DE9           PUSH     {R0}
+   \   00000060   4C3096E5           LDR      R3,[R6, #+76]
+   \   00000064   4020A0E3           MOV      R2,#+64
+   \   00000068   0110A0E3           MOV      R1,#+1
+   \   0000006C   04008DE2           ADD      R0,SP,#+4
+   \   00000070   650100EF           SWI      +357
+    332            AddEditControlToEditQend(eq,&ec,ma);
+   \   00000074   0720A0E1           MOV      R2,R7
+   \   00000078   04108DE2           ADD      R1,SP,#+4
+   \   0000007C   0800A0E1           MOV      R0,R8
+   \   00000080   660100EF           SWI      +358
+    333          
+    334            XMLNode *nodeExI = info->subnode;
+   \   00000084   04A095E5           LDR      R10,[R5, #+4]
+   \   00000088   04D08DE2           ADD      SP,SP,#+4
+   \   0000008C   00005AE3           CMP      R10,#+0
+   \   00000090   4500000A           BEQ      ??Disp_From_Disco_0
+    335            while(nodeExI)
+    336            {
+    337              if(!strcmp(nodeExI->name,"identity"))
+   \                     ??Disp_From_Disco_1:
+   \   00000094   08009AE5           LDR      R0,[R10, #+8]
+   \   00000098   1C1089E2           ADD      R1,R9,#+28
+   \   0000009C   190000EF           SWI      +25
+   \   000000A0   000050E3           CMP      R0,#+0
+   \   000000A4   3D00001A           BNE      ??Disp_From_Disco_2
+    338              {
+    339                char *category = XML_Get_Attr_Value("category", nodeExI->attr);
+   \   000000A8   0C109AE5           LDR      R1,[R10, #+12]
+   \   000000AC   5B0F89E2           ADD      R0,R9,#+364
+   \   000000B0   ........           _BLF     XML_Get_Attr_Value,??XML_Get_Attr_Value??rA
+    340                if(category)
+   \   000000B4   000050E3           CMP      R0,#+0
+   \   000000B8   0F00000A           BEQ      ??Disp_From_Disco_3
+    341                {
+    342                  utf8_2ws(ws_info, category, 128);
+   \   000000BC   8020A0E3           MOV      R2,#+128
+   \   000000C0   0010A0E1           MOV      R1,R0
+   \   000000C4   4C0096E5           LDR      R0,[R6, #+76]
+   \   000000C8   E30100EF           SWI      +483
+    343                  ConstructEditControl(&ec,ECT_NORMAL_TEXT,ECF_APPEND_EOL,ws_info,256);
+   \   000000CC   400FA0E3           MOV      R0,#+256
+   \   000000D0   01002DE9           PUSH     {R0}
+   \   000000D4   4C3096E5           LDR      R3,[R6, #+76]
+   \   000000D8   4020A0E3           MOV      R2,#+64
+   \   000000DC   0310A0E3           MOV      R1,#+3
+   \   000000E0   04008DE2           ADD      R0,SP,#+4
+   \   000000E4   650100EF           SWI      +357
+    344                  AddEditControlToEditQend(eq,&ec,ma);
+   \   000000E8   0720A0E1           MOV      R2,R7
+   \   000000EC   04108DE2           ADD      R1,SP,#+4
+   \   000000F0   0800A0E1           MOV      R0,R8
+   \   000000F4   660100EF           SWI      +358
+   \   000000F8   04D08DE2           ADD      SP,SP,#+4
+    345                }
+    346                char *type = XML_Get_Attr_Value("type", nodeExI->attr);
+   \                     ??Disp_From_Disco_3:
+   \   000000FC   0C109AE5           LDR      R1,[R10, #+12]
+   \   00000100   0C0089E2           ADD      R0,R9,#+12
+   \   00000104   ........           _BLF     XML_Get_Attr_Value,??XML_Get_Attr_Value??rA
+    347                if(type)
+   \   00000108   000050E3           CMP      R0,#+0
+   \   0000010C   0F00000A           BEQ      ??Disp_From_Disco_4
+    348                {
+    349                  utf8_2ws(ws_info, type, 128);
+   \   00000110   8020A0E3           MOV      R2,#+128
+   \   00000114   0010A0E1           MOV      R1,R0
+   \   00000118   4C0096E5           LDR      R0,[R6, #+76]
+   \   0000011C   E30100EF           SWI      +483
+    350                  ConstructEditControl(&ec,ECT_NORMAL_TEXT,ECF_APPEND_EOL,ws_info,256);
+   \   00000120   400FA0E3           MOV      R0,#+256
+   \   00000124   01002DE9           PUSH     {R0}
+   \   00000128   4C3096E5           LDR      R3,[R6, #+76]
+   \   0000012C   4020A0E3           MOV      R2,#+64
+   \   00000130   0310A0E3           MOV      R1,#+3
+   \   00000134   04008DE2           ADD      R0,SP,#+4
+   \   00000138   650100EF           SWI      +357
+    351                  AddEditControlToEditQend(eq,&ec,ma);
+   \   0000013C   0720A0E1           MOV      R2,R7
+   \   00000140   04108DE2           ADD      R1,SP,#+4
+   \   00000144   0800A0E1           MOV      R0,R8
+   \   00000148   660100EF           SWI      +358
+   \   0000014C   04D08DE2           ADD      SP,SP,#+4
+    352                }
+    353                char *name = XML_Get_Attr_Value("name", nodeExI->attr);
+   \                     ??Disp_From_Disco_4:
+   \   00000150   0C109AE5           LDR      R1,[R10, #+12]
+   \   00000154   140089E2           ADD      R0,R9,#+20
+   \   00000158   ........           _BLF     XML_Get_Attr_Value,??XML_Get_Attr_Value??rA
+   \   0000015C   0010B0E1           MOVS     R1,R0
+    354                if(name)
+   \   00000160   0E00000A           BEQ      ??Disp_From_Disco_2
+    355                {
+    356                  utf8_2ws(ws_info, name, 128);
+   \   00000164   4C0096E5           LDR      R0,[R6, #+76]
+   \   00000168   8020A0E3           MOV      R2,#+128
+   \   0000016C   E30100EF           SWI      +483
+    357                  ConstructEditControl(&ec,ECT_NORMAL_TEXT,ECF_APPEND_EOL,ws_info,256);
+   \   00000170   400FA0E3           MOV      R0,#+256
+   \   00000174   01002DE9           PUSH     {R0}
+   \   00000178   4C3096E5           LDR      R3,[R6, #+76]
+   \   0000017C   4020A0E3           MOV      R2,#+64
+   \   00000180   0310A0E3           MOV      R1,#+3
+   \   00000184   04008DE2           ADD      R0,SP,#+4
+   \   00000188   650100EF           SWI      +357
+    358                  AddEditControlToEditQend(eq,&ec,ma);
+   \   0000018C   0720A0E1           MOV      R2,R7
+   \   00000190   04108DE2           ADD      R1,SP,#+4
+   \   00000194   0800A0E1           MOV      R0,R8
+   \   00000198   660100EF           SWI      +358
+   \   0000019C   04D08DE2           ADD      SP,SP,#+4
+    359                }
+    360              }
+    361              nodeExI = nodeExI->next;
+   \                     ??Disp_From_Disco_2:
+   \   000001A0   00A09AE5           LDR      R10,[R10, #+0]
+    362            }        
+   \   000001A4   00005AE3           CMP      R10,#+0
+   \   000001A8   B9FFFF1A           BNE      ??Disp_From_Disco_1
+    363          
+    364            // JID
+    365            ascii2ws(ws_info, "JID:");
+   \                     ??Disp_From_Disco_0:
+   \   000001AC   4C0096E5           LDR      R0,[R6, #+76]
+   \   000001B0   D41089E2           ADD      R1,R9,#+212
+   \   000001B4   ........           _BLF     ascii2ws,??ascii2ws??rA
+    366            ConstructEditControl(&ec,ECT_HEADER,ECF_APPEND_EOL,ws_info,256);
+   \   000001B8   400FA0E3           MOV      R0,#+256
+   \   000001BC   01002DE9           PUSH     {R0}
+   \   000001C0   4C3096E5           LDR      R3,[R6, #+76]
+   \   000001C4   4020A0E3           MOV      R2,#+64
+   \   000001C8   0110A0E3           MOV      R1,#+1
+   \   000001CC   04008DE2           ADD      R0,SP,#+4
+   \   000001D0   650100EF           SWI      +357
+    367            AddEditControlToEditQend(eq,&ec,ma);
+   \   000001D4   0720A0E1           MOV      R2,R7
+   \   000001D8   04108DE2           ADD      R1,SP,#+4
+   \   000001DC   0800A0E1           MOV      R0,R8
+   \   000001E0   660100EF           SWI      +358
+    368          
+    369            utf8_2ws(ws_info, jid, 128);
+   \   000001E4   4C0096E5           LDR      R0,[R6, #+76]
+   \   000001E8   8020A0E3           MOV      R2,#+128
+   \   000001EC   0410A0E1           MOV      R1,R4
+   \   000001F0   E30100EF           SWI      +483
+    370            ConstructEditControl(&ec,ECT_NORMAL_TEXT,ECF_APPEND_EOL,ws_info,256);
+   \   000001F4   400FA0E3           MOV      R0,#+256
+   \   000001F8   01002DE9           PUSH     {R0}
+   \   000001FC   4C3096E5           LDR      R3,[R6, #+76]
+   \   00000200   4020A0E3           MOV      R2,#+64
+   \   00000204   0310A0E3           MOV      R1,#+3
+   \   00000208   08008DE2           ADD      R0,SP,#+8
+   \   0000020C   650100EF           SWI      +357
+    371            AddEditControlToEditQend(eq,&ec,ma);
+   \   00000210   0720A0E1           MOV      R2,R7
+   \   00000214   08108DE2           ADD      R1,SP,#+8
+   \   00000218   0800A0E1           MOV      R0,R8
+   \   0000021C   660100EF           SWI      +358
+    372          
+    373          
+    374            ascii2ws(ws_info, LG_POSIBLCLIENT);
+   \   00000220   4C0096E5           LDR      R0,[R6, #+76]
+   \   00000224   281089E2           ADD      R1,R9,#+40
+   \   00000228   ........           _BLF     ascii2ws,??ascii2ws??rA
+    375            ConstructEditControl(&ec,ECT_HEADER,ECF_APPEND_EOL,ws_info,256);
+   \   0000022C   400FA0E3           MOV      R0,#+256
+   \   00000230   01002DE9           PUSH     {R0}
+   \   00000234   4C3096E5           LDR      R3,[R6, #+76]
+   \   00000238   4020A0E3           MOV      R2,#+64
+   \   0000023C   0110A0E3           MOV      R1,#+1
+   \   00000240   0C008DE2           ADD      R0,SP,#+12
+   \   00000244   650100EF           SWI      +357
+    376            AddEditControlToEditQend(eq,&ec,ma);
+   \   00000248   0720A0E1           MOV      R2,R7
+   \   0000024C   0C108DE2           ADD      R1,SP,#+12
+   \   00000250   0800A0E1           MOV      R0,R8
+   \   00000254   660100EF           SWI      +358
+    377          
+    378            XMLNode *nodeEx = info->subnode;
+   \   00000258   044095E5           LDR      R4,[R5, #+4]
+   \   0000025C   0CD08DE2           ADD      SP,SP,#+12
+   \   00000260   000054E3           CMP      R4,#+0
+   \   00000264   1D00000A           BEQ      ??Disp_From_Disco_5
+    379            while(nodeEx)
+    380            {
+    381              if(!strcmp(nodeEx->name,"feature"))
+   \                     ??Disp_From_Disco_6:
+   \   00000268   080094E5           LDR      R0,[R4, #+8]
+   \   0000026C   F41089E2           ADD      R1,R9,#+244
+   \   00000270   190000EF           SWI      +25
+   \   00000274   000050E3           CMP      R0,#+0
+   \   00000278   1500001A           BNE      ??Disp_From_Disco_7
+    382              {
+    383                char *var = XML_Get_Attr_Value("var", nodeEx->attr);
+   \   0000027C   0C1094E5           LDR      R1,[R4, #+12]
+   \   00000280   3B0F8FE2           ADR      R0,??Disp_From_Disco_8  ;; "var"
+   \   00000284   ........           _BLF     XML_Get_Attr_Value,??XML_Get_Attr_Value??rA
+    384                if(var)
+   \   00000288   000050E3           CMP      R0,#+0
+   \   0000028C   1000000A           BEQ      ??Disp_From_Disco_7
+    385                {
+    386                  var = Lookup_Known_Vars(var);
+   \   00000290   ........           BL       Lookup_Known_Vars
+    387                  utf8_2ws(ws_info, var, 128);
+   \   00000294   8020A0E3           MOV      R2,#+128
+   \   00000298   0010A0E1           MOV      R1,R0
+   \   0000029C   4C0096E5           LDR      R0,[R6, #+76]
+   \   000002A0   E30100EF           SWI      +483
+    388                  ConstructEditControl(&ec,ECT_NORMAL_TEXT,ECF_APPEND_EOL,ws_info,256);
+   \   000002A4   400FA0E3           MOV      R0,#+256
+   \   000002A8   01002DE9           PUSH     {R0}
+   \   000002AC   4C3096E5           LDR      R3,[R6, #+76]
+   \   000002B0   4020A0E3           MOV      R2,#+64
+   \   000002B4   0310A0E3           MOV      R1,#+3
+   \   000002B8   04008DE2           ADD      R0,SP,#+4
+   \   000002BC   650100EF           SWI      +357
+    389                  AddEditControlToEditQend(eq,&ec,ma);
+   \   000002C0   0720A0E1           MOV      R2,R7
+   \   000002C4   04108DE2           ADD      R1,SP,#+4
+   \   000002C8   0800A0E1           MOV      R0,R8
+   \   000002CC   660100EF           SWI      +358
+   \   000002D0   04D08DE2           ADD      SP,SP,#+4
+    390                }
+    391              }
+    392              nodeEx = nodeEx->next;
+   \                     ??Disp_From_Disco_7:
+   \   000002D4   004094E5           LDR      R4,[R4, #+0]
+    393            }
+   \   000002D8   000054E3           CMP      R4,#+0
+   \   000002DC   E1FFFF1A           BNE      ??Disp_From_Disco_6
+    394            if(Known_Features)
+   \                     ??Disp_From_Disco_5:
+   \   000002E0   500096E5           LDR      R0,[R6, #+80]
+   \   000002E4   0040A0E3           MOV      R4,#+0
+   \   000002E8   000050E3           CMP      R0,#+0
+   \   000002EC   0100000A           BEQ      ??Disp_From_Disco_9
+    395            {
+    396              mfree(Known_Features);
+   \   000002F0   150000EF           SWI      +21
+    397              Known_Features = NULL;
+   \   000002F4   504086E5           STR      R4,[R6, #+80]
+    398            }
+    399            patch_header(&info_hdr);
+   \                     ??Disp_From_Disco_9:
+   \   000002F8   B843C6E1           STRH     R4,[R6, #+56]
+   \   000002FC   1800A0E3           MOV      R0,#+24
+   \   00000300   BA03C6E1           STRH     R0,[R6, #+58]
+   \   00000304   888100EF           SWI      +33160
+   \   00000308   010040E2           SUB      R0,R0,#+1
+   \   0000030C   BC03C6E1           STRH     R0,[R6, #+60]
+   \   00000310   8A8100EF           SWI      +33162
+   \   00000314   180080E2           ADD      R0,R0,#+24
+   \   00000318   BE03C6E1           STRH     R0,[R6, #+62]
+    400            patch_input(&info_desc);
+   \   0000031C   B841C6E1           STRH     R4,[R6, #+24]
+   \   00000320   8A8100EF           SWI      +33162
+   \   00000324   190080E2           ADD      R0,R0,#+25
+   \   00000328   BA01C6E1           STRH     R0,[R6, #+26]
+   \   0000032C   888100EF           SWI      +33160
+   \   00000330   010040E2           SUB      R0,R0,#+1
+   \   00000334   BC01C6E1           STRH     R0,[R6, #+28]
+   \   00000338   898100EF           SWI      +33161
+   \   0000033C   0040A0E1           MOV      R4,R0
+   \   00000340   8B8100EF           SWI      +33163
+   \   00000344   000044E0           SUB      R0,R4,R0
+   \   00000348   010040E2           SUB      R0,R0,#+1
+   \   0000034C   BE01C6E1           STRH     R0,[R6, #+30]
+    401            CreateInputTextDialog(&info_desc,&info_hdr,eq,1,0);
+   \   00000350   0000A0E3           MOV      R0,#+0
+   \   00000354   01002DE9           PUSH     {R0}
+   \   00000358   0130A0E3           MOV      R3,#+1
+   \   0000035C   0820A0E1           MOV      R2,R8
+   \   00000360   381086E2           ADD      R1,R6,#+56
+   \   00000364   0600A0E1           MOV      R0,R6
+   \   00000368   670100EF           SWI      +359
+    402          }
+   \   0000036C   30D08DE2           ADD      SP,SP,#+48
+   \   00000370   F087BDE8           POP      {R4-R10,PC}      ;; return
+   \                     ??Disp_From_Disco_8:
+   \   00000374   76617200           DC8      "var"
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable3:
+   \   00000000   ........           DC32     info_desc
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable4:
+   \   00000000   ........           DC32     info_desc
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable5:
+   \   00000000   ........           DC32     `?<Constant "\\317\\360\\350\\356\\360\\350\\362\\345\\3`
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for info_desc>`:
+   \   00000000   01000000....       DC32 1, info_onkey, info_ghook, inp_locret, 0, info_skt
+   \              ............
+   \              ........0000
+   \              0000........
+   \   00000018   000000000000       DC16 0, 0, 0, 0
+   \              0000        
+   \   00000020   040000006400       DC32 4, 100, 101, 0, 0, 1073741824
+   \              000065000000
+   \              000000000000
+   \              000000000040
+   \                     `?<Initializer for info_hdr>`:
+   \   00000038   000000000000       DC16 0, 0, 0, 0
+   \              0000        
+   \   00000040   00000000....       DC32 0H, `?<Constant "\\312\\356\\355\\362\\340\\352\\362 \\350\\`
+   \              ....        
+   \   00000048   FFFFFF7F           DC32 2147483647
+   \                     `?<Initializer for ws_info>`:
+   \   0000004C   00000000           DC32 0H
+   \                     `?<Initializer for Known_Features>`:
+   \   00000050   00000000           DC32 0H
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for info_sk>`:
+   \   00000000   18000000           DC16 24, 0
+   \   00000004   ........           DC32 `?<Constant "\\302\\373\\341\\356\\360">`
+   \   00000008   01000000           DC16 1, 0
+   \   0000000C   ........           DC32 `?<Constant "\\315\\340\\347\\340\\344">`
+   \   00000010   3D000000           DC16 61, 0
+   \   00000014   FBC0FF7F           DC32 2147467515
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for info_skt>`:
+   \   00000000   ........0000       DC32 info_sk, 0
+   \              0000        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\317\\360\\350\\356\\360\\350\\362\\345\\3`:
+   \   00000000   CFF0E8EEF0E8       DC8 "\317\360\350\356\360\350\362\345\362:"
+   \              F2E5F23A00  
+   \   0000000B   00                 DC8 0
+   \   0000000C   7479706500         DC8 "type"
+   \   00000011   000000             DC8 0, 0, 0
+   \   00000014   6E616D6500         DC8 "name"
+   \   00000019   000000             DC8 0, 0, 0
+   \   0000001C   6964656E7469       DC8 "identity"
+   \              747900      
+   \   00000025   000000             DC8 0, 0, 0
+   \   00000028   C2EEE7ECEEE6       DC8 "\302\356\347\354\356\346\355\356\361\362\350 \352\353\350\345\355\362\340:"
+   \              EDEEF1F2E820
+   \              EAEBE8E5EDF2
+   \              E03A00      
+   \   0000003D   000000             DC8 0, 0, 0
+   \   00000040   DDEBE5ECE5ED       DC8 "\335\353\345\354\345\355\362 \360\356\361\362\345\360\340"
+   \              F220F0EEF1F2
+   \              E5F0E000    
+   \   00000050   CEF4F4EBE0E9       DC8 "\316\364\364\353\340\351\355 \350\353\350 \352\356\355\362\340\352\362 \350\347 \362\360\340\355\361\357\356\360\362\340"
+   \              ED20E8EBE820
+   \              EAEEEDF2E0EA
+   \              F220E8E720F2
+   \              F0E0EDF1EFEE
+   \              F0F2E000    
+   \   00000072   0000               DC8 0, 0
+   \   00000074   CAEEEDF4E5F0       DC8 "\312\356\355\364\345\360\345\355\366\350\377"
+   \              E5EDF6E8FF00
+   \   00000080   D3F7E0F1F2ED       DC8 "\323\367\340\361\362\355\350\352 \352\356\355\364\345\360\345\355\366\350\350"
+   \              E8EA20EAEEED
+   \              F4E5F0E5EDF6
+   \              E8E800      
+   \   00000095   000000             DC8 0, 0, 0
+   \   00000098   C4E0EDEDFBE9       DC8 "\304\340\355\355\373\351 \352\356\355\362\340\352\362 \377\342\353\377\345\362\361\377 \362\360\340\355\361\357\356\360\362\356\354 Jabber"
+   \              20EAEEEDF2E0
+   \              EAF220FFE2EB
+   \              FFE5F2F1FF20
+   \              F2F0E0EDF1EF
+   \              EEF0F2EEEC20
+   \              4A6162626572
+   \              00          
+   \   000000C3   00                 DC8 0
+   \   000000C4   C3F0F3EFEFE0       DC8 "\303\360\363\357\357\340 \360\356\361\362\345\360\340"
+   \              20F0EEF1F2E5
+   \              F0E000      
+   \   000000D3   00                 DC8 0
+   \   000000D4   4A49443A00         DC8 "JID:"
+   \   000000D9   000000             DC8 0, 0, 0
+   \   000000DC   D2E5ECE03A00       DC8 "\322\345\354\340:"
+   \   000000E2   0000               DC8 0, 0
+   \   000000E4   CDE8EA3A00         DC8 "\315\350\352:"
+   \   000000E9   000000             DC8 0, 0, 0
+   \   000000EC   D0E5F1F3F0F1       DC8 "\320\345\361\363\360\361:"
+   \              3A00        
+   \   000000F4   666561747572       DC8 "feature"
+   \              6500        
+   \   000000FC   D0E5E0EBFCED       DC8 "\320\345\340\353\374\355\373\351 JID:"
+   \              FBE9204A4944
+   \              3A00        
+   \   0000010A   0000               DC8 0, 0
+   \   0000010C   D1F2E0F2F3F1       DC8 "\321\362\340\362\363\361:"
+   \              3A00        
+   \   00000114   25733A202577       DC8 "%s: %w"
+   \              00          
+   \   0000011B   00                 DC8 0
+   \   0000011C   CFF0E8E2E8EB       DC8 "\317\360\350\342\350\353\345\343\350\350:"
+   \              E5E3E8E83A00
+   \   00000128   D0EEEBFC3A00       DC8 "\320\356\353\374:"
+   \   0000012E   0000               DC8 0, 0
+   \   00000130   C0E2F2EEF0E8       DC8 "\300\342\362\356\360\350\347\340\366\350\377:"
+   \              E7E0F6E8FF3A
+   \              00          
+   \   0000013D   000000             DC8 0, 0, 0
+   \   00000140   4E4F4E4500         DC8 "NONE"
+   \   00000145   000000             DC8 0, 0, 0
+   \   00000148   46524F4D00         DC8 "FROM"
+   \   0000014D   000000             DC8 0, 0, 0
+   \   00000150   424F544800         DC8 "BOTH"
+   \   00000155   000000             DC8 0, 0, 0
+   \   00000158   582E332E00         DC8 "X.3."
+   \   0000015D   000000             DC8 0, 0, 0
+   \   00000160   4964656E7469       DC8 "Identity:"
+   \              74793A00    
+   \   0000016A   0000               DC8 0, 0
+   \   0000016C   63617465676F       DC8 "category"
+   \              727900      
+   \   00000175   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \   00000000   76617200           DC8 "var"
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\302\\373\\341\\356\\360">`:
+   \   00000000   C2FBE1EEF000       DC8 "\302\373\341\356\360"
+   \   00000006   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\315\\340\\347\\340\\344">`:
+   \   00000000   CDE0E7E0E400       DC8 "\315\340\347\340\344"
+   \   00000006   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\312\\356\\355\\362\\340\\352\\362 \\350\\`:
+   \   00000000   CAEEEDF2E0EA       DC8 "\312\356\355\362\340\352\362 \350\355\364\356"
+   \              F220E8EDF4EE
+   \              00          
+   \   0000000D   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \   00000000   00                 DC8 ""
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \   00000000   256900             DC8 "%i"
+
+   \                                 In segment DATA_C, align 1, align-sorted
+   \   00000000   544F00             DC8 "TO"
+    403          
+    404          //EOL,EOF
+
+   Maximum stack usage in bytes:
+
+     Function          CSTACK
+     --------          ------
+     Disp_From_Disco      88
+     Disp_Info            96
+     Lookup_Known_Vars   276
+     info_ghook            8
+     info_onkey            0
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     info_onkey                       24
+     info_ghook                       52
+     Disp_Info                      2044
+     info_desc                        84
+     info_sk                          24
+     info_skt                          8
+     Lookup_Known_Vars               184
+     Disp_From_Disco                 888
+     ??DataTable3                      4
+     ??DataTable4                      4
+     ??DataTable5                      4
+     ?<Initializer for info_desc>     84
+     ?<Initializer for info_sk>       24
+     ?<Initializer for info_skt>       8
+     ?<Constant "\317\360\350\356\360\350\362\345\3
+                                     376
+     ?<Constant "var">                 4
+     ?<Constant "\302\373\341\356\360">
+                                       8
+     ?<Constant "\315\340\347\340\344">
+                                       8
+     ?<Constant "\312\356\355\362\340\352\362 \350\
+                                      16
+     ?<Constant "">                    1
+     ?<Constant "%i">                  3
+     ?<Constant "TO">                  3
+      Others                          92
+
+ 
+ 3 284 bytes in segment CODE
+   419 bytes in segment DATA_C
+   116 bytes in segment DATA_I
+   116 bytes in segment DATA_ID
+    12 bytes in segment INITTAB
+ 
+ 3 204 bytes of CODE  memory (+ 92 bytes shared)
+   535 bytes of CONST memory
+   116 bytes of DATA  memory
+
+Errors: none
+Warnings: none

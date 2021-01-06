@@ -1,0 +1,231 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    19/Jan/2011  13:20:54 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\grabber\jpeg-7\jcomapi.c                      #
+#    Command line    =  C:\arm\grabber\jpeg-7\jcomapi.c -lC                  #
+#                       C:\arm\grabber\Release_SGOLD\List\ -o                #
+#                       C:\arm\grabber\Release_SGOLD\Obj\ -s9 --no_unroll    #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\grabber\Release_SGOLD\List\jcomapi.lst        #
+#    Object file     =  C:\arm\grabber\Release_SGOLD\Obj\jcomapi.r79         #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\grabber\jpeg-7\jcomapi.c
+      1          /*
+                  ^
+Warning[Pa050]: non-native end of line sequence detected (this diagnostic is
+          only issued once)
+      2           * jcomapi.c
+      3           *
+      4           * Copyright (C) 1994-1997, Thomas G. Lane.
+      5           * This file is part of the Independent JPEG Group's software.
+      6           * For conditions of distribution and use, see the accompanying README file.
+      7           *
+      8           * This file contains application interface routines that are used for both
+      9           * compression and decompression.
+     10           */
+     11          
+     12          #define JPEG_INTERNALS
+     13          #include "jinclude.h"
+     14          #include "jpeglib.h"
+     15          
+     16          
+     17          /*
+     18           * Abort processing of a JPEG compression or decompression operation,
+     19           * but don't destroy the object itself.
+     20           *
+     21           * For this, we merely clean up all the nonpermanent memory pools.
+     22           * Note that temp files (virtual arrays) are not allowed to belong to
+     23           * the permanent pool, so we will be able to close all temp files here.
+     24           * Closing a data source or destination, if necessary, is the application's
+     25           * responsibility.
+     26           */
+     27          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     28          GLOBAL(void)
+     29          jpeg_abort (j_common_ptr cinfo)
+     30          {
+   \                     jpeg_abort:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+     31            int pool;
+     32          
+     33            /* Do nothing if called on a not-initialized or destroyed JPEG object. */
+     34            if (cinfo->mem == NULL)
+   \   00000008   040094E5           LDR      R0,[R4, #+4]
+   \   0000000C   000050E3           CMP      R0,#+0
+   \   00000010   3080BD08           POPEQ    {R4,R5,PC}
+     35              return;
+     36          
+     37            /* Releasing pools in reverse order might help avoid fragmentation
+     38             * with some (brain-damaged) malloc libraries.
+     39             */
+     40            for (pool = JPOOL_NUMPOOLS-1; pool > JPOOL_PERMANENT; pool--) {
+   \   00000014   0150A0E3           MOV      R5,#+1
+     41              (*cinfo->mem->free_pool) (cinfo, pool);
+   \                     ??jpeg_abort_0:
+   \   00000018   042094E5           LDR      R2,[R4, #+4]
+   \   0000001C   0510A0E1           MOV      R1,R5
+   \   00000020   242092E5           LDR      R2,[R2, #+36]
+   \   00000024   0400A0E1           MOV      R0,R4
+   \   00000028   32FF2FE1           BLX      R2
+     42            }
+   \   0000002C   015045E2           SUB      R5,R5,#+1
+   \   00000030   010055E3           CMP      R5,#+1
+   \   00000034   F7FFFFAA           BGE      ??jpeg_abort_0
+     43          
+     44            /* Reset overall state for possible reuse of object */
+     45            if (cinfo->is_decompressor) {
+   \   00000038   100094E5           LDR      R0,[R4, #+16]
+   \   0000003C   000050E3           CMP      R0,#+0
+   \   00000040   0400000A           BEQ      ??jpeg_abort_1
+     46              cinfo->global_state = DSTATE_START;
+   \   00000044   C800A0E3           MOV      R0,#+200
+   \   00000048   140084E5           STR      R0,[R4, #+20]
+     47              /* Try to keep application from accessing now-deleted marker list.
+     48               * A bit kludgy to do it here, but this is the most central place.
+     49               */
+     50              ((j_decompress_ptr) cinfo)->marker_list = NULL;
+   \   0000004C   0000A0E3           MOV      R0,#+0
+   \   00000050   2C0184E5           STR      R0,[R4, #+300]
+   \   00000054   3080BDE8           POP      {R4,R5,PC}
+     51            } else {
+     52              cinfo->global_state = CSTATE_START;
+   \                     ??jpeg_abort_1:
+   \   00000058   6400A0E3           MOV      R0,#+100
+   \   0000005C   140084E5           STR      R0,[R4, #+20]
+   \   00000060   3080BDE8           POP      {R4,R5,PC}       ;; return
+     53            }
+     54          }
+     55          
+     56          
+     57          /*
+     58           * Destruction of a JPEG object.
+     59           *
+     60           * Everything gets deallocated except the master jpeg_compress_struct itself
+     61           * and the error manager struct.  Both of these are supplied by the application
+     62           * and must be freed, if necessary, by the application.  (Often they are on
+     63           * the stack and so don't need to be freed anyway.)
+     64           * Closing a data source or destination, if necessary, is the application's
+     65           * responsibility.
+     66           */
+     67          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     68          GLOBAL(void)
+     69          jpeg_destroy (j_common_ptr cinfo)
+     70          {
+   \                     jpeg_destroy:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+     71            /* We need only tell the memory manager to release everything. */
+     72            /* NB: mem pointer is NULL if memory mgr failed to initialize. */
+     73            if (cinfo->mem != NULL)
+   \   00000008   041094E5           LDR      R1,[R4, #+4]
+   \   0000000C   000051E3           CMP      R1,#+0
+   \   00000010   0100000A           BEQ      ??jpeg_destroy_0
+     74              (*cinfo->mem->self_destruct) (cinfo);
+   \   00000014   281091E5           LDR      R1,[R1, #+40]
+   \   00000018   31FF2FE1           BLX      R1
+     75            cinfo->mem = NULL;		/* be safe if jpeg_destroy is called twice */
+   \                     ??jpeg_destroy_0:
+   \   0000001C   0000A0E3           MOV      R0,#+0
+   \   00000020   040084E5           STR      R0,[R4, #+4]
+     76            cinfo->global_state = 0;	/* mark it destroyed */
+   \   00000024   140084E5           STR      R0,[R4, #+20]
+     77          }
+   \   00000028   1080BDE8           POP      {R4,PC}          ;; return
+     78          
+     79          
+     80          /*
+     81           * Convenience routines for allocating quantization and Huffman tables.
+     82           * (Would jutils.c be a more reasonable place to put these?)
+     83           */
+     84          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     85          GLOBAL(JQUANT_TBL *)
+     86          jpeg_alloc_quant_table (j_common_ptr cinfo)
+     87          {
+   \                     jpeg_alloc_quant_table:
+   \   00000000   00402DE9           PUSH     {LR}
+     88            JQUANT_TBL *tbl;
+     89          
+     90            tbl = (JQUANT_TBL *)
+     91              (*cinfo->mem->alloc_small) (cinfo, JPOOL_PERMANENT, SIZEOF(JQUANT_TBL));
+   \   00000004   043090E5           LDR      R3,[R0, #+4]
+   \   00000008   8420A0E3           MOV      R2,#+132
+   \   0000000C   003093E5           LDR      R3,[R3, #+0]
+   \   00000010   0010A0E3           MOV      R1,#+0
+   \   00000014   33FF2FE1           BLX      R3
+     92            tbl->sent_table = FALSE;	/* make sure this is false in any new table */
+   \   00000018   0010A0E3           MOV      R1,#+0
+   \   0000001C   801080E5           STR      R1,[R0, #+128]
+     93            return tbl;
+   \   00000020   0080BDE8           POP      {PC}             ;; return
+     94          }
+     95          
+     96          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     97          GLOBAL(JHUFF_TBL *)
+     98          jpeg_alloc_huff_table (j_common_ptr cinfo)
+     99          {
+   \                     jpeg_alloc_huff_table:
+   \   00000000   00402DE9           PUSH     {LR}
+    100            JHUFF_TBL *tbl;
+    101          
+    102            tbl = (JHUFF_TBL *)
+    103              (*cinfo->mem->alloc_small) (cinfo, JPOOL_PERMANENT, SIZEOF(JHUFF_TBL));
+   \   00000004   043090E5           LDR      R3,[R0, #+4]
+   \   00000008   462FA0E3           MOV      R2,#+280
+   \   0000000C   003093E5           LDR      R3,[R3, #+0]
+   \   00000010   0010A0E3           MOV      R1,#+0
+   \   00000014   33FF2FE1           BLX      R3
+    104            tbl->sent_table = FALSE;	/* make sure this is false in any new table */
+   \   00000018   0010A0E3           MOV      R1,#+0
+   \   0000001C   141180E5           STR      R1,[R0, #+276]
+    105            return tbl;
+   \   00000020   0080BDE8           POP      {PC}             ;; return
+    106          }
+
+   Maximum stack usage in bytes:
+
+     Function               CSTACK
+     --------               ------
+     jpeg_abort                12
+     jpeg_alloc_huff_table      4
+     jpeg_alloc_quant_table     4
+     jpeg_destroy               8
+
+
+   Segment part sizes:
+
+     Function/Label         Bytes
+     --------------         -----
+     jpeg_abort              100
+     jpeg_destroy             44
+     jpeg_alloc_quant_table   36
+     jpeg_alloc_huff_table    36
+      Others                  16
+
+ 
+ 232 bytes in segment CODE
+ 
+ 216 bytes of CODE memory (+ 16 bytes shared)
+
+Errors: none
+Warnings: 1

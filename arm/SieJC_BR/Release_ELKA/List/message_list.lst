@@ -1,0 +1,2939 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    15/Feb/2011  01:38:55 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\SieJC_BR\message_list.c                       #
+#    Command line    =  C:\arm\SieJC_BR\message_list.c -D NEWSGOLD -D ELKA   #
+#                       --preprocess C:\arm\SieJC_BR\Release_ELKA\List\ -lC  #
+#                       C:\arm\SieJC_BR\Release_ELKA\List\ -o                #
+#                       C:\arm\SieJC_BR\Release_ELKA\Obj\ -s9 --no_unroll    #
+#                       --cpu_mode arm --endian little --cpu ARM926EJ-S      #
+#                       --stack_align 4 --interwork -e --fpu None            #
+#                       --dlib_config "C:\arm2\Embedded Workbench 4.0        #
+#                       Evaluation\ARM\LIB\dl5tpainl8n.h" -I                 #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\SieJC_BR\Release_ELKA\List\message_list.lst   #
+#    Object file     =  C:\arm\SieJC_BR\Release_ELKA\Obj\message_list.r79    #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\SieJC_BR\message_list.c
+      1          #include "../inc/swilib.h"
+      2          #include "main.h"
+      3          #include "clist_util.h"
+      4          #include "cont_menu.h"
+      5          #include "history.h"
+      6          #include "message_list.h"
+      7          #include "message_cmds.h"
+      8          #include "jabber_util.h"
+      9          #include "string_util.h"
+     10          #include "serial_dbg.h"
+     11          #include "lang.h"
+     12          #include "../inc/pnglist.h"
+     13          #include "smiles.h"
+     14          #include "color.h"
+     15          #include "rect_patcher.h"
+     16          
+     17          #define MSG_START_X 1    //X-координата начала рисования строки сообщения
+     18          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     19          int flag2;
+   \                     flag2:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     20          int flag1;
+   \                     flag1:
+   \   00000000                      DS8 4
+     21          extern const unsigned int DEF_SKR;
+     22          extern int MESSAGEWIN_FONT;
+     23          extern const int pod_mess;
+     24          extern int Is_Smiles_Enabled;
+     25          extern const int KBD_LAYOUT;
+     26          
+     27          char MsgList_Quit_Required = 0;
+     28          
+     29          TRESOURCE* Resource_Ex = NULL;
+     30          
+     31          
+     32          int Message_gui_ID;
+     33          int edmessage_id;
+     34          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     35          void CharsToSmiles(WSHDR *ws, const char *s)
+     36          {
+   \                     CharsToSmiles:
+   \   00000000   F0472DE9           PUSH     {R4-R10,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+     37            S_SMILES *t;
+     38            S_SMILES *t_root=(S_SMILES *)s_top;
+   \   00000008   3C019FE5           LDR      R0,??CharsToSmiles_0  ;; s_top
+   \   0000000C   04D04DE2           SUB      SP,SP,#+4
+   \   00000010   005090E5           LDR      R5,[R0, #+0]
+   \   00000014   0160A0E1           MOV      R6,R1
+     39            STXT_SMILES *st;
+     40            unsigned int wchar;
+     41            unsigned int ulb=s[0]+(s[1]<<8)+(s[2]<<16)+(s[3]<<24);
+   \   00000018   0000D6E5           LDRB     R0,[R6, #+0]
+   \   0000001C   0110D6E5           LDRB     R1,[R6, #+1]
+   \   00000020   010480E0           ADD      R0,R0,R1, LSL #+8
+   \   00000024   0210D6E5           LDRB     R1,[R6, #+2]
+   \   00000028   010880E0           ADD      R0,R0,R1, LSL #+16
+   \   0000002C   0310D6E5           LDRB     R1,[R6, #+3]
+   \   00000030   017C80E0           ADD      R7,R0,R1, LSL #+24
+     42            CutWSTR(ws, 0);
+   \   00000034   0010A0E3           MOV      R1,#+0
+   \   00000038   0400A0E1           MOV      R0,R4
+   \   0000003C   260100EF           SWI      +294
+   \   00000040   0D0000EA           B        ??CharsToSmiles_1
+     43            while(wchar=*s)
+     44            {
+     45              t=t_root;
+     46              while(t)
+     47              {
+     48                st=t->lines;
+     49                while(st)
+     50                {
+     51          	if ((ulb&st->mask)==st->key)
+     52          	{
+     53          	  if (!strncmp(s,st->text,strlen(st->text))) goto L1;
+     54          	}
+     55          	st=st->next;
+     56                }
+     57                t=t->next;
+     58              }
+     59            L1:
+     60              if (t)
+     61              {
+     62                wchar=t->uni_smile;
+   \                     ??CharsToSmiles_2:
+   \   00000044   04909AE5           LDR      R9,[R10, #+4]
+     63                s+=strlen(st->text);
+   \   00000048   0C0088E2           ADD      R0,R8,#+12
+   \   0000004C   1B0000EF           SWI      +27
+   \   00000050   066080E0           ADD      R6,R0,R6
+     64                ulb=s[0]+(s[1]<<8)+(s[2]<<16)+(s[3]<<24);
+   \   00000054   0000D6E5           LDRB     R0,[R6, #+0]
+   \   00000058   0110D6E5           LDRB     R1,[R6, #+1]
+   \   0000005C   010480E0           ADD      R0,R0,R1, LSL #+8
+   \   00000060   0210D6E5           LDRB     R1,[R6, #+2]
+   \   00000064   010880E0           ADD      R0,R0,R1, LSL #+16
+   \   00000068   0310D6E5           LDRB     R1,[R6, #+3]
+   \   0000006C   017C80E0           ADD      R7,R0,R1, LSL #+24
+     65              }
+     66              else
+     67              {
+     68                wchar=char8to16(wchar);
+     69                s++;
+     70                ulb>>=8;
+     71                ulb+=s[3]<<24;
+     72              }
+     73              //if (wchar!=10)
+     74               wsAppendChar(ws,wchar);
+   \                     ??CharsToSmiles_3:
+   \   00000070   0910A0E1           MOV      R1,R9
+   \   00000074   0400A0E1           MOV      R0,R4
+   \   00000078   1C0000EF           SWI      +28
+   \                     ??CharsToSmiles_1:
+   \   0000007C   0090D6E5           LDRB     R9,[R6, #+0]
+   \   00000080   000059E3           CMP      R9,#+0
+   \   00000084   F187BD08           POPEQ    {R0,R4-R10,PC}
+   \   00000088   05A0A0E1           MOV      R10,R5
+   \   0000008C   230000EA           B        ??CharsToSmiles_4
+   \                     ??CharsToSmiles_5:
+   \   00000090   0B00D8E5           LDRB     R0,[R8, #+11]
+   \   00000094   0A10D8E5           LDRB     R1,[R8, #+10]
+   \   00000098   0620D8E5           LDRB     R2,[R8, #+6]
+   \   0000009C   000481E1           ORR      R0,R1,R0, LSL #+8
+   \   000000A0   0910D8E5           LDRB     R1,[R8, #+9]
+   \   000000A4   000481E1           ORR      R0,R1,R0, LSL #+8
+   \   000000A8   0810D8E5           LDRB     R1,[R8, #+8]
+   \   000000AC   000481E1           ORR      R0,R1,R0, LSL #+8
+   \   000000B0   0710D8E5           LDRB     R1,[R8, #+7]
+   \   000000B4   070000E0           AND      R0,R0,R7
+   \   000000B8   011482E1           ORR      R1,R2,R1, LSL #+8
+   \   000000BC   0520D8E5           LDRB     R2,[R8, #+5]
+   \   000000C0   011482E1           ORR      R1,R2,R1, LSL #+8
+   \   000000C4   0420D8E5           LDRB     R2,[R8, #+4]
+   \   000000C8   011482E1           ORR      R1,R2,R1, LSL #+8
+   \   000000CC   010050E1           CMP      R0,R1
+   \   000000D0   0700001A           BNE      ??CharsToSmiles_6
+   \   000000D4   0C0088E2           ADD      R0,R8,#+12
+   \   000000D8   1B0000EF           SWI      +27
+   \   000000DC   0020A0E1           MOV      R2,R0
+   \   000000E0   0C1088E2           ADD      R1,R8,#+12
+   \   000000E4   0600A0E1           MOV      R0,R6
+   \   000000E8   150100EF           SWI      +277
+   \   000000EC   000050E3           CMP      R0,#+0
+   \   000000F0   D3FFFF0A           BEQ      ??CharsToSmiles_2
+   \                     ??CharsToSmiles_6:
+   \   000000F4   0000A0E3           MOV      R0,#+0
+   \   000000F8   0D10A0E1           MOV      R1,SP
+   \                     ??CharsToSmiles_7:
+   \   000000FC   0820D0E7           LDRB     R2,[R0, +R8]
+   \   00000100   0120C0E7           STRB     R2,[R0, +R1]
+   \   00000104   010080E2           ADD      R0,R0,#+1
+   \   00000108   040050E3           CMP      R0,#+4
+   \   0000010C   FAFFFFBA           BLT      ??CharsToSmiles_7
+   \   00000110   00809DE5           LDR      R8,[SP, #+0]
+   \                     ??CharsToSmiles_8:
+   \   00000114   000058E3           CMP      R8,#+0
+   \   00000118   DCFFFF1A           BNE      ??CharsToSmiles_5
+   \   0000011C   00A09AE5           LDR      R10,[R10, #+0]
+   \                     ??CharsToSmiles_4:
+   \   00000120   00005AE3           CMP      R10,#+0
+   \   00000124   08809A15           LDRNE    R8,[R10, #+8]
+   \   00000128   F9FFFF1A           BNE      ??CharsToSmiles_8
+   \   0000012C   0900A0E1           MOV      R0,R9
+   \   00000130   ........           _BLF     char8to16,??char8to16??rA
+   \   00000134   0090A0E1           MOV      R9,R0
+   \   00000138   016086E2           ADD      R6,R6,#+1
+   \   0000013C   0300D6E5           LDRB     R0,[R6, #+3]
+   \   00000140   000CA0E1           LSL      R0,R0,#+24
+   \   00000144   277480E0           ADD      R7,R0,R7, LSR #+8
+   \   00000148   C8FFFFEA           B        ??CharsToSmiles_3
+   \                     ??CharsToSmiles_0:
+   \   0000014C   ........           DC32     s_top
+     75            }
+     76            /*int i=ws->wsbody[0];
+     77            while(i>1)
+     78            {
+     79              if (ws->wsbody[i--]!=10) break;
+     80              ws->wsbody[0]=i;
+     81            }*/
+     82          }
+     83          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     84          void SmilesToChars(WSHDR *ws)
+     85          {
+   \                     SmilesToChars:
+   \   00000000   F14F2DE9           PUSH     {R0,R4-R11,LR}
+     86            S_SMILES *t;
+     87            int c;
+     88            int len=0;
+     89            int scur;
+     90            char * msg_buf=NULL;
+     91            unsigned short *wsbody=ws->wsbody;
+   \   00000004   004090E5           LDR      R4,[R0, #+0]
+   \   00000008   0060A0E3           MOV      R6,#+0
+     92            int wslen=wsbody[0];
+   \   0000000C   B050D4E1           LDRH     R5,[R4, #+0]
+     93            if (wslen)
+   \   00000010   000055E3           CMP      R5,#+0
+   \   00000014   F18FBD08           POPEQ    {R0,R4-R11,PC}
+     94            {
+     95              for (int i=0; i<wslen; i++) // Посчитаем общую длину будущей строки
+   \   00000018   0080A0E3           MOV      R8,#+0
+   \   0000001C   010055E3           CMP      R5,#+1
+   \   00000020   070000AA           BGE      ??SmilesToChars_0
+     96              {
+     97                c=wsbody[i+1];
+     98                if (c>=0xE100)
+     99                {
+    100                  t=FindSmileByUni(c);
+    101                  if (t)
+    102                  {
+    103                    if (t->lines)
+    104                    {
+    105                      len+=strlen(t->lines->text);
+    106                    }
+    107                  }
+    108                  else  len++;
+    109                }
+    110                else  len++;
+    111              }
+    112          
+    113              msg_buf = malloc(len+1);
+   \                     ??SmilesToChars_1:
+   \   00000024   010086E2           ADD      R0,R6,#+1
+   \   00000028   140000EF           SWI      +20
+   \   0000002C   0080A0E1           MOV      R8,R0
+    114              scur=0;
+   \   00000030   0090A0E3           MOV      R9,#+0
+    115              for (int wcur=0; wcur<wslen && scur<len; wcur++)
+   \   00000034   00A0A0E3           MOV      R10,#+0
+   \   00000038   180000EA           B        ??SmilesToChars_2
+   \                     ??SmilesToChars_3:
+   \   0000003C   016086E2           ADD      R6,R6,#+1
+   \                     ??SmilesToChars_4:
+   \   00000040   018088E2           ADD      R8,R8,#+1
+   \                     ??SmilesToChars_0:
+   \   00000044   050058E1           CMP      R8,R5
+   \   00000048   F5FFFFAA           BGE      ??SmilesToChars_1
+   \   0000004C   880084E0           ADD      R0,R4,R8, LSL #+1
+   \   00000050   B270D0E1           LDRH     R7,[R0, #+2]
+   \   00000054   E10C57E3           CMP      R7,#+57600
+   \   00000058   F7FFFFBA           BLT      ??SmilesToChars_3
+   \   0000005C   0700A0E1           MOV      R0,R7
+   \   00000060   ........           _BLF     FindSmileByUni,??FindSmileByUni??rA
+   \   00000064   000050E3           CMP      R0,#+0
+   \   00000068   F3FFFF0A           BEQ      ??SmilesToChars_3
+   \   0000006C   080090E5           LDR      R0,[R0, #+8]
+   \   00000070   000050E3           CMP      R0,#+0
+   \   00000074   F1FFFF0A           BEQ      ??SmilesToChars_4
+   \   00000078   0C0080E2           ADD      R0,R0,#+12
+   \   0000007C   1B0000EF           SWI      +27
+   \   00000080   066080E0           ADD      R6,R0,R6
+   \   00000084   EDFFFFEA           B        ??SmilesToChars_4
+    116              {
+    117                c=wsbody[wcur+1];
+    118                if (c==10) c=13;
+   \                     ??SmilesToChars_5:
+   \   00000088   0D70A0E3           MOV      R7,#+13
+    119                if (c>=0xE100)
+    120                {
+    121                  t=FindSmileByUni(c);
+    122                  if (t)
+    123                  {
+    124                    int w;
+    125                    char *s;
+    126                    if (t->lines)
+    127                    {
+    128                      s=t->lines->text;
+    129                      while ((w=*s++) && scur<len)
+    130                      {
+    131                        msg_buf[scur]=w;
+    132                        scur++;
+    133                      }
+    134                    }
+    135                  }
+    136                  else
+    137                  {
+    138                    msg_buf[scur]=char16to8(c);
+    139                    scur++;
+    140                  }
+    141                }
+    142                else
+    143                {
+    144                  msg_buf[scur]=char16to8(c);
+   \                     ??SmilesToChars_6:
+   \   0000008C   0700A0E1           MOV      R0,R7
+   \   00000090   ........           _BLF     char16to8,??char16to8??rA
+   \   00000094   0800C9E7           STRB     R0,[R9, +R8]
+    145                  scur++;
+   \   00000098   0B90A0E1           MOV      R9,R11
+    146                }
+   \                     ??SmilesToChars_7:
+   \   0000009C   01A08AE2           ADD      R10,R10,#+1
+   \                     ??SmilesToChars_2:
+   \   000000A0   05005AE1           CMP      R10,R5
+   \   000000A4   060059B1           CMPLT    R9,R6
+   \   000000A8   160000AA           BGE      ??SmilesToChars_8
+   \   000000AC   8A0084E0           ADD      R0,R4,R10, LSL #+1
+   \   000000B0   B270D0E1           LDRH     R7,[R0, #+2]
+   \   000000B4   01B089E2           ADD      R11,R9,#+1
+   \   000000B8   0A0057E3           CMP      R7,#+10
+   \   000000BC   F1FFFF0A           BEQ      ??SmilesToChars_5
+   \   000000C0   E10C57E3           CMP      R7,#+57600
+   \   000000C4   F0FFFFBA           BLT      ??SmilesToChars_6
+   \   000000C8   0700A0E1           MOV      R0,R7
+   \   000000CC   ........           _BLF     FindSmileByUni,??FindSmileByUni??rA
+   \   000000D0   000050E3           CMP      R0,#+0
+   \   000000D4   ECFFFF0A           BEQ      ??SmilesToChars_6
+   \   000000D8   080090E5           LDR      R0,[R0, #+8]
+   \   000000DC   000050E3           CMP      R0,#+0
+   \   000000E0   EDFFFF0A           BEQ      ??SmilesToChars_7
+   \   000000E4   0C0080E2           ADD      R0,R0,#+12
+   \                     ??SmilesToChars_9:
+   \   000000E8   ........           LDRB     R1,[R0], #+1
+   \   000000EC   000051E3           CMP      R1,#+0
+   \   000000F0   E9FFFF0A           BEQ      ??SmilesToChars_7
+   \   000000F4   060059E1           CMP      R9,R6
+   \   000000F8   E7FFFFAA           BGE      ??SmilesToChars_7
+   \   000000FC   0810C9E7           STRB     R1,[R9, +R8]
+   \   00000100   019089E2           ADD      R9,R9,#+1
+   \   00000104   F7FFFFEA           B        ??SmilesToChars_9
+    147              }
+    148              msg_buf[scur] = 0;
+   \                     ??SmilesToChars_8:
+   \   00000108   0000A0E3           MOV      R0,#+0
+   \   0000010C   0800C9E7           STRB     R0,[R9, +R8]
+    149              ascii2ws(ws, msg_buf);
+   \   00000110   00009DE5           LDR      R0,[SP, #+0]
+   \   00000114   0810A0E1           MOV      R1,R8
+   \   00000118   ........           _BLF     ascii2ws,??ascii2ws??rA
+    150              mfree(msg_buf);
+   \   0000011C   0800A0E1           MOV      R0,R8
+   \   00000120   150000EF           SWI      +21
+    151            }
+    152          }
+   \   00000124   F18FBDE8           POP      {R0,R4-R11,PC}   ;; return
+    153          
+    154          //---------------------------------------------------------------------------
+    155          // Test edit dialog
+    156          //---------------------------------------------------------------------------
+    157          
+    158          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    159          EDITCONTROL ec_message;
+   \                     ec_message:
+   \   00000000                      DS8 44
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    160          GUI *ed_message_gui;
+   \                     ed_message_gui:
+   \   00000000                      DS8 4
+    161          
+    162          void DispSelectMenu();
+    163          char Mess_was_sent = 0;
+    164          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    165          int inp_onkey(GUI *gui, GUI_MSG *msg)
+    166          {
+   \                     inp_onkey:
+   \   00000000   F0432DE9           PUSH     {R4-R9,LR}
+   \   00000004   38D04DE2           SUB      SP,SP,#+56
+   \   00000008   0140A0E1           MOV      R4,R1
+    167            if(msg->gbsmsg->submess==GREEN_BUTTON)
+   \   0000000C   041094E5           LDR      R1,[R4, #+4]
+   \   00000010   081091E5           LDR      R1,[R1, #+8]
+   \   00000014   0B0051E3           CMP      R1,#+11
+   \   00000018   5E00001A           BNE      ??inp_onkey_0
+    168            {
+    169              extern const char sndMsgSend[];
+    170              EDITCONTROL ec;
+    171              ExtractEditControl(gui, 1, &ec);
+   \   0000001C   0C208DE2           ADD      R2,SP,#+12
+    172              if(ec.pWS->wsbody[0])
+   \   00000020   8C519FE5           LDR      R5,??inp_onkey_1  ;; `?<Constant "/part">`
+   \   00000024   0110A0E3           MOV      R1,#+1
+   \   00000028   690100EF           SWI      +361
+   \   0000002C   34009DE5           LDR      R0,[SP, #+52]
+   \   00000030   000090E5           LDR      R0,[R0, #+0]
+   \   00000034   B000D0E1           LDRH     R0,[R0, #+0]
+   \   00000038   000050E3           CMP      R0,#+0
+   \   0000003C   5200000A           BEQ      ??inp_onkey_2
+    173              {
+    174                WSHDR * ws = AllocWS(MAX_MSG_LEN);
+   \   00000040   400DA0E3           MOV      R0,#+4096
+   \   00000044   250100EF           SWI      +293
+    175                wstrcpy(ws, ec.pWS);
+   \   00000048   34109DE5           LDR      R1,[SP, #+52]
+   \   0000004C   0040A0E1           MOV      R4,R0
+   \   00000050   1F0100EF           SWI      +287
+    176                if (Is_Smiles_Enabled && SmilesImgList)
+   \   00000054   ........           LDR      R0,??DataTable16  ;; Is_Smiles_Enabled
+   \   00000058   000090E5           LDR      R0,[R0, #+0]
+   \   0000005C   000050E3           CMP      R0,#+0
+   \   00000060   0500000A           BEQ      ??inp_onkey_3
+   \   00000064   ........           LDR      R0,??DataTable17  ;; SmilesImgList
+   \   00000068   000090E5           LDR      R0,[R0, #+0]
+   \   0000006C   000050E3           CMP      R0,#+0
+   \   00000070   0100000A           BEQ      ??inp_onkey_3
+    177                  SmilesToChars(ws);
+   \   00000074   0400A0E1           MOV      R0,R4
+   \   00000078   ........           BL       SmilesToChars
+    178                int res_len;
+    179                char * body = malloc(MAX_MSG_LEN);
+    180                ws_2utf8(ws, body, &res_len, MAX_MSG_LEN);
+    181          
+    182                body = realloc(body, res_len + 1);
+    183                body[res_len] = '\0';
+    184                
+    185                char is_gchat = Resource_Ex->entry_type== T_CONF_ROOT ? 1: 0;
+   \                     ??inp_onkey_3:
+   \   0000007C   ........           LDR      R7,??DataTable19  ;; inp_desc
+   \   00000080   400DA0E3           MOV      R0,#+4096
+   \   00000084   140000EF           SWI      +20
+   \   00000088   0060A0E1           MOV      R6,R0
+   \   0000008C   403DA0E3           MOV      R3,#+4096
+   \   00000090   0D20A0E1           MOV      R2,SP
+   \   00000094   0610A0E1           MOV      R1,R6
+   \   00000098   0400A0E1           MOV      R0,R4
+   \   0000009C   E20100EF           SWI      +482
+   \   000000A0   00009DE5           LDR      R0,[SP, #+0]
+   \   000000A4   0090A0E3           MOV      R9,#+0
+   \   000000A8   011080E2           ADD      R1,R0,#+1
+   \   000000AC   0600A0E1           MOV      R0,R6
+   \   000000B0   BA0000EF           SWI      +186
+   \   000000B4   0060A0E1           MOV      R6,R0
+   \   000000B8   00009DE5           LDR      R0,[SP, #+0]
+   \   000000BC   0180A0E3           MOV      R8,#+1
+   \   000000C0   0690C0E7           STRB     R9,[R0, +R6]
+   \   000000C4   500097E5           LDR      R0,[R7, #+80]
+    186                char part_str[]="/part";
+   \   000000C8   0C0095E8           LDM      R5,{R2,R3}
+   \   000000CC   0810D0E5           LDRB     R1,[R0, #+8]
+   \   000000D0   020051E3           CMP      R1,#+2
+   \   000000D4   0190A003           MOVEQ    R9,#+1
+   \   000000D8   04108DE2           ADD      R1,SP,#+4
+   \   000000DC   0C0081E8           STM      R1,{R2,R3}
+    187          
+    188                if(!is_gchat)
+   \   000000E0   0910B0E1           MOVS     R1,R9
+   \   000000E4   1A00001A           BNE      ??inp_onkey_4
+    189                {
+    190                  CList_AddMessage(Resource_Ex->full_name, MSG_ME, body);
+   \   000000E8   040090E5           LDR      R0,[R0, #+4]
+   \   000000EC   0620A0E1           MOV      R2,R6
+   \   000000F0   0110A0E3           MOV      R1,#+1
+   \   000000F4   ........           _BLF     CList_AddMessage,??CList_AddMessage??rA
+    191                }
+    192                else
+    193                {
+    194                  if(strstr(body, part_str)==body)  // Ключ в начале
+    195                  {
+    196                    CLIST* room=CList_FindContactByJID(CList_GetActiveContact()->full_name);
+    197                    Send_Leave_Conference(room->JID);
+    198                    Mess_was_sent = 1;
+    199                    mfree(body);
+    200                    FreeWS(ws);
+    201                    return 1;
+    202                  }
+    203                }
+    204                IPC_MESSAGE_S *mess = malloc(sizeof(IPC_MESSAGE_S));
+   \                     ??inp_onkey_5:
+   \   000000F8   0800A0E3           MOV      R0,#+8
+   \   000000FC   140000EF           SWI      +20
+   \   00000100   0050A0E1           MOV      R5,R0
+    205                mess->IsGroupChat = is_gchat;
+   \   00000104   0090C5E5           STRB     R9,[R5, #+0]
+    206                mess->body = Mask_Special_Syms(body);
+   \   00000108   0600A0E1           MOV      R0,R6
+   \   0000010C   ........           _BLF     Mask_Special_Syms,??Mask_Special_Syms??rA
+   \   00000110   040085E5           STR      R0,[R5, #+4]
+    207                mfree(body);
+   \   00000114   0600A0E1           MOV      R0,R6
+   \   00000118   150000EF           SWI      +21
+    208                SUBPROC((void*)SendMessage,Resource_Ex->full_name, mess);
+   \   0000011C   500097E5           LDR      R0,[R7, #+80]
+   \   00000120   0520A0E1           MOV      R2,R5
+   \   00000124   041090E5           LDR      R1,[R0, #+4]
+   \   00000128   88009FE5           LDR      R0,??inp_onkey_1+0x4  ;; SendMessage
+   \   0000012C   710100EF           SWI      +369
+    209                Mess_was_sent = 1;
+    210                SUBPROC((void *)Play, sndMsgSend);
+   \   00000130   84109FE5           LDR      R1,??inp_onkey_1+0x8  ;; sndMsgSend
+   \   00000134   84009FE5           LDR      R0,??inp_onkey_1+0xC  ;; Play
+   \   00000138   8180C7E5           STRB     R8,[R7, #+129]
+   \   0000013C   710100EF           SWI      +369
+    211                FreeWS(ws);
+   \                     ??inp_onkey_6:
+   \   00000140   0400A0E1           MOV      R0,R4
+   \   00000144   290100EF           SWI      +297
+    212                return 1;
+   \   00000148   0100A0E3           MOV      R0,#+1
+   \   0000014C   38D08DE2           ADD      SP,SP,#+56
+   \   00000150   F083BDE8           POP      {R4-R9,PC}
+   \                     ??inp_onkey_4:
+   \   00000154   04108DE2           ADD      R1,SP,#+4
+   \   00000158   0600A0E1           MOV      R0,R6
+   \   0000015C   180100EF           SWI      +280
+   \   00000160   060050E1           CMP      R0,R6
+   \   00000164   E3FFFF1A           BNE      ??inp_onkey_5
+   \   00000168   ........           _BLF     CList_GetActiveContact,??CList_GetActiveContact??rA
+   \   0000016C   040090E5           LDR      R0,[R0, #+4]
+   \   00000170   ........           _BLF     CList_FindContactByJID,??CList_FindContactByJID??rA
+   \   00000174   000090E5           LDR      R0,[R0, #+0]
+   \   00000178   ........           _BLF     Send_Leave_Conference,??Send_Leave_Conference??rA
+   \   0000017C   8180C7E5           STRB     R8,[R7, #+129]
+   \   00000180   0600A0E1           MOV      R0,R6
+   \   00000184   150000EF           SWI      +21
+   \   00000188   ECFFFFEA           B        ??inp_onkey_6
+    213              }
+    214              else MsgBoxError(1,(int)LG_NOSENDNULLMESS);
+   \                     ??inp_onkey_2:
+   \   0000018C   081085E2           ADD      R1,R5,#+8
+   \   00000190   0100A0E3           MOV      R0,#+1
+   \   00000194   4E0000EF           SWI      +78
+    215            }
+    216          
+    217            if (msg->keys==0x18)
+   \                     ??inp_onkey_0:
+   \   00000198   F200D4E1           LDRSH    R0,[R4, #+2]
+   \   0000019C   180050E3           CMP      R0,#+24
+   \   000001A0   0000001A           BNE      ??inp_onkey_7
+    218            {
+    219              DispSelectMenu();
+   \   000001A4   ........           _BLF     DispSelectMenu,??DispSelectMenu??rA
+    220            }
+    221          
+    222          #ifndef NEWSGOLD
+    223            if (msg->keys==0x0FF0) //Левый софт СГОЛД
+    224            {
+    225              return(1);
+    226            }
+    227          #endif
+    228          
+    229            return(0); //Do standart keys
+   \                     ??inp_onkey_7:
+   \   000001A8   0000A0E3           MOV      R0,#+0
+   \   000001AC   38D08DE2           ADD      SP,SP,#+56
+   \   000001B0   F083BDE8           POP      {R4-R9,PC}       ;; return
+   \                     ??inp_onkey_1:
+   \   000001B4   ........           DC32     `?<Constant "/part">`
+   \   000001B8   ........           DC32     SendMessage
+   \   000001BC   ........           DC32     sndMsgSend
+   \   000001C0   ........           DC32     Play
+    230          
+    231          }
+    232          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    233          void inp_redraw(void *data)
+    234          {
+    235          }
+   \                     inp_redraw:
+   \   00000000   1EFF2FE1           BX       LR               ;; return
+    236          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    237          void inp_ghook(GUI *gui, int cmd)
+    238          {
+   \                     inp_ghook:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   2CD04DE2           SUB      SP,SP,#+44
+   \   00000008   0060A0E1           MOV      R6,R0
+   \   0000000C   0170A0E1           MOV      R7,R1
+    239            static SOFTKEY_DESC sk={0x0018, 0x0000,(int)LG_MENU};
+    240          #ifndef NEWSGOLD
+    241            static const SOFTKEY_DESC sk_cancel={0x0FF0,0x0000,(int)LG_CLOSE};
+    242          #endif
+    243          
+    244            PNGTOP_DESC *pltop=PNG_TOP();
+   \   00000010   B98100EF           SWI      +33209
+    245            if (cmd==TI_CMD_UNFOCUS)
+   \   00000014   0040A0E3           MOV      R4,#+0
+   \   00000018   090057E3           CMP      R7,#+9
+    246            {
+    247              pltop->dyn_pltop=NULL;
+   \   0000001C   08408005           STREQ    R4,[R0, #+8]
+   \   00000020   2A00000A           BEQ      ??inp_ghook_0
+    248            }
+    249          
+    250            if (cmd == TI_CMD_REDRAW)
+   \   00000024   ........           LDR      R5,??DataTable19  ;; inp_desc
+   \   00000028   070057E3           CMP      R7,#+7
+   \   0000002C   0800001A           BNE      ??inp_ghook_1
+    251            {
+    252              EDITCONTROL ec;
+    253              ExtractEditControl(gui, 1, &ec);
+   \   00000030   0D20A0E1           MOV      R2,SP
+   \   00000034   0110A0E3           MOV      R1,#+1
+   \   00000038   0600A0E1           MOV      R0,R6
+   \   0000003C   690100EF           SWI      +361
+    254          #ifdef NEWSGOLD
+    255              SetSoftKey(gui, &sk,0);
+   \   00000040   0020A0E3           MOV      R2,#+0
+   \   00000044   841085E2           ADD      R1,R5,#+132
+   \   00000048   0600A0E1           MOV      R0,R6
+   \   0000004C   680100EF           SWI      +360
+   \   00000050   050000EA           B        ??inp_ghook_2
+    256          #else
+    257             SetSoftKey(gui, &sk, 1);
+    258             if (ec.pWS->wsbody[0]==0)
+    259                SetSoftKey(gui,&sk_cancel,SET_SOFT_KEY_N==0?1:0);
+    260          #endif
+    261            }
+    262          
+    263            if(cmd == TI_CMD_FOCUS)
+   \                     ??inp_ghook_1:
+   \   00000054   0A0057E3           CMP      R7,#+10
+   \   00000058   0500001A           BNE      ??inp_ghook_3
+    264            {
+    265              pltop->dyn_pltop=SmilesImgList;
+   \   0000005C   ........           LDR      R1,??DataTable17  ;; SmilesImgList
+   \   00000060   001091E5           LDR      R1,[R1, #+0]
+   \   00000064   081080E5           STR      R1,[R0, #+8]
+    266              DisableIDLETMR();   // Отключаем таймер выхода по таймауту
+   \   00000068   7F0100EF           SWI      +383
+   \                     ??inp_ghook_2:
+   \   0000006C   2CD08DE2           ADD      SP,SP,#+44
+   \   00000070   F080BDE8           POP      {R4-R7,PC}
+    267            }
+    268            if(cmd == TI_CMD_DESTROY)
+   \                     ??inp_ghook_3:
+   \   00000074   030057E3           CMP      R7,#+3
+   \   00000078   1400001A           BNE      ??inp_ghook_0
+    269            {
+    270              //Send composing CANCELATION
+    271              if(!Mess_was_sent)
+   \   0000007C   8100D5E5           LDRB     R0,[R5, #+129]
+   \   00000080   000050E3           CMP      R0,#+0
+   \   00000084   1000001A           BNE      ??inp_ghook_4
+   \   00000088   500095E5           LDR      R0,[R5, #+80]
+   \   0000008C   0800D0E5           LDRB     R0,[R0, #+8]
+   \   00000090   000050E3           CMP      R0,#+0
+   \   00000094   03005013           CMPNE    R0,#+3
+   \   00000098   0B00001A           BNE      ??inp_ghook_4
+    272                if((Resource_Ex->entry_type == T_NORMAL)||(Resource_Ex->entry_type == T_CONF_NODE))
+    273              {
+    274                char is_gchat = Resource_Ex->entry_type== T_CONF_ROOT ? 1: 0;
+   \   0000009C   020050E3           CMP      R0,#+2
+   \   000000A0   0160A003           MOVEQ    R6,#+1
+   \   000000A4   0060A013           MOVNE    R6,#+0
+    275                IPC_MESSAGE_S *mess = malloc(sizeof(IPC_MESSAGE_S));
+   \   000000A8   0800A0E3           MOV      R0,#+8
+   \   000000AC   140000EF           SWI      +20
+   \   000000B0   0020A0E1           MOV      R2,R0
+    276                mess->IsGroupChat = is_gchat;
+   \   000000B4   0060C2E5           STRB     R6,[R2, #+0]
+    277                mess->body = NULL;
+   \   000000B8   044082E5           STR      R4,[R2, #+4]
+    278                SUBPROC((void*)CancelComposing,Resource_Ex->full_name, mess);
+   \   000000BC   500095E5           LDR      R0,[R5, #+80]
+   \   000000C0   041090E5           LDR      R1,[R0, #+4]
+   \   000000C4   0C009FE5           LDR      R0,??inp_ghook_5  ;; CancelComposing
+   \   000000C8   710100EF           SWI      +369
+    279              }
+    280              Mess_was_sent = 0;
+   \                     ??inp_ghook_4:
+   \   000000CC   8140C5E5           STRB     R4,[R5, #+129]
+    281            }
+    282          }
+   \                     ??inp_ghook_0:
+   \   000000D0   2CD08DE2           ADD      SP,SP,#+44       ;; stack cleaning
+   \   000000D4   F080BDE8           POP      {R4-R7,PC}       ;; return
+   \                     ??inp_ghook_5:
+   \   000000D8   ........           DC32     CancelComposing
+    283          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    284          void inp_locret(void){}
+   \                     inp_locret:
+   \   00000000   1EFF2FE1           BX       LR               ;; return
+    285          
+    286          SOFTKEY_DESC menu_sk[]=
+    287          {
+    288            {0x0018,0x0000,(int)LG_SELECT},
+    289            {0x0001,0x0000,(int)LG_BACK},
+    290            {0x003D,0x0000,(int)LGP_DOIT_PIC}
+    291          };
+    292          
+    293          SOFTKEYSTAB menu_skt=
+    294          {
+    295            menu_sk,0
+    296          };
+    297          
+    298          INPUTDIA_DESC inp_desc=
+    299          {
+    300            1,
+    301            inp_onkey,
+    302            inp_ghook,
+    303            (void *)inp_locret,
+    304            0,
+    305            &menu_skt,
+    306            {0,22,131,153},
+    307            4,
+    308            100,
+    309            101,
+    310            0,
+    311            0,
+    312            0x40000000
+    313          };
+    314          
+    315          HEADER_DESC inp_hdr={0,0,0,0,NULL,(int)LG_NEW,LGP_NULL};
+    316          
+    317          // Открыть окно написания нового сообщения
+    318          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    319          void Init_Message(TRESOURCE* ContEx, char *init_text)
+    320          {
+   \                     Init_Message:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+    321            Resource_Ex = ContEx;
+   \   00000004   A8419FE5           LDR      R4,??Init_Message_0  ;; inp_desc
+   \   00000008   2CD04DE2           SUB      SP,SP,#+44
+   \   0000000C   500084E5           STR      R0,[R4, #+80]
+    322          
+    323            //Send composing
+    324            if((ContEx->entry_type == T_NORMAL)||(ContEx->entry_type == T_CONF_NODE))
+   \   00000010   0800D0E5           LDRB     R0,[R0, #+8]
+   \   00000014   0150A0E1           MOV      R5,R1
+   \   00000018   0060A0E3           MOV      R6,#+0
+   \   0000001C   000050E3           CMP      R0,#+0
+   \   00000020   03005013           CMPNE    R0,#+3
+   \   00000024   0D00001A           BNE      ??Init_Message_1
+    325            {
+    326              char is_gchat = Resource_Ex->entry_type== T_CONF_ROOT ? 1: 0;
+   \   00000028   500094E5           LDR      R0,[R4, #+80]
+   \   0000002C   0800D0E5           LDRB     R0,[R0, #+8]
+   \   00000030   020050E3           CMP      R0,#+2
+   \   00000034   0170A003           MOVEQ    R7,#+1
+   \   00000038   0070A013           MOVNE    R7,#+0
+    327              IPC_MESSAGE_S *mess = malloc(sizeof(IPC_MESSAGE_S));
+   \   0000003C   0800A0E3           MOV      R0,#+8
+   \   00000040   140000EF           SWI      +20
+   \   00000044   0020A0E1           MOV      R2,R0
+    328              mess->IsGroupChat = is_gchat;
+   \   00000048   0070C2E5           STRB     R7,[R2, #+0]
+    329              mess->body = NULL;
+   \   0000004C   046082E5           STR      R6,[R2, #+4]
+    330              SUBPROC((void*)SendComposing,Resource_Ex->full_name, mess);
+   \   00000050   500094E5           LDR      R0,[R4, #+80]
+   \   00000054   041090E5           LDR      R1,[R0, #+4]
+   \   00000058   58019FE5           LDR      R0,??Init_Message_0+0x4  ;; SendComposing
+   \   0000005C   710100EF           SWI      +369
+    331            }
+    332          
+    333            patch_header(&inp_hdr);
+   \                     ??Init_Message_1:
+   \   00000060   B863C4E1           STRH     R6,[R4, #+56]
+   \   00000064   1800A0E3           MOV      R0,#+24
+   \   00000068   BA03C4E1           STRH     R0,[R4, #+58]
+   \   0000006C   888100EF           SWI      +33160
+   \   00000070   010040E2           SUB      R0,R0,#+1
+   \   00000074   BC03C4E1           STRH     R0,[R4, #+60]
+   \   00000078   8A8100EF           SWI      +33162
+   \   0000007C   180080E2           ADD      R0,R0,#+24
+   \   00000080   BE03C4E1           STRH     R0,[R4, #+62]
+    334            patch_input(&inp_desc);
+   \   00000084   B861C4E1           STRH     R6,[R4, #+24]
+   \   00000088   8A8100EF           SWI      +33162
+   \   0000008C   190080E2           ADD      R0,R0,#+25
+   \   00000090   BA01C4E1           STRH     R0,[R4, #+26]
+   \   00000094   888100EF           SWI      +33160
+   \   00000098   010040E2           SUB      R0,R0,#+1
+   \   0000009C   BC01C4E1           STRH     R0,[R4, #+28]
+   \   000000A0   898100EF           SWI      +33161
+   \   000000A4   0060A0E1           MOV      R6,R0
+   \   000000A8   8B8100EF           SWI      +33163
+   \   000000AC   000046E0           SUB      R0,R6,R0
+   \   000000B0   010040E2           SUB      R0,R0,#+1
+   \   000000B4   BE01C4E1           STRH     R0,[R4, #+30]
+    335            WSHDR * ws = AllocWS(MAX_MSG_LEN);
+   \   000000B8   400DA0E3           MOV      R0,#+4096
+   \   000000BC   250100EF           SWI      +293
+   \   000000C0   0060A0E1           MOV      R6,R0
+    336            if(init_text)
+   \   000000C4   000055E3           CMP      R5,#+0
+   \   000000C8   1500000A           BEQ      ??Init_Message_2
+    337            {
+    338              if (Is_Smiles_Enabled && SmilesImgList)
+   \   000000CC   ........           LDR      R0,??DataTable16  ;; Is_Smiles_Enabled
+   \   000000D0   000090E5           LDR      R0,[R0, #+0]
+   \   000000D4   000050E3           CMP      R0,#+0
+   \   000000D8   0D00000A           BEQ      ??Init_Message_3
+   \   000000DC   ........           LDR      R0,??DataTable17  ;; SmilesImgList
+   \   000000E0   000090E5           LDR      R0,[R0, #+0]
+   \   000000E4   000050E3           CMP      R0,#+0
+   \   000000E8   0900000A           BEQ      ??Init_Message_3
+    339              {
+    340                char * tmp_str = NULL;
+    341                if (tmp_str = convUTF8_to_ANSI_STR(init_text))
+   \   000000EC   0500A0E1           MOV      R0,R5
+   \   000000F0   ........           _BLF     convUTF8_to_ANSI_STR,??convUTF8_to_ANSI_STR??rA
+   \   000000F4   0070B0E1           MOVS     R7,R0
+   \   000000F8   0500000A           BEQ      ??Init_Message_3
+    342                {
+    343                  CharsToSmiles(ws, tmp_str);
+   \   000000FC   0710A0E1           MOV      R1,R7
+   \   00000100   0600A0E1           MOV      R0,R6
+   \   00000104   ........           BL       CharsToSmiles
+    344                  mfree(tmp_str);
+   \   00000108   0700A0E1           MOV      R0,R7
+   \   0000010C   150000EF           SWI      +21
+   \   00000110   030000EA           B        ??Init_Message_2
+    345                }
+    346                else utf8_2ws(ws, init_text, MAX_MSG_LEN);
+    347              }
+    348              else
+    349                utf8_2ws(ws, init_text, MAX_MSG_LEN);
+   \                     ??Init_Message_3:
+   \   00000114   402DA0E3           MOV      R2,#+4096
+   \   00000118   0510A0E1           MOV      R1,R5
+   \   0000011C   0600A0E1           MOV      R0,R6
+   \   00000120   E30100EF           SWI      +483
+    350            }
+    351            EDITCONTROL ec;
+    352            void *ma=malloc_adr();
+   \                     ??Init_Message_2:
+   \   00000124   148000EF           SWI      +32788
+   \   00000128   0070A0E1           MOV      R7,R0
+    353            void *eq;
+    354            extern const int FIRST_LETTER;
+    355            PrepareEditControl(&ec);
+   \   0000012C   0D00A0E1           MOV      R0,SP
+   \   00000130   640100EF           SWI      +356
+    356            eq=AllocEQueue(ma,mfree_adr());
+   \   00000134   158000EF           SWI      +32789
+   \   00000138   0010A0E1           MOV      R1,R0
+   \   0000013C   0700A0E1           MOV      R0,R7
+   \   00000140   630100EF           SWI      +355
+   \   00000144   0050A0E1           MOV      R5,R0
+    357            ConstructEditControl(&ec, ECT_NORMAL_TEXT, ECF_APPEND_EOL | ((FIRST_LETTER)?ECF_DEFAULT_BIG_LETTER:0), ws, MAX_MSG_LEN);
+   \   00000148   6C009FE5           LDR      R0,??Init_Message_0+0x8  ;; FIRST_LETTER
+   \   0000014C   401DA0E3           MOV      R1,#+4096
+   \   00000150   000090E5           LDR      R0,[R0, #+0]
+   \   00000154   02002DE9           PUSH     {R1}
+   \   00000158   000050E3           CMP      R0,#+0
+   \   0000015C   400DA013           MOVNE    R0,#+4096
+   \   00000160   0630A0E1           MOV      R3,R6
+   \   00000164   402080E3           ORR      R2,R0,#0x40
+   \   00000168   0310A0E3           MOV      R1,#+3
+   \   0000016C   04008DE2           ADD      R0,SP,#+4
+   \   00000170   650100EF           SWI      +357
+    358            AddEditControlToEditQend(eq,&ec,ma);
+   \   00000174   0720A0E1           MOV      R2,R7
+   \   00000178   04108DE2           ADD      R1,SP,#+4
+   \   0000017C   0500A0E1           MOV      R0,R5
+   \   00000180   660100EF           SWI      +358
+    359            edmessage_id=CreateInputTextDialog(&inp_desc,&inp_hdr,eq,1,0);
+   \   00000184   0000A0E3           MOV      R0,#+0
+   \   00000188   01002DE9           PUSH     {R0}
+   \   0000018C   0130A0E3           MOV      R3,#+1
+   \   00000190   0520A0E1           MOV      R2,R5
+   \   00000194   381084E2           ADD      R1,R4,#+56
+   \   00000198   0400A0E1           MOV      R0,R4
+   \   0000019C   670100EF           SWI      +359
+   \   000001A0   580084E5           STR      R0,[R4, #+88]
+    360            FreeWS(ws);
+   \   000001A4   0600A0E1           MOV      R0,R6
+   \   000001A8   290100EF           SWI      +297
+    361          }
+   \   000001AC   34D08DE2           ADD      SP,SP,#+52
+   \   000001B0   F080BDE8           POP      {R4-R7,PC}       ;; return
+   \                     ??Init_Message_0:
+   \   000001B4   ........           DC32     inp_desc
+   \   000001B8   ........           DC32     SendComposing
+   \   000001BC   ........           DC32     FIRST_LETTER
+    362          ////////////////////////////////////////////////////////////////////////////////
+    363          DISP_MESSAGE* MessagesList = NULL;      // Корень списка
+    364          unsigned int DispMessList_Count = 0;    // Количество сообщений
+    365          unsigned int OLD_MessList_Count = 0;    // Отпарсенное количество сообщений
+    366          unsigned int Cursor_Pos = 0;            // Позиция курсора в списке
+    367          
+    368          
+    369          // Убить список сообщений
+
+   \                                 In segment CODE, align 4, keep-with-next
+    370          void KillDisp(DISP_MESSAGE* messtop)
+    371          {
+   \                     KillDisp:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    372            DISP_MESSAGE* cl=messtop;
+    373            LockSched();
+   \   00000008   460100EF           SWI      +326
+    374            messtop = NULL;
+    375            int cnt=0;
+   \   0000000C   000054E3           CMP      R4,#+0
+   \   00000010   0800000A           BEQ      ??KillDisp_0
+    376            while(cl)
+    377            {
+    378              DISP_MESSAGE *p;
+    379              if(cl->mess)FreeWS(cl->mess);
+   \                     ??KillDisp_1:
+   \   00000014   040094E5           LDR      R0,[R4, #+4]
+   \   00000018   000050E3           CMP      R0,#+0
+   \   0000001C   0000000A           BEQ      ??KillDisp_2
+   \   00000020   290100EF           SWI      +297
+    380              p=cl;
+   \                     ??KillDisp_2:
+   \   00000024   0400A0E1           MOV      R0,R4
+    381              cl=cl->next;
+   \   00000028   0C4094E5           LDR      R4,[R4, #+12]
+    382              mfree(p);
+   \   0000002C   150000EF           SWI      +21
+    383              cnt++;
+    384            }
+   \   00000030   000054E3           CMP      R4,#+0
+   \   00000034   F6FFFF1A           BNE      ??KillDisp_1
+    385            DispMessList_Count = 0;
+   \                     ??KillDisp_0:
+   \   00000038   ........           LDR      R0,??DataTable19  ;; inp_desc
+   \   0000003C   0010A0E3           MOV      R1,#+0
+   \   00000040   601080E5           STR      R1,[R0, #+96]
+    386            OLD_MessList_Count = 0;
+   \   00000044   641080E5           STR      R1,[R0, #+100]
+    387            UnlockSched();
+   \   00000048   470100EF           SWI      +327
+    388          }
+   \   0000004C   1080BDE8           POP      {R4,PC}          ;; return
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     inp_desc:
+   \   00000000                      DS8 56
+   \   00000038                      REQUIRE `?<Initializer for inp_desc>`
+   \                     inp_hdr:
+   \   00000038                      DS8 20
+   \   0000004C                      REQUIRE `?<Initializer for inp_hdr>`
+    389          
+    390          //===============================================================================================
+    391          
+    392          int CurrentPage=1;
+    393          int CurrentMessage = 0;
+    394          int CurrentMessage_Lines = 0;
+    395          int lines_on_page;
+    396          int MaxPages=1;
+    397          unsigned short FontSize;
+   \                     FontSize:
+   \   0000004C                      DS8 2
+   \   0000004E                      REQUIRE `?<Initializer for FontSize>`
+   \   0000004E                      DS8 2
+   \                     Resource_Ex:
+   \   00000050                      DS8 4
+   \   00000054                      REQUIRE `?<Initializer for Resource_Ex>`
+   \                     Message_gui_ID:
+   \   00000054                      DS8 4
+   \   00000058                      REQUIRE `?<Initializer for Message_gui_ID>`
+   \                     edmessage_id:
+   \   00000058                      DS8 4
+   \   0000005C                      REQUIRE `?<Initializer for edmessage_id>`
+   \                     MessagesList:
+   \   0000005C                      DS8 4
+   \   00000060                      REQUIRE `?<Initializer for MessagesList>`
+   \                     DispMessList_Count:
+   \   00000060                      DS8 4
+   \   00000064                      REQUIRE `?<Initializer for DispMessList_Count>`
+   \                     OLD_MessList_Count:
+   \   00000064                      DS8 4
+   \   00000068                      REQUIRE `?<Initializer for OLD_MessList_Count>`
+   \                     Cursor_Pos:
+   \   00000068                      DS8 4
+   \   0000006C                      REQUIRE `?<Initializer for Cursor_Pos>`
+   \                     CurrentPage:
+   \   0000006C                      DS8 4
+   \   00000070                      REQUIRE `?<Initializer for CurrentPage>`
+   \                     CurrentMessage:
+   \   00000070                      DS8 4
+   \   00000074                      REQUIRE `?<Initializer for CurrentMessage>`
+   \                     CurrentMessage_Lines:
+   \   00000074                      DS8 4
+   \   00000078                      REQUIRE `?<Initializer for CurrentMessage_Lines>`
+   \                     lines_on_page:
+   \   00000078                      DS8 4
+   \   0000007C                      REQUIRE `?<Initializer for lines_on_page>`
+   \                     MaxPages:
+   \   0000007C                      DS8 4
+   \   00000080                      REQUIRE `?<Initializer for MaxPages>`
+   \                     MsgList_Quit_Required:
+   \   00000080                      DS8 1
+   \   00000081                      REQUIRE `?<Initializer for MsgList_Quit_Required>`
+   \                     Mess_was_sent:
+   \   00000081                      DS8 1
+   \   00000082                      REQUIRE `?<Initializer for Mess_was_sent>`
+   \   00000082                      DS8 2
+   \   00000084                      DS8 8
+   \   0000008C                      REQUIRE `?<Initializer for sk>`
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     menu_sk:
+   \   00000000                      DS8 24
+   \   00000018                      REQUIRE `?<Initializer for menu_sk>`
+
+   \                                 In segment DATA_I, align 4, align-sorted
+   \                     menu_skt:
+   \   00000000                      DS8 8
+   \   00000008                      REQUIRE `?<Initializer for menu_skt>`
+    398          // Обслуживание созданного GUI
+    399          
+    400          // Всякие посторонние расчёты :)
+
+   \                                 In segment CODE, align 4, keep-with-next
+    401          void Calc_Pages_Data()
+    402          {
+   \                     Calc_Pages_Data:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    403            MaxPages = sdiv(lines_on_page,DispMessList_Count);
+   \   00000004   ........           LDR      R4,??DataTable19  ;; inp_desc
+   \   00000008   601094E5           LDR      R1,[R4, #+96]
+   \   0000000C   780094E5           LDR      R0,[R4, #+120]
+   \   00000010   B80000EF           SWI      +184
+    404            if(lines_on_page*MaxPages<DispMessList_Count)MaxPages++;
+   \   00000014   781094E5           LDR      R1,[R4, #+120]
+   \   00000018   602094E5           LDR      R2,[R4, #+96]
+   \   0000001C   900101E0           MUL      R1,R0,R1
+   \   00000020   020051E1           CMP      R1,R2
+   \   00000024   01008032           ADDCC    R0,R0,#+1
+   \   00000028   7C0084E5           STR      R0,[R4, #+124]
+    405          }
+   \   0000002C   1080BDE8           POP      {R4,PC}          ;; return
+    406          
+    407          // Всякие посторонние расчёты :)
+
+   \                                 In segment CODE, align 4, keep-with-next
+    408          void Calc_Pages_Data_1()
+    409          {
+    410            if((Cursor_Pos-1-(CurrentMessage_Lines)<=(CurrentPage-1)*lines_on_page) && CurrentPage>1)
+   \                     Calc_Pages_Data_1:
+   \   00000000   ........           LDR      R0,??DataTable19  ;; inp_desc
+   \   00000004   10002DE9           PUSH     {R4}
+   \   00000008   6C1090E5           LDR      R1,[R0, #+108]
+   \   0000000C   783090E5           LDR      R3,[R0, #+120]
+   \   00000010   744090E5           LDR      R4,[R0, #+116]
+   \   00000014   012041E2           SUB      R2,R1,#+1
+   \   00000018   93020CE0           MUL      R12,R3,R2
+   \   0000001C   683090E5           LDR      R3,[R0, #+104]
+   \   00000020   013043E2           SUB      R3,R3,#+1
+   \   00000024   043043E0           SUB      R3,R3,R4
+   \   00000028   03005CE1           CMP      R12,R3
+   \   0000002C   0100003A           BCC      ??Calc_Pages_Data_1_0
+   \   00000030   020051E3           CMP      R1,#+2
+    411            {
+    412              CurrentPage--;
+   \   00000034   6C2080A5           STRGE    R2,[R0, #+108]
+    413              //Cursor_Pos--;
+    414              //ShowMSG(1,(int)"Q");
+    415              
+    416            }
+    417            else
+    418            {
+    419              //char q[20];
+    420              //sprintf(q,"Cur=%d > %d", Cursor_Pos-1-(CurrentMessage_Lines), (CurrentPage-1)*lines_on_page);
+    421              //ShowMSG(1,(int)q);
+    422            }
+    423          }
+   \                     ??Calc_Pages_Data_1_0:
+   \   00000038   1000BDE8           POP      {R4}
+   \   0000003C   1EFF2FE1           BX       LR               ;; return
+    424          
+    425          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    426          void Calc_Pages_Data_2()
+    427          {
+    428            if(Cursor_Pos+1>CurrentPage*lines_on_page)
+   \                     Calc_Pages_Data_2:
+   \   00000000   ........           LDR      R0,??DataTable19  ;; inp_desc
+   \   00000004   6C1090E5           LDR      R1,[R0, #+108]
+   \   00000008   782090E5           LDR      R2,[R0, #+120]
+   \   0000000C   920103E0           MUL      R3,R2,R1
+   \   00000010   682090E5           LDR      R2,[R0, #+104]
+   \   00000014   012082E2           ADD      R2,R2,#+1
+   \   00000018   020053E1           CMP      R3,R2
+    429            {
+    430              CurrentPage++;
+   \   0000001C   01108132           ADDCC    R1,R1,#+1
+   \   00000020   6C108035           STRCC    R1,[R0, #+108]
+    431              //Cursor_Pos++;
+    432            }
+    433          }
+   \   00000024   1EFF2FE1           BX       LR               ;; return
+    434          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    435          void mGUI_onRedraw(GUI *data)
+    436          {
+   \                     mGUI_onRedraw:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+    437            if(Resource_Ex->total_msg_count!=OLD_MessList_Count)
+   \   00000004   ........           LDR      R4,??DataTable19  ;; inp_desc
+   \   00000008   08D04DE2           SUB      SP,SP,#+8
+   \   0000000C   500094E5           LDR      R0,[R4, #+80]
+   \   00000010   642094E5           LDR      R2,[R4, #+100]
+   \   00000014   181090E5           LDR      R1,[R0, #+24]
+   \   00000018   020051E1           CMP      R1,R2
+   \   0000001C   0300000A           BEQ      ??mGUI_onRedraw_1
+    438            {
+    439              //KillDisp(MessagesList);
+    440              ParseMessagesIntoList(Resource_Ex);
+   \   00000020   ........           BL       ParseMessagesIntoList
+    441              OLD_MessList_Count = Resource_Ex->total_msg_count;
+   \   00000024   500094E5           LDR      R0,[R4, #+80]
+   \   00000028   180090E5           LDR      R0,[R0, #+24]
+   \   0000002C   640084E5           STR      R0,[R4, #+100]
+    442            }
+    443            // Расчёт количества строк на одной странице
+    444            Calc_Pages_Data();
+    445            // Заголовок окна
+    446            DrawRectangle(0,SCR_START,ScreenW()-1,SCR_START+FontSize*2+1,0,
+    447                             0, color(MESSAGEWIN_TITLE_BGCOLOR));
+    448          
+    449            DrawRectangle(0,SCR_START+FontSize+2,ScreenW()-1,ScreenH()-1,0,
+    450                             0, color(MESSAGEWIN_BGCOLOR));
+    451          
+    452            // Делаем типо название окошка... :)
+    453            WSHDR* ws_title = AllocWS(256);
+    454            if (Resource_Ex->entry_type==T_CONF_NODE) utf8_2ws(ws_title, Resource_Ex->name, 256);
+    455             else utf8_2ws(ws_title, Resource_Ex->full_name, 256);
+    456          
+    457            DrawString(ws_title,1,SCR_START+1,ScreenW()-1,SCR_START+FontSize+1,MESSAGEWIN_FONT,0,color(MESSAGEWIN_TITLE_FONT),0);
+   \                     ??mGUI_onRedraw_1:
+   \   00000030   ........           LDR      R6,??DataTable31  ;; MESSAGEWIN_FONT
+   \   00000034   ........           BL       Calc_Pages_Data
+   \   00000038   888100EF           SWI      +33160
+   \   0000003C   60139FE5           LDR      R1,??mGUI_onRedraw_2  ;; MESSAGEWIN_TITLE_BGCOLOR
+   \   00000040   1920A0E3           MOV      R2,#+25
+   \   00000044   02002DE9           PUSH     {R1}
+    458          
+    459            DISP_MESSAGE * ml = MessagesList;
+    460            int i_ctrl=1;
+   \   00000048   0180A0E3           MOV      R8,#+1
+    461            int kur = 0;
+   \   0000004C   00B0A0E3           MOV      R11,#+0
+    462            RGBA MsgBgColor;
+    463            RGBA MsgBg2Color;
+    464            CurrentMessage_Lines = 0;
+   \   00000050   0090A0E3           MOV      R9,#+0
+   \   00000054   0010A0E3           MOV      R1,#+0
+   \   00000058   02002DE9           PUSH     {R1}
+   \   0000005C   02002DE9           PUSH     {R1}
+   \   00000060   BC14D4E1           LDRH     R1,[R4, #+76]
+    465            int Y_pos = NULL; // Стартовая позиция текущей строки
+   \   00000064   09A0A0E1           MOV      R10,R9
+   \   00000068   813082E0           ADD      R3,R2,R1, LSL #+1
+   \   0000006C   012040E2           SUB      R2,R0,#+1
+   \   00000070   1810A0E3           MOV      R1,#+24
+   \   00000074   0000A0E3           MOV      R0,#+0
+   \   00000078   B40100EF           SWI      +436
+   \   0000007C   898100EF           SWI      +33161
+   \   00000080   0050A0E1           MOV      R5,R0
+   \   00000084   888100EF           SWI      +33160
+   \   00000088   18139FE5           LDR      R1,??mGUI_onRedraw_2+0x4  ;; MESSAGEWIN_BGCOLOR
+   \   0000008C   013045E2           SUB      R3,R5,#+1
+   \   00000090   02002DE9           PUSH     {R1}
+   \   00000094   012040E2           SUB      R2,R0,#+1
+   \   00000098   0010A0E3           MOV      R1,#+0
+   \   0000009C   02002DE9           PUSH     {R1}
+   \   000000A0   02002DE9           PUSH     {R1}
+   \   000000A4   BC04D4E1           LDRH     R0,[R4, #+76]
+   \   000000A8   1A1080E2           ADD      R1,R0,#+26
+   \   000000AC   0000A0E3           MOV      R0,#+0
+   \   000000B0   B40100EF           SWI      +436
+   \   000000B4   400FA0E3           MOV      R0,#+256
+   \   000000B8   250100EF           SWI      +293
+   \   000000BC   0050A0E1           MOV      R5,R0
+   \   000000C0   500094E5           LDR      R0,[R4, #+80]
+   \   000000C4   402FA0E3           MOV      R2,#+256
+   \   000000C8   0810D0E5           LDRB     R1,[R0, #+8]
+   \   000000CC   18D08DE2           ADD      SP,SP,#+24
+   \   000000D0   030051E3           CMP      R1,#+3
+   \   000000D4   00109005           LDREQ    R1,[R0, #+0]
+   \   000000D8   04109015           LDRNE    R1,[R0, #+4]
+   \   000000DC   0500A0E1           MOV      R0,R5
+   \   000000E0   E30100EF           SWI      +483
+   \   000000E4   888100EF           SWI      +33160
+   \   000000E8   0010A0E3           MOV      R1,#+0
+   \   000000EC   02002DE9           PUSH     {R1}
+   \   000000F0   B4129FE5           LDR      R1,??mGUI_onRedraw_2+0x8  ;; MESSAGEWIN_TITLE_FONT
+   \   000000F4   013040E2           SUB      R3,R0,#+1
+   \   000000F8   02002DE9           PUSH     {R1}
+   \   000000FC   1920A0E3           MOV      R2,#+25
+   \   00000100   0500A0E1           MOV      R0,R5
+   \   00000104   0010A0E3           MOV      R1,#+0
+   \   00000108   02002DE9           PUSH     {R1}
+   \   0000010C   001096E5           LDR      R1,[R6, #+0]
+   \   00000110   02002DE9           PUSH     {R1}
+   \   00000114   BC14D4E1           LDRH     R1,[R4, #+76]
+   \   00000118   191081E2           ADD      R1,R1,#+25
+   \   0000011C   02002DE9           PUSH     {R1}
+   \   00000120   0110A0E3           MOV      R1,#+1
+   \   00000124   4C0100EF           SWI      +332
+   \   00000128   5C7094E5           LDR      R7,[R4, #+92]
+   \   0000012C   749084E5           STR      R9,[R4, #+116]
+   \   00000130   000057E3           CMP      R7,#+0
+   \   00000134   14D08DE2           ADD      SP,SP,#+20
+   \   00000138   9400000A           BEQ      ??mGUI_onRedraw_3
+    466            while(ml)
+    467            {
+    468              if((i_ctrl>(CurrentPage-1)*lines_on_page) && (i_ctrl<=CurrentPage*lines_on_page))
+   \                     ??mGUI_onRedraw_4:
+   \   0000013C   780094E5           LDR      R0,[R4, #+120]
+   \   00000140   6C1094E5           LDR      R1,[R4, #+108]
+   \   00000144   012041E2           SUB      R2,R1,#+1
+   \   00000148   900202E0           MUL      R2,R0,R2
+   \   0000014C   080052E1           CMP      R2,R8
+   \   00000150   8A0000AA           BGE      ??mGUI_onRedraw_5
+   \   00000154   900101E0           MUL      R1,R0,R1
+   \   00000158   080051E1           CMP      R1,R8
+   \   0000015C   870000BA           BLT      ??mGUI_onRedraw_5
+    469              {
+    470                switch(ml->mtype)
+   \   00000160   0000D7E5           LDRB     R0,[R7, #+0]
+   \   00000164   010040E2           SUB      R0,R0,#+1
+   \   00000168   040050E3           CMP      R0,#+4
+   \   0000016C   1D00008A           BHI      ??mGUI_onRedraw_6
+   \   00000170   011F8FE2           ADR      R1,??mGUI_onRedraw_0
+   \   00000174   0010D1E7           LDRB     R1,[R1, R0]
+   \   00000178   01F18FE0           ADD      PC,PC,R1, LSL #+2
+   \                     ??mGUI_onRedraw_0:
+   \   0000017C   01040B06           DC8      +1,+4,+11,+6
+   \   00000180   09000000           DC8      +9,+0,+0,+0
+    471                {
+    472                case MSG_ME:      MsgBgColor=MESSAGEWIN_MY_BGCOLOR; break;
+   \                     ??mGUI_onRedraw_7:
+   \   00000184   24129FE5           LDR      R1,??mGUI_onRedraw_2+0xC  ;; MESSAGEWIN_MY_BGCOLOR
+   \                     ??mGUI_onRedraw_8:
+   \   00000188   0D00A0E1           MOV      R0,SP
+   \   0000018C   0D0000EA           B        ??mGUI_onRedraw_9
+    473                case MSG_CHAT:    MsgBgColor=MESSAGEWIN_CH_BGCOLOR;break;
+   \                     ??mGUI_onRedraw_10:
+   \   00000190   1C129FE5           LDR      R1,??mGUI_onRedraw_2+0x10  ;; MESSAGEWIN_CH_BGCOLOR
+   \   00000194   FBFFFFEA           B        ??mGUI_onRedraw_8
+    474                case MSG_SYSTEM:  MsgBgColor=MESSAGEWIN_SYS_BGCOLOR;break;
+   \                     ??mGUI_onRedraw_11:
+   \   00000198   18129FE5           LDR      R1,??mGUI_onRedraw_2+0x14  ;; MESSAGEWIN_SYS_BGCOLOR
+   \   0000019C   0D00A0E1           MOV      R0,SP
+   \   000001A0   080000EA           B        ??mGUI_onRedraw_9
+    475                case MSG_STATUS:  MsgBgColor=MESSAGEWIN_STATUS_BGCOLOR;break;
+   \                     ??mGUI_onRedraw_12:
+   \   000001A4   10129FE5           LDR      R1,??mGUI_onRedraw_2+0x18  ;; MESSAGEWIN_STATUS_BGCOLOR
+   \   000001A8   F6FFFFEA           B        ??mGUI_onRedraw_8
+    476                case MSG_GCHAT:   MsgBgColor=ml->log_mess_number %2==0? MESSAGEWIN_GCHAT_BGCOLOR_1 : MESSAGEWIN_GCHAT_BGCOLOR_2; break;
+   \                     ??mGUI_onRedraw_13:
+   \   000001AC   B200D7E1           LDRH     R0,[R7, #+2]
+   \   000001B0   0010A0E1           MOV      R1,R0
+   \   000001B4   A000A0E1           LSR      R0,R0,#+1
+   \   000001B8   800051E0           SUBS     R0,R1,R0, LSL #+1
+   \   000001BC   FC119F05           LDREQ    R1,??mGUI_onRedraw_2+0x1C  ;; MESSAGEWIN_GCHAT_BGCOLOR_1
+   \   000001C0   0D00A0E1           MOV      R0,SP
+   \   000001C4   F8119F15           LDRNE    R1,??mGUI_onRedraw_2+0x20  ;; MESSAGEWIN_GCHAT_BGCOLOR_2
+   \                     ??mGUI_onRedraw_9:
+   \   000001C8   0020D1E5           LDRB     R2,[R1, #0]
+   \   000001CC   0020C0E5           STRB     R2,[R0, #+0]
+   \   000001D0   0120D1E5           LDRB     R2,[R1, #+1]
+   \   000001D4   0120C0E5           STRB     R2,[R0, #+1]
+   \   000001D8   0220D1E5           LDRB     R2,[R1, #+2]
+   \   000001DC   0220C0E5           STRB     R2,[R0, #+2]
+   \   000001E0   0320D1E5           LDRB     R2,[R1, #+3]
+   \   000001E4   0320C0E5           STRB     R2,[R0, #+3]
+    477                }
+    478                MsgBg2Color=MsgBgColor;
+   \                     ??mGUI_onRedraw_6:
+   \   000001E8   0D10A0E1           MOV      R1,SP
+   \   000001EC   0020D1E5           LDRB     R2,[R1, #0]
+   \   000001F0   04008DE2           ADD      R0,SP,#+4
+   \   000001F4   0020C0E5           STRB     R2,[R0, #+0]
+   \   000001F8   0120D1E5           LDRB     R2,[R1, #+1]
+   \   000001FC   0120C0E5           STRB     R2,[R0, #+1]
+   \   00000200   0220D1E5           LDRB     R2,[R1, #+2]
+   \   00000204   0220C0E5           STRB     R2,[R0, #+2]
+   \   00000208   0320D1E5           LDRB     R2,[R1, #+3]
+   \   0000020C   0320C0E5           STRB     R2,[R0, #+3]
+    479                
+    480                if(CurrentMessage == ml->log_mess_number)
+   \   00000210   B210D7E1           LDRH     R1,[R7, #+2]
+   \   00000214   700094E5           LDR      R0,[R4, #+112]
+   \   00000218   010050E1           CMP      R0,R1
+    481                {
+    482                  Cursor_Pos = i_ctrl;
+   \   0000021C   68808405           STREQ    R8,[R4, #+104]
+    483                  kur = 1;
+    484                }
+    485                
+    486                if(Cursor_Pos == i_ctrl)
+   \   00000220   681094E5           LDR      R1,[R4, #+104]
+   \   00000224   01B0A003           MOVEQ    R11,#+1
+   \   00000228   080051E1           CMP      R1,R8
+   \   0000022C   2B00001A           BNE      ??mGUI_onRedraw_14
+    487                {
+    488                  MsgBgColor = MESSAGEWIN_CURSOR_BGCOLOR;
+   \   00000230   90219FE5           LDR      R2,??mGUI_onRedraw_2+0x24  ;; MESSAGEWIN_CURSOR_BGCOLOR
+   \   00000234   0D30A0E1           MOV      R3,SP
+   \   00000238   00C0D2E5           LDRB     R12,[R2, #0]
+   \   0000023C   00C0C3E5           STRB     R12,[R3, #+0]
+   \   00000240   01C0D2E5           LDRB     R12,[R2, #+1]
+   \   00000244   01C0C3E5           STRB     R12,[R3, #+1]
+   \   00000248   02C0D2E5           LDRB     R12,[R2, #+2]
+   \   0000024C   02C0C3E5           STRB     R12,[R3, #+2]
+   \   00000250   03C0D2E5           LDRB     R12,[R2, #+3]
+   \   00000254   03C0C3E5           STRB     R12,[R3, #+3]
+    489                  
+    490                  if(pod_mess)
+   \   00000258   6C319FE5           LDR      R3,??mGUI_onRedraw_2+0x28  ;; pod_mess
+   \   0000025C   003093E5           LDR      R3,[R3, #+0]
+   \   00000260   000053E3           CMP      R3,#+0
+   \   00000264   0A00000A           BEQ      ??mGUI_onRedraw_15
+    491                    MsgBg2Color= CURSOR_BORDER;
+   \   00000268   60319FE5           LDR      R3,??mGUI_onRedraw_2+0x2C  ;; CURSOR_BORDER
+   \   0000026C   04208DE2           ADD      R2,SP,#+4
+   \   00000270   00C0D3E5           LDRB     R12,[R3, #0]
+   \   00000274   00C0C2E5           STRB     R12,[R2, #+0]
+   \   00000278   01C0D3E5           LDRB     R12,[R3, #+1]
+   \   0000027C   01C0C2E5           STRB     R12,[R2, #+1]
+   \   00000280   02C0D3E5           LDRB     R12,[R3, #+2]
+   \   00000284   02C0C2E5           STRB     R12,[R2, #+2]
+   \   00000288   03C0D3E5           LDRB     R12,[R3, #+3]
+   \   0000028C   03C0C2E5           STRB     R12,[R2, #+3]
+   \   00000290   080000EA           B        ??mGUI_onRedraw_16
+    492                  else
+    493                    MsgBg2Color=MESSAGEWIN_CURSOR_BGCOLOR;
+   \                     ??mGUI_onRedraw_15:
+   \   00000294   00C0D2E5           LDRB     R12,[R2, #0]
+   \   00000298   04308DE2           ADD      R3,SP,#+4
+   \   0000029C   00C0C3E5           STRB     R12,[R3, #+0]
+   \   000002A0   01C0D2E5           LDRB     R12,[R2, #+1]
+   \   000002A4   01C0C3E5           STRB     R12,[R3, #+1]
+   \   000002A8   02C0D2E5           LDRB     R12,[R2, #+2]
+   \   000002AC   02C0C3E5           STRB     R12,[R3, #+2]
+   \   000002B0   03C0D2E5           LDRB     R12,[R2, #+3]
+   \   000002B4   03C0C3E5           STRB     R12,[R3, #+3]
+    494                  
+    495                  DISP_MESSAGE *mln = ml->next;
+   \                     ??mGUI_onRedraw_16:
+   \   000002B8   0C2097E5           LDR      R2,[R7, #+12]
+    496                  if(mln)
+   \   000002BC   000052E3           CMP      R2,#+0
+   \   000002C0   0300000A           BEQ      ??mGUI_onRedraw_17
+    497                    if(CurrentMessage==mln->log_mess_number) Cursor_Pos++;  // Обновляем позицию курсора
+   \   000002C4   B220D2E1           LDRH     R2,[R2, #+2]
+   \   000002C8   020050E1           CMP      R0,R2
+   \   000002CC   01008102           ADDEQ    R0,R1,#+1
+   \   000002D0   68008405           STREQ    R0,[R4, #+104]
+    498                  CurrentMessage_Lines++;
+   \                     ??mGUI_onRedraw_17:
+   \   000002D4   740094E5           LDR      R0,[R4, #+116]
+   \   000002D8   010080E2           ADD      R0,R0,#+1
+   \   000002DC   740084E5           STR      R0,[R4, #+116]
+    499                }
+    500                
+    501                DrawRectangle(0, SCR_START + FontSize + 2 + Y_pos, ScreenW() - 1, SCR_START + FontSize + 2 + ml->line_height + Y_pos - kur, 0,
+    502                                 color(MsgBg2Color), color(MsgBgColor));
+   \                     ??mGUI_onRedraw_14:
+   \   000002E0   888100EF           SWI      +33160
+   \   000002E4   BC14D4E1           LDRH     R1,[R4, #+76]
+   \   000002E8   0D20A0E1           MOV      R2,SP
+   \   000002EC   04002DE9           PUSH     {R2}
+   \   000002F0   0A1081E0           ADD      R1,R1,R10
+   \   000002F4   08208DE2           ADD      R2,SP,#+8
+   \   000002F8   04002DE9           PUSH     {R2}
+   \   000002FC   0020A0E3           MOV      R2,#+0
+   \   00000300   04002DE9           PUSH     {R2}
+   \   00000304   082097E5           LDR      R2,[R7, #+8]
+   \   00000308   012082E0           ADD      R2,R2,R1
+   \   0000030C   1A2082E2           ADD      R2,R2,#+26
+   \   00000310   0B3042E0           SUB      R3,R2,R11
+   \   00000314   012040E2           SUB      R2,R0,#+1
+   \   00000318   1A1081E2           ADD      R1,R1,#+26
+   \   0000031C   0900A0E1           MOV      R0,R9
+   \   00000320   B40100EF           SWI      +436
+    503          
+    504                DrawString(ml->mess, MSG_START_X, SCR_START + FontSize + 2 + Y_pos, ScreenW()-1, SCR_START + FontSize + 2 + ml->line_height + Y_pos, MESSAGEWIN_FONT, 0,
+    505                           color(MESSAGEWIN_CHAT_FONT), 0);
+   \   00000324   888100EF           SWI      +33160
+   \   00000328   BC14D4E1           LDRH     R1,[R4, #+76]
+   \   0000032C   0920A0E1           MOV      R2,R9
+   \   00000330   04002DE9           PUSH     {R2}
+   \   00000334   98209FE5           LDR      R2,??mGUI_onRedraw_2+0x30  ;; MESSAGEWIN_CHAT_FONT
+   \   00000338   0A1081E0           ADD      R1,R1,R10
+   \   0000033C   04002DE9           PUSH     {R2}
+   \   00000340   013040E2           SUB      R3,R0,#+1
+   \   00000344   0920A0E1           MOV      R2,R9
+   \   00000348   04002DE9           PUSH     {R2}
+   \   0000034C   002096E5           LDR      R2,[R6, #+0]
+   \   00000350   04002DE9           PUSH     {R2}
+   \   00000354   082097E5           LDR      R2,[R7, #+8]
+   \   00000358   012082E0           ADD      R2,R2,R1
+   \   0000035C   1A2082E2           ADD      R2,R2,#+26
+   \   00000360   04002DE9           PUSH     {R2}
+   \   00000364   040097E5           LDR      R0,[R7, #+4]
+   \   00000368   1A2081E2           ADD      R2,R1,#+26
+   \   0000036C   0110A0E3           MOV      R1,#+1
+   \   00000370   4C0100EF           SWI      +332
+    506          
+    507                Y_pos += ml->line_height;
+   \   00000374   080097E5           LDR      R0,[R7, #+8]
+   \   00000378   20D08DE2           ADD      SP,SP,#+32
+   \   0000037C   0AA080E0           ADD      R10,R0,R10
+    508              }
+    509              ml = ml->next;
+   \                     ??mGUI_onRedraw_5:
+   \   00000380   0C7097E5           LDR      R7,[R7, #+12]
+    510              i_ctrl++;
+   \   00000384   018088E2           ADD      R8,R8,#+1
+    511            }
+   \   00000388   000057E3           CMP      R7,#+0
+   \   0000038C   6AFFFF1A           BNE      ??mGUI_onRedraw_4
+    512            FreeWS(ws_title);
+   \                     ??mGUI_onRedraw_3:
+   \   00000390   0500A0E1           MOV      R0,R5
+   \   00000394   290100EF           SWI      +297
+    513            Resource_Ex->has_unread_msg =0; // Непрочитанных сообщений больше нет
+   \   00000398   500094E5           LDR      R0,[R4, #+80]
+   \   0000039C   149080E5           STR      R9,[R0, #+20]
+    514          }
+   \   000003A0   F38FBDE8           POP      {R0,R1,R4-R11,PC}  ;; return
+   \                     ??mGUI_onRedraw_2:
+   \   000003A4   ........           DC32     MESSAGEWIN_TITLE_BGCOLOR
+   \   000003A8   ........           DC32     MESSAGEWIN_BGCOLOR
+   \   000003AC   ........           DC32     MESSAGEWIN_TITLE_FONT
+   \   000003B0   ........           DC32     MESSAGEWIN_MY_BGCOLOR
+   \   000003B4   ........           DC32     MESSAGEWIN_CH_BGCOLOR
+   \   000003B8   ........           DC32     MESSAGEWIN_SYS_BGCOLOR
+   \   000003BC   ........           DC32     MESSAGEWIN_STATUS_BGCOLOR
+   \   000003C0   ........           DC32     MESSAGEWIN_GCHAT_BGCOLOR_1
+   \   000003C4   ........           DC32     MESSAGEWIN_GCHAT_BGCOLOR_2
+   \   000003C8   ........           DC32     MESSAGEWIN_CURSOR_BGCOLOR
+   \   000003CC   ........           DC32     pod_mess
+   \   000003D0   ........           DC32     CURSOR_BORDER
+   \   000003D4   ........           DC32     MESSAGEWIN_CHAT_FONT
+    515          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    516          void mGUI_onCreate(GUI *data, void *(*malloc_adr)(int))
+    517          {
+    518            data->state=1;
+   \                     mGUI_onCreate:
+   \   00000000   0110A0E3           MOV      R1,#+1
+   \   00000004   0C10C0E5           STRB     R1,[R0, #+12]
+    519            MsgList_Quit_Required=0;
+   \   00000008   08009FE5           LDR      R0,??mGUI_onCreate_0  ;; inp_desc + 128
+   \   0000000C   0010A0E3           MOV      R1,#+0
+   \   00000010   0010C0E5           STRB     R1,[R0, #+0]
+    520          }
+   \   00000014   1EFF2FE1           BX       LR               ;; return
+   \                     ??mGUI_onCreate_0:
+   \   00000018   ........           DC32     inp_desc + 128
+    521          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    522          void mGUI_onClose(GUI *data, void (*mfree_adr)(void *))
+    523          {
+   \                     mGUI_onClose:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    524            if (Is_Smiles_Enabled && SmilesImgList)
+   \   00000008   ........           LDR      R0,??DataTable16  ;; Is_Smiles_Enabled
+   \   0000000C   0050A0E3           MOV      R5,#+0
+   \   00000010   000090E5           LDR      R0,[R0, #+0]
+   \   00000014   000050E3           CMP      R0,#+0
+   \   00000018   0500000A           BEQ      ??mGUI_onClose_0
+   \   0000001C   ........           LDR      R0,??DataTable17  ;; SmilesImgList
+   \   00000020   000090E5           LDR      R0,[R0, #+0]
+   \   00000024   000050E3           CMP      R0,#+0
+   \   00000028   0100000A           BEQ      ??mGUI_onClose_0
+    525            {
+    526              PNGTOP_DESC * pltop = PNG_TOP();
+   \   0000002C   B98100EF           SWI      +33209
+    527              pltop->dyn_pltop = NULL;
+   \   00000030   085080E5           STR      R5,[R0, #+8]
+    528            }
+    529            KillDisp(MessagesList);
+   \                     ??mGUI_onClose_0:
+   \   00000034   ........           LDR      R0,??DataTable26  ;; inp_desc + 92
+   \   00000038   000090E5           LDR      R0,[R0, #+0]
+   \   0000003C   ........           BL       KillDisp
+    530            data->state=0;
+   \   00000040   0C50C4E5           STRB     R5,[R4, #+12]
+    531          }
+   \   00000044   3080BDE8           POP      {R4,R5,PC}       ;; return
+    532          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    533          void mGUI_onFocus(GUI *data, void *(*malloc_adr)(int), void (*mfree_adr)(void *))
+    534          {
+   \                     mGUI_onFocus:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    535            if (Is_Smiles_Enabled && SmilesImgList)
+   \   00000008   ........           LDR      R0,??DataTable16  ;; Is_Smiles_Enabled
+   \   0000000C   000090E5           LDR      R0,[R0, #+0]
+   \   00000010   000050E3           CMP      R0,#+0
+   \   00000014   0600000A           BEQ      ??mGUI_onFocus_0
+   \   00000018   ........           LDR      R5,??DataTable17  ;; SmilesImgList
+   \   0000001C   000095E5           LDR      R0,[R5, #+0]
+   \   00000020   000050E3           CMP      R0,#+0
+   \   00000024   0200000A           BEQ      ??mGUI_onFocus_0
+    536            {
+    537              PNGTOP_DESC * pltop = PNG_TOP();
+   \   00000028   B98100EF           SWI      +33209
+    538              pltop->dyn_pltop = SmilesImgList;
+   \   0000002C   001095E5           LDR      R1,[R5, #+0]
+   \   00000030   081080E5           STR      R1,[R0, #+8]
+    539            }
+    540            DisableIDLETMR();   // Отключаем таймер выхода по таймауту
+   \                     ??mGUI_onFocus_0:
+   \   00000034   7F0100EF           SWI      +383
+    541            data->state=2;
+   \   00000038   0200A0E3           MOV      R0,#+2
+   \   0000003C   0C00C4E5           STRB     R0,[R4, #+12]
+    542          }
+   \   00000040   3080BDE8           POP      {R4,R5,PC}       ;; return
+    543          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    544          void mGUI_onUnfocus(GUI *data, void (*mfree_adr)(void *))
+    545          {
+    546            if (data->state!=2) return;
+   \                     mGUI_onUnfocus:
+   \   00000000   0C10D0E5           LDRB     R1,[R0, #+12]
+   \   00000004   020051E3           CMP      R1,#+2
+    547            data->state=1;
+   \   00000008   0110A003           MOVEQ    R1,#+1
+   \   0000000C   0C10C005           STRBEQ   R1,[R0, #+12]
+    548          }
+   \   00000010   1EFF2FE1           BX       LR               ;; return
+    549          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    550          LOG_MESSAGE *GetCurMessage()
+    551          {
+    552            unsigned int i=0;
+    553            LOG_MESSAGE* log =Resource_Ex->log;
+   \                     GetCurMessage:
+   \   00000000   ........           LDR      R2,??DataTable19  ;; inp_desc
+   \   00000004   0010A0E3           MOV      R1,#+0
+   \   00000008   500092E5           LDR      R0,[R2, #+80]
+   \   0000000C   1C0090E5           LDR      R0,[R0, #+28]
+   \   00000010   000000EA           B        ??GetCurMessage_0
+    554            while(log)
+    555            {
+    556              i++;
+    557              if(i==CurrentMessage)break;
+    558              log = log->next;
+   \                     ??GetCurMessage_1:
+   \   00000014   0C0090E5           LDR      R0,[R0, #+12]
+   \                     ??GetCurMessage_0:
+   \   00000018   000050E3           CMP      R0,#+0
+   \   0000001C   1EFF2F01           BXEQ     LR
+   \   00000020   703092E5           LDR      R3,[R2, #+112]
+   \   00000024   011081E2           ADD      R1,R1,#+1
+   \   00000028   030051E1           CMP      R1,R3
+   \   0000002C   F8FFFF1A           BNE      ??GetCurMessage_1
+    559            }
+    560            return log;
+   \   00000030   1EFF2FE1           BX       LR               ;; return
+    561          }
+    562          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    563          int mGUI_onKey(GUI *data, GUI_MSG *msg)
+    564          {
+   \                     mGUI_onKey:
+   \   00000000   F24F2DE9           PUSH     {R1,R4-R11,LR}
+    565            if(MsgList_Quit_Required)
+   \   00000004   ........           LDR      R4,??DataTable19  ;; inp_desc
+   \   00000008   8000D4E5           LDRB     R0,[R4, #+128]
+   \   0000000C   000050E3           CMP      R0,#+0
+   \   00000010   0100000A           BEQ      ??mGUI_onKey_2
+    566              return 1; //Происходит вызов GeneralFunc для тек. GUI -> закрытие GUI
+   \                     ??mGUI_onKey_3:
+   \   00000014   0100A0E3           MOV      R0,#+1
+   \   00000018   F28FBDE8           POP      {R1,R4-R11,PC}
+    567          
+    568            if (KBD_LAYOUT)
+   \                     ??mGUI_onKey_2:
+   \   0000001C   00209DE5           LDR      R2,[SP, #+0]
+   \   00000020   A4B49FE5           LDR      R11,??mGUI_onKey_4  ;; KBD_LAYOUT
+   \   00000024   042092E5           LDR      R2,[R2, #+4]
+   \   00000028   00B09BE5           LDR      R11,[R11, #+0]
+   \   0000002C   500094E5           LDR      R0,[R4, #+80]
+   \   00000030   7C6094E5           LDR      R6,[R4, #+124]
+   \   00000034   6C1094E5           LDR      R1,[R4, #+108]
+   \   00000038   0A70A0E3           MOV      R7,#+10
+   \   0000003C   3E80A0E3           MOV      R8,#+62
+   \   00000040   2090A0E3           MOV      R9,#+32
+   \   00000044   3AA0A0E3           MOV      R10,#+58
+   \   00000048   9330A0E3           MOV      R3,#+147
+   \   0000004C   403F83E3           ORR      R3,R3,#0x100
+   \   00000050   0050A0E3           MOV      R5,#+0
+   \   00000054   00005BE3           CMP      R11,#+0
+   \   00000058   04B092E5           LDR      R11,[R2, #+4]
+   \   0000005C   9400000A           BEQ      ??mGUI_onKey_5
+    569            {
+    570              if (msg->gbsmsg->msg==KEY_DOWN)
+   \   00000060   03005BE1           CMP      R11,R3
+   \   00000064   EA00001A           BNE      ??mGUI_onKey_6
+    571              {
+    572                switch(msg->gbsmsg->submess)
+   \   00000068   082092E5           LDR      R2,[R2, #+8]
+   \   0000006C   042042E2           SUB      R2,R2,#+4
+   \   00000070   3A0052E3           CMP      R2,#+58
+   \   00000074   E600008A           BHI      ??mGUI_onKey_6
+   \   00000078   023F8FE2           ADR      R3,??mGUI_onKey_0
+   \   0000007C   8220A0E1           MOV      R2,R2, LSL #+1
+   \   00000080   F23093E1           LDRSH    R3,[R3, R2]
+   \   00000084   03F18FE0           ADD      PC,PC,R3, LSL #+2
+   \                     ??mGUI_onKey_0:
+   \   00000088   E2FFE200E200       DC16     +65506,+226,+226,+226
+   \              E200        
+   \   00000090   E200E200E200       DC16     +226,+226,+226,+135
+   \              8700        
+   \   00000098   E200E200E200       DC16     +226,+226,+226,+226
+   \              E200        
+   \   000000A0   E200E200E200       DC16     +226,+226,+226,+226
+   \              E200        
+   \   000000A8   E200E200E200       DC16     +226,+226,+226,+226
+   \              E200        
+   \   000000B0   E200E2002500       DC16     +226,+226,+37,+226
+   \              E200        
+   \   000000B8   E200E200E200       DC16     +226,+226,+226,+226
+   \              E200        
+   \   000000C0   E200E200E200       DC16     +226,+226,+226,+199
+   \              C700        
+   \   000000C8   E200E200E200       DC16     +226,+226,+226,+226
+   \              E200        
+   \   000000D0   E200E200E200       DC16     +226,+226,+226,+226
+   \              E200        
+   \   000000D8   E200E200E200       DC16     +226,+226,+226,+226
+   \              E200        
+   \   000000E0   1D007A003B00       DC16     +29,+122,+59,+226
+   \              E200        
+   \   000000E8   E2002500E200       DC16     +226,+37,+226,+226
+   \              E200        
+   \   000000F0   5B008000E200       DC16     +91,+128,+226,+59
+   \              3B00        
+   \   000000F8   5B0047006800       DC16     +91,+71,+104,+0
+   \              0000        
+    573                {
+    574                case '0':
+    575                  // Убить список сообщений
+    576                  KillMsgList(Resource_Ex->log);
+   \                     ??mGUI_onKey_7:
+   \   00000100   1C0090E5           LDR      R0,[R0, #+28]
+   \   00000104   ........           _BLF     KillMsgList,??KillMsgList??rA
+    577                  Resource_Ex->log = NULL;
+   \   00000108   500094E5           LDR      R0,[R4, #+80]
+   \   0000010C   1C5080E5           STR      R5,[R0, #+28]
+    578                  Resource_Ex->has_unread_msg=0;
+   \   00000110   145080E5           STR      R5,[R0, #+20]
+    579                  Resource_Ex->total_msg_count=0;
+   \   00000114   185080E5           STR      R5,[R0, #+24]
+    580                  return 1;
+   \   00000118   0100A0E3           MOV      R0,#+1
+   \   0000011C   F28FBDE8           POP      {R1,R4-R11,PC}
+    581                  
+    582          #ifndef NEWSGOLD
+    583                case RED_BUTTON:
+    584          #endif
+    585                case RIGHT_SOFT:
+    586                  return 1;
+    587          
+    588                case LEFT_SOFT:
+    589                    break;
+    590          
+    591                case '5':
+    592                case ENTER_BUTTON:
+    593                  {
+    594                    LOG_MESSAGE* log =GetCurMessage();
+   \                     ??mGUI_onKey_8:
+   \   00000120   ........           BL       GetCurMessage
+    595                    if(log)
+   \   00000124   000050E3           CMP      R0,#+0
+   \   00000128   B900000A           BEQ      ??mGUI_onKey_6
+    596                    {
+    597                      char *s=log->mess;
+   \   0000012C   089090E5           LDR      R9,[R0, #+8]
+    598                      unsigned int l = strlen(s);
+   \   00000130   0900A0E1           MOV      R0,R9
+   \   00000134   1B0000EF           SWI      +27
+   \   00000138   00A0A0E1           MOV      R10,R0
+    599                      char *init_text = malloc(l+3+1);
+   \   0000013C   04B08AE2           ADD      R11,R10,#+4
+   \   00000140   0B00A0E1           MOV      R0,R11
+   \   00000144   140000EF           SWI      +20
+   \   00000148   0060A0E1           MOV      R6,R0
+    600                      zeromem(init_text,l+3+1);
+   \   0000014C   0B10A0E1           MOV      R1,R11
+   \   00000150   1D0100EF           SWI      +285
+    601                      init_text[0] = '>';
+   \   00000154   0080C6E5           STRB     R8,[R6, #+0]
+    602                      init_text[1] = '>';
+   \   00000158   0180C6E5           STRB     R8,[R6, #+1]
+    603                      strcat(init_text, s);
+   \   0000015C   0910A0E1           MOV      R1,R9
+   \   00000160   0600A0E1           MOV      R0,R6
+   \   00000164   170000EF           SWI      +23
+    604                      init_text[2+ l] = '\n';
+   \   00000168   06008AE0           ADD      R0,R10,R6
+   \   0000016C   0270C0E5           STRB     R7,[R0, #+2]
+    605                      init_text[3+ l] = '\0';
+   \   00000170   0350C0E5           STRB     R5,[R0, #+3]
+    606                      Init_Message(Resource_Ex, init_text);
+   \   00000174   A10000EA           B        ??mGUI_onKey_9
+    607                      mfree(init_text);
+    608                    }
+    609                  }
+    610                  break;
+    611                  
+    612                case '2':
+    613                case UP_BUTTON:
+    614                  Calc_Pages_Data_1();
+   \                     ??mGUI_onKey_10:
+   \   00000178   ........           BL       Calc_Pages_Data_1
+    615                  CurrentMessage_Lines = 0;
+    616                  if (Cursor_Pos > 1) Cursor_Pos --;
+   \   0000017C   681094E5           LDR      R1,[R4, #+104]
+   \   00000180   745084E5           STR      R5,[R4, #+116]
+   \   00000184   020051E3           CMP      R1,#+2
+   \   00000188   01004122           SUBCS    R0,R1,#+1
+    617                  if (CurrentMessage > 1) CurrentMessage --;
+   \   0000018C   701094E5           LDR      R1,[R4, #+112]
+   \   00000190   68008425           STRCS    R0,[R4, #+104]
+   \   00000194   020051E3           CMP      R1,#+2
+   \   00000198   010041A2           SUBGE    R0,R1,#+1
+   \   0000019C   700084A5           STRGE    R0,[R4, #+112]
+    618                  REDRAW();
+   \                     ??mGUI_onKey_11:
+   \   000001A0   720100EF           SWI      +370
+   \   000001A4   9A0000EA           B        ??mGUI_onKey_6
+    619                  break;
+    620          
+    621                case LEFT_BUTTON: //страница вверх
+    622                  {
+    623                    if (CurrentPage>1)
+   \                     ??mGUI_onKey_12:
+   \   000001A8   020051E3           CMP      R1,#+2
+   \   000001AC   0E0000BA           BLT      ??mGUI_onKey_13
+    624                    {
+    625                      int cp=CurrentPage;
+   \   000001B0   0160A0E1           MOV      R6,R1
+    626                      for(;;)
+    627                      {
+    628                        CurrentMessage_Lines = 0;
+    629                        Cursor_Pos--;
+   \                     ??mGUI_onKey_14:
+   \   000001B4   680094E5           LDR      R0,[R4, #+104]
+   \   000001B8   745084E5           STR      R5,[R4, #+116]
+   \   000001BC   010040E2           SUB      R0,R0,#+1
+   \   000001C0   680084E5           STR      R0,[R4, #+104]
+    630                        CurrentMessage--;
+   \   000001C4   700094E5           LDR      R0,[R4, #+112]
+   \   000001C8   010040E2           SUB      R0,R0,#+1
+   \   000001CC   700084E5           STR      R0,[R4, #+112]
+    631                        Calc_Pages_Data_1();
+   \   000001D0   ........           BL       Calc_Pages_Data_1
+    632                        if (CurrentPage+1==cp || CurrentPage<1)
+   \   000001D4   6C0094E5           LDR      R0,[R4, #+108]
+   \   000001D8   011080E2           ADD      R1,R0,#+1
+   \   000001DC   060051E1           CMP      R1,R6
+   \   000001E0   0100000A           BEQ      ??mGUI_onKey_13
+   \   000001E4   010050E3           CMP      R0,#+1
+   \   000001E8   F1FFFFAA           BGE      ??mGUI_onKey_14
+    633                          break;
+    634                      }
+    635                    }
+    636                    Cursor_Pos=DispMessList_Count;
+   \                     ??mGUI_onKey_13:
+   \   000001EC   600094E5           LDR      R0,[R4, #+96]
+   \   000001F0   680084E5           STR      R0,[R4, #+104]
+    637                    REDRAW();
+   \   000001F4   E9FFFFEA           B        ??mGUI_onKey_11
+    638                  }
+    639                  break;
+    640                  
+    641                case '8':
+    642                case DOWN_BUTTON:
+    643                  CurrentMessage_Lines = 0;
+    644                  if (Cursor_Pos < DispMessList_Count)
+   \                     ??mGUI_onKey_15:
+   \   000001F8   681094E5           LDR      R1,[R4, #+104]
+   \   000001FC   602094E5           LDR      R2,[R4, #+96]
+   \   00000200   745084E5           STR      R5,[R4, #+116]
+   \   00000204   020051E1           CMP      R1,R2
+    645                    Cursor_Pos ++;
+   \   00000208   01108132           ADDCC    R1,R1,#+1
+   \   0000020C   68108435           STRCC    R1,[R4, #+104]
+    646                  if (CurrentMessage < Resource_Ex->total_msg_count)
+   \   00000210   701094E5           LDR      R1,[R4, #+112]
+   \   00000214   180090E5           LDR      R0,[R0, #+24]
+   \   00000218   000051E1           CMP      R1,R0
+    647                    CurrentMessage ++;
+   \   0000021C   01008132           ADDCC    R0,R1,#+1
+   \   00000220   70008435           STRCC    R0,[R4, #+112]
+    648                  Calc_Pages_Data_2();
+   \   00000224   ........           BL       Calc_Pages_Data_2
+    649                  REDRAW();
+   \                     ??mGUI_onKey_16:
+   \   00000228   DCFFFFEA           B        ??mGUI_onKey_11
+    650                  break;
+    651          
+    652                case RIGHT_BUTTON:
+    653                  {
+    654                    if (CurrentPage<MaxPages)
+   \                     ??mGUI_onKey_17:
+   \   0000022C   060051E1           CMP      R1,R6
+   \   00000230   DAFFFFAA           BGE      ??mGUI_onKey_11
+    655                    {
+    656                      int cp=CurrentPage;
+   \   00000234   0170A0E1           MOV      R7,R1
+    657                      for(;;)
+    658                      {
+    659                        CurrentMessage_Lines = 0;
+    660                        Cursor_Pos++;
+   \                     ??mGUI_onKey_18:
+   \   00000238   680094E5           LDR      R0,[R4, #+104]
+   \   0000023C   745084E5           STR      R5,[R4, #+116]
+   \   00000240   010080E2           ADD      R0,R0,#+1
+   \   00000244   680084E5           STR      R0,[R4, #+104]
+    661                        CurrentMessage++;
+   \   00000248   700094E5           LDR      R0,[R4, #+112]
+   \   0000024C   010080E2           ADD      R0,R0,#+1
+   \   00000250   700084E5           STR      R0,[R4, #+112]
+    662                        Calc_Pages_Data_2();
+   \   00000254   ........           BL       Calc_Pages_Data_2
+    663                        if (CurrentPage-1==cp || CurrentPage>=MaxPages)
+   \   00000258   6C0094E5           LDR      R0,[R4, #+108]
+   \   0000025C   011040E2           SUB      R1,R0,#+1
+   \   00000260   070051E1           CMP      R1,R7
+   \   00000264   CDFFFF0A           BEQ      ??mGUI_onKey_11
+   \   00000268   060050E1           CMP      R0,R6
+   \   0000026C   F1FFFFBA           BLT      ??mGUI_onKey_18
+   \   00000270   CAFFFFEA           B        ??mGUI_onKey_11
+    664                          break;
+    665                      }
+    666                    }
+    667                    REDRAW();
+    668                  }
+    669                  break;
+    670                  
+    671                case '1': // в начало списка сообщений
+    672                  CurrentMessage_Lines = 0;
+   \                     ??mGUI_onKey_19:
+   \   00000274   745084E5           STR      R5,[R4, #+116]
+    673                  Cursor_Pos=1;
+   \   00000278   0100A0E3           MOV      R0,#+1
+   \   0000027C   680084E5           STR      R0,[R4, #+104]
+    674                  CurrentMessage=1;
+   \   00000280   700084E5           STR      R0,[R4, #+112]
+    675                  CurrentPage=1;
+   \   00000284   6C0084E5           STR      R0,[R4, #+108]
+    676                  REDRAW();
+   \   00000288   C4FFFFEA           B        ??mGUI_onKey_11
+    677                  break;
+    678          
+    679                case '9': // в конец списка сообщений
+    680                  CurrentMessage_Lines = 0;
+    681                  Cursor_Pos=DispMessList_Count;
+   \                     ??mGUI_onKey_20:
+   \   0000028C   601094E5           LDR      R1,[R4, #+96]
+   \   00000290   745084E5           STR      R5,[R4, #+116]
+   \   00000294   681084E5           STR      R1,[R4, #+104]
+    682                  CurrentMessage=Resource_Ex->total_msg_count;
+   \   00000298   180090E5           LDR      R0,[R0, #+24]
+    683                  CurrentPage=MaxPages;
+   \   0000029C   6C6084E5           STR      R6,[R4, #+108]
+   \   000002A0   700084E5           STR      R0,[R4, #+112]
+    684                  REDRAW();
+   \   000002A4   BDFFFFEA           B        ??mGUI_onKey_11
+    685                  break;
+    686          
+    687                case '#':
+    688                  {
+    689                    LOG_MESSAGE *msg = GetCurMessage();
+    690                    if(msg)
+    691                    {
+    692                      if(msg->mtype==MSG_GCHAT)
+    693                      {
+    694                        unsigned int au_nick_len = strlen(msg->muc_author);
+    695                        char *init_text = malloc(au_nick_len+3);
+    696                        zeromem(init_text, au_nick_len+3);
+    697                        strcpy(init_text, msg->muc_author);
+    698                        init_text[au_nick_len]=':';
+    699                        init_text[au_nick_len+1]=' ';
+    700                        init_text[au_nick_len+2]='\0';
+    701                        Init_Message(Resource_Ex, init_text);
+    702                        mfree(init_text);
+    703                      }
+    704                    }
+    705                  }
+    706                  break;
+    707                  
+    708                case GREEN_BUTTON:
+    709                  Init_Message(Resource_Ex, NULL);
+   \                     ??mGUI_onKey_21:
+   \   000002A8   0010A0E3           MOV      R1,#+0
+   \   000002AC   ........           BL       Init_Message
+   \   000002B0   570000EA           B        ??mGUI_onKey_6
+    710                  break;
+    711                }
+    712              }
+    713            }
+    714            else
+    715            {
+    716              if (msg->gbsmsg->msg==KEY_DOWN)
+   \                     ??mGUI_onKey_5:
+   \   000002B4   03005BE1           CMP      R11,R3
+   \   000002B8   5500001A           BNE      ??mGUI_onKey_6
+    717              {
+    718                switch(msg->gbsmsg->submess)
+   \   000002BC   082092E5           LDR      R2,[R2, #+8]
+   \   000002C0   012042E2           SUB      R2,R2,#+1
+   \   000002C4   3D0052E3           CMP      R2,#+61
+   \   000002C8   5100008A           BHI      ??mGUI_onKey_6
+   \   000002CC   023F8FE2           ADR      R3,??mGUI_onKey_1
+   \   000002D0   8220A0E1           MOV      R2,R2, LSL #+1
+   \   000002D4   F23093E1           LDRSH    R3,[R3, R2]
+   \   000002D8   03F18FE0           ADD      PC,PC,R3, LSL #+2
+   \                     ??mGUI_onKey_1:
+   \   000002DC   1E004D004D00       DC16     +30,+77,+77,+65357
+   \              4DFF        
+   \   000002E4   4D004D004D00       DC16     +77,+77,+77,+77
+   \              4D00        
+   \   000002EC   4D004D00F2FF       DC16     +77,+77,+65522,+77
+   \              4D00        
+   \   000002F4   4D004D004D00       DC16     +77,+77,+77,+77
+   \              4D00        
+   \   000002FC   4D004D004D00       DC16     +77,+77,+77,+77
+   \              4D00        
+   \   00000304   4D004D004D00       DC16     +77,+77,+77,+77
+   \              4D00        
+   \   0000030C   4D0090FF4D00       DC16     +77,+65424,+77,+77
+   \              4D00        
+   \   00000314   4D004D004D00       DC16     +77,+77,+77,+77
+   \              4D00        
+   \   0000031C   4D004D004D00       DC16     +77,+77,+77,+77
+   \              4D00        
+   \   00000324   4D004D004D00       DC16     +77,+77,+77,+77
+   \              4D00        
+   \   0000032C   4D004D004D00       DC16     +77,+77,+77,+77
+   \              4D00        
+   \   00000334   4D004D004D00       DC16     +77,+77,+77,+65416
+   \              88FF        
+   \   0000033C   E5FFA6FF4D00       DC16     +65509,+65446,+77,+32
+   \              2000        
+   \   00000344   90FFD3FF4D00       DC16     +65424,+65491,+77,+65478
+   \              C6FF        
+   \   0000034C   EBFF4D00A6FF       DC16     +65515,+77,+65446,+65478
+   \              C6FF        
+   \   00000354   4D003200           DC16     +77,+50
+    719                {
+    720                case '0':
+    721                  KillMsgList(Resource_Ex->log);
+    722                  Resource_Ex->log = NULL;
+    723                  Resource_Ex->has_unread_msg=0;
+    724                  Resource_Ex->total_msg_count=0;
+    725                  return 1;
+    726          
+    727          #ifndef NEWSGOLD
+    728                case RED_BUTTON:
+    729          #endif
+    730                case RIGHT_SOFT:
+    731                  return 1;
+    732          
+    733                case LEFT_SOFT:
+    734                 Disp_Contact_Menu();
+   \                     ??mGUI_onKey_22:
+   \   00000358   ........           _BLF     Disp_Contact_Menu,??Disp_Contact_Menu??rA
+   \   0000035C   2C0000EA           B        ??mGUI_onKey_6
+    735                  break;
+    736                  
+    737                case '5':
+    738                case ENTER_BUTTON:
+    739                  {
+    740                    LOG_MESSAGE* log =GetCurMessage();
+    741                    if(log)
+    742                    {
+    743                      char *s=log->mess;
+    744                      unsigned int l = strlen(s);
+    745                      char *init_text = malloc(l+3+1);
+    746                      zeromem(init_text,l+3+1);
+    747                      init_text[0] = '>';
+    748                      init_text[1] = '>';
+    749                      strcat(init_text, s);
+    750                      init_text[2+ l] = '\n';
+    751                      init_text[3+ l] = '\0';
+    752                      Init_Message(Resource_Ex, init_text);
+    753                      mfree(init_text);
+    754                    }
+    755                  }
+    756                  break;
+    757                  
+    758                case '2':
+    759                case UP_BUTTON:
+    760                  Calc_Pages_Data_1();
+    761                  CurrentMessage_Lines = 0;
+    762                  if (Cursor_Pos > 1) Cursor_Pos --;
+    763                  if (CurrentMessage > 1) CurrentMessage --;
+    764                  REDRAW();
+    765                  break;
+    766                  
+    767                case '4': //страница вверх
+    768                  {
+    769                    if (CurrentPage>1)
+   \                     ??mGUI_onKey_23:
+   \   00000360   020051E3           CMP      R1,#+2
+   \   00000364   A0FFFFBA           BLT      ??mGUI_onKey_13
+    770                    {
+    771                      int cp=CurrentPage;
+   \   00000368   0160A0E1           MOV      R6,R1
+    772                      for(;;)
+    773                      {
+    774                        CurrentMessage_Lines = 0;
+    775                        Cursor_Pos--;
+   \                     ??mGUI_onKey_24:
+   \   0000036C   680094E5           LDR      R0,[R4, #+104]
+   \   00000370   745084E5           STR      R5,[R4, #+116]
+   \   00000374   010040E2           SUB      R0,R0,#+1
+   \   00000378   680084E5           STR      R0,[R4, #+104]
+    776                        CurrentMessage--;
+   \   0000037C   700094E5           LDR      R0,[R4, #+112]
+   \   00000380   010040E2           SUB      R0,R0,#+1
+   \   00000384   700084E5           STR      R0,[R4, #+112]
+    777                        Calc_Pages_Data_1();
+   \   00000388   ........           BL       Calc_Pages_Data_1
+    778                        if (CurrentPage+1==cp || CurrentPage<1)
+   \   0000038C   6C0094E5           LDR      R0,[R4, #+108]
+   \   00000390   011080E2           ADD      R1,R0,#+1
+   \   00000394   060051E1           CMP      R1,R6
+   \   00000398   93FFFF0A           BEQ      ??mGUI_onKey_13
+   \   0000039C   010050E3           CMP      R0,#+1
+   \   000003A0   F1FFFFAA           BGE      ??mGUI_onKey_24
+   \   000003A4   90FFFFEA           B        ??mGUI_onKey_13
+    779                          break;
+    780                      }
+    781                    }
+    782                    Cursor_Pos=DispMessList_Count;
+    783                    REDRAW();
+    784                  }
+    785                  break;
+    786                  
+    787                case '8':
+    788                case DOWN_BUTTON:
+    789                  CurrentMessage_Lines = 0;
+    790                  if (Cursor_Pos < DispMessList_Count) Cursor_Pos ++;
+    791                  if (CurrentMessage < Resource_Ex->total_msg_count) CurrentMessage ++;
+    792                  Calc_Pages_Data_2();
+    793                  REDRAW();
+    794                  break;
+    795          
+    796                case '6':
+    797                  {
+    798                    if (CurrentPage<MaxPages)
+    799                    {
+    800                      int cp=CurrentPage;
+    801                      for(;;)
+    802                      {
+    803                        CurrentMessage_Lines = 0;
+    804                        Cursor_Pos++;
+    805                        CurrentMessage++;
+    806                        Calc_Pages_Data_2();
+    807                        if (CurrentPage-1==cp || CurrentPage>=MaxPages)
+    808                          break;
+    809                      }
+    810                    }
+    811                    REDRAW();
+    812                  }
+    813                  break;
+    814                  
+    815                case '1'://в начало списка сообщений
+    816                  CurrentMessage_Lines = 0;
+    817                  Cursor_Pos=1;
+    818                  CurrentMessage=1;
+    819                  CurrentPage=1;
+    820                  REDRAW();
+    821                  break;
+    822          
+    823                case '9'://в конец списка сообщений
+    824                  CurrentMessage_Lines = 0;
+    825                  Cursor_Pos=DispMessList_Count;
+    826                  CurrentMessage=Resource_Ex->total_msg_count;
+    827                  CurrentPage=MaxPages;
+    828                  REDRAW();
+    829                  break;
+    830          
+    831                case RIGHT_BUTTON:
+    832                  {
+    833                    LOG_MESSAGE *msg = GetCurMessage();
+   \                     ??mGUI_onKey_25:
+   \   000003A8   ........           BL       GetCurMessage
+   \   000003AC   0070B0E1           MOVS     R7,R0
+    834                    if(msg)
+   \   000003B0   1700000A           BEQ      ??mGUI_onKey_6
+    835                      if(msg->mtype==MSG_GCHAT)
+   \   000003B4   0000D7E5           LDRB     R0,[R7, #+0]
+   \   000003B8   030050E3           CMP      R0,#+3
+   \   000003BC   1400001A           BNE      ??mGUI_onKey_6
+    836                      {
+    837                        unsigned int au_nick_len = strlen(msg->muc_author);
+   \   000003C0   040097E5           LDR      R0,[R7, #+4]
+   \   000003C4   1B0000EF           SWI      +27
+   \   000003C8   0080A0E1           MOV      R8,R0
+    838                        char *init_text = malloc(au_nick_len+3);
+   \   000003CC   03B088E2           ADD      R11,R8,#+3
+   \   000003D0   0B00A0E1           MOV      R0,R11
+   \   000003D4   140000EF           SWI      +20
+   \   000003D8   0060A0E1           MOV      R6,R0
+    839                        zeromem(init_text, au_nick_len+3);
+   \   000003DC   0B10A0E1           MOV      R1,R11
+   \   000003E0   1D0100EF           SWI      +285
+    840                        strcpy(init_text, msg->muc_author);
+   \   000003E4   041097E5           LDR      R1,[R7, #+4]
+   \   000003E8   0600A0E1           MOV      R0,R6
+   \   000003EC   1A0000EF           SWI      +26
+    841                        init_text[au_nick_len]=':';
+   \   000003F0   060088E0           ADD      R0,R8,R6
+   \   000003F4   00A0C0E5           STRB     R10,[R0, #+0]
+    842                        init_text[au_nick_len+1]=' ';
+   \   000003F8   0190C0E5           STRB     R9,[R0, #+1]
+    843                        init_text[au_nick_len+2]='\0';
+   \   000003FC   0250C0E5           STRB     R5,[R0, #+2]
+    844                        Init_Message(Resource_Ex, init_text);
+   \                     ??mGUI_onKey_9:
+   \   00000400   500094E5           LDR      R0,[R4, #+80]
+   \   00000404   0610A0E1           MOV      R1,R6
+   \   00000408   ........           BL       Init_Message
+    845                        mfree(init_text);
+   \   0000040C   0600A0E1           MOV      R0,R6
+   \   00000410   150000EF           SWI      +21
+    846                      }
+    847                  }
+    848                  break;
+    849                  
+    850                case GREEN_BUTTON:
+    851                  Init_Message(Resource_Ex, NULL);
+    852                  break;
+    853                }
+    854              }
+    855            }
+    856            if (msg->gbsmsg->msg==LONG_PRESS)
+   \                     ??mGUI_onKey_6:
+   \   00000414   00009DE5           LDR      R0,[SP, #+0]
+   \   00000418   9520A0E3           MOV      R2,#+149
+   \   0000041C   040090E5           LDR      R0,[R0, #+4]
+   \   00000420   402F82E3           ORR      R2,R2,#0x100
+   \   00000424   041090E5           LDR      R1,[R0, #+4]
+   \   00000428   020051E1           CMP      R1,R2
+   \   0000042C   2400001A           BNE      ??mGUI_onKey_26
+    857            {
+    858              switch (msg->gbsmsg->submess)
+   \   00000430   080090E5           LDR      R0,[R0, #+8]
+   \   00000434   320050E2           SUBS     R0,R0,#+50
+   \   00000438   0700000A           BEQ      ??mGUI_onKey_27
+   \   0000043C   060050E2           SUBS     R0,R0,#+6
+   \   00000440   1100000A           BEQ      ??mGUI_onKey_28
+   \   00000444   030050E2           SUBS     R0,R0,#+3
+   \   00000448   0300000A           BEQ      ??mGUI_onKey_27
+   \   0000044C   010050E2           SUBS     R0,R0,#+1
+   \   00000450   0D00000A           BEQ      ??mGUI_onKey_28
+   \   00000454   0000A0E3           MOV      R0,#+0
+   \   00000458   F28FBDE8           POP      {R1,R4-R11,PC}
+    859              {
+    860              case '2':
+    861              case UP_BUTTON:
+    862                Calc_Pages_Data_1();
+   \                     ??mGUI_onKey_27:
+   \   0000045C   ........           BL       Calc_Pages_Data_1
+    863                CurrentMessage_Lines = 0;
+    864                if (Cursor_Pos > 1) Cursor_Pos --;
+   \   00000460   680094E5           LDR      R0,[R4, #+104]
+   \   00000464   745084E5           STR      R5,[R4, #+116]
+   \   00000468   020050E3           CMP      R0,#+2
+   \   0000046C   01004022           SUBCS    R0,R0,#+1
+   \   00000470   68008425           STRCS    R0,[R4, #+104]
+    865                if (CurrentMessage > 1) CurrentMessage --;
+   \   00000474   700094E5           LDR      R0,[R4, #+112]
+   \   00000478   020050E3           CMP      R0,#+2
+   \   0000047C   0F0000BA           BLT      ??mGUI_onKey_29
+   \   00000480   010040E2           SUB      R0,R0,#+1
+   \   00000484   700084E5           STR      R0,[R4, #+112]
+    866                REDRAW();
+   \   00000488   0C0000EA           B        ??mGUI_onKey_29
+    867                break;
+    868                
+    869              case '8':
+    870              case DOWN_BUTTON:
+    871                CurrentMessage_Lines = 0;
+    872                if (Cursor_Pos < DispMessList_Count) Cursor_Pos++;
+   \                     ??mGUI_onKey_28:
+   \   0000048C   680094E5           LDR      R0,[R4, #+104]
+   \   00000490   601094E5           LDR      R1,[R4, #+96]
+   \   00000494   745084E5           STR      R5,[R4, #+116]
+   \   00000498   010050E1           CMP      R0,R1
+    873                if (CurrentMessage < Resource_Ex->total_msg_count) CurrentMessage++;
+   \   0000049C   501094E5           LDR      R1,[R4, #+80]
+   \   000004A0   01008032           ADDCC    R0,R0,#+1
+   \   000004A4   68008435           STRCC    R0,[R4, #+104]
+   \   000004A8   700094E5           LDR      R0,[R4, #+112]
+   \   000004AC   181091E5           LDR      R1,[R1, #+24]
+   \   000004B0   010050E1           CMP      R0,R1
+   \   000004B4   01008032           ADDCC    R0,R0,#+1
+   \   000004B8   70008435           STRCC    R0,[R4, #+112]
+    874                Calc_Pages_Data_2();
+   \   000004BC   ........           BL       Calc_Pages_Data_2
+    875                REDRAW();
+   \                     ??mGUI_onKey_29:
+   \   000004C0   720100EF           SWI      +370
+    876                break;
+    877              }
+    878            }
+    879            return(0);
+   \                     ??mGUI_onKey_26:
+   \   000004C4   0000A0E3           MOV      R0,#+0
+   \   000004C8   F28FBDE8           POP      {R1,R4-R11,PC}   ;; return
+   \                     ??mGUI_onKey_4:
+   \   000004CC   ........           DC32     KBD_LAYOUT
+    880          }
+    881          
+    882          
+    883          extern void kill_data(void *p, void (*func_p)(void *));
+    884          
+    885          // ГУЙ
+
+   \                                 In segment CODE, align 4, keep-with-next
+    886          int mGUI_method8(void){return(0);}
+   \                     mGUI_method8:
+   \   00000000   0000A0E3           MOV      R0,#+0
+   \   00000004   1EFF2FE1           BX       LR               ;; return
+    887          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    888          int mGUI_method9(void){return(0);}
+   \                     mGUI_method9:
+   \   00000000   0000A0E3           MOV      R0,#+0
+   \   00000004   1EFF2FE1           BX       LR               ;; return
+    889          
+
+   \                                 In segment DATA_C, align 4, align-sorted
+    890          const void * const mgui_methods[11]={
+    891            (void *)mGUI_onRedraw,  //Redraw
+    892            (void *)mGUI_onCreate,  //Create
+    893            (void *)mGUI_onClose,   //Close
+    894            (void *)mGUI_onFocus,   //Focus
+    895            (void *)mGUI_onUnfocus, //Unfocus
+    896            (void *)mGUI_onKey,     //OnKey
+    897            0,
+    898            (void *)kill_data,      //onDestroy
+    899            (void *)mGUI_method8,
+    900            (void *)mGUI_method9,
+    901            0
+    902          };
+    903          
+    904          const RECT mCanvas={0,0,0,0};
+   \                     mCanvas:
+   \   00000000   000000000000       DC16 0, 0, 0, 0
+   \              0000        
+   \                     mgui_methods:
+   \   00000008   ............       DC32 mGUI_onRedraw, mGUI_onCreate, mGUI_onClose, mGUI_onFocus
+   \              ............
+   \              ........    
+   \   00000018   ............       DC32 mGUI_onUnfocus, mGUI_onKey, 0H, kill_data, mGUI_method8
+   \              ....00000000
+   \              ............
+   \              ....        
+   \   0000002C   ........0000       DC32 mGUI_method9, 0H
+   \              0000        
+    905          
+    906          // Получить связанную структуру DISP_MESSAGE для отображения на экране
+
+   \                                 In segment CODE, align 4, keep-with-next
+    907          void ParseMessagesIntoList(TRESOURCE* ContEx)
+    908          {
+   \                     ParseMessagesIntoList:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+   \   00000004   08D04DE2           SUB      SP,SP,#+8
+    909            if(!ContEx)return;
+   \   00000008   000050E3           CMP      R0,#+0
+   \   0000000C   F38FBD08           POPEQ    {R0,R1,R4-R11,PC}
+    910            int parsed_counter = 0; // Сколько уже было обработано (=OLD_MessList_Count)
+   \   00000010   0020A0E3           MOV      R2,#+0
+   \   00000014   00208DE5           STR      R2,[SP, #+0]
+    911            LOG_MESSAGE* MessEx= ContEx->log;
+   \   00000018   1C4090E5           LDR      R4,[R0, #+28]
+    912            int cnt=0;
+    913          
+    914            // В какую область уложить строку (слева без MSG_START_X, справа без одного пикселя)
+    915            int screen_width = ScreenW() - MSG_START_X - 1 ;
+   \   0000001C   888100EF           SWI      +33160
+   \   00000020   020040E2           SUB      R0,R0,#+2
+   \   00000024   04008DE5           STR      R0,[SP, #+4]
+    916          
+    917            int line_width = 0; // Ширина текущей строки в пикселях
+   \   00000028   ........           LDR      R0,??DataTable31  ;; MESSAGEWIN_FONT
+   \   0000002C   0050A0E3           MOV      R5,#+0
+   \   00000030   000090E5           LDR      R0,[R0, #+0]
+    918            int line_height = GetFontYSIZE(MESSAGEWIN_FONT); // Высота текущей строки. Подгоняется под размер смайлов
+   \   00000034   C50100EF           SWI      +453
+   \   00000038   0060A0E1           MOV      R6,R0
+    919            int symbol_width = 0;  // Ширина текущего символа в пикселях
+    920            //  int chars;
+    921            DISP_MESSAGE* Disp_Mess_Ex, *tmp;
+    922            if(!MessEx)return;
+   \   0000003C   000054E3           CMP      R4,#+0
+   \   00000040   F38FBD08           POPEQ    {R0,R1,R4-R11,PC}
+    923            LockSched();
+   \   00000044   460100EF           SWI      +326
+    924          
+    925            WSHDR *temp_ws_1=NULL;
+    926            WSHDR *temp_ws_2=NULL;
+   \                     ??ParseMessagesIntoList_0:
+   \   00000048   50129FE5           LDR      R1,??ParseMessagesIntoList_1  ;; inp_desc + 100
+   \   0000004C   00009DE5           LDR      R0,[SP, #+0]
+   \   00000050   001091E5           LDR      R1,[R1, #+0]
+   \   00000054   010050E1           CMP      R0,R1
+   \   00000058   2900003A           BCC      ??ParseMessagesIntoList_2
+    927          
+    928            // Цикл по всем сообщениям
+    929            while(MessEx)
+    930            {
+    931              if(parsed_counter>=OLD_MessList_Count)
+    932              {
+    933                temp_ws_1 = AllocWS(strlen(MessEx->mess)*2);
+   \   0000005C   080094E5           LDR      R0,[R4, #+8]
+   \   00000060   1B0000EF           SWI      +27
+   \   00000064   8000A0E1           LSL      R0,R0,#+1
+   \   00000068   250100EF           SWI      +293
+   \   0000006C   0070A0E1           MOV      R7,R0
+   \   00000070   ........           LDR      R0,??DataTable29  ;; Is_Smiles_Enabled
+   \   00000074   000090E5           LDR      R0,[R0, #+0]
+   \   00000078   000050E3           CMP      R0,#+0
+   \   0000007C   0D00000A           BEQ      ??ParseMessagesIntoList_3
+   \   00000080   ........           LDR      R0,??DataTable30  ;; SmilesImgList
+   \   00000084   000090E5           LDR      R0,[R0, #+0]
+   \   00000088   000050E3           CMP      R0,#+0
+   \   0000008C   0900000A           BEQ      ??ParseMessagesIntoList_3
+    934                if (Is_Smiles_Enabled && SmilesImgList)
+    935                {
+    936                  char * tmp_str = NULL;
+    937                  if (tmp_str = convUTF8_to_ANSI_STR(MessEx->mess))
+   \   00000090   080094E5           LDR      R0,[R4, #+8]
+   \   00000094   ........           _BLF     convUTF8_to_ANSI_STR,??convUTF8_to_ANSI_STR??rA
+   \   00000098   0080B0E1           MOVS     R8,R0
+   \   0000009C   0500000A           BEQ      ??ParseMessagesIntoList_3
+    938                  {
+    939                    CharsToSmiles(temp_ws_1, tmp_str); // Добавляем иконки смайлов в сообщение
+   \   000000A0   0810A0E1           MOV      R1,R8
+   \   000000A4   0700A0E1           MOV      R0,R7
+   \   000000A8   ........           BL       CharsToSmiles
+    940                    mfree(tmp_str);
+   \   000000AC   0800A0E1           MOV      R0,R8
+   \   000000B0   150000EF           SWI      +21
+   \   000000B4   050000EA           B        ??ParseMessagesIntoList_4
+    941                  }
+    942                  else utf8_2ws(temp_ws_1, MessEx->mess, strlen(MessEx->mess)*2);
+    943                }
+    944                else
+    945                  utf8_2ws(temp_ws_1, MessEx->mess, strlen(MessEx->mess)*2);
+   \                     ??ParseMessagesIntoList_3:
+   \   000000B8   080094E5           LDR      R0,[R4, #+8]
+   \   000000BC   1B0000EF           SWI      +27
+   \   000000C0   081094E5           LDR      R1,[R4, #+8]
+   \   000000C4   8020A0E1           LSL      R2,R0,#+1
+   \   000000C8   0700A0E1           MOV      R0,R7
+   \   000000CC   E30100EF           SWI      +483
+    946          
+    947                //temp_ws_2 = AllocWS(CHAR_ON_LINE*2); WTF?
+    948                temp_ws_2 = AllocWS(200); //ИМХО, так лучше
+   \                     ??ParseMessagesIntoList_4:
+   \   000000D0   C800A0E3           MOV      R0,#+200
+   \   000000D4   250100EF           SWI      +293
+   \   000000D8   0080A0E1           MOV      R8,R0
+    949          
+    950                //char q[40];
+    951                //sprintf(q,"UTF_len=%d, WSTR_len=%d", strlen(MessEx->mess),l);
+    952                //ShowMSG(2,(int)q);
+    953          
+    954                cnt=0;
+    955                for(int i = 1; i <= temp_ws_1->wsbody[0]; i++)
+   \   000000DC   000097E5           LDR      R0,[R7, #+0]
+   \   000000E0   0090A0E3           MOV      R9,#+0
+   \   000000E4   B000D0E1           LDRH     R0,[R0, #+0]
+   \   000000E8   01A0A0E3           MOV      R10,#+1
+   \   000000EC   000050E3           CMP      R0,#+0
+   \   000000F0   2900001A           BNE      ??ParseMessagesIntoList_5
+    956                {
+    957                  unsigned int symb = temp_ws_1->wsbody[i];
+    958                  if ((symb==0x000A) || (symb==0x000D) || (symb==0x00A0)) //Перевод строки
+    959          	{
+    960          	L_ADD:
+    961                    Disp_Mess_Ex = malloc(sizeof(DISP_MESSAGE));
+    962                    Disp_Mess_Ex->mess = AllocWS(cnt);
+    963                    wstrcpy(Disp_Mess_Ex->mess, temp_ws_2);
+    964                    CutWSTR(temp_ws_2, 0);
+    965                    Disp_Mess_Ex->mtype = MessEx->mtype;
+    966                    Disp_Mess_Ex->log_mess_number = parsed_counter+1;
+    967                    Disp_Mess_Ex->line_height = line_height;
+    968                    if(!MessagesList)
+    969                    {
+    970                      MessagesList = Disp_Mess_Ex;
+    971                      Disp_Mess_Ex->next=NULL;
+    972                    }
+    973                    else
+    974                    {
+    975                      tmp= MessagesList;
+    976                      while(tmp->next)
+    977                      {
+    978                        tmp = tmp->next;
+    979                      }
+    980                      tmp->next = Disp_Mess_Ex;
+    981                      Disp_Mess_Ex->next=NULL;
+    982                    }
+    983                    cnt=0;
+    984                    DispMessList_Count++;
+    985                    line_width = 0;
+    986                    line_height = GetFontYSIZE(MESSAGEWIN_FONT);
+    987          	}
+    988          	else
+    989          	{
+    990                    symbol_width = GetSymbolWidth(symb,MESSAGEWIN_FONT);
+    991          	  line_width += symbol_width;
+    992          	  if (line_width > screen_width)
+    993          	  {
+    994          	    i--; //Повторить с текущим символом, сейчас не лезет
+    995          	    goto L_ADD; //Добавить строку
+    996          	  }
+    997          
+    998                    if (Is_Smiles_Enabled && SmilesImgList)
+    999                    {
+   1000                      if (symb >= FIRST_UCS2_BITMAP && symb <= FIRST_UCS2_BITMAP + smiles_loaded) // Если код смайла
+   1001                        if (line_height < symbol_width) // Будем надеяться, что смайлы квадратные ;)
+   1002                          line_height = symbol_width; // Подгоняем высоту строки под размер смайла
+   1003                    }
+   1004          	  wsAppendChar(temp_ws_2, symb);
+   1005          	  cnt ++;
+   1006          	  if (i == temp_ws_1->wsbody[0]) goto L_ADD; //Последний символ, добавить и слинять ;)
+   1007          	  if (line_width == screen_width) goto L_ADD; //Ровненько легли в строку, тоже добавить
+   1008          	}
+   1009                }
+   1010                FreeWS(temp_ws_1);
+   \                     ??ParseMessagesIntoList_6:
+   \   000000F4   0700A0E1           MOV      R0,R7
+   \   000000F8   290100EF           SWI      +297
+   1011                FreeWS(temp_ws_2);
+   \   000000FC   0800A0E1           MOV      R0,R8
+   \   00000100   290100EF           SWI      +297
+   1012              }
+   1013              MessEx = MessEx->next;
+   \                     ??ParseMessagesIntoList_2:
+   \   00000104   0C4094E5           LDR      R4,[R4, #+12]
+   1014              parsed_counter++;
+   \   00000108   00109DE5           LDR      R1,[SP, #+0]
+   \   0000010C   000054E3           CMP      R4,#+0
+   \   00000110   011081E2           ADD      R1,R1,#+1
+   \   00000114   00108DE5           STR      R1,[SP, #+0]
+   \   00000118   CAFFFF1A           BNE      ??ParseMessagesIntoList_0
+   1015            }
+   1016            UnlockSched();
+   \   0000011C   470100EF           SWI      +327
+   1017          }
+   \   00000120   F38FBDE8           POP      {R0,R1,R4-R11,PC}  ;; return
+   \                     ??ParseMessagesIntoList_7:
+   \   00000124   ........           LDR      R1,??DataTable29  ;; Is_Smiles_Enabled
+   \   00000128   001091E5           LDR      R1,[R1, #+0]
+   \   0000012C   000051E3           CMP      R1,#+0
+   \   00000130   0E00000A           BEQ      ??ParseMessagesIntoList_8
+   \   00000134   ........           LDR      R1,??DataTable30  ;; SmilesImgList
+   \   00000138   001091E5           LDR      R1,[R1, #+0]
+   \   0000013C   000051E3           CMP      R1,#+0
+   \   00000140   0A00000A           BEQ      ??ParseMessagesIntoList_8
+   \   00000144   2A10A0E3           MOV      R1,#+42
+   \   00000148   E11C81E3           ORR      R1,R1,#0xE100
+   \   0000014C   01005BE1           CMP      R11,R1
+   \   00000150   0600003A           BCC      ??ParseMessagesIntoList_8
+   \   00000154   48219FE5           LDR      R2,??ParseMessagesIntoList_1+0x4  ;; smiles_loaded
+   \   00000158   002092E5           LDR      R2,[R2, #+0]
+   \   0000015C   021081E0           ADD      R1,R1,R2
+   \   00000160   0B0051E1           CMP      R1,R11
+   \   00000164   0100003A           BCC      ??ParseMessagesIntoList_8
+   \   00000168   000056E1           CMP      R6,R0
+   \   0000016C   0060A0B1           MOVLT    R6,R0
+   \                     ??ParseMessagesIntoList_8:
+   \   00000170   0B10A0E1           MOV      R1,R11
+   \   00000174   0800A0E1           MOV      R0,R8
+   \   00000178   1C0000EF           SWI      +28
+   \   0000017C   000097E5           LDR      R0,[R7, #+0]
+   \   00000180   019089E2           ADD      R9,R9,#+1
+   \   00000184   B000D0E1           LDRH     R0,[R0, #+0]
+   \   00000188   00005AE1           CMP      R10,R0
+   \   0000018C   04009D15           LDRNE    R0,[SP, #+4]
+   \   00000190   00005511           CMPNE    R5,R0
+   \   00000194   0A00000A           BEQ      ??ParseMessagesIntoList_9
+   \                     ??ParseMessagesIntoList_10:
+   \   00000198   01A08AE2           ADD      R10,R10,#+1
+   \                     ??ParseMessagesIntoList_5:
+   \   0000019C   000097E5           LDR      R0,[R7, #+0]
+   \   000001A0   B010D0E1           LDRH     R1,[R0, #+0]
+   \   000001A4   0A0051E1           CMP      R1,R10
+   \   000001A8   D1FFFFBA           BLT      ??ParseMessagesIntoList_6
+   \   000001AC   8A0080E0           ADD      R0,R0,R10, LSL #+1
+   \   000001B0   B0B0D0E1           LDRH     R11,[R0, #+0]
+   \   000001B4   0A005BE3           CMP      R11,#+10
+   \   000001B8   0D005B13           CMPNE    R11,#+13
+   \   000001BC   A0005B13           CMPNE    R11,#+160
+   \   000001C0   2C00001A           BNE      ??ParseMessagesIntoList_11
+   \                     ??ParseMessagesIntoList_9:
+   \   000001C4   1000A0E3           MOV      R0,#+16
+   \   000001C8   140000EF           SWI      +20
+   \   000001CC   0050A0E1           MOV      R5,R0
+   \   000001D0   0900A0E1           MOV      R0,R9
+   \   000001D4   250100EF           SWI      +293
+   \   000001D8   040085E5           STR      R0,[R5, #+4]
+   \   000001DC   0810A0E1           MOV      R1,R8
+   \   000001E0   1F0100EF           SWI      +287
+   \   000001E4   0010A0E3           MOV      R1,#+0
+   \   000001E8   0800A0E1           MOV      R0,R8
+   \   000001EC   260100EF           SWI      +294
+   \   000001F0   0000D4E5           LDRB     R0,[R4, #+0]
+   \   000001F4   0000C5E5           STRB     R0,[R5, #+0]
+   \   000001F8   00009DE5           LDR      R0,[SP, #+0]
+   \   000001FC   010080E2           ADD      R0,R0,#+1
+   \   00000200   B200C5E1           STRH     R0,[R5, #+2]
+   \   00000204   ........           LDR      R0,??DataTable26  ;; inp_desc + 92
+   \   00000208   086085E5           STR      R6,[R5, #+8]
+   \   0000020C   000090E5           LDR      R0,[R0, #+0]
+   \   00000210   000050E3           CMP      R0,#+0
+   \   00000214   ........           LDREQ    R0,??DataTable26  ;; inp_desc + 92
+   \   00000218   00508005           STREQ    R5,[R0, #+0]
+   \   0000021C   0700000A           BEQ      ??ParseMessagesIntoList_12
+   \   00000220   0C1090E5           LDR      R1,[R0, #+12]
+   \   00000224   000051E3           CMP      R1,#+0
+   \   00000228   0300000A           BEQ      ??ParseMessagesIntoList_13
+   \                     ??ParseMessagesIntoList_14:
+   \   0000022C   0C0090E5           LDR      R0,[R0, #+12]
+   \   00000230   0C1090E5           LDR      R1,[R0, #+12]
+   \   00000234   000051E3           CMP      R1,#+0
+   \   00000238   FBFFFF1A           BNE      ??ParseMessagesIntoList_14
+   \                     ??ParseMessagesIntoList_13:
+   \   0000023C   0C5080E5           STR      R5,[R0, #+12]
+   \                     ??ParseMessagesIntoList_12:
+   \   00000240   60109FE5           LDR      R1,??ParseMessagesIntoList_1+0x8  ;; inp_desc + 96
+   \   00000244   0000A0E3           MOV      R0,#+0
+   \   00000248   0C0085E5           STR      R0,[R5, #+12]
+   \   0000024C   54009FE5           LDR      R0,??ParseMessagesIntoList_1+0x8  ;; inp_desc + 96
+   \   00000250   001091E5           LDR      R1,[R1, #+0]
+   \   00000254   0090A0E3           MOV      R9,#+0
+   \   00000258   011081E2           ADD      R1,R1,#+1
+   \   0000025C   001080E5           STR      R1,[R0, #+0]
+   \   00000260   ........           LDR      R0,??DataTable31  ;; MESSAGEWIN_FONT
+   \   00000264   0950A0E1           MOV      R5,R9
+   \   00000268   000090E5           LDR      R0,[R0, #+0]
+   \   0000026C   C50100EF           SWI      +453
+   \   00000270   0060A0E1           MOV      R6,R0
+   \   00000274   C7FFFFEA           B        ??ParseMessagesIntoList_10
+   \                     ??ParseMessagesIntoList_11:
+   \   00000278   ........           LDR      R0,??DataTable31  ;; MESSAGEWIN_FONT
+   \   0000027C   001090E5           LDR      R1,[R0, #+0]
+   \   00000280   0B00A0E1           MOV      R0,R11
+   \   00000284   E10100EF           SWI      +481
+   \   00000288   04109DE5           LDR      R1,[SP, #+4]
+   \   0000028C   055080E0           ADD      R5,R0,R5
+   \   00000290   050051E1           CMP      R1,R5
+   \   00000294   A2FFFFAA           BGE      ??ParseMessagesIntoList_7
+   \   00000298   01A04AE2           SUB      R10,R10,#+1
+   \   0000029C   C8FFFFEA           B        ??ParseMessagesIntoList_9
+   \                     ??ParseMessagesIntoList_1:
+   \   000002A0   ........           DC32     inp_desc + 100
+   \   000002A4   ........           DC32     smiles_loaded
+   \   000002A8   ........           DC32     inp_desc + 96
+   1018          
+   1019          
+   1020          // Отобразить список сообщений
+
+   \                                 In segment CODE, align 4, keep-with-next
+   1021          void Display_Message_List(TRESOURCE* ContEx)
+   1022          {
+   \                     Display_Message_List:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   0060B0E1           MOVS     R6,R0
+   1023            if(!ContEx)return;
+   \   00000008   F080BD08           POPEQ    {R4-R7,PC}
+   1024            // Инициализация
+   1025            if (Is_Smiles_Enabled && SmilesImgList)
+   \   0000000C   ........           LDR      R0,??DataTable29  ;; Is_Smiles_Enabled
+   \   00000010   000090E5           LDR      R0,[R0, #+0]
+   \   00000014   000050E3           CMP      R0,#+0
+   \   00000018   0600000A           BEQ      ??Display_Message_List_0
+   \   0000001C   ........           LDR      R4,??DataTable30  ;; SmilesImgList
+   \   00000020   000094E5           LDR      R0,[R4, #+0]
+   \   00000024   000050E3           CMP      R0,#+0
+   \   00000028   0200000A           BEQ      ??Display_Message_List_0
+   1026            {
+   1027              /* The_ZeN: Это надо сделать обязательно до вызова парсера мессаг!
+   1028                 Иначе будет брать размер смайлов из фула */
+   1029              PNGTOP_DESC * pltop = PNG_TOP();
+   \   0000002C   B98100EF           SWI      +33209
+   1030              pltop->dyn_pltop = SmilesImgList; 
+   \   00000030   001094E5           LDR      R1,[R4, #+0]
+   \   00000034   081080E5           STR      R1,[R0, #+8]
+   1031            }
+   1032            OLD_MessList_Count = 0;
+   1033            MessagesList = NULL;
+   1034            DispMessList_Count = 0;
+   1035            Resource_Ex = ContEx;
+   1036            FontSize = GetFontYSIZE(MESSAGEWIN_FONT);
+   \                     ??Display_Message_List_0:
+   \   00000038   ........           LDR      R0,??DataTable31  ;; MESSAGEWIN_FONT
+   \   0000003C   ........           LDR      R4,??DataTable32  ;; inp_desc
+   \   00000040   000090E5           LDR      R0,[R0, #+0]
+   \   00000044   0050A0E3           MOV      R5,#+0
+   \   00000048   645084E5           STR      R5,[R4, #+100]
+   \   0000004C   5C5084E5           STR      R5,[R4, #+92]
+   \   00000050   605084E5           STR      R5,[R4, #+96]
+   \   00000054   506084E5           STR      R6,[R4, #+80]
+   \   00000058   C50100EF           SWI      +453
+   \   0000005C   BC04C4E1           STRH     R0,[R4, #+76]
+   1037            lines_on_page = sdiv(FontSize, ScreenH() - HIST_DISP_OFS - YDISP);
+   \   00000060   898100EF           SWI      +33161
+   \   00000064   261040E2           SUB      R1,R0,#+38
+   \   00000068   BC04D4E1           LDRH     R0,[R4, #+76]
+   \   0000006C   B80000EF           SWI      +184
+   \   00000070   780084E5           STR      R0,[R4, #+120]
+   1038            ParseMessagesIntoList(Resource_Ex);
+   \   00000074   500094E5           LDR      R0,[R4, #+80]
+   \   00000078   ........           BL       ParseMessagesIntoList
+   1039            Calc_Pages_Data();
+   \   0000007C   ........           BL       Calc_Pages_Data
+   1040            CurrentPage = MaxPages;
+   \   00000080   7C0094E5           LDR      R0,[R4, #+124]
+   1041            OLD_MessList_Count = Resource_Ex->total_msg_count;
+   1042            Cursor_Pos = DispMessList_Count;
+   \   00000084   601094E5           LDR      R1,[R4, #+96]
+   \   00000088   6C0084E5           STR      R0,[R4, #+108]
+   \   0000008C   500094E5           LDR      R0,[R4, #+80]
+   \   00000090   180090E5           LDR      R0,[R0, #+24]
+   \   00000094   681084E5           STR      R1,[R4, #+104]
+   \   00000098   640084E5           STR      R0,[R4, #+100]
+   1043            CurrentMessage = OLD_MessList_Count;
+   \   0000009C   700084E5           STR      R0,[R4, #+112]
+   1044          
+   1045            // Замутим гуй
+   1046            GUI *mess_gui=malloc(sizeof(GUI));
+   \   000000A0   3400A0E3           MOV      R0,#+52
+   \   000000A4   140000EF           SWI      +20
+   \   000000A8   0060A0E1           MOV      R6,R0
+   1047            zeromem(mess_gui, sizeof(GUI));
+   \   000000AC   3410A0E3           MOV      R1,#+52
+   \   000000B0   1D0100EF           SWI      +285
+   1048            patch_rect((RECT*)&mCanvas,0,0,ScreenW()-1,ScreenH()-1);
+   \   000000B4   898100EF           SWI      +33161
+   \   000000B8   0070A0E1           MOV      R7,R0
+   \   000000BC   888100EF           SWI      +33160
+   \   000000C0   3C209FE5           LDR      R2,??Display_Message_List_1  ;; mCanvas
+   \   000000C4   011047E2           SUB      R1,R7,#+1
+   \   000000C8   010040E2           SUB      R0,R0,#+1
+   \   000000CC   005082E5           STR      R5,[R2, #+0]
+   \   000000D0   B400C2E1           STRH     R0,[R2, #+4]
+   \   000000D4   B610C2E1           STRH     R1,[R2, #+6]
+   1049            mess_gui->canvas=(void *)(&mCanvas);
+   \   000000D8   002086E5           STR      R2,[R6, #+0]
+   1050            mess_gui->flag30=2;
+   \   000000DC   0200A0E3           MOV      R0,#+2
+   \   000000E0   300086E5           STR      R0,[R6, #+48]
+   1051            mess_gui->methods=(void *)mgui_methods;
+   \   000000E4   080082E2           ADD      R0,R2,#+8
+   \   000000E8   040086E5           STR      R0,[R6, #+4]
+   1052            mess_gui->item_ll.data_mfree=(void (*)(void *))mfree_adr();
+   \   000000EC   158000EF           SWI      +32789
+   \   000000F0   200086E5           STR      R0,[R6, #+32]
+   1053            Message_gui_ID = CreateGUI(mess_gui);
+   \   000000F4   0600A0E1           MOV      R0,R6
+   \   000000F8   370100EF           SWI      +311
+   \   000000FC   540084E5           STR      R0,[R4, #+84]
+   1054          }
+   \   00000100   F080BDE8           POP      {R4-R7,PC}       ;; return
+   \                     ??Display_Message_List_1:
+   \   00000104   ........           DC32     mCanvas
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable16:
+   \   00000000   ........           DC32     Is_Smiles_Enabled
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable17:
+   \   00000000   ........           DC32     SmilesImgList
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable19:
+   \   00000000   ........           DC32     inp_desc
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable26:
+   \   00000000   ........           DC32     inp_desc + 92
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable29:
+   \   00000000   ........           DC32     Is_Smiles_Enabled
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable30:
+   \   00000000   ........           DC32     SmilesImgList
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable31:
+   \   00000000   ........           DC32     MESSAGEWIN_FONT
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable32:
+   \   00000000   ........           DC32     inp_desc
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for inp_desc>`:
+   \   00000000   01000000....       DC32 1, inp_onkey, inp_ghook, inp_locret, 0, menu_skt
+   \              ............
+   \              ........0000
+   \              0000........
+   \   00000018   000016008300       DC16 0, 22, 131, 153
+   \              9900        
+   \   00000020   040000006400       DC32 4, 100, 101, 0, 0, 1073741824
+   \              000065000000
+   \              000000000000
+   \              000000000040
+   \                     `?<Initializer for inp_hdr>`:
+   \   00000038   000000000000       DC16 0, 0, 0, 0
+   \              0000        
+   \   00000040   00000000....       DC32 0H, `?<Constant "\\315\\356\\342\\356\\345...">`, 2147483647
+   \              ....FFFFFF7F
+   \                     `?<Initializer for FontSize>`:
+   \   0000004C   0000               DC8 0, 0
+   \   0000004E   0000               DC8 0, 0
+   \                     `?<Initializer for Resource_Ex>`:
+   \   00000050   00000000           DC32 0H
+   \                     `?<Initializer for Message_gui_ID>`:
+   \   00000054   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for edmessage_id>`:
+   \   00000058   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for MessagesList>`:
+   \   0000005C   00000000           DC32 0H
+   \                     `?<Initializer for DispMessList_Count>`:
+   \   00000060   00000000           DC32 0
+   \                     `?<Initializer for OLD_MessList_Count>`:
+   \   00000064   00000000           DC32 0
+   \                     `?<Initializer for Cursor_Pos>`:
+   \   00000068   00000000           DC32 0
+   \                     `?<Initializer for CurrentPage>`:
+   \   0000006C   01000000           DC32 1
+   \                     `?<Initializer for CurrentMessage>`:
+   \   00000070   00000000           DC32 0
+   \                     `?<Initializer for CurrentMessage_Lines>`:
+   \   00000074   00000000           DC32 0
+   \                     `?<Initializer for lines_on_page>`:
+   \   00000078   00000000           DC8 0, 0, 0, 0
+   \                     `?<Initializer for MaxPages>`:
+   \   0000007C   01000000           DC32 1
+   \                     `?<Initializer for MsgList_Quit_Required>`:
+   \   00000080   00                 DC8 0
+   \                     `?<Initializer for Mess_was_sent>`:
+   \   00000081   00                 DC8 0
+   \   00000082   0000               DC8 0, 0
+   \                     `?<Initializer for sk>`:
+   \   00000084   18000000           DC16 24, 0
+   \   00000088   ........           DC32 `?<Constant "\\314\\345\\355\\376">`
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for menu_sk>`:
+   \   00000000   18000000           DC16 24, 0
+   \   00000004   ........           DC32 `?<Constant "\\302\\373\\341\\356\\360">`
+   \   00000008   01000000           DC16 1, 0
+   \   0000000C   ........           DC32 `?<Constant "\\315\\340\\347\\340\\344">`
+   \   00000010   3D000000           DC16 61, 0
+   \   00000014   FBC0FF7F           DC32 2147467515
+
+   \                                 In segment DATA_ID, align 4, align-sorted
+   \                     `?<Initializer for menu_skt>`:
+   \   00000000   ........0000       DC32 menu_sk, 0
+   \              0000        
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\302\\373\\341\\356\\360">`:
+   \   00000000   C2FBE1EEF000       DC8 "\302\373\341\356\360"
+   \   00000006   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\315\\340\\347\\340\\344">`:
+   \   00000000   CDE0E7E0E400       DC8 "\315\340\347\340\344"
+   \   00000006   0000               DC8 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\315\\356\\342\\356\\345...">`:
+   \   00000000   CDEEE2EEE52E       DC8 "\315\356\342\356\345..."
+   \              2E2E00      
+   \   00000009   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "/part">`:
+   \   00000000   2F7061727400       DC8 "/part"
+   \   00000006   0000               DC8 0, 0
+   \   00000008   CDE5EBFCE7FF       DC8 "\315\345\353\374\347\377 \357\356\361\353\340\362\374 \357\363\361\362\356\345 \361\356\356\341\371\345\355\350\345!"
+   \              20EFEEF1EBE0
+   \              F2FC20EFF3F1
+   \              F2EEE520F1EE
+   \              EEE1F9E5EDE8
+   \              E52100      
+   \   00000029   000000             DC8 0, 0, 0
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "\\314\\345\\355\\376">`:
+   \   00000000   CCE5EDFE00         DC8 "\314\345\355\376"
+   \   00000005   000000             DC8 0, 0, 0
+   1055          //EOL,EOF
+
+   Maximum stack usage in bytes:
+
+     Function              CSTACK
+     --------              ------
+     Calc_Pages_Data           8
+     Calc_Pages_Data_1         4
+     Calc_Pages_Data_2         0
+     CharsToSmiles            36
+     Display_Message_List     20
+     GetCurMessage             0
+     Init_Message             72
+     KillDisp                  8
+     ParseMessagesIntoList    44
+     SmilesToChars            40
+     inp_ghook                64
+     inp_locret                0
+     inp_onkey                84
+     inp_redraw                0
+     mGUI_method8              0
+     mGUI_method9              0
+     mGUI_onClose             12
+     mGUI_onCreate             0
+     mGUI_onFocus             12
+     mGUI_onKey               40
+     mGUI_onRedraw            76
+     mGUI_onUnfocus            0
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     flag2                             4
+     flag1                             4
+     CharsToSmiles                   336
+     SmilesToChars                   296
+     ec_message                       44
+     ed_message_gui                    4
+     inp_onkey                       452
+     inp_redraw                        4
+     inp_ghook                       220
+     inp_locret                        4
+     Init_Message                    448
+     KillDisp                         80
+     inp_desc                        140
+     menu_sk                          24
+     menu_skt                          8
+     Calc_Pages_Data                  48
+     Calc_Pages_Data_1                64
+     Calc_Pages_Data_2                40
+     mGUI_onRedraw                   984
+     mGUI_onCreate                    28
+     mGUI_onClose                     72
+     mGUI_onFocus                     68
+     mGUI_onUnfocus                   20
+     GetCurMessage                    52
+     mGUI_onKey                     1232
+     mGUI_method8                      8
+     mGUI_method9                      8
+     mCanvas                          52
+     ParseMessagesIntoList           684
+     Display_Message_List            264
+     ??DataTable16                     4
+     ??DataTable17                     4
+     ??DataTable19                     4
+     ??DataTable26                     4
+     ??DataTable29                     4
+     ??DataTable30                     4
+     ??DataTable31                     4
+     ??DataTable32                     4
+     ?<Initializer for inp_desc>     140
+     ?<Initializer for menu_sk>       24
+     ?<Initializer for menu_skt>       8
+     ?<Constant "\302\373\341\356\360">
+                                       8
+     ?<Constant "\315\340\347\340\344">
+                                       8
+     ?<Constant "\315\356\342\356\345...">
+                                      12
+     ?<Constant "/part">              44
+     ?<Constant "\314\345\355\376">    8
+      Others                         268
+
+ 
+ 5 688 bytes in segment CODE
+   132 bytes in segment DATA_C
+   172 bytes in segment DATA_I
+   172 bytes in segment DATA_ID
+    56 bytes in segment DATA_Z
+    24 bytes in segment INITTAB
+ 
+ 5 444 bytes of CODE  memory (+ 268 bytes shared)
+   304 bytes of CONST memory
+   228 bytes of DATA  memory
+
+Errors: none
+Warnings: none

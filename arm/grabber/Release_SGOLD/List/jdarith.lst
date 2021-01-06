@@ -1,0 +1,2048 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    19/Jan/2011  13:21:00 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\grabber\jpeg-7\jdarith.c                      #
+#    Command line    =  C:\arm\grabber\jpeg-7\jdarith.c -lC                  #
+#                       C:\arm\grabber\Release_SGOLD\List\ -o                #
+#                       C:\arm\grabber\Release_SGOLD\Obj\ -s9 --no_unroll    #
+#                       --no_clustering --cpu_mode arm --endian little       #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --dlib_config "C:\arm2\Embedded           #
+#                       Workbench 4.0 Evaluation\ARM\LIB\dl5tpainl8n.h" -I   #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\grabber\Release_SGOLD\List\jdarith.lst        #
+#    Object file     =  C:\arm\grabber\Release_SGOLD\Obj\jdarith.r79         #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\grabber\jpeg-7\jdarith.c
+      1          /*
+                  ^
+Warning[Pa050]: non-native end of line sequence detected (this diagnostic is
+          only issued once)
+      2           * jdarith.c
+      3           *
+      4           * Developed 1997 by Guido Vollbeding.
+      5           * This file is part of the Independent JPEG Group's software.
+      6           * For conditions of distribution and use, see the accompanying README file.
+      7           *
+      8           * This file contains portable arithmetic entropy decoding routines for JPEG
+      9           * (implementing the ISO/IEC IS 10918-1 and CCITT Recommendation ITU-T T.81).
+     10           *
+     11           * Both sequential and progressive modes are supported in this single module.
+     12           *
+     13           * Suspension is not currently supported in this module.
+     14           */
+     15          
+     16          #define JPEG_INTERNALS
+     17          #include "jinclude.h"
+     18          #include "jpeglib.h"
+     19          
+     20          
+     21          /* Expanded entropy decoder object for arithmetic decoding. */
+     22          
+     23          typedef struct {
+     24            struct jpeg_entropy_decoder pub; /* public fields */
+     25          
+     26            INT32 c;       /* C register, base of coding interval + input bit buffer */
+     27            INT32 a;               /* A register, normalized size of coding interval */
+     28            int ct;     /* bit shift counter, # of bits left in bit buffer part of C */
+     29                                                                   /* init: ct = -16 */
+     30                                                                   /* run: ct = 0..7 */
+     31                                                                   /* error: ct = -1 */
+     32            int last_dc_val[MAX_COMPS_IN_SCAN]; /* last DC coef for each component */
+     33            int dc_context[MAX_COMPS_IN_SCAN]; /* context index for DC conditioning */
+     34          
+     35            unsigned int restarts_to_go;	/* MCUs left in this restart interval */
+     36          
+     37            /* Pointers to statistics areas (these workspaces have image lifespan) */
+     38            unsigned char * dc_stats[NUM_ARITH_TBLS];
+     39            unsigned char * ac_stats[NUM_ARITH_TBLS];
+     40          } arith_entropy_decoder;
+     41          
+     42          typedef arith_entropy_decoder * arith_entropy_ptr;
+     43          
+     44          /* The following two definitions specify the allocation chunk size
+     45           * for the statistics area.
+     46           * According to sections F.1.4.4.1.3 and F.1.4.4.2, we need at least
+     47           * 49 statistics bins for DC, and 245 statistics bins for AC coding.
+     48           * Note that we use one additional AC bin for codings with fixed
+     49           * probability (0.5), thus the minimum number for AC is 246.
+     50           *
+     51           * We use a compact representation with 1 byte per statistics bin,
+     52           * thus the numbers directly represent byte sizes.
+     53           * This 1 byte per statistics bin contains the meaning of the MPS
+     54           * (more probable symbol) in the highest bit (mask 0x80), and the
+     55           * index into the probability estimation state machine table
+     56           * in the lower bits (mask 0x7F).
+     57           */
+     58          
+     59          #define DC_STAT_BINS 64
+     60          #define AC_STAT_BINS 256
+     61          
+     62          
+     63          LOCAL(int)
+     64          get_byte (j_decompress_ptr cinfo)
+     65          /* Read next input byte; we do not support suspension in this module. */
+     66          {
+     67            struct jpeg_source_mgr * src = cinfo->src;
+     68          
+     69            if (src->bytes_in_buffer == 0)
+     70              if (! (*src->fill_input_buffer) (cinfo))
+     71                ERREXIT(cinfo, JERR_CANT_SUSPEND);
+     72            src->bytes_in_buffer--;
+     73            return GETJOCTET(*src->next_input_byte++);
+     74          }
+     75          
+     76          
+     77          /*
+     78           * The core arithmetic decoding routine (common in JPEG and JBIG).
+     79           * This needs to go as fast as possible.
+     80           * Machine-dependent optimization facilities
+     81           * are not utilized in this portable implementation.
+     82           * However, this code should be fairly efficient and
+     83           * may be a good base for further optimizations anyway.
+     84           *
+     85           * Return value is 0 or 1 (binary decision).
+     86           *
+     87           * Note: I've changed the handling of the code base & bit
+     88           * buffer register C compared to other implementations
+     89           * based on the standards layout & procedures.
+     90           * While it also contains both the actual base of the
+     91           * coding interval (16 bits) and the next-bits buffer,
+     92           * the cut-point between these two parts is floating
+     93           * (instead of fixed) with the bit shift counter CT.
+     94           * Thus, we also need only one (variable instead of
+     95           * fixed size) shift for the LPS/MPS decision, and
+     96           * we can get away with any renormalization update
+     97           * of C (except for new data insertion, of course).
+     98           *
+     99           * I've also introduced a new scheme for accessing
+    100           * the probability estimation state machine table,
+    101           * derived from Markus Kuhn's JBIG implementation.
+    102           */
+    103          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    104          LOCAL(int)
+    105          arith_decode (j_decompress_ptr cinfo, unsigned char *st)
+    106          {
+   \                     arith_decode:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   0060A0E1           MOV      R6,R0
+    107            extern const INT32 jaritab[];
+    108            register arith_entropy_ptr e = (arith_entropy_ptr) cinfo->entropy;
+   \   00000008   BC5196E5           LDR      R5,[R6, #+444]
+   \   0000000C   0140A0E1           MOV      R4,R1
+   \   00000010   100095E5           LDR      R0,[R5, #+16]
+   \   00000014   1970A0E3           MOV      R7,#+25
+   \   00000018   800C50E3           CMP      R0,#+32768
+   \   0000001C   4B0000AA           BGE      ??arith_decode_0
+    109            register unsigned char nl, nm;
+    110            register INT32 qe, temp;
+    111            register int sv, data;
+    112          
+    113            /* Renormalization & data input per section D.2.6 */
+    114            while (e->a < 0x8000L) {
+    115              if (--e->ct < 0) {
+   \                     ??arith_decode_1:
+   \   00000020   140095E5           LDR      R0,[R5, #+20]
+   \   00000024   010050E2           SUBS     R0,R0,#+1
+   \   00000028   140085E5           STR      R0,[R5, #+20]
+   \   0000002C   4200005A           BPL      ??arith_decode_2
+    116                /* Need to fetch next data byte */
+    117                if (cinfo->unread_marker)
+   \   00000030   A00196E5           LDR      R0,[R6, #+416]
+   \   00000034   000050E3           CMP      R0,#+0
+   \   00000038   3300001A           BNE      ??arith_decode_3
+    118          	data = 0;		/* stuff zero data */
+    119                else {
+    120          	data = get_byte(cinfo);	/* read next input byte */
+   \   0000003C   188096E5           LDR      R8,[R6, #+24]
+   \   00000040   040098E5           LDR      R0,[R8, #+4]
+   \   00000044   000050E3           CMP      R0,#+0
+   \   00000048   0A00001A           BNE      ??arith_decode_4
+   \   0000004C   0C1098E5           LDR      R1,[R8, #+12]
+   \   00000050   0600A0E1           MOV      R0,R6
+   \   00000054   31FF2FE1           BLX      R1
+   \   00000058   000050E3           CMP      R0,#+0
+   \   0000005C   0500001A           BNE      ??arith_decode_4
+   \   00000060   000096E5           LDR      R0,[R6, #+0]
+   \   00000064   147080E5           STR      R7,[R0, #+20]
+   \   00000068   001096E5           LDR      R1,[R6, #+0]
+   \   0000006C   0600A0E1           MOV      R0,R6
+   \   00000070   001091E5           LDR      R1,[R1, #+0]
+   \   00000074   31FF2FE1           BLX      R1
+   \                     ??arith_decode_4:
+   \   00000078   040098E5           LDR      R0,[R8, #+4]
+   \   0000007C   010040E2           SUB      R0,R0,#+1
+   \   00000080   040088E5           STR      R0,[R8, #+4]
+   \   00000084   000098E5           LDR      R0,[R8, #+0]
+   \   00000088   011080E2           ADD      R1,R0,#+1
+   \   0000008C   001088E5           STR      R1,[R8, #+0]
+   \   00000090   0000D0E5           LDRB     R0,[R0, #+0]
+    121          	if (data == 0xFF) {	/* zero stuff or marker code */
+   \   00000094   FF0050E3           CMP      R0,#+255
+   \   00000098   1C00001A           BNE      ??arith_decode_5
+    122          	  do data = get_byte(cinfo);
+   \                     ??arith_decode_6:
+   \   0000009C   188096E5           LDR      R8,[R6, #+24]
+   \   000000A0   040098E5           LDR      R0,[R8, #+4]
+   \   000000A4   000050E3           CMP      R0,#+0
+   \   000000A8   0A00001A           BNE      ??arith_decode_7
+   \   000000AC   0C1098E5           LDR      R1,[R8, #+12]
+   \   000000B0   0600A0E1           MOV      R0,R6
+   \   000000B4   31FF2FE1           BLX      R1
+   \   000000B8   000050E3           CMP      R0,#+0
+   \   000000BC   0500001A           BNE      ??arith_decode_7
+   \   000000C0   000096E5           LDR      R0,[R6, #+0]
+   \   000000C4   147080E5           STR      R7,[R0, #+20]
+   \   000000C8   001096E5           LDR      R1,[R6, #+0]
+   \   000000CC   0600A0E1           MOV      R0,R6
+   \   000000D0   001091E5           LDR      R1,[R1, #+0]
+   \   000000D4   31FF2FE1           BLX      R1
+   \                     ??arith_decode_7:
+   \   000000D8   040098E5           LDR      R0,[R8, #+4]
+   \   000000DC   010040E2           SUB      R0,R0,#+1
+   \   000000E0   040088E5           STR      R0,[R8, #+4]
+   \   000000E4   000098E5           LDR      R0,[R8, #+0]
+   \   000000E8   011080E2           ADD      R1,R0,#+1
+   \   000000EC   001088E5           STR      R1,[R8, #+0]
+   \   000000F0   0000D0E5           LDRB     R0,[R0, #+0]
+    123          	  while (data == 0xFF);	/* swallow extra 0xFF bytes */
+   \   000000F4   FF0050E3           CMP      R0,#+255
+   \   000000F8   E7FFFF0A           BEQ      ??arith_decode_6
+    124          	  if (data == 0)
+   \   000000FC   000050E3           CMP      R0,#+0
+    125          	    data = 0xFF;	/* discard stuffed zero byte */
+   \   00000100   FF00A003           MOVEQ    R0,#+255
+   \   00000104   0100000A           BEQ      ??arith_decode_5
+    126          	  else {
+    127          	    /* Note: Different from the Huffman decoder, hitting
+    128          	     * a marker while processing the compressed data
+    129          	     * segment is legal in arithmetic coding.
+    130          	     * The convention is to supply zero data
+    131          	     * then until decoding is complete.
+    132          	     */
+    133          	    cinfo->unread_marker = data;
+   \   00000108   A00186E5           STR      R0,[R6, #+416]
+    134          	    data = 0;
+   \                     ??arith_decode_3:
+   \   0000010C   0000A0E3           MOV      R0,#+0
+    135          	  }
+    136          	}
+    137                }
+    138                e->c = (e->c << 8) | data; /* insert data into C register */
+   \                     ??arith_decode_5:
+   \   00000110   0C1095E5           LDR      R1,[R5, #+12]
+   \   00000114   010480E1           ORR      R0,R0,R1, LSL #+8
+   \   00000118   0C0085E5           STR      R0,[R5, #+12]
+    139                if ((e->ct += 8) < 0)	 /* update bit shift counter */
+   \   0000011C   140095E5           LDR      R0,[R5, #+20]
+   \   00000120   080090E2           ADDS     R0,R0,#+8
+   \   00000124   140085E5           STR      R0,[R5, #+20]
+   \   00000128   0300005A           BPL      ??arith_decode_2
+    140          	/* Need more initial bytes */
+    141          	if (++e->ct == 0)
+   \   0000012C   010090E2           ADDS     R0,R0,#+1
+   \   00000130   140085E5           STR      R0,[R5, #+20]
+    142          	  /* Got 2 initial bytes -> re-init A and exit loop */
+    143          	  e->a = 0x8000L; /* => e->a = 0x10000L after loop exit */
+   \   00000134   800CA003           MOVEQ    R0,#+32768
+   \   00000138   10008505           STREQ    R0,[R5, #+16]
+    144              }
+    145              e->a <<= 1;
+   \                     ??arith_decode_2:
+   \   0000013C   100095E5           LDR      R0,[R5, #+16]
+   \   00000140   8000A0E1           LSL      R0,R0,#+1
+   \   00000144   100085E5           STR      R0,[R5, #+16]
+    146            }
+   \   00000148   800C50E3           CMP      R0,#+32768
+   \   0000014C   B3FFFFBA           BLT      ??arith_decode_1
+    147          
+    148            /* Fetch values from our compact representation of Table D.2:
+    149             * Qe values and probability estimation state machine
+    150             */
+    151            sv = *st;
+   \                     ??arith_decode_0:
+   \   00000150   0000D4E5           LDRB     R0,[R4, #+0]
+    152            qe = jaritab[sv & 0x7F];	/* => Qe_Value */
+   \   00000154   84209FE5           LDR      R2,??arith_decode_8  ;; jaritab
+    153            nl = qe & 0xFF; qe >>= 8;	/* Next_Index_LPS + Switch_MPS */
+    154            nm = qe & 0xFF; qe >>= 8;	/* Next_Index_MPS */
+    155          
+    156            /* Decode & estimation procedures per sections D.2.4 & D.2.5 */
+    157            temp = e->a - qe;
+   \   00000158   106095E5           LDR      R6,[R5, #+16]
+   \   0000015C   7F1000E2           AND      R1,R0,#0x7F
+   \   00000160   012192E7           LDR      R2,[R2, +R1, LSL #+2]
+   \   00000164   FF1002E2           AND      R1,R2,#0xFF
+   \   00000168   4234A0E1           ASR      R3,R2,#+8
+   \   0000016C   FF2003E2           AND      R2,R3,#0xFF
+   \   00000170   4334A0E1           ASR      R3,R3,#+8
+   \   00000174   036046E0           SUB      R6,R6,R3
+    158            e->a = temp;
+   \   00000178   106085E5           STR      R6,[R5, #+16]
+    159            temp <<= e->ct;
+   \   0000017C   147095E5           LDR      R7,[R5, #+20]
+    160            if (e->c >= temp) {
+   \   00000180   0C8095E5           LDR      R8,[R5, #+12]
+   \   00000184   1677A0E1           LSL      R7,R6,R7
+   \   00000188   070058E1           CMP      R8,R7
+   \   0000018C   0A0000BA           BLT      ??arith_decode_9
+    161              e->c -= temp;
+   \   00000190   077048E0           SUB      R7,R8,R7
+   \   00000194   0C7085E5           STR      R7,[R5, #+12]
+    162              /* Conditional LPS (less probable symbol) exchange */
+    163              if (e->a < qe) {
+   \   00000198   807000E2           AND      R7,R0,#0x80
+   \   0000019C   030056E1           CMP      R6,R3
+   \   000001A0   103085E5           STR      R3,[R5, #+16]
+   \   000001A4   090000BA           BLT      ??arith_decode_10
+    164                e->a = qe;
+    165                *st = (sv & 0x80) ^ nm;	/* Estimate_after_MPS */
+    166              } else {
+    167                e->a = qe;
+    168                *st = (sv & 0x80) ^ nl;	/* Estimate_after_LPS */
+   \                     ??arith_decode_11:
+   \   000001A8   071021E0           EOR      R1,R1,R7
+   \   000001AC   0010C4E5           STRB     R1,[R4, #+0]
+    169                sv ^= 0x80;		/* Exchange LPS/MPS */
+   \   000001B0   800020E2           EOR      R0,R0,#0x80
+   \   000001B4   C003A0E1           ASR      R0,R0,#+7
+   \   000001B8   F081BDE8           POP      {R4-R8,PC}
+    170              }
+    171            } else if (e->a < 0x8000L) {
+   \                     ??arith_decode_9:
+   \   000001BC   800C56E3           CMP      R6,#+32768
+   \   000001C0   040000AA           BGE      ??arith_decode_12
+    172              /* Conditional MPS (more probable symbol) exchange */
+    173              if (e->a < qe) {
+   \   000001C4   807000E2           AND      R7,R0,#0x80
+   \   000001C8   030056E1           CMP      R6,R3
+   \   000001CC   F5FFFFBA           BLT      ??arith_decode_11
+    174                *st = (sv & 0x80) ^ nl;	/* Estimate_after_LPS */
+    175                sv ^= 0x80;		/* Exchange LPS/MPS */
+    176              } else {
+    177                *st = (sv & 0x80) ^ nm;	/* Estimate_after_MPS */
+   \                     ??arith_decode_10:
+   \   000001D0   071022E0           EOR      R1,R2,R7
+   \   000001D4   0010C4E5           STRB     R1,[R4, #+0]
+    178              }
+    179            }
+    180          
+    181            return sv >> 7;
+   \                     ??arith_decode_12:
+   \   000001D8   C003A0E1           ASR      R0,R0,#+7
+   \   000001DC   F081BDE8           POP      {R4-R8,PC}       ;; return
+   \                     ??arith_decode_8:
+   \   000001E0   ........           DC32     jaritab
+    182          }
+    183          
+    184          
+    185          /*
+    186           * Check for a restart marker & resynchronize decoder.
+    187           */
+    188          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    189          LOCAL(void)
+    190          process_restart (j_decompress_ptr cinfo)
+    191          {
+   \                     process_restart:
+   \   00000000   F0412DE9           PUSH     {R4-R8,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    192            arith_entropy_ptr entropy = (arith_entropy_ptr) cinfo->entropy;
+    193            int ci;
+    194            jpeg_component_info * compptr;
+    195          
+    196            /* Advance past the RSTn marker */
+    197            if (! (*cinfo->marker->read_restart_marker) (cinfo))
+   \   00000008   B81194E5           LDR      R1,[R4, #+440]
+   \   0000000C   BC5194E5           LDR      R5,[R4, #+444]
+   \   00000010   081091E5           LDR      R1,[R1, #+8]
+   \   00000014   31FF2FE1           BLX      R1
+   \   00000018   000050E3           CMP      R0,#+0
+   \   0000001C   0600001A           BNE      ??process_restart_0
+    198              ERREXIT(cinfo, JERR_CANT_SUSPEND);
+   \   00000020   000094E5           LDR      R0,[R4, #+0]
+   \   00000024   1910A0E3           MOV      R1,#+25
+   \   00000028   141080E5           STR      R1,[R0, #+20]
+   \   0000002C   001094E5           LDR      R1,[R4, #+0]
+   \   00000030   0400A0E1           MOV      R0,R4
+   \   00000034   001091E5           LDR      R1,[R1, #+0]
+   \   00000038   31FF2FE1           BLX      R1
+    199          
+    200            for (ci = 0; ci < cinfo->comps_in_scan; ci++) {
+   \                     ??process_restart_0:
+   \   0000003C   480194E5           LDR      R0,[R4, #+328]
+   \   00000040   0070A0E3           MOV      R7,#+0
+   \   00000044   0060A0E3           MOV      R6,#+0
+   \   00000048   010050E3           CMP      R0,#+1
+   \   0000004C   200000AA           BGE      ??process_restart_1
+   \   00000050   220000EA           B        ??process_restart_2
+    201              compptr = cinfo->cur_comp_info[ci];
+   \                     ??process_restart_3:
+   \   00000054   070184E0           ADD      R0,R4,R7, LSL #+2
+   \   00000058   4C8190E5           LDR      R8,[R0, #+332]
+    202              /* Re-initialize statistics areas */
+    203              if (cinfo->progressive_mode == 0 || (cinfo->Ss == 0 && cinfo->Ah == 0)) {
+   \   0000005C   D80094E5           LDR      R0,[R4, #+216]
+   \   00000060   000050E3           CMP      R0,#+0
+   \   00000064   0400000A           BEQ      ??process_restart_4
+   \   00000068   900194E5           LDR      R0,[R4, #+400]
+   \   0000006C   000050E3           CMP      R0,#+0
+   \   00000070   98019405           LDREQ    R0,[R4, #+408]
+   \   00000074   00005003           CMPEQ    R0,#+0
+   \   00000078   0800001A           BNE      ??process_restart_5
+    204                MEMZERO(entropy->dc_stats[compptr->dc_tbl_no], DC_STAT_BINS);
+   \                     ??process_restart_4:
+   \   0000007C   140098E5           LDR      R0,[R8, #+20]
+   \   00000080   4020A0E3           MOV      R2,#+64
+   \   00000084   000185E0           ADD      R0,R5,R0, LSL #+2
+   \   00000088   3C0090E5           LDR      R0,[R0, #+60]
+   \   0000008C   0010A0E3           MOV      R1,#+0
+   \   00000090   BB0000EF           SWI      +187
+    205                /* Reset DC predictions to 0 */
+    206                entropy->last_dc_val[ci] = 0;
+   \   00000094   070185E0           ADD      R0,R5,R7, LSL #+2
+   \   00000098   186080E5           STR      R6,[R0, #+24]
+    207                entropy->dc_context[ci] = 0;
+   \   0000009C   286080E5           STR      R6,[R0, #+40]
+    208              }
+    209              if (cinfo->progressive_mode == 0 || cinfo->Ss) {
+   \                     ??process_restart_5:
+   \   000000A0   D80094E5           LDR      R0,[R4, #+216]
+   \   000000A4   000050E3           CMP      R0,#+0
+   \   000000A8   0200000A           BEQ      ??process_restart_6
+   \   000000AC   900194E5           LDR      R0,[R4, #+400]
+   \   000000B0   000050E3           CMP      R0,#+0
+   \   000000B4   0500000A           BEQ      ??process_restart_7
+    210                MEMZERO(entropy->ac_stats[compptr->ac_tbl_no], AC_STAT_BINS);
+   \                     ??process_restart_6:
+   \   000000B8   180098E5           LDR      R0,[R8, #+24]
+   \   000000BC   402FA0E3           MOV      R2,#+256
+   \   000000C0   0010A0E3           MOV      R1,#+0
+   \   000000C4   000185E0           ADD      R0,R5,R0, LSL #+2
+   \   000000C8   7C0090E5           LDR      R0,[R0, #+124]
+   \   000000CC   BB0000EF           SWI      +187
+    211              }
+    212            }
+   \                     ??process_restart_7:
+   \   000000D0   017087E2           ADD      R7,R7,#+1
+   \                     ??process_restart_1:
+   \   000000D4   480194E5           LDR      R0,[R4, #+328]
+   \   000000D8   000057E1           CMP      R7,R0
+   \   000000DC   DCFFFFBA           BLT      ??process_restart_3
+    213          
+    214            /* Reset arithmetic decoding variables */
+    215            entropy->c = 0;
+   \                     ??process_restart_2:
+   \   000000E0   0C6085E5           STR      R6,[R5, #+12]
+    216            entropy->a = 0;
+   \   000000E4   106085E5           STR      R6,[R5, #+16]
+    217            entropy->ct = -16;	/* force reading 2 initial bytes to fill C */
+   \   000000E8   0F00E0E3           MVN      R0,#+15
+   \   000000EC   140085E5           STR      R0,[R5, #+20]
+    218          
+    219            /* Reset restart counter */
+    220            entropy->restarts_to_go = cinfo->restart_interval;
+   \   000000F0   100194E5           LDR      R0,[R4, #+272]
+   \   000000F4   380085E5           STR      R0,[R5, #+56]
+    221          }
+   \   000000F8   F081BDE8           POP      {R4-R8,PC}       ;; return
+    222          
+    223          
+    224          /*
+    225           * Arithmetic MCU decoding.
+    226           * Each of these routines decodes and returns one MCU's worth of
+    227           * arithmetic-compressed coefficients.
+    228           * The coefficients are reordered from zigzag order into natural array order,
+    229           * but are not dequantized.
+    230           *
+    231           * The i'th block of the MCU is stored into the block pointed to by
+    232           * MCU_data[i].  WE ASSUME THIS AREA IS INITIALLY ZEROED BY THE CALLER.
+    233           */
+    234          
+    235          /*
+    236           * MCU decoding for DC initial scan (either spectral selection,
+    237           * or first pass of successive approximation).
+    238           */
+    239          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    240          METHODDEF(boolean)
+    241          decode_mcu_DC_first (j_decompress_ptr cinfo, JBLOCKROW *MCU_data)
+    242          {
+   \                     decode_mcu_DC_first:
+   \   00000000   F24F2DE9           PUSH     {R1,R4-R11,LR}
+   \   00000004   08D04DE2           SUB      SP,SP,#+8
+   \   00000008   0050A0E1           MOV      R5,R0
+    243            arith_entropy_ptr entropy = (arith_entropy_ptr) cinfo->entropy;
+    244            JBLOCKROW block;
+    245            unsigned char *st;
+    246            int blkn, ci, tbl, sign;
+    247            int v, m;
+    248          
+    249            /* Process restart marker if needed */
+    250            if (cinfo->restart_interval) {
+   \   0000000C   100195E5           LDR      R0,[R5, #+272]
+   \   00000010   BC6195E5           LDR      R6,[R5, #+444]
+   \   00000014   000050E3           CMP      R0,#+0
+   \   00000018   0700000A           BEQ      ??decode_mcu_DC_first_0
+    251              if (entropy->restarts_to_go == 0)
+   \   0000001C   380096E5           LDR      R0,[R6, #+56]
+   \   00000020   000050E3           CMP      R0,#+0
+   \   00000024   0100001A           BNE      ??decode_mcu_DC_first_1
+    252                process_restart(cinfo);
+   \   00000028   0500A0E1           MOV      R0,R5
+   \   0000002C   ........           BL       process_restart
+    253              entropy->restarts_to_go--;
+   \                     ??decode_mcu_DC_first_1:
+   \   00000030   380096E5           LDR      R0,[R6, #+56]
+   \   00000034   010040E2           SUB      R0,R0,#+1
+   \   00000038   380086E5           STR      R0,[R6, #+56]
+   \                     ??decode_mcu_DC_first_0:
+   \   0000003C   140096E5           LDR      R0,[R6, #+20]
+   \   00000040   010070E3           CMN      R0,#+1
+   \   00000044   4D00000A           BEQ      ??decode_mcu_DC_first_2
+    254            }
+    255          
+    256            if (entropy->ct == -1) return TRUE;	/* if error do nothing */
+    257          
+    258            /* Outer loop handles each block in the MCU */
+    259          
+    260            for (blkn = 0; blkn < cinfo->blocks_in_MCU; blkn++) {
+   \   00000048   0070A0E3           MOV      R7,#+0
+   \   0000004C   120000EA           B        ??decode_mcu_DC_first_3
+    261              block = MCU_data[blkn];
+    262              ci = cinfo->MCU_membership[blkn];
+    263              tbl = cinfo->cur_comp_info[ci]->dc_tbl_no;
+    264          
+    265              /* Sections F.2.4.1 & F.1.4.4.1: Decoding of DC coefficients */
+    266          
+    267              /* Table F.4: Point to statistics bin S0 for DC coefficient coding */
+    268              st = entropy->dc_stats[tbl] + entropy->dc_context[ci];
+    269          
+    270              /* Figure F.19: Decode_DC_DIFF */
+    271              if (arith_decode(cinfo, st) == 0)
+    272                entropy->dc_context[ci] = 0;
+    273              else {
+    274                /* Figure F.21: Decoding nonzero value v */
+    275                /* Figure F.22: Decoding the sign of v */
+    276                sign = arith_decode(cinfo, st + 1);
+    277                st += 2; st += sign;
+    278                /* Figure F.23: Decoding the magnitude category of v */
+    279                if ((m = arith_decode(cinfo, st)) != 0) {
+    280          	st = entropy->dc_stats[tbl] + 20;	/* Table F.4: X1 = 20 */
+    281          	while (arith_decode(cinfo, st)) {
+    282          	  if ((m <<= 1) == 0x8000) {
+    283          	    WARNMS(cinfo, JWRN_ARITH_BAD_CODE);
+    284          	    entropy->ct = -1;			/* magnitude overflow */
+    285          	    return TRUE;
+    286          	  }
+    287          	  st += 1;
+    288          	}
+    289                }
+    290                /* Section F.1.4.4.1.2: Establish dc_context conditioning category */
+    291                if (m < (int) (((INT32) 1 << cinfo->arith_dc_L[tbl]) >> 1))
+    292          	entropy->dc_context[ci] = 0;		   /* zero diff category */
+    293                else if (m > (int) (((INT32) 1 << cinfo->arith_dc_U[tbl]) >> 1))
+    294          	entropy->dc_context[ci] = 12 + (sign * 4); /* large diff category */
+    295                else
+    296          	entropy->dc_context[ci] = 4 + (sign * 4);  /* small diff category */
+    297                v = m;
+    298                /* Figure F.24: Decoding the magnitude bit pattern of v */
+    299                st += 14;
+    300                while (m >>= 1)
+    301          	if (arith_decode(cinfo, st)) v |= m;
+   \                     ??decode_mcu_DC_first_4:
+   \   00000050   0810A0E1           MOV      R1,R8
+   \   00000054   0500A0E1           MOV      R0,R5
+   \   00000058   ........           BL       arith_decode
+   \   0000005C   000050E3           CMP      R0,#+0
+   \   00000060   0BB08411           ORRNE    R11,R4,R11
+   \                     ??decode_mcu_DC_first_5:
+   \   00000064   C440B0E1           ASRS     R4,R4,#+1
+   \   00000068   F8FFFF1A           BNE      ??decode_mcu_DC_first_4
+    302                v += 1; if (sign) v = -v;
+    303                entropy->last_dc_val[ci] += v;
+   \   0000006C   18109AE5           LDR      R1,[R10, #+24]
+   \   00000070   01008BE2           ADD      R0,R11,#+1
+   \   00000074   000059E3           CMP      R9,#+0
+   \   00000078   00006012           RSBNE    R0,R0,#+0
+   \   0000007C   010080E0           ADD      R0,R0,R1
+   \   00000080   18008AE5           STR      R0,[R10, #+24]
+    304              }
+    305          
+    306              /* Scale and output the DC coefficient (assumes jpeg_natural_order[0]=0) */
+    307              (*block)[0] = (JCOEF) (entropy->last_dc_val[ci] << cinfo->Al);
+   \                     ??decode_mcu_DC_first_6:
+   \   00000084   04009DE5           LDR      R0,[SP, #+4]
+   \   00000088   18109AE5           LDR      R1,[R10, #+24]
+   \   0000008C   9C2195E5           LDR      R2,[R5, #+412]
+   \   00000090   017087E2           ADD      R7,R7,#+1
+   \   00000094   1112A0E1           LSL      R1,R1,R2
+   \   00000098   B010C0E1           STRH     R1,[R0, #+0]
+   \                     ??decode_mcu_DC_first_3:
+   \   0000009C   640195E5           LDR      R0,[R5, #+356]
+   \   000000A0   000057E1           CMP      R7,R0
+   \   000000A4   350000AA           BGE      ??decode_mcu_DC_first_2
+   \   000000A8   08109DE5           LDR      R1,[SP, #+8]
+   \   000000AC   070185E0           ADD      R0,R5,R7, LSL #+2
+   \   000000B0   071191E7           LDR      R1,[R1, +R7, LSL #+2]
+   \   000000B4   04108DE5           STR      R1,[SP, #+4]
+   \   000000B8   680190E5           LDR      R0,[R0, #+360]
+   \   000000BC   001185E0           ADD      R1,R5,R0, LSL #+2
+   \   000000C0   4C1191E5           LDR      R1,[R1, #+332]
+   \   000000C4   00A186E0           ADD      R10,R6,R0, LSL #+2
+   \   000000C8   14B091E5           LDR      R11,[R1, #+20]
+   \   000000CC   0B1186E0           ADD      R1,R6,R11, LSL #+2
+   \   000000D0   00108DE5           STR      R1,[SP, #+0]
+   \   000000D4   28009AE5           LDR      R0,[R10, #+40]
+   \   000000D8   3C1091E5           LDR      R1,[R1, #+60]
+   \   000000DC   018080E0           ADD      R8,R0,R1
+   \   000000E0   0810A0E1           MOV      R1,R8
+   \   000000E4   0500A0E1           MOV      R0,R5
+   \   000000E8   ........           BL       arith_decode
+   \   000000EC   000050E3           CMP      R0,#+0
+   \   000000F0   28008A05           STREQ    R0,[R10, #+40]
+   \   000000F4   E2FFFF0A           BEQ      ??decode_mcu_DC_first_6
+   \   000000F8   011088E2           ADD      R1,R8,#+1
+   \   000000FC   0500A0E1           MOV      R0,R5
+   \   00000100   ........           BL       arith_decode
+   \   00000104   0090A0E1           MOV      R9,R0
+   \   00000108   080089E0           ADD      R0,R9,R8
+   \   0000010C   028080E2           ADD      R8,R0,#+2
+   \   00000110   0810A0E1           MOV      R1,R8
+   \   00000114   0500A0E1           MOV      R0,R5
+   \   00000118   ........           BL       arith_decode
+   \   0000011C   0040B0E1           MOVS     R4,R0
+   \   00000120   1800000A           BEQ      ??decode_mcu_DC_first_7
+   \   00000124   00009DE5           LDR      R0,[SP, #+0]
+   \   00000128   3C0090E5           LDR      R0,[R0, #+60]
+   \   0000012C   148080E2           ADD      R8,R0,#+20
+   \   00000130   000000EA           B        ??decode_mcu_DC_first_8
+   \                     ??decode_mcu_DC_first_9:
+   \   00000134   018088E2           ADD      R8,R8,#+1
+   \                     ??decode_mcu_DC_first_8:
+   \   00000138   0810A0E1           MOV      R1,R8
+   \   0000013C   0500A0E1           MOV      R0,R5
+   \   00000140   ........           BL       arith_decode
+   \   00000144   000050E3           CMP      R0,#+0
+   \   00000148   0E00000A           BEQ      ??decode_mcu_DC_first_7
+   \   0000014C   8440A0E1           LSL      R4,R4,#+1
+   \   00000150   800C54E3           CMP      R4,#+32768
+   \   00000154   F6FFFF1A           BNE      ??decode_mcu_DC_first_9
+   \   00000158   000095E5           LDR      R0,[R5, #+0]
+   \   0000015C   7510A0E3           MOV      R1,#+117
+   \   00000160   141080E5           STR      R1,[R0, #+20]
+   \   00000164   002095E5           LDR      R2,[R5, #+0]
+   \   00000168   0010E0E3           MVN      R1,#+0
+   \   0000016C   042092E5           LDR      R2,[R2, #+4]
+   \   00000170   0500A0E1           MOV      R0,R5
+   \   00000174   32FF2FE1           BLX      R2
+   \   00000178   0000E0E3           MVN      R0,#+0
+   \   0000017C   140086E5           STR      R0,[R6, #+20]
+   \                     ??decode_mcu_DC_first_2:
+   \   00000180   0100A0E3           MOV      R0,#+1
+   \   00000184   FE8FBDE8           POP      {R1-R11,PC}
+   \                     ??decode_mcu_DC_first_7:
+   \   00000188   05108BE0           ADD      R1,R11,R5
+   \   0000018C   D01ED1E1           LDRSB    R1,[R1, #+224]
+   \   00000190   0100A0E3           MOV      R0,#+1
+   \   00000194   1011A0E1           LSL      R1,R0,R1
+   \   00000198   C10054E1           CMP      R4,R1, ASR #+1
+   \   0000019C   0000A0B3           MOVLT    R0,#+0
+   \   000001A0   060000BA           BLT      ??decode_mcu_DC_first_10
+   \   000001A4   05208BE0           ADD      R2,R11,R5
+   \   000001A8   D02FD2E1           LDRSB    R2,[R2, #+240]
+   \   000001AC   0911A0E1           LSL      R1,R9,#+2
+   \   000001B0   1002A0E1           LSL      R0,R0,R2
+   \   000001B4   C00054E1           CMP      R4,R0, ASR #+1
+   \   000001B8   0C0081C2           ADDGT    R0,R1,#+12
+   \   000001BC   040081D2           ADDLE    R0,R1,#+4
+   \                     ??decode_mcu_DC_first_10:
+   \   000001C0   28008AE5           STR      R0,[R10, #+40]
+   \   000001C4   04B0A0E1           MOV      R11,R4
+   \   000001C8   0E8088E2           ADD      R8,R8,#+14
+   \   000001CC   A4FFFFEA           B        ??decode_mcu_DC_first_5
+    308            }
+    309          
+    310            return TRUE;
+    311          }
+    312          
+    313          
+    314          /*
+    315           * MCU decoding for AC initial scan (either spectral selection,
+    316           * or first pass of successive approximation).
+    317           */
+    318          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    319          METHODDEF(boolean)
+    320          decode_mcu_AC_first (j_decompress_ptr cinfo, JBLOCKROW *MCU_data)
+    321          {
+   \                     decode_mcu_AC_first:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+   \   00000004   08D04DE2           SUB      SP,SP,#+8
+   \   00000008   0050A0E1           MOV      R5,R0
+    322            arith_entropy_ptr entropy = (arith_entropy_ptr) cinfo->entropy;
+    323            JBLOCKROW block;
+    324            unsigned char *st;
+    325            int tbl, sign, k;
+    326            int v, m;
+    327          
+    328            /* Process restart marker if needed */
+    329            if (cinfo->restart_interval) {
+   \   0000000C   100195E5           LDR      R0,[R5, #+272]
+   \   00000010   BC6195E5           LDR      R6,[R5, #+444]
+   \   00000014   0140A0E1           MOV      R4,R1
+   \   00000018   000050E3           CMP      R0,#+0
+   \   0000001C   0700000A           BEQ      ??decode_mcu_AC_first_0
+    330              if (entropy->restarts_to_go == 0)
+   \   00000020   380096E5           LDR      R0,[R6, #+56]
+   \   00000024   000050E3           CMP      R0,#+0
+   \   00000028   0100001A           BNE      ??decode_mcu_AC_first_1
+    331                process_restart(cinfo);
+   \   0000002C   0500A0E1           MOV      R0,R5
+   \   00000030   ........           BL       process_restart
+    332              entropy->restarts_to_go--;
+   \                     ??decode_mcu_AC_first_1:
+   \   00000034   380096E5           LDR      R0,[R6, #+56]
+   \   00000038   010040E2           SUB      R0,R0,#+1
+   \   0000003C   380086E5           STR      R0,[R6, #+56]
+   \                     ??decode_mcu_AC_first_0:
+   \   00000040   140096E5           LDR      R0,[R6, #+20]
+   \   00000044   010070E3           CMN      R0,#+1
+   \   00000048   3B00000A           BEQ      ??decode_mcu_AC_first_2
+    333            }
+    334          
+    335            if (entropy->ct == -1) return TRUE;	/* if error do nothing */
+    336          
+    337            /* There is always only one block per MCU */
+    338            block = MCU_data[0];
+   \   0000004C   001094E5           LDR      R1,[R4, #+0]
+   \   00000050   04108DE5           STR      R1,[SP, #+4]
+    339            tbl = cinfo->cur_comp_info[0]->ac_tbl_no;
+   \   00000054   4C1195E5           LDR      R1,[R5, #+332]
+   \   00000058   181091E5           LDR      R1,[R1, #+24]
+   \   0000005C   00108DE5           STR      R1,[SP, #+0]
+    340          
+    341            /* Sections F.2.4.2 & F.1.4.4.2: Decoding of AC coefficients */
+    342          
+    343            /* Figure F.20: Decode_AC_coefficients */
+    344            for (k = cinfo->Ss; k <= cinfo->Se; k++) {
+   \   00000060   907195E5           LDR      R7,[R5, #+400]
+   \   00000064   110000EA           B        ??decode_mcu_AC_first_3
+    345              st = entropy->ac_stats[tbl] + 3 * (k - 1);
+    346              if (arith_decode(cinfo, st)) break;		/* EOB flag */
+    347              while (arith_decode(cinfo, st + 1) == 0) {
+    348                st += 3; k++;
+    349                if (k > cinfo->Se) {
+    350          	WARNMS(cinfo, JWRN_ARITH_BAD_CODE);
+    351          	entropy->ct = -1;			/* spectral overflow */
+    352          	return TRUE;
+    353                }
+    354              }
+    355              /* Figure F.21: Decoding nonzero value v */
+    356              /* Figure F.22: Decoding the sign of v */
+    357              entropy->ac_stats[tbl][245] = 0;
+    358              sign = arith_decode(cinfo, entropy->ac_stats[tbl] + 245);
+    359              st += 2;
+    360              /* Figure F.23: Decoding the magnitude category of v */
+    361              if ((m = arith_decode(cinfo, st)) != 0) {
+    362                if (arith_decode(cinfo, st)) {
+    363          	m <<= 1;
+    364          	st = entropy->ac_stats[tbl] +
+    365          	     (k <= cinfo->arith_ac_K[tbl] ? 189 : 217);
+    366          	while (arith_decode(cinfo, st)) {
+    367          	  if ((m <<= 1) == 0x8000) {
+    368          	    WARNMS(cinfo, JWRN_ARITH_BAD_CODE);
+    369          	    entropy->ct = -1;			/* magnitude overflow */
+    370          	    return TRUE;
+    371          	  }
+    372          	  st += 1;
+    373          	}
+    374                }
+    375              }
+    376              v = m;
+    377              /* Figure F.24: Decoding the magnitude bit pattern of v */
+    378              st += 14;
+    379              while (m >>= 1)
+    380                if (arith_decode(cinfo, st)) v |= m;
+   \                     ??decode_mcu_AC_first_4:
+   \   00000068   0810A0E1           MOV      R1,R8
+   \   0000006C   0500A0E1           MOV      R0,R5
+   \   00000070   ........           BL       arith_decode
+   \   00000074   000050E3           CMP      R0,#+0
+   \   00000078   0BB08411           ORRNE    R11,R4,R11
+   \                     ??decode_mcu_AC_first_5:
+   \   0000007C   C440B0E1           ASRS     R4,R4,#+1
+   \   00000080   F8FFFF1A           BNE      ??decode_mcu_AC_first_4
+    381              v += 1; if (sign) v = -v;
+    382              /* Scale and output coefficient in natural (dezigzagged) order */
+    383              (*block)[jpeg_natural_order[k]] = (JCOEF) (v << cinfo->Al);
+   \   00000084   ........           LDR      R1,??DataTable2  ;; jpeg_natural_order
+   \   00000088   04209DE5           LDR      R2,[SP, #+4]
+   \   0000008C   071191E7           LDR      R1,[R1, +R7, LSL #+2]
+   \   00000090   01008BE2           ADD      R0,R11,#+1
+   \   00000094   811082E0           ADD      R1,R2,R1, LSL #+1
+   \   00000098   9C2195E5           LDR      R2,[R5, #+412]
+   \   0000009C   000059E3           CMP      R9,#+0
+   \   000000A0   00006012           RSBNE    R0,R0,#+0
+   \   000000A4   1002A0E1           LSL      R0,R0,R2
+   \   000000A8   B000C1E1           STRH     R0,[R1, #+0]
+   \   000000AC   0A70A0E1           MOV      R7,R10
+   \                     ??decode_mcu_AC_first_3:
+   \   000000B0   940195E5           LDR      R0,[R5, #+404]
+   \   000000B4   070050E1           CMP      R0,R7
+   \   000000B8   1F0000BA           BLT      ??decode_mcu_AC_first_2
+   \   000000BC   00009DE5           LDR      R0,[SP, #+0]
+   \   000000C0   00B186E0           ADD      R11,R6,R0, LSL #+2
+   \   000000C4   7C109BE5           LDR      R1,[R11, #+124]
+   \   000000C8   870087E0           ADD      R0,R7,R7, LSL #+1
+   \   000000CC   010080E0           ADD      R0,R0,R1
+   \   000000D0   038040E2           SUB      R8,R0,#+3
+   \   000000D4   0810A0E1           MOV      R1,R8
+   \   000000D8   0500A0E1           MOV      R0,R5
+   \   000000DC   ........           BL       arith_decode
+   \   000000E0   000050E3           CMP      R0,#+0
+   \   000000E4   1400001A           BNE      ??decode_mcu_AC_first_2
+   \                     ??decode_mcu_AC_first_6:
+   \   000000E8   01A087E2           ADD      R10,R7,#+1
+   \   000000EC   011088E2           ADD      R1,R8,#+1
+   \   000000F0   0500A0E1           MOV      R0,R5
+   \   000000F4   ........           BL       arith_decode
+   \   000000F8   000050E3           CMP      R0,#+0
+   \   000000FC   1000001A           BNE      ??decode_mcu_AC_first_7
+   \   00000100   940195E5           LDR      R0,[R5, #+404]
+   \   00000104   038088E2           ADD      R8,R8,#+3
+   \   00000108   0A70A0E1           MOV      R7,R10
+   \   0000010C   070050E1           CMP      R0,R7
+   \   00000110   F4FFFFAA           BGE      ??decode_mcu_AC_first_6
+   \                     ??decode_mcu_AC_first_8:
+   \   00000114   000095E5           LDR      R0,[R5, #+0]
+   \   00000118   7510A0E3           MOV      R1,#+117
+   \   0000011C   141080E5           STR      R1,[R0, #+20]
+   \   00000120   002095E5           LDR      R2,[R5, #+0]
+   \   00000124   0010E0E3           MVN      R1,#+0
+   \   00000128   042092E5           LDR      R2,[R2, #+4]
+   \   0000012C   0500A0E1           MOV      R0,R5
+   \   00000130   32FF2FE1           BLX      R2
+   \   00000134   0000E0E3           MVN      R0,#+0
+   \   00000138   140086E5           STR      R0,[R6, #+20]
+   \                     ??decode_mcu_AC_first_2:
+   \   0000013C   0100A0E3           MOV      R0,#+1
+   \   00000140   F68FBDE8           POP      {R1,R2,R4-R11,PC}
+   \                     ??decode_mcu_AC_first_7:
+   \   00000144   7C009BE5           LDR      R0,[R11, #+124]
+   \   00000148   0010A0E3           MOV      R1,#+0
+   \   0000014C   F510C0E5           STRB     R1,[R0, #+245]
+   \   00000150   7C009BE5           LDR      R0,[R11, #+124]
+   \   00000154   028088E2           ADD      R8,R8,#+2
+   \   00000158   F51080E2           ADD      R1,R0,#+245
+   \   0000015C   0500A0E1           MOV      R0,R5
+   \   00000160   ........           BL       arith_decode
+   \   00000164   0090A0E1           MOV      R9,R0
+   \   00000168   0810A0E1           MOV      R1,R8
+   \   0000016C   0500A0E1           MOV      R0,R5
+   \   00000170   ........           BL       arith_decode
+   \   00000174   0040B0E1           MOVS     R4,R0
+   \   00000178   1700000A           BEQ      ??decode_mcu_AC_first_9
+   \   0000017C   0810A0E1           MOV      R1,R8
+   \   00000180   0500A0E1           MOV      R0,R5
+   \   00000184   ........           BL       arith_decode
+   \   00000188   000050E3           CMP      R0,#+0
+   \   0000018C   1200000A           BEQ      ??decode_mcu_AC_first_9
+   \   00000190   00009DE5           LDR      R0,[SP, #+0]
+   \   00000194   7C109BE5           LDR      R1,[R11, #+124]
+   \   00000198   050080E0           ADD      R0,R0,R5
+   \   0000019C   0001D0E5           LDRB     R0,[R0, #+256]
+   \   000001A0   8440A0E1           LSL      R4,R4,#+1
+   \   000001A4   070050E1           CMP      R0,R7
+   \   000001A8   BD00A0A3           MOVGE    R0,#+189
+   \   000001AC   D900A0B3           MOVLT    R0,#+217
+   \   000001B0   018080E0           ADD      R8,R0,R1
+   \   000001B4   030000EA           B        ??decode_mcu_AC_first_10
+   \                     ??decode_mcu_AC_first_11:
+   \   000001B8   8440A0E1           LSL      R4,R4,#+1
+   \   000001BC   800C54E3           CMP      R4,#+32768
+   \   000001C0   D3FFFF0A           BEQ      ??decode_mcu_AC_first_8
+   \   000001C4   018088E2           ADD      R8,R8,#+1
+   \                     ??decode_mcu_AC_first_10:
+   \   000001C8   0810A0E1           MOV      R1,R8
+   \   000001CC   0500A0E1           MOV      R0,R5
+   \   000001D0   ........           BL       arith_decode
+   \   000001D4   000050E3           CMP      R0,#+0
+   \   000001D8   F6FFFF1A           BNE      ??decode_mcu_AC_first_11
+   \                     ??decode_mcu_AC_first_9:
+   \   000001DC   04B0A0E1           MOV      R11,R4
+   \   000001E0   0E8088E2           ADD      R8,R8,#+14
+   \   000001E4   A4FFFFEA           B        ??decode_mcu_AC_first_5
+    384            }
+    385          
+    386            return TRUE;
+    387          }
+    388          
+    389          
+    390          /*
+    391           * MCU decoding for DC successive approximation refinement scan.
+    392           */
+    393          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    394          METHODDEF(boolean)
+    395          decode_mcu_DC_refine (j_decompress_ptr cinfo, JBLOCKROW *MCU_data)
+    396          {
+   \                     decode_mcu_DC_refine:
+   \   00000000   F0402DE9           PUSH     {R4-R7,LR}
+   \   00000004   04D04DE2           SUB      SP,SP,#+4
+   \   00000008   0040A0E1           MOV      R4,R0
+    397            arith_entropy_ptr entropy = (arith_entropy_ptr) cinfo->entropy;
+    398            unsigned char st[4];
+    399            int p1, blkn;
+    400          
+    401            /* Process restart marker if needed */
+    402            if (cinfo->restart_interval) {
+   \   0000000C   100194E5           LDR      R0,[R4, #+272]
+   \   00000010   BC6194E5           LDR      R6,[R4, #+444]
+   \   00000014   0150A0E1           MOV      R5,R1
+   \   00000018   000050E3           CMP      R0,#+0
+   \   0000001C   0700000A           BEQ      ??decode_mcu_DC_refine_0
+    403              if (entropy->restarts_to_go == 0)
+   \   00000020   380096E5           LDR      R0,[R6, #+56]
+   \   00000024   000050E3           CMP      R0,#+0
+   \   00000028   0100001A           BNE      ??decode_mcu_DC_refine_1
+    404                process_restart(cinfo);
+   \   0000002C   0400A0E1           MOV      R0,R4
+   \   00000030   ........           BL       process_restart
+    405              entropy->restarts_to_go--;
+   \                     ??decode_mcu_DC_refine_1:
+   \   00000034   380096E5           LDR      R0,[R6, #+56]
+   \   00000038   010040E2           SUB      R0,R0,#+1
+   \   0000003C   380086E5           STR      R0,[R6, #+56]
+    406            }
+    407          
+    408            p1 = 1 << cinfo->Al;		/* 1 in the bit position being coded */
+   \                     ??decode_mcu_DC_refine_0:
+   \   00000040   9C1194E5           LDR      R1,[R4, #+412]
+   \   00000044   0100A0E3           MOV      R0,#+1
+   \   00000048   1061A0E1           LSL      R6,R0,R1
+    409          
+    410            /* Outer loop handles each block in the MCU */
+    411          
+    412            for (blkn = 0; blkn < cinfo->blocks_in_MCU; blkn++) {
+   \   0000004C   640194E5           LDR      R0,[R4, #+356]
+   \   00000050   0070A0E3           MOV      R7,#+0
+   \   00000054   010050E3           CMP      R0,#+1
+   \   00000058   0D0000AA           BGE      ??decode_mcu_DC_refine_2
+   \   0000005C   0100A0E3           MOV      R0,#+1
+   \   00000060   F280BDE8           POP      {R1,R4-R7,PC}
+    413              st[0] = 0;	/* use fixed probability estimation */
+   \                     ??decode_mcu_DC_refine_3:
+   \   00000064   0010A0E3           MOV      R1,#+0
+   \   00000068   0010CDE5           STRB     R1,[SP, #+0]
+    414              /* Encoded data is simply the next bit of the two's-complement DC value */
+    415              if (arith_decode(cinfo, st))
+   \   0000006C   0D10A0E1           MOV      R1,SP
+   \   00000070   0400A0E1           MOV      R0,R4
+   \   00000074   ........           BL       arith_decode
+   \   00000078   000050E3           CMP      R0,#+0
+   \   0000007C   0300000A           BEQ      ??decode_mcu_DC_refine_4
+    416                MCU_data[blkn][0][0] |= p1;
+   \   00000080   070195E7           LDR      R0,[R5, +R7, LSL #+2]
+   \   00000084   F010D0E1           LDRSH    R1,[R0, #+0]
+   \   00000088   011086E1           ORR      R1,R6,R1
+   \   0000008C   B010C0E1           STRH     R1,[R0, #+0]
+    417            }
+   \                     ??decode_mcu_DC_refine_4:
+   \   00000090   017087E2           ADD      R7,R7,#+1
+   \                     ??decode_mcu_DC_refine_2:
+   \   00000094   640194E5           LDR      R0,[R4, #+356]
+   \   00000098   000057E1           CMP      R7,R0
+   \   0000009C   F0FFFFBA           BLT      ??decode_mcu_DC_refine_3
+    418          
+    419            return TRUE;
+   \   000000A0   0100A0E3           MOV      R0,#+1
+   \   000000A4   F280BDE8           POP      {R1,R4-R7,PC}    ;; return
+    420          }
+    421          
+    422          
+    423          /*
+    424           * MCU decoding for AC successive approximation refinement scan.
+    425           */
+    426          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    427          METHODDEF(boolean)
+    428          decode_mcu_AC_refine (j_decompress_ptr cinfo, JBLOCKROW *MCU_data)
+    429          {
+   \                     decode_mcu_AC_refine:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+   \   00000004   10D04DE2           SUB      SP,SP,#+16
+   \   00000008   0040A0E1           MOV      R4,R0
+    430            arith_entropy_ptr entropy = (arith_entropy_ptr) cinfo->entropy;
+    431            JBLOCKROW block;
+    432            JCOEFPTR thiscoef;
+    433            unsigned char *st;
+    434            int tbl, k, kex;
+    435            int p1, m1;
+    436          
+    437            /* Process restart marker if needed */
+    438            if (cinfo->restart_interval) {
+   \   0000000C   100194E5           LDR      R0,[R4, #+272]
+   \   00000010   BC5194E5           LDR      R5,[R4, #+444]
+   \   00000014   0160A0E1           MOV      R6,R1
+   \   00000018   000050E3           CMP      R0,#+0
+   \   0000001C   0700000A           BEQ      ??decode_mcu_AC_refine_0
+    439              if (entropy->restarts_to_go == 0)
+   \   00000020   380095E5           LDR      R0,[R5, #+56]
+   \   00000024   000050E3           CMP      R0,#+0
+   \   00000028   0100001A           BNE      ??decode_mcu_AC_refine_1
+    440                process_restart(cinfo);
+   \   0000002C   0400A0E1           MOV      R0,R4
+   \   00000030   ........           BL       process_restart
+    441              entropy->restarts_to_go--;
+   \                     ??decode_mcu_AC_refine_1:
+   \   00000034   380095E5           LDR      R0,[R5, #+56]
+   \   00000038   010040E2           SUB      R0,R0,#+1
+   \   0000003C   380085E5           STR      R0,[R5, #+56]
+   \                     ??decode_mcu_AC_refine_0:
+   \   00000040   140095E5           LDR      R0,[R5, #+20]
+   \   00000044   010070E3           CMN      R0,#+1
+   \   00000048   5C00000A           BEQ      ??decode_mcu_AC_refine_2
+    442            }
+    443          
+    444            if (entropy->ct == -1) return TRUE;	/* if error do nothing */
+    445          
+    446            /* There is always only one block per MCU */
+    447            block = MCU_data[0];
+   \   0000004C   001096E5           LDR      R1,[R6, #+0]
+    448            tbl = cinfo->cur_comp_info[0]->ac_tbl_no;
+    449          
+    450            p1 = 1 << cinfo->Al;		/* 1 in the bit position being coded */
+    451            m1 = (-1) << cinfo->Al;	/* -1 in the bit position being coded */
+    452          
+    453            /* Establish EOBx (previous stage end-of-block) index */
+    454            for (kex = cinfo->Se + 1; kex > 1; kex--)
+   \   00000050   ........           LDR      R7,??DataTable2  ;; jpeg_natural_order
+   \   00000054   00108DE5           STR      R1,[SP, #+0]
+   \   00000058   4C1194E5           LDR      R1,[R4, #+332]
+   \   0000005C   0120A0E3           MOV      R2,#+1
+   \   00000060   181091E5           LDR      R1,[R1, #+24]
+   \   00000064   0C108DE5           STR      R1,[SP, #+12]
+   \   00000068   9C0194E5           LDR      R0,[R4, #+412]
+   \   0000006C   1220A0E1           LSL      R2,R2,R0
+   \   00000070   04208DE5           STR      R2,[SP, #+4]
+   \   00000074   0020E0E3           MVN      R2,#+0
+   \   00000078   1200A0E1           LSL      R0,R2,R0
+   \   0000007C   08008DE5           STR      R0,[SP, #+8]
+   \   00000080   940194E5           LDR      R0,[R4, #+404]
+   \   00000084   016080E2           ADD      R6,R0,#+1
+   \   00000088   000000EA           B        ??decode_mcu_AC_refine_3
+   \                     ??decode_mcu_AC_refine_4:
+   \   0000008C   016046E2           SUB      R6,R6,#+1
+   \                     ??decode_mcu_AC_refine_3:
+   \   00000090   020056E3           CMP      R6,#+2
+   \   00000094   060000BA           BLT      ??decode_mcu_AC_refine_5
+    455              if ((*block)[jpeg_natural_order[kex - 1]]) break;
+   \   00000098   00109DE5           LDR      R1,[SP, #+0]
+   \   0000009C   060187E0           ADD      R0,R7,R6, LSL #+2
+   \   000000A0   040010E5           LDR      R0,[R0, #-4]
+   \   000000A4   800081E0           ADD      R0,R1,R0, LSL #+1
+   \   000000A8   F000D0E1           LDRSH    R0,[R0, #+0]
+   \   000000AC   000050E3           CMP      R0,#+0
+   \   000000B0   F5FFFF0A           BEQ      ??decode_mcu_AC_refine_4
+    456          
+    457            for (k = cinfo->Ss; k <= cinfo->Se; k++) {
+   \                     ??decode_mcu_AC_refine_5:
+   \   000000B4   909194E5           LDR      R9,[R4, #+400]
+   \   000000B8   010000EA           B        ??decode_mcu_AC_refine_6
+    458              st = entropy->ac_stats[tbl] + 3 * (k - 1);
+    459              if (k >= kex)
+    460                if (arith_decode(cinfo, st)) break;	/* EOB flag */
+    461              for (;;) {
+    462                thiscoef = *block + jpeg_natural_order[k];
+    463                if (*thiscoef) {				/* previously nonzero coef */
+    464          	if (arith_decode(cinfo, st + 2)) {
+    465          	  if (*thiscoef < 0)
+    466          	    *thiscoef += m1;
+    467          	  else
+    468          	    *thiscoef += p1;
+   \                     ??decode_mcu_AC_refine_7:
+   \   000000BC   000081E0           ADD      R0,R1,R0
+   \                     ??decode_mcu_AC_refine_8:
+   \   000000C0   B000C8E1           STRH     R0,[R8, #+0]
+   \                     ??decode_mcu_AC_refine_6:
+   \   000000C4   940194E5           LDR      R0,[R4, #+404]
+   \   000000C8   090050E1           CMP      R0,R9
+   \   000000CC   3B0000BA           BLT      ??decode_mcu_AC_refine_2
+   \   000000D0   0C009DE5           LDR      R0,[SP, #+12]
+   \   000000D4   060059E1           CMP      R9,R6
+   \   000000D8   00A185E0           ADD      R10,R5,R0, LSL #+2
+   \   000000DC   7C109AE5           LDR      R1,[R10, #+124]
+   \   000000E0   890089E0           ADD      R0,R9,R9, LSL #+1
+   \   000000E4   010080E0           ADD      R0,R0,R1
+   \   000000E8   03B040E2           SUB      R11,R0,#+3
+   \   000000EC   040000BA           BLT      ??decode_mcu_AC_refine_9
+   \   000000F0   0B10A0E1           MOV      R1,R11
+   \   000000F4   0400A0E1           MOV      R0,R4
+   \   000000F8   ........           BL       arith_decode
+   \   000000FC   000050E3           CMP      R0,#+0
+   \   00000100   2E00001A           BNE      ??decode_mcu_AC_refine_2
+   \                     ??decode_mcu_AC_refine_9:
+   \   00000104   090197E7           LDR      R0,[R7, +R9, LSL #+2]
+   \   00000108   00109DE5           LDR      R1,[SP, #+0]
+   \   0000010C   019089E2           ADD      R9,R9,#+1
+   \   00000110   808081E0           ADD      R8,R1,R0, LSL #+1
+   \   00000114   F000D8E1           LDRSH    R0,[R8, #+0]
+   \   00000118   000050E3           CMP      R0,#+0
+   \   0000011C   0900000A           BEQ      ??decode_mcu_AC_refine_10
+   \   00000120   02108BE2           ADD      R1,R11,#+2
+   \   00000124   0400A0E1           MOV      R0,R4
+   \   00000128   ........           BL       arith_decode
+   \   0000012C   000050E3           CMP      R0,#+0
+   \   00000130   E3FFFF0A           BEQ      ??decode_mcu_AC_refine_6
+   \   00000134   F000D8E1           LDRSH    R0,[R8, #+0]
+   \   00000138   000050E3           CMP      R0,#+0
+   \   0000013C   08109D45           LDRMI    R1,[SP, #+8]
+   \   00000140   04109D55           LDRPL    R1,[SP, #+4]
+   \   00000144   DCFFFFEA           B        ??decode_mcu_AC_refine_7
+    469          	}
+    470          	break;
+    471                }
+    472                if (arith_decode(cinfo, st + 1)) {	/* newly nonzero coef */
+   \                     ??decode_mcu_AC_refine_10:
+   \   00000148   01108BE2           ADD      R1,R11,#+1
+   \   0000014C   0400A0E1           MOV      R0,R4
+   \   00000150   ........           BL       arith_decode
+   \   00000154   000050E3           CMP      R0,#+0
+   \   00000158   0A00000A           BEQ      ??decode_mcu_AC_refine_11
+    473          	entropy->ac_stats[tbl][245] = 0;
+   \   0000015C   7C009AE5           LDR      R0,[R10, #+124]
+   \   00000160   0010A0E3           MOV      R1,#+0
+   \   00000164   F510C0E5           STRB     R1,[R0, #+245]
+    474          	if (arith_decode(cinfo, entropy->ac_stats[tbl] + 245))
+   \   00000168   7C009AE5           LDR      R0,[R10, #+124]
+   \   0000016C   F51080E2           ADD      R1,R0,#+245
+   \   00000170   0400A0E1           MOV      R0,R4
+   \   00000174   ........           BL       arith_decode
+   \   00000178   000050E3           CMP      R0,#+0
+   \   0000017C   04009D05           LDREQ    R0,[SP, #+4]
+    475          	  *thiscoef = m1;
+   \   00000180   08009D15           LDRNE    R0,[SP, #+8]
+   \   00000184   CDFFFFEA           B        ??decode_mcu_AC_refine_8
+    476          	else
+    477          	  *thiscoef = p1;
+    478          	break;
+    479                }
+    480                st += 3; k++;
+    481                if (k > cinfo->Se) {
+   \                     ??decode_mcu_AC_refine_11:
+   \   00000188   940194E5           LDR      R0,[R4, #+404]
+   \   0000018C   03B08BE2           ADD      R11,R11,#+3
+   \   00000190   090050E1           CMP      R0,R9
+   \   00000194   DAFFFFAA           BGE      ??decode_mcu_AC_refine_9
+    482          	WARNMS(cinfo, JWRN_ARITH_BAD_CODE);
+   \   00000198   000094E5           LDR      R0,[R4, #+0]
+   \   0000019C   7510A0E3           MOV      R1,#+117
+   \   000001A0   141080E5           STR      R1,[R0, #+20]
+   \   000001A4   002094E5           LDR      R2,[R4, #+0]
+   \   000001A8   0010E0E3           MVN      R1,#+0
+   \   000001AC   042092E5           LDR      R2,[R2, #+4]
+   \   000001B0   0400A0E1           MOV      R0,R4
+   \   000001B4   32FF2FE1           BLX      R2
+    483          	entropy->ct = -1;			/* spectral overflow */
+   \   000001B8   0000E0E3           MVN      R0,#+0
+   \   000001BC   140085E5           STR      R0,[R5, #+20]
+    484          	return TRUE;
+   \                     ??decode_mcu_AC_refine_2:
+   \   000001C0   0100A0E3           MOV      R0,#+1
+   \   000001C4   10D08DE2           ADD      SP,SP,#+16
+   \   000001C8   F08FBDE8           POP      {R4-R11,PC}      ;; return
+    485                }
+    486              }
+    487            }
+    488          
+    489            return TRUE;
+    490          }
+    491          
+    492          
+    493          /*
+    494           * Decode one MCU's worth of arithmetic-compressed coefficients.
+    495           */
+    496          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    497          METHODDEF(boolean)
+    498          decode_mcu (j_decompress_ptr cinfo, JBLOCKROW *MCU_data)
+    499          {
+   \                     decode_mcu:
+   \   00000000   F24F2DE9           PUSH     {R1,R4-R11,LR}
+   \   00000004   0CD04DE2           SUB      SP,SP,#+12
+   \   00000008   0050A0E1           MOV      R5,R0
+    500            arith_entropy_ptr entropy = (arith_entropy_ptr) cinfo->entropy;
+   \   0000000C   BC1195E5           LDR      R1,[R5, #+444]
+   \   00000010   00108DE5           STR      R1,[SP, #+0]
+    501            jpeg_component_info * compptr;
+    502            JBLOCKROW block;
+    503            unsigned char *st;
+    504            int blkn, ci, tbl, sign, k;
+    505            int v, m;
+    506          
+    507            /* Process restart marker if needed */
+    508            if (cinfo->restart_interval) {
+   \   00000014   100195E5           LDR      R0,[R5, #+272]
+   \   00000018   000050E3           CMP      R0,#+0
+   \   0000001C   0800000A           BEQ      ??decode_mcu_0
+    509              if (entropy->restarts_to_go == 0)
+   \   00000020   380091E5           LDR      R0,[R1, #+56]
+   \   00000024   000050E3           CMP      R0,#+0
+   \   00000028   0100001A           BNE      ??decode_mcu_1
+    510                process_restart(cinfo);
+   \   0000002C   0500A0E1           MOV      R0,R5
+   \   00000030   ........           BL       process_restart
+    511              entropy->restarts_to_go--;
+   \                     ??decode_mcu_1:
+   \   00000034   00009DE5           LDR      R0,[SP, #+0]
+   \   00000038   381090E5           LDR      R1,[R0, #+56]
+   \   0000003C   011041E2           SUB      R1,R1,#+1
+   \   00000040   381080E5           STR      R1,[R0, #+56]
+   \                     ??decode_mcu_0:
+   \   00000044   00009DE5           LDR      R0,[SP, #+0]
+   \   00000048   140090E5           LDR      R0,[R0, #+20]
+   \   0000004C   010070E3           CMN      R0,#+1
+   \   00000050   0200001A           BNE      ??decode_mcu_2
+    512            }
+    513          
+    514            if (entropy->ct == -1) return TRUE;	/* if error do nothing */
+   \                     ??decode_mcu_3:
+   \   00000054   0100A0E3           MOV      R0,#+1
+   \   00000058   10D08DE2           ADD      SP,SP,#+16
+   \   0000005C   F08FBDE8           POP      {R4-R11,PC}      ;; return
+    515          
+    516            /* Outer loop handles each block in the MCU */
+    517          
+    518            for (blkn = 0; blkn < cinfo->blocks_in_MCU; blkn++) {
+   \                     ??decode_mcu_2:
+   \   00000060   0010A0E3           MOV      R1,#+0
+   \   00000064   130000EA           B        ??decode_mcu_4
+    519              block = MCU_data[blkn];
+    520              ci = cinfo->MCU_membership[blkn];
+    521              compptr = cinfo->cur_comp_info[ci];
+    522          
+    523              /* Sections F.2.4.1 & F.1.4.4.1: Decoding of DC coefficients */
+    524          
+    525              tbl = compptr->dc_tbl_no;
+    526          
+    527              /* Table F.4: Point to statistics bin S0 for DC coefficient coding */
+    528              st = entropy->dc_stats[tbl] + entropy->dc_context[ci];
+    529          
+    530              /* Figure F.19: Decode_DC_DIFF */
+    531              if (arith_decode(cinfo, st) == 0)
+    532                entropy->dc_context[ci] = 0;
+    533              else {
+    534                /* Figure F.21: Decoding nonzero value v */
+    535                /* Figure F.22: Decoding the sign of v */
+    536                sign = arith_decode(cinfo, st + 1);
+    537                st += 2; st += sign;
+    538                /* Figure F.23: Decoding the magnitude category of v */
+    539                if ((m = arith_decode(cinfo, st)) != 0) {
+    540          	st = entropy->dc_stats[tbl] + 20;	/* Table F.4: X1 = 20 */
+    541          	while (arith_decode(cinfo, st)) {
+    542          	  if ((m <<= 1) == 0x8000) {
+    543          	    WARNMS(cinfo, JWRN_ARITH_BAD_CODE);
+    544          	    entropy->ct = -1;			/* magnitude overflow */
+    545          	    return TRUE;
+    546          	  }
+    547          	  st += 1;
+    548          	}
+    549                }
+    550                /* Section F.1.4.4.1.2: Establish dc_context conditioning category */
+    551                if (m < (int) (((INT32) 1 << cinfo->arith_dc_L[tbl]) >> 1))
+    552          	entropy->dc_context[ci] = 0;		   /* zero diff category */
+    553                else if (m > (int) (((INT32) 1 << cinfo->arith_dc_U[tbl]) >> 1))
+    554          	entropy->dc_context[ci] = 12 + (sign * 4); /* large diff category */
+    555                else
+    556          	entropy->dc_context[ci] = 4 + (sign * 4);  /* small diff category */
+    557                v = m;
+    558                /* Figure F.24: Decoding the magnitude bit pattern of v */
+    559                st += 14;
+    560                while (m >>= 1)
+    561          	if (arith_decode(cinfo, st)) v |= m;
+    562                v += 1; if (sign) v = -v;
+    563                entropy->last_dc_val[ci] += v;
+    564              }
+    565          
+    566              (*block)[0] = (JCOEF) entropy->last_dc_val[ci];
+    567          
+    568              /* Sections F.2.4.2 & F.1.4.4.2: Decoding of AC coefficients */
+    569          
+    570              tbl = compptr->ac_tbl_no;
+    571          
+    572              /* Figure F.20: Decode_AC_coefficients */
+    573              for (k = 1; k < DCTSIZE2; k++) {
+    574                st = entropy->ac_stats[tbl] + 3 * (k - 1);
+    575                if (arith_decode(cinfo, st)) break;	/* EOB flag */
+    576                while (arith_decode(cinfo, st + 1) == 0) {
+    577          	st += 3; k++;
+    578          	if (k >= DCTSIZE2) {
+    579          	  WARNMS(cinfo, JWRN_ARITH_BAD_CODE);
+    580          	  entropy->ct = -1;			/* spectral overflow */
+    581          	  return TRUE;
+    582          	}
+    583                }
+    584                /* Figure F.21: Decoding nonzero value v */
+    585                /* Figure F.22: Decoding the sign of v */
+    586                entropy->ac_stats[tbl][245] = 0;
+    587                sign = arith_decode(cinfo, entropy->ac_stats[tbl] + 245);
+    588                st += 2;
+    589                /* Figure F.23: Decoding the magnitude category of v */
+    590                if ((m = arith_decode(cinfo, st)) != 0) {
+    591          	if (arith_decode(cinfo, st)) {
+    592          	  m <<= 1;
+    593          	  st = entropy->ac_stats[tbl] +
+    594          	       (k <= cinfo->arith_ac_K[tbl] ? 189 : 217);
+    595          	  while (arith_decode(cinfo, st)) {
+    596          	    if ((m <<= 1) == 0x8000) {
+    597          	      WARNMS(cinfo, JWRN_ARITH_BAD_CODE);
+    598          	      entropy->ct = -1;			/* magnitude overflow */
+    599          	      return TRUE;
+    600          	    }
+    601          	    st += 1;
+    602          	  }
+    603          	}
+    604                }
+    605                v = m;
+    606                /* Figure F.24: Decoding the magnitude bit pattern of v */
+    607                st += 14;
+    608                while (m >>= 1)
+    609          	if (arith_decode(cinfo, st)) v |= m;
+   \                     ??decode_mcu_5:
+   \   00000068   0B10A0E1           MOV      R1,R11
+   \   0000006C   0500A0E1           MOV      R0,R5
+   \   00000070   ........           BL       arith_decode
+   \   00000074   000050E3           CMP      R0,#+0
+   \   00000078   09908411           ORRNE    R9,R4,R9
+   \                     ??decode_mcu_6:
+   \   0000007C   C440B0E1           ASRS     R4,R4,#+1
+   \   00000080   F8FFFF1A           BNE      ??decode_mcu_5
+    610                v += 1; if (sign) v = -v;
+    611                (*block)[jpeg_natural_order[k]] = (JCOEF) v;
+   \   00000084   ........           LDR      R1,??DataTable2  ;; jpeg_natural_order
+   \   00000088   08209DE5           LDR      R2,[SP, #+8]
+   \   0000008C   061191E7           LDR      R1,[R1, +R6, LSL #+2]
+   \   00000090   010089E2           ADD      R0,R9,#+1
+   \   00000094   00005AE3           CMP      R10,#+0
+   \   00000098   00006012           RSBNE    R0,R0,#+0
+   \   0000009C   811082E0           ADD      R1,R2,R1, LSL #+1
+   \   000000A0   B000C1E1           STRH     R0,[R1, #+0]
+   \   000000A4   0760A0E1           MOV      R6,R7
+   \   000000A8   400056E3           CMP      R6,#+64
+   \   000000AC   640000BA           BLT      ??decode_mcu_7
+   \                     ??decode_mcu_8:
+   \   000000B0   04109DE5           LDR      R1,[SP, #+4]
+   \   000000B4   011081E2           ADD      R1,R1,#+1
+   \                     ??decode_mcu_4:
+   \   000000B8   04108DE5           STR      R1,[SP, #+4]
+   \   000000BC   04009DE5           LDR      R0,[SP, #+4]
+   \   000000C0   641195E5           LDR      R1,[R5, #+356]
+   \   000000C4   010050E1           CMP      R0,R1
+   \   000000C8   E1FFFFAA           BGE      ??decode_mcu_3
+   \   000000CC   0C209DE5           LDR      R2,[SP, #+12]
+   \   000000D0   0010A0E1           MOV      R1,R0
+   \   000000D4   011192E7           LDR      R1,[R2, +R1, LSL #+2]
+   \   000000D8   000185E0           ADD      R0,R5,R0, LSL #+2
+   \   000000DC   08108DE5           STR      R1,[SP, #+8]
+   \   000000E0   680190E5           LDR      R0,[R0, #+360]
+   \   000000E4   001185E0           ADD      R1,R5,R0, LSL #+2
+   \   000000E8   4C6191E5           LDR      R6,[R1, #+332]
+   \   000000EC   00109DE5           LDR      R1,[SP, #+0]
+   \   000000F0   148096E5           LDR      R8,[R6, #+20]
+   \   000000F4   007181E0           ADD      R7,R1,R0, LSL #+2
+   \   000000F8   280097E5           LDR      R0,[R7, #+40]
+   \   000000FC   089181E0           ADD      R9,R1,R8, LSL #+2
+   \   00000100   3C1099E5           LDR      R1,[R9, #+60]
+   \   00000104   01B080E0           ADD      R11,R0,R1
+   \   00000108   0B10A0E1           MOV      R1,R11
+   \   0000010C   0500A0E1           MOV      R0,R5
+   \   00000110   ........           BL       arith_decode
+   \   00000114   000050E3           CMP      R0,#+0
+   \   00000118   28008705           STREQ    R0,[R7, #+40]
+   \   0000011C   4300000A           BEQ      ??decode_mcu_9
+   \   00000120   01108BE2           ADD      R1,R11,#+1
+   \   00000124   0500A0E1           MOV      R0,R5
+   \   00000128   ........           BL       arith_decode
+   \   0000012C   00A0A0E1           MOV      R10,R0
+   \   00000130   0B008AE0           ADD      R0,R10,R11
+   \   00000134   02B080E2           ADD      R11,R0,#+2
+   \   00000138   0B10A0E1           MOV      R1,R11
+   \   0000013C   0500A0E1           MOV      R0,R5
+   \   00000140   ........           BL       arith_decode
+   \   00000144   0040B0E1           MOVS     R4,R0
+   \   00000148   1900000A           BEQ      ??decode_mcu_10
+   \   0000014C   3C0099E5           LDR      R0,[R9, #+60]
+   \   00000150   14B080E2           ADD      R11,R0,#+20
+   \   00000154   000000EA           B        ??decode_mcu_11
+   \                     ??decode_mcu_12:
+   \   00000158   01B08BE2           ADD      R11,R11,#+1
+   \                     ??decode_mcu_11:
+   \   0000015C   0B10A0E1           MOV      R1,R11
+   \   00000160   0500A0E1           MOV      R0,R5
+   \   00000164   ........           BL       arith_decode
+   \   00000168   000050E3           CMP      R0,#+0
+   \   0000016C   1000000A           BEQ      ??decode_mcu_10
+   \   00000170   8440A0E1           LSL      R4,R4,#+1
+   \   00000174   800C54E3           CMP      R4,#+32768
+   \   00000178   F6FFFF1A           BNE      ??decode_mcu_12
+   \                     ??decode_mcu_13:
+   \   0000017C   000095E5           LDR      R0,[R5, #+0]
+   \   00000180   7510A0E3           MOV      R1,#+117
+   \   00000184   141080E5           STR      R1,[R0, #+20]
+   \   00000188   002095E5           LDR      R2,[R5, #+0]
+   \   0000018C   0010E0E3           MVN      R1,#+0
+   \   00000190   042092E5           LDR      R2,[R2, #+4]
+   \   00000194   0500A0E1           MOV      R0,R5
+   \   00000198   32FF2FE1           BLX      R2
+   \   0000019C   00009DE5           LDR      R0,[SP, #+0]
+   \   000001A0   0010E0E3           MVN      R1,#+0
+   \   000001A4   141080E5           STR      R1,[R0, #+20]
+   \   000001A8   0100A0E3           MOV      R0,#+1
+   \   000001AC   10D08DE2           ADD      SP,SP,#+16
+   \   000001B0   F08FBDE8           POP      {R4-R11,PC}
+   \                     ??decode_mcu_10:
+   \   000001B4   051088E0           ADD      R1,R8,R5
+   \   000001B8   D01ED1E1           LDRSB    R1,[R1, #+224]
+   \   000001BC   0100A0E3           MOV      R0,#+1
+   \   000001C0   1011A0E1           LSL      R1,R0,R1
+   \   000001C4   C10054E1           CMP      R4,R1, ASR #+1
+   \   000001C8   0000A0B3           MOVLT    R0,#+0
+   \   000001CC   060000BA           BLT      ??decode_mcu_14
+   \   000001D0   052088E0           ADD      R2,R8,R5
+   \   000001D4   D02FD2E1           LDRSB    R2,[R2, #+240]
+   \   000001D8   0A11A0E1           LSL      R1,R10,#+2
+   \   000001DC   1002A0E1           LSL      R0,R0,R2
+   \   000001E0   C00054E1           CMP      R4,R0, ASR #+1
+   \   000001E4   0C0081C2           ADDGT    R0,R1,#+12
+   \   000001E8   040081D2           ADDLE    R0,R1,#+4
+   \                     ??decode_mcu_14:
+   \   000001EC   280087E5           STR      R0,[R7, #+40]
+   \   000001F0   0480A0E1           MOV      R8,R4
+   \   000001F4   0EB08BE2           ADD      R11,R11,#+14
+   \   000001F8   040000EA           B        ??decode_mcu_15
+   \                     ??decode_mcu_16:
+   \   000001FC   0B10A0E1           MOV      R1,R11
+   \   00000200   0500A0E1           MOV      R0,R5
+   \   00000204   ........           BL       arith_decode
+   \   00000208   000050E3           CMP      R0,#+0
+   \   0000020C   08808411           ORRNE    R8,R4,R8
+   \                     ??decode_mcu_15:
+   \   00000210   C440B0E1           ASRS     R4,R4,#+1
+   \   00000214   F8FFFF1A           BNE      ??decode_mcu_16
+   \   00000218   181097E5           LDR      R1,[R7, #+24]
+   \   0000021C   010088E2           ADD      R0,R8,#+1
+   \   00000220   00005AE3           CMP      R10,#+0
+   \   00000224   00006012           RSBNE    R0,R0,#+0
+   \   00000228   010080E0           ADD      R0,R0,R1
+   \   0000022C   180087E5           STR      R0,[R7, #+24]
+   \                     ??decode_mcu_9:
+   \   00000230   08009DE5           LDR      R0,[SP, #+8]
+   \   00000234   181097E5           LDR      R1,[R7, #+24]
+   \   00000238   B010C0E1           STRH     R1,[R0, #+0]
+   \   0000023C   188096E5           LDR      R8,[R6, #+24]
+   \   00000240   0160A0E3           MOV      R6,#+1
+   \                     ??decode_mcu_7:
+   \   00000244   00009DE5           LDR      R0,[SP, #+0]
+   \   00000248   089180E0           ADD      R9,R0,R8, LSL #+2
+   \   0000024C   7C1099E5           LDR      R1,[R9, #+124]
+   \   00000250   860086E0           ADD      R0,R6,R6, LSL #+1
+   \   00000254   010080E0           ADD      R0,R0,R1
+   \   00000258   03B040E2           SUB      R11,R0,#+3
+   \   0000025C   0B10A0E1           MOV      R1,R11
+   \   00000260   0500A0E1           MOV      R0,R5
+   \   00000264   ........           BL       arith_decode
+   \   00000268   000050E3           CMP      R0,#+0
+   \   0000026C   8FFFFF1A           BNE      ??decode_mcu_8
+   \   00000270   030000EA           B        ??decode_mcu_17
+   \                     ??decode_mcu_18:
+   \   00000274   03B08BE2           ADD      R11,R11,#+3
+   \   00000278   0760A0E1           MOV      R6,R7
+   \   0000027C   400056E3           CMP      R6,#+64
+   \   00000280   BDFFFFAA           BGE      ??decode_mcu_13
+   \                     ??decode_mcu_17:
+   \   00000284   017086E2           ADD      R7,R6,#+1
+   \   00000288   01108BE2           ADD      R1,R11,#+1
+   \   0000028C   0500A0E1           MOV      R0,R5
+   \   00000290   ........           BL       arith_decode
+   \   00000294   000050E3           CMP      R0,#+0
+   \   00000298   F5FFFF0A           BEQ      ??decode_mcu_18
+   \   0000029C   7C0099E5           LDR      R0,[R9, #+124]
+   \   000002A0   0010A0E3           MOV      R1,#+0
+   \   000002A4   F510C0E5           STRB     R1,[R0, #+245]
+   \   000002A8   7C0099E5           LDR      R0,[R9, #+124]
+   \   000002AC   02B08BE2           ADD      R11,R11,#+2
+   \   000002B0   F51080E2           ADD      R1,R0,#+245
+   \   000002B4   0500A0E1           MOV      R0,R5
+   \   000002B8   ........           BL       arith_decode
+   \   000002BC   00A0A0E1           MOV      R10,R0
+   \   000002C0   0B10A0E1           MOV      R1,R11
+   \   000002C4   0500A0E1           MOV      R0,R5
+   \   000002C8   ........           BL       arith_decode
+   \   000002CC   0040B0E1           MOVS     R4,R0
+   \   000002D0   1600000A           BEQ      ??decode_mcu_19
+   \   000002D4   0B10A0E1           MOV      R1,R11
+   \   000002D8   0500A0E1           MOV      R0,R5
+   \   000002DC   ........           BL       arith_decode
+   \   000002E0   000050E3           CMP      R0,#+0
+   \   000002E4   1100000A           BEQ      ??decode_mcu_19
+   \   000002E8   7C1099E5           LDR      R1,[R9, #+124]
+   \   000002EC   050088E0           ADD      R0,R8,R5
+   \   000002F0   0001D0E5           LDRB     R0,[R0, #+256]
+   \   000002F4   8440A0E1           LSL      R4,R4,#+1
+   \   000002F8   060050E1           CMP      R0,R6
+   \   000002FC   BD00A0A3           MOVGE    R0,#+189
+   \   00000300   D900A0B3           MOVLT    R0,#+217
+   \   00000304   01B080E0           ADD      R11,R0,R1
+   \   00000308   030000EA           B        ??decode_mcu_20
+   \                     ??decode_mcu_21:
+   \   0000030C   8440A0E1           LSL      R4,R4,#+1
+   \   00000310   800C54E3           CMP      R4,#+32768
+   \   00000314   98FFFF0A           BEQ      ??decode_mcu_13
+   \   00000318   01B08BE2           ADD      R11,R11,#+1
+   \                     ??decode_mcu_20:
+   \   0000031C   0B10A0E1           MOV      R1,R11
+   \   00000320   0500A0E1           MOV      R0,R5
+   \   00000324   ........           BL       arith_decode
+   \   00000328   000050E3           CMP      R0,#+0
+   \   0000032C   F6FFFF1A           BNE      ??decode_mcu_21
+   \                     ??decode_mcu_19:
+   \   00000330   0490A0E1           MOV      R9,R4
+   \   00000334   0EB08BE2           ADD      R11,R11,#+14
+   \   00000338   4FFFFFEA           B        ??decode_mcu_6
+    612              }
+    613            }
+    614          
+    615            return TRUE;
+    616          }
+    617          
+    618          
+    619          /*
+    620           * Initialize for an arithmetic-compressed scan.
+    621           */
+    622          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    623          METHODDEF(void)
+    624          start_pass (j_decompress_ptr cinfo)
+    625          {
+   \                     start_pass:
+   \   00000000   F04F2DE9           PUSH     {R4-R11,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    626            arith_entropy_ptr entropy = (arith_entropy_ptr) cinfo->entropy;
+    627            int ci, tbl;
+    628            jpeg_component_info * compptr;
+    629          
+    630            if (cinfo->progressive_mode) {
+   \   00000008   D80094E5           LDR      R0,[R4, #+216]
+   \   0000000C   BC5194E5           LDR      R5,[R4, #+444]
+   \   00000010   0060A0E3           MOV      R6,#+0
+   \   00000014   000050E3           CMP      R0,#+0
+   \   00000018   900194E5           LDR      R0,[R4, #+400]
+   \   0000001C   7200000A           BEQ      ??start_pass_0
+    631              /* Validate progressive scan parameters */
+    632              if (cinfo->Ss == 0) {
+   \   00000020   000050E3           CMP      R0,#+0
+   \   00000024   940194E5           LDR      R0,[R4, #+404]
+   \   00000028   0200001A           BNE      ??start_pass_1
+    633                if (cinfo->Se != 0)
+   \   0000002C   000050E3           CMP      R0,#+0
+   \   00000030   1200001A           BNE      ??start_pass_2
+   \   00000034   070000EA           B        ??start_pass_3
+    634          	goto bad;
+    635              } else {
+    636                /* need not check Ss/Se < 0 since they came from unsigned bytes */
+    637                if (cinfo->Se < cinfo->Ss || cinfo->Se >= DCTSIZE2)
+   \                     ??start_pass_1:
+   \   00000038   901194E5           LDR      R1,[R4, #+400]
+   \   0000003C   010050E1           CMP      R0,R1
+   \   00000040   0E0000BA           BLT      ??start_pass_2
+   \   00000044   400050E3           CMP      R0,#+64
+   \   00000048   0C0000AA           BGE      ??start_pass_2
+    638          	goto bad;
+    639                /* AC scans may have only one component */
+    640                if (cinfo->comps_in_scan != 1)
+   \   0000004C   480194E5           LDR      R0,[R4, #+328]
+   \   00000050   010050E3           CMP      R0,#+1
+   \   00000054   0900001A           BNE      ??start_pass_2
+    641          	goto bad;
+    642              }
+    643              if (cinfo->Ah != 0) {
+   \                     ??start_pass_3:
+   \   00000058   980194E5           LDR      R0,[R4, #+408]
+   \   0000005C   000050E3           CMP      R0,#+0
+   \   00000060   0300000A           BEQ      ??start_pass_4
+    644                /* Successive approximation refinement scan: must have Al = Ah-1. */
+    645                if (cinfo->Ah-1 != cinfo->Al)
+   \   00000064   9C1194E5           LDR      R1,[R4, #+412]
+   \   00000068   010040E2           SUB      R0,R0,#+1
+   \   0000006C   010050E1           CMP      R0,R1
+   \   00000070   0200001A           BNE      ??start_pass_2
+    646          	goto bad;
+    647              }
+    648              if (cinfo->Al > 13) {	/* need not check for < 0 */
+   \                     ??start_pass_4:
+   \   00000074   9C0194E5           LDR      R0,[R4, #+412]
+   \   00000078   0E0050E3           CMP      R0,#+14
+   \   0000007C   120000BA           BLT      ??start_pass_5
+    649                bad:
+    650                ERREXIT4(cinfo, JERR_BAD_PROGRESSION,
+    651          	       cinfo->Ss, cinfo->Se, cinfo->Ah, cinfo->Al);
+   \                     ??start_pass_2:
+   \   00000080   000094E5           LDR      R0,[R4, #+0]
+   \   00000084   1110A0E3           MOV      R1,#+17
+   \   00000088   141080E5           STR      R1,[R0, #+20]
+   \   0000008C   000094E5           LDR      R0,[R4, #+0]
+   \   00000090   901194E5           LDR      R1,[R4, #+400]
+   \   00000094   181080E5           STR      R1,[R0, #+24]
+   \   00000098   000094E5           LDR      R0,[R4, #+0]
+   \   0000009C   941194E5           LDR      R1,[R4, #+404]
+   \   000000A0   1C1080E5           STR      R1,[R0, #+28]
+   \   000000A4   000094E5           LDR      R0,[R4, #+0]
+   \   000000A8   981194E5           LDR      R1,[R4, #+408]
+   \   000000AC   201080E5           STR      R1,[R0, #+32]
+   \   000000B0   000094E5           LDR      R0,[R4, #+0]
+   \   000000B4   9C1194E5           LDR      R1,[R4, #+412]
+   \   000000B8   241080E5           STR      R1,[R0, #+36]
+   \   000000BC   001094E5           LDR      R1,[R4, #+0]
+   \   000000C0   0400A0E1           MOV      R0,R4
+   \   000000C4   001091E5           LDR      R1,[R1, #+0]
+   \   000000C8   31FF2FE1           BLX      R1
+    652              }
+    653              /* Update progression status, and verify that scan order is legal.
+    654               * Note that inter-scan inconsistencies are treated as warnings
+    655               * not fatal errors ... not clear if this is right way to behave.
+    656               */
+    657              for (ci = 0; ci < cinfo->comps_in_scan; ci++) {
+   \                     ??start_pass_5:
+   \   000000CC   480194E5           LDR      R0,[R4, #+328]
+   \   000000D0   0070A0E3           MOV      R7,#+0
+   \   000000D4   010050E3           CMP      R0,#+1
+   \   000000D8   76A0A0E3           MOV      R10,#+118
+   \   000000DC   1C0000AA           BGE      ??start_pass_6
+    658                int coefi, cindex = cinfo->cur_comp_info[ci]->component_index;
+    659                int *coef_bit_ptr = & cinfo->coef_bits[cindex][0];
+    660                if (cinfo->Ss && coef_bit_ptr[0] < 0) /* AC without prior DC scan */
+    661          	WARNMS2(cinfo, JWRN_BOGUS_PROGRESSION, cindex, 0);
+    662                for (coefi = cinfo->Ss; coefi <= cinfo->Se; coefi++) {
+    663          	int expected = (coef_bit_ptr[coefi] < 0) ? 0 : coef_bit_ptr[coefi];
+    664          	if (cinfo->Ah != expected)
+    665          	  WARNMS2(cinfo, JWRN_BOGUS_PROGRESSION, cindex, coefi);
+    666          	coef_bit_ptr[coefi] = cinfo->Al;
+    667                }
+    668              }
+    669              /* Select MCU decoding routine */
+    670              if (cinfo->Ah == 0) {
+   \                     ??start_pass_7:
+   \   000000E0   980194E5           LDR      R0,[R4, #+408]
+   \   000000E4   000050E3           CMP      R0,#+0
+   \   000000E8   900194E5           LDR      R0,[R4, #+400]
+   \   000000EC   3A00001A           BNE      ??start_pass_8
+    671                if (cinfo->Ss == 0)
+   \   000000F0   000050E3           CMP      R0,#+0
+   \   000000F4   A8029F15           LDRNE    R0,??start_pass_9  ;; decode_mcu_AC_first
+    672          	entropy->pub.decode_mcu = decode_mcu_DC_first;
+   \   000000F8   A8029F05           LDREQ    R0,??start_pass_9+0x4  ;; decode_mcu_DC_first
+   \   000000FC   4B0000EA           B        ??start_pass_10
+    673                else
+    674          	entropy->pub.decode_mcu = decode_mcu_AC_first;
+    675              } else {
+   \                     ??start_pass_11:
+   \   00000100   981194E5           LDR      R1,[R4, #+408]
+   \   00000104   000051E1           CMP      R1,R0
+   \   00000108   0A00000A           BEQ      ??start_pass_12
+   \   0000010C   000094E5           LDR      R0,[R4, #+0]
+   \   00000110   0610E0E1           MVN      R1,R6
+   \   00000114   14A080E5           STR      R10,[R0, #+20]
+   \   00000118   000094E5           LDR      R0,[R4, #+0]
+   \   0000011C   18B080E5           STR      R11,[R0, #+24]
+   \   00000120   000094E5           LDR      R0,[R4, #+0]
+   \   00000124   1C9080E5           STR      R9,[R0, #+28]
+   \   00000128   002094E5           LDR      R2,[R4, #+0]
+   \   0000012C   0400A0E1           MOV      R0,R4
+   \   00000130   042092E5           LDR      R2,[R2, #+4]
+   \   00000134   32FF2FE1           BLX      R2
+   \                     ??start_pass_12:
+   \   00000138   9C0194E5           LDR      R0,[R4, #+412]
+   \   0000013C   090188E7           STR      R0,[R8, +R9, LSL #+2]
+   \   00000140   940194E5           LDR      R0,[R4, #+404]
+   \   00000144   019089E2           ADD      R9,R9,#+1
+   \   00000148   090050E1           CMP      R0,R9
+   \   0000014C   1D0000AA           BGE      ??start_pass_13
+   \                     ??start_pass_14:
+   \   00000150   017087E2           ADD      R7,R7,#+1
+   \                     ??start_pass_6:
+   \   00000154   480194E5           LDR      R0,[R4, #+328]
+   \   00000158   000057E1           CMP      R7,R0
+   \   0000015C   DFFFFFAA           BGE      ??start_pass_7
+   \   00000160   070184E0           ADD      R0,R4,R7, LSL #+2
+   \   00000164   4C0190E5           LDR      R0,[R0, #+332]
+   \   00000168   04B090E5           LDR      R11,[R0, #+4]
+   \   0000016C   9C0094E5           LDR      R0,[R4, #+156]
+   \   00000170   0B8480E0           ADD      R8,R0,R11, LSL #+8
+   \   00000174   900194E5           LDR      R0,[R4, #+400]
+   \   00000178   000050E3           CMP      R0,#+0
+   \   0000017C   0D00000A           BEQ      ??start_pass_15
+   \   00000180   000098E5           LDR      R0,[R8, #+0]
+   \   00000184   000050E3           CMP      R0,#+0
+   \   00000188   0A00005A           BPL      ??start_pass_15
+   \   0000018C   000094E5           LDR      R0,[R4, #+0]
+   \   00000190   0610E0E1           MVN      R1,R6
+   \   00000194   14A080E5           STR      R10,[R0, #+20]
+   \   00000198   000094E5           LDR      R0,[R4, #+0]
+   \   0000019C   18B080E5           STR      R11,[R0, #+24]
+   \   000001A0   000094E5           LDR      R0,[R4, #+0]
+   \   000001A4   1C6080E5           STR      R6,[R0, #+28]
+   \   000001A8   002094E5           LDR      R2,[R4, #+0]
+   \   000001AC   0400A0E1           MOV      R0,R4
+   \   000001B0   042092E5           LDR      R2,[R2, #+4]
+   \   000001B4   32FF2FE1           BLX      R2
+   \                     ??start_pass_15:
+   \   000001B8   909194E5           LDR      R9,[R4, #+400]
+   \   000001BC   940194E5           LDR      R0,[R4, #+404]
+   \   000001C0   090050E1           CMP      R0,R9
+   \   000001C4   E1FFFFBA           BLT      ??start_pass_14
+   \                     ??start_pass_13:
+   \   000001C8   090198E7           LDR      R0,[R8, +R9, LSL #+2]
+   \   000001CC   000050E3           CMP      R0,#+0
+   \   000001D0   CAFFFF5A           BPL      ??start_pass_11
+   \   000001D4   0000A0E3           MOV      R0,#+0
+   \   000001D8   C8FFFFEA           B        ??start_pass_11
+    676                if (cinfo->Ss == 0)
+   \                     ??start_pass_8:
+   \   000001DC   000050E3           CMP      R0,#+0
+   \   000001E0   C4019F15           LDRNE    R0,??start_pass_9+0x8  ;; decode_mcu_AC_refine
+    677          	entropy->pub.decode_mcu = decode_mcu_DC_refine;
+   \   000001E4   C4019F05           LDREQ    R0,??start_pass_9+0xC  ;; decode_mcu_DC_refine
+   \   000001E8   100000EA           B        ??start_pass_10
+    678                else
+    679          	entropy->pub.decode_mcu = decode_mcu_AC_refine;
+    680              }
+    681            } else {
+    682              /* Check that the scan parameters Ss, Se, Ah/Al are OK for sequential JPEG.
+    683               * This ought to be an error condition, but we make it a warning because
+    684               * there are some baseline files out there with all zeroes in these bytes.
+    685               */
+    686              if (cinfo->Ss != 0 || cinfo->Se != DCTSIZE2-1 ||
+    687          	cinfo->Ah != 0 || cinfo->Al != 0)
+   \                     ??start_pass_0:
+   \   000001EC   000050E3           CMP      R0,#+0
+   \   000001F0   94019405           LDREQ    R0,[R4, #+404]
+   \   000001F4   3F005003           CMPEQ    R0,#+63
+   \   000001F8   98019405           LDREQ    R0,[R4, #+408]
+   \   000001FC   00005003           CMPEQ    R0,#+0
+   \   00000200   9C019405           LDREQ    R0,[R4, #+412]
+   \   00000204   00005003           CMPEQ    R0,#+0
+   \   00000208   0700000A           BEQ      ??start_pass_16
+    688                WARNMS(cinfo, JWRN_NOT_SEQUENTIAL);
+   \   0000020C   000094E5           LDR      R0,[R4, #+0]
+   \   00000210   7D10A0E3           MOV      R1,#+125
+   \   00000214   141080E5           STR      R1,[R0, #+20]
+   \   00000218   002094E5           LDR      R2,[R4, #+0]
+   \   0000021C   0610E0E1           MVN      R1,R6
+   \   00000220   042092E5           LDR      R2,[R2, #+4]
+   \   00000224   0400A0E1           MOV      R0,R4
+   \   00000228   32FF2FE1           BLX      R2
+    689              /* Select MCU decoding routine */
+    690              entropy->pub.decode_mcu = decode_mcu;
+   \                     ??start_pass_16:
+   \   0000022C   80019FE5           LDR      R0,??start_pass_9+0x10  ;; decode_mcu
+    691            }
+    692          
+    693            for (ci = 0; ci < cinfo->comps_in_scan; ci++) {
+   \                     ??start_pass_10:
+   \   00000230   0070A0E3           MOV      R7,#+0
+   \   00000234   040085E5           STR      R0,[R5, #+4]
+   \   00000238   480194E5           LDR      R0,[R4, #+328]
+   \   0000023C   3290A0E3           MOV      R9,#+50
+   \   00000240   010050E3           CMP      R0,#+1
+   \   00000244   4C0000AA           BGE      ??start_pass_17
+   \   00000248   4E0000EA           B        ??start_pass_18
+    694              compptr = cinfo->cur_comp_info[ci];
+   \                     ??start_pass_19:
+   \   0000024C   070184E0           ADD      R0,R4,R7, LSL #+2
+   \   00000250   4C8190E5           LDR      R8,[R0, #+332]
+    695              /* Allocate & initialize requested statistics areas */
+    696              if (cinfo->progressive_mode == 0 || (cinfo->Ss == 0 && cinfo->Ah == 0)) {
+   \   00000254   D80094E5           LDR      R0,[R4, #+216]
+   \   00000258   000050E3           CMP      R0,#+0
+   \   0000025C   0400000A           BEQ      ??start_pass_20
+   \   00000260   900194E5           LDR      R0,[R4, #+400]
+   \   00000264   000050E3           CMP      R0,#+0
+   \   00000268   98019405           LDREQ    R0,[R4, #+408]
+   \   0000026C   00005003           CMPEQ    R0,#+0
+   \   00000270   1E00001A           BNE      ??start_pass_21
+    697                tbl = compptr->dc_tbl_no;
+   \                     ??start_pass_20:
+   \   00000274   14A098E5           LDR      R10,[R8, #+20]
+    698                if (tbl < 0 || tbl >= NUM_ARITH_TBLS)
+   \   00000278   00005AE3           CMP      R10,#+0
+   \   0000027C   0100004A           BMI      ??start_pass_22
+   \   00000280   10005AE3           CMP      R10,#+16
+   \   00000284   070000BA           BLT      ??start_pass_23
+    699          	ERREXIT1(cinfo, JERR_NO_ARITH_TABLE, tbl);
+   \                     ??start_pass_22:
+   \   00000288   000094E5           LDR      R0,[R4, #+0]
+   \   0000028C   149080E5           STR      R9,[R0, #+20]
+   \   00000290   000094E5           LDR      R0,[R4, #+0]
+   \   00000294   18A080E5           STR      R10,[R0, #+24]
+   \   00000298   001094E5           LDR      R1,[R4, #+0]
+   \   0000029C   0400A0E1           MOV      R0,R4
+   \   000002A0   001091E5           LDR      R1,[R1, #+0]
+   \   000002A4   31FF2FE1           BLX      R1
+    700                if (entropy->dc_stats[tbl] == NULL)
+   \                     ??start_pass_23:
+   \   000002A8   0AA185E0           ADD      R10,R5,R10, LSL #+2
+   \   000002AC   3C009AE5           LDR      R0,[R10, #+60]
+   \   000002B0   000050E3           CMP      R0,#+0
+   \   000002B4   0600001A           BNE      ??start_pass_24
+    701          	entropy->dc_stats[tbl] = (unsigned char *) (*cinfo->mem->alloc_small)
+    702          	  ((j_common_ptr) cinfo, JPOOL_IMAGE, DC_STAT_BINS);
+   \   000002B8   043094E5           LDR      R3,[R4, #+4]
+   \   000002BC   4020A0E3           MOV      R2,#+64
+   \   000002C0   003093E5           LDR      R3,[R3, #+0]
+   \   000002C4   0110A0E3           MOV      R1,#+1
+   \   000002C8   0400A0E1           MOV      R0,R4
+   \   000002CC   33FF2FE1           BLX      R3
+   \   000002D0   3C008AE5           STR      R0,[R10, #+60]
+    703                MEMZERO(entropy->dc_stats[tbl], DC_STAT_BINS);
+   \                     ??start_pass_24:
+   \   000002D4   3C009AE5           LDR      R0,[R10, #+60]
+   \   000002D8   4020A0E3           MOV      R2,#+64
+   \   000002DC   0010A0E3           MOV      R1,#+0
+   \   000002E0   BB0000EF           SWI      +187
+    704                /* Initialize DC predictions to 0 */
+    705                entropy->last_dc_val[ci] = 0;
+   \   000002E4   070185E0           ADD      R0,R5,R7, LSL #+2
+   \   000002E8   186080E5           STR      R6,[R0, #+24]
+    706                entropy->dc_context[ci] = 0;
+   \   000002EC   286080E5           STR      R6,[R0, #+40]
+    707              }
+    708              if (cinfo->progressive_mode == 0 || cinfo->Ss) {
+   \                     ??start_pass_21:
+   \   000002F0   D80094E5           LDR      R0,[R4, #+216]
+   \   000002F4   000050E3           CMP      R0,#+0
+   \   000002F8   0200000A           BEQ      ??start_pass_25
+   \   000002FC   900194E5           LDR      R0,[R4, #+400]
+   \   00000300   000050E3           CMP      R0,#+0
+   \   00000304   1B00000A           BEQ      ??start_pass_26
+    709                tbl = compptr->ac_tbl_no;
+   \                     ??start_pass_25:
+   \   00000308   18A098E5           LDR      R10,[R8, #+24]
+    710                if (tbl < 0 || tbl >= NUM_ARITH_TBLS)
+   \   0000030C   00005AE3           CMP      R10,#+0
+   \   00000310   0100004A           BMI      ??start_pass_27
+   \   00000314   10005AE3           CMP      R10,#+16
+   \   00000318   070000BA           BLT      ??start_pass_28
+    711          	ERREXIT1(cinfo, JERR_NO_ARITH_TABLE, tbl);
+   \                     ??start_pass_27:
+   \   0000031C   000094E5           LDR      R0,[R4, #+0]
+   \   00000320   149080E5           STR      R9,[R0, #+20]
+   \   00000324   000094E5           LDR      R0,[R4, #+0]
+   \   00000328   18A080E5           STR      R10,[R0, #+24]
+   \   0000032C   001094E5           LDR      R1,[R4, #+0]
+   \   00000330   0400A0E1           MOV      R0,R4
+   \   00000334   001091E5           LDR      R1,[R1, #+0]
+   \   00000338   31FF2FE1           BLX      R1
+    712                if (entropy->ac_stats[tbl] == NULL)
+   \                     ??start_pass_28:
+   \   0000033C   0A8185E0           ADD      R8,R5,R10, LSL #+2
+   \   00000340   7C0098E5           LDR      R0,[R8, #+124]
+   \   00000344   000050E3           CMP      R0,#+0
+   \   00000348   0600001A           BNE      ??start_pass_29
+    713          	entropy->ac_stats[tbl] = (unsigned char *) (*cinfo->mem->alloc_small)
+    714          	  ((j_common_ptr) cinfo, JPOOL_IMAGE, AC_STAT_BINS);
+   \   0000034C   043094E5           LDR      R3,[R4, #+4]
+   \   00000350   402FA0E3           MOV      R2,#+256
+   \   00000354   003093E5           LDR      R3,[R3, #+0]
+   \   00000358   0110A0E3           MOV      R1,#+1
+   \   0000035C   0400A0E1           MOV      R0,R4
+   \   00000360   33FF2FE1           BLX      R3
+   \   00000364   7C0088E5           STR      R0,[R8, #+124]
+    715                MEMZERO(entropy->ac_stats[tbl], AC_STAT_BINS);
+   \                     ??start_pass_29:
+   \   00000368   7C0098E5           LDR      R0,[R8, #+124]
+   \   0000036C   402FA0E3           MOV      R2,#+256
+   \   00000370   0010A0E3           MOV      R1,#+0
+   \   00000374   BB0000EF           SWI      +187
+    716              }
+    717            }
+   \                     ??start_pass_26:
+   \   00000378   017087E2           ADD      R7,R7,#+1
+   \                     ??start_pass_17:
+   \   0000037C   480194E5           LDR      R0,[R4, #+328]
+   \   00000380   000057E1           CMP      R7,R0
+   \   00000384   B0FFFFBA           BLT      ??start_pass_19
+    718          
+    719            /* Initialize arithmetic decoding variables */
+    720            entropy->c = 0;
+   \                     ??start_pass_18:
+   \   00000388   0C6085E5           STR      R6,[R5, #+12]
+    721            entropy->a = 0;
+   \   0000038C   106085E5           STR      R6,[R5, #+16]
+    722            entropy->ct = -16;	/* force reading 2 initial bytes to fill C */
+   \   00000390   0F00E0E3           MVN      R0,#+15
+   \   00000394   140085E5           STR      R0,[R5, #+20]
+    723          
+    724            /* Initialize restart counter */
+    725            entropy->restarts_to_go = cinfo->restart_interval;
+   \   00000398   100194E5           LDR      R0,[R4, #+272]
+   \   0000039C   380085E5           STR      R0,[R5, #+56]
+    726          }
+   \   000003A0   F08FBDE8           POP      {R4-R11,PC}      ;; return
+   \                     ??start_pass_9:
+   \   000003A4   ........           DC32     decode_mcu_AC_first
+   \   000003A8   ........           DC32     decode_mcu_DC_first
+   \   000003AC   ........           DC32     decode_mcu_AC_refine
+   \   000003B0   ........           DC32     decode_mcu_DC_refine
+   \   000003B4   ........           DC32     decode_mcu
+    727          
+    728          
+    729          /*
+    730           * Module initialization routine for arithmetic entropy decoding.
+    731           */
+    732          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    733          GLOBAL(void)
+    734          jinit_arith_decoder (j_decompress_ptr cinfo)
+    735          {
+   \                     jinit_arith_decoder:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    736            arith_entropy_ptr entropy;
+    737            int i;
+    738          
+    739            entropy = (arith_entropy_ptr)
+    740              (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_IMAGE,
+    741          				SIZEOF(arith_entropy_decoder));
+   \   00000004   BC20A0E3           MOV      R2,#+188
+   \   00000008   0110A0E3           MOV      R1,#+1
+   \   0000000C   0040A0E1           MOV      R4,R0
+   \   00000010   043094E5           LDR      R3,[R4, #+4]
+   \   00000014   003093E5           LDR      R3,[R3, #+0]
+   \   00000018   33FF2FE1           BLX      R3
+    742            cinfo->entropy = (struct jpeg_entropy_decoder *) entropy;
+    743            entropy->pub.start_pass = start_pass;
+   \   0000001C   90109FE5           LDR      R1,??jinit_arith_decoder_0  ;; start_pass
+   \   00000020   BC0184E5           STR      R0,[R4, #+444]
+   \   00000024   001080E5           STR      R1,[R0, #+0]
+    744          
+    745            /* Mark tables unallocated */
+    746            for (i = 0; i < NUM_ARITH_TBLS; i++) {
+   \   00000028   0010A0E3           MOV      R1,#+0
+   \   0000002C   0030A0E3           MOV      R3,#+0
+    747              entropy->dc_stats[i] = NULL;
+   \                     ??jinit_arith_decoder_1:
+   \   00000030   012180E0           ADD      R2,R0,R1, LSL #+2
+   \   00000034   3C3082E5           STR      R3,[R2, #+60]
+    748              entropy->ac_stats[i] = NULL;
+   \   00000038   7C3082E5           STR      R3,[R2, #+124]
+    749            }
+   \   0000003C   011081E2           ADD      R1,R1,#+1
+   \   00000040   100051E3           CMP      R1,#+16
+   \   00000044   F9FFFFBA           BLT      ??jinit_arith_decoder_1
+    750          
+    751            if (cinfo->progressive_mode) {
+   \   00000048   D80094E5           LDR      R0,[R4, #+216]
+   \   0000004C   000050E3           CMP      R0,#+0
+   \   00000050   1080BD08           POPEQ    {R4,PC}
+    752              /* Create progression status table */
+    753              int *coef_bit_ptr, ci;
+    754              cinfo->coef_bits = (int (*)[DCTSIZE2])
+    755                (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_IMAGE,
+    756          				  cinfo->num_components*DCTSIZE2*SIZEOF(int));
+   \   00000054   240094E5           LDR      R0,[R4, #+36]
+   \   00000058   043094E5           LDR      R3,[R4, #+4]
+   \   0000005C   0024A0E1           LSL      R2,R0,#+8
+   \   00000060   003093E5           LDR      R3,[R3, #+0]
+   \   00000064   0110A0E3           MOV      R1,#+1
+   \   00000068   0400A0E1           MOV      R0,R4
+   \   0000006C   33FF2FE1           BLX      R3
+   \   00000070   9C0084E5           STR      R0,[R4, #+156]
+    757              coef_bit_ptr = & cinfo->coef_bits[0][0];
+    758              for (ci = 0; ci < cinfo->num_components; ci++) 
+   \   00000074   241094E5           LDR      R1,[R4, #+36]
+   \   00000078   0020A0E3           MOV      R2,#+0
+   \   0000007C   010051E3           CMP      R1,#+1
+   \   00000080   0230E0E1           MVN      R3,R2
+   \   00000084   060000AA           BGE      ??jinit_arith_decoder_2
+   \   00000088   1080BDE8           POP      {R4,PC}
+    759                for (i = 0; i < DCTSIZE2; i++)
+   \                     ??jinit_arith_decoder_3:
+   \   0000008C   0010A0E3           MOV      R1,#+0
+    760          	*coef_bit_ptr++ = -1;
+   \                     ??jinit_arith_decoder_4:
+   \   00000090   ........           STR      R3,[R0], #+4
+   \   00000094   011081E2           ADD      R1,R1,#+1
+   \   00000098   400051E3           CMP      R1,#+64
+   \   0000009C   FBFFFFBA           BLT      ??jinit_arith_decoder_4
+   \   000000A0   012082E2           ADD      R2,R2,#+1
+   \                     ??jinit_arith_decoder_2:
+   \   000000A4   241094E5           LDR      R1,[R4, #+36]
+   \   000000A8   010052E1           CMP      R2,R1
+   \   000000AC   F6FFFFBA           BLT      ??jinit_arith_decoder_3
+    761            }
+    762          }
+   \   000000B0   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??jinit_arith_decoder_0:
+   \   000000B4   ........           DC32     start_pass
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable2:
+   \   00000000   ........           DC32     jpeg_natural_order
+
+   Maximum stack usage in bytes:
+
+     Function             CSTACK
+     --------             ------
+     arith_decode            24
+     decode_mcu              52
+     decode_mcu_AC_first     44
+     decode_mcu_AC_refine    52
+     decode_mcu_DC_first     48
+     decode_mcu_DC_refine    24
+     jinit_arith_decoder      8
+     process_restart         24
+     start_pass              36
+
+
+   Segment part sizes:
+
+     Function/Label       Bytes
+     --------------       -----
+     arith_decode          484
+     process_restart       252
+     decode_mcu_DC_first   464
+     decode_mcu_AC_first   488
+     decode_mcu_DC_refine  168
+     decode_mcu_AC_refine  460
+     decode_mcu            828
+     start_pass            952
+     jinit_arith_decoder   184
+     ??DataTable2            4
+      Others                36
+
+ 
+ 4 320 bytes in segment CODE
+ 
+ 4 284 bytes of CODE memory (+ 36 bytes shared)
+
+Errors: none
+Warnings: 1

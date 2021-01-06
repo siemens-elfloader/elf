@@ -1,0 +1,195 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    07/May/2009  10:45:36 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\TViewGUI.cpp        #
+#    Command line    =  D:\pasha\elf\SieELF\MySMSYS\Mss3\TViewGUI.cpp -D     #
+#                       NEWSGOLD -D ELKA -D LANG_CN -lcN                     #
+#                       D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\List\  #
+#                       -o D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\Obj #
+#                       \ -s9 --no_unroll --cpu_mode arm --endian little     #
+#                       --cpu ARM926EJ-S --stack_align 4 --interwork -e      #
+#                       --fpu None --eec++ --dlib_config "D:\pasha\Embedded  #
+#                       Workbench 4.0 Evaluation2\ARM\LIB\dl5tpainl8n.h" -I  #
+#                       "D:\pasha\Embedded Workbench 4.0                     #
+#                       Evaluation2\ARM\INC\" --inline_threshold=2           #
+#    List file       =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\List\T #
+#                       ViewGUI.lst                                          #
+#    Object file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA\Obj\TV #
+#                       iewGUI.r79                                           #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\pasha\elf\SieELF\MySMSYS\Mss3\TViewGUI.cpp
+      1          // TViewGUI.cpp: implementation of the TViewGUI class.
+      2          //
+      3          //////////////////////////////////////////////////////////////////////
+      4          #include "include.h"
+      5          #include "TViewGUI.h"
+      6          
+      7          //////////////////////////////////////////////////////////////////////
+      8          // Construction/Destruction
+      9          //////////////////////////////////////////////////////////////////////
+     10          
+     11          //#define TViewGetGUI (0xA09AE59E+1) //void *TViewGetGUI(void *malloc_adr, void *mfree_adr)
+     12          //#define TViewSetDefinition (0xA09AEB90+1) //void TViewSetDefinition(void *gui, const TVIEW_DESC *)
+     13          //#define TViewSetText (0xA09AEB1A+1) //void TViewSetText(void *gui, WSHDR *text, void *malloc_adr, void *mfree_adr)
+     14          //#define TViewSetUserPointer (0xA09AEBBE+1) //void TViewSetUserPointer(void *gui,void *user_pointer)
+     15          //#define TViewGetUserPointer (0xA09AEBC4+1) //void *TViewGetUserPointer(void *gui)
+     16          
+     17          
+     18          
+     19          #pragma inline
+     20          void patch_tview(const TVIEW_DESC* tv)
+     21          {
+     22            ((TVIEW_DESC*)tv)->rc.x=0;
+     23            ((TVIEW_DESC*)tv)->rc.y=HeaderH()+1+YDISP;
+     24            ((TVIEW_DESC*)tv)->rc.x2=ScreenW()-1;
+     25            ((TVIEW_DESC*)tv)->rc.y2=ScreenH()-SoftkeyH()-1;
+     26          }
+     27          
+     28          SOFTKEY_DESC tview_sk[]=
+     29          {
+     30            {0x0018,0x0000,(int)LGP_NULL},
+     31            {0x0001,0x0000,(int)LGP_NULL},
+     32            {0x003D,0x0000,(int)LGP_DOIT_PIC}
+     33          };
+     34          
+     35          const SOFTKEYSTAB tview_skt=
+     36          {
+     37            tview_sk,0
+     38          };
+     39          
+     40          HEADER_DESC tview_hdr={0, 0, 0, 0, NULL, LGP_NULL, LGP_NULL};
+     41          TVIEW_DESC TViewGUI::tview=
+     42          {
+     43            8,
+     44              TViewGUI::OnKey,
+     45              TViewGUI::GHook,
+     46              TViewGUI::locret,
+     47              softkeys,
+     48              &tview_skt,
+     49            {0,0,0,0},
+     50            FONT_SMALL,
+     51            0x64,
+     52            0x65,
+     53            0,
+     54            0
+     55          };
+     56          
+     57          TViewGUI::TViewGUI()
+     58          {
+     59            this->gui_id=0;
+     60          }
+     61          
+     62          TViewGUI::~TViewGUI()
+     63          {
+     64          
+     65          }
+     66          int TViewGUI::OnKey(void *data, GUI_MSG *msg)
+     67          {
+     68            if(msg->keys==0x1
+     69              ||msg->keys==0x18
+     70              ||msg->keys==0x3D
+     71              )
+     72              return 1;
+     73            return 0;
+     74          }
+     75          
+     76          void TViewGUI::GHook(void *data, int cmd)
+     77          {
+     78            if(cmd==3)
+     79            {
+     80              //TViewGUI *tv=(TViewGUI *)(((void *(*)(void *))TViewGetUserPointer)(data));
+     81              TViewGUI *tv=(TViewGUI *)TViewGetUserPointer(data);
+     82              delete tv;
+     83            }
+     84          }
+     85          
+     86          void TViewGUI::locret()
+     87          {
+     88          
+     89          }
+     90          
+     91          int TViewGUI::CreateTViewGUI(WSHDR *text, WSHDR *hdr_t)
+     92          {
+     93            if(!text)
+     94            {
+     95              delete this;
+     96              return 0;
+     97            }
+     98            void *ma=malloc_adr();
+     99            void *mf=mfree_adr();
+    100            //void *gui=((void *(*)(void *, void *))TViewGetGUI)(ma, mf);
+    101            //((void (*)(void *, const TVIEW_DESC *))TViewSetDefinition)(gui, &this->tview);
+    102            //((void (*)(void *, WSHDR *, void *, void *))TViewSetText)(gui, text, ma, mf);
+    103            //((void (*)(void *,void *))TViewSetUserPointer)(gui, this);
+    104            void *gui=TViewGetGUI(ma, mf);
+    105            TViewSetDefinition(gui, &this->tview);
+    106            TViewSetText(gui, text, ma, mf);
+    107            TViewSetUserPointer(gui, this);
+    108            patch_header(&tview_hdr);
+    109            SetHeaderToMenu(gui, &tview_hdr, ma);
+    110            if(hdr_t) SetHeaderText(GetHeaderPointer(gui), hdr_t, ma, mf);
+    111            patch_tview(&this->tview);
+    112            this->gui_id=CreateGUI(gui);
+    113            return this->gui_id;
+    114          }
+
+   Maximum stack usage in bytes:
+
+     Function                       CSTACK
+     --------                       ------
+     TViewGUI::CreateTViewGUI(WSHDR *, WSHDR *)
+                                       32
+     TViewGUI::GHook(void *, int)       4
+     TViewGUI::OnKey(void *, GUI_MSG *)
+                                        0
+     TViewGUI::TViewGUI()               0
+     TViewGUI::delete ~TViewGUI(TViewGUI *)
+                                        4
+     TViewGUI::locret()                 0
+     TViewGUI::new TViewGUI()           4
+     TViewGUI::~TViewGUI()              0
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     tview_sk                         24
+     tview_skt                         8
+     TViewGUI::tview                  72
+     TViewGUI::TViewGUI()             12
+     TViewGUI::~TViewGUI()             4
+     TViewGUI::OnKey(void *, GUI_MSG *)
+                                      36
+     TViewGUI::GHook(void *, int)     32
+     TViewGUI::locret()                4
+     TViewGUI::CreateTViewGUI(WSHDR *, WSHDR *)
+                                     280
+     ?<Initializer for tview_sk>      24
+     ?<Initializer for tview>         72
+     TViewGUI::delete ~TViewGUI(TViewGUI *)
+                                      20
+     TViewGUI::new TViewGUI()         28
+      Others                          68
+
+ 
+ 472 bytes in segment CODE
+   8 bytes in segment DATA_C
+  96 bytes in segment DATA_I
+  96 bytes in segment DATA_ID
+  12 bytes in segment INITTAB
+ 
+ 416 bytes of CODE  memory (+ 68 bytes shared)
+ 104 bytes of CONST memory
+  96 bytes of DATA  memory
+
+Errors: none
+Warnings: none

@@ -1,0 +1,114 @@
+// exception standard header
+#ifndef _EXCEPTION_
+#define _EXCEPTION_
+
+#ifndef _SYSTEM_BUILD
+#pragma system_include
+#endif
+
+#include <xstddef>
+_STD_BEGIN
+
+// CLASS exception
+class exception;
+typedef void (*_Prhand)(const exception&);
+extern _Prhand _Raise_handler;
+__INTRINSIC void _Throw(const exception&);
+
+class exception
+{       // base of all library exceptions
+public:
+  static _Prhand _Set_raise_handler(_Prhand _Pnew)
+  {       // register a handler for _Raise calls
+    const _Prhand _Pold = _Raise_handler;
+    _Raise_handler = _Pnew;
+    return (_Pold);
+  }
+
+  explicit exception(const char *_Message = _MESG("unknown")) _THROW0()
+    : _Ptr(_Message)
+  {       // construct from message string
+  }
+
+  exception(const exception& _Right) _THROW0()
+    : _Ptr(_Right._Ptr)
+  {       // construct by copying _Right
+  }
+
+  exception& operator=(const exception& _Right) _THROW0()
+  {       // assign _Right
+    _Ptr = _Right._Ptr;
+    return (*this);
+  }
+
+  virtual ~exception()
+  {       // destroy the object
+  }
+
+  virtual const char *what() const _THROW0()
+  {       // return pointer to message string
+    return (_Ptr);
+  }
+
+ #if _HAS_EXCEPTIONS
+protected:
+ #else /* _HAS_EXCEPTIONS */
+  void _Raise() const
+  {       // raise the exception
+    if (_Raise_handler != 0)
+      (*_Raise_handler)(*this);       // call raise handler if present
+
+    _Doraise();     // call the protected virtual
+    _RAISE(*this);  // raise this exception
+  }
+
+protected:
+  virtual void _Doraise() const
+  {       // perform class-specific exception handling
+  }
+ #endif /* _HAS_EXCEPTIONS */
+  const char *_Ptr;       // the message pointer
+};
+
+// CLASS bad_exception
+class bad_exception
+  : public exception
+{       // base of all bad exceptions
+public:
+  bad_exception(const char *_Message = _MESG("bad exception"))
+    _THROW0()
+    : exception(_Message)
+  {       // construct from message string
+  }
+
+  virtual ~bad_exception() _THROW0()
+  {       // destroy the object
+  }
+ #if _HAS_EXCEPTIONS
+ #else /* _HAS_EXCEPTIONS */
+
+protected:
+  virtual void _Doraise() const
+  {       // raise this exception
+    _RAISE(*this);
+  }
+ #endif /* _HAS_EXCEPTIONS */
+};
+
+// TYPES
+typedef void (*terminate_handler)();
+typedef void (*unexpected_handler)();
+
+                // FUNCTION DECLARATIONS
+__INTRINSIC terminate_handler set_terminate(terminate_handler) _THROW0();
+__INTRINSIC unexpected_handler set_unexpected(unexpected_handler) _THROW0();
+__INTRINSIC void terminate();
+__INTRINSIC void unexpected();
+__INTRINSIC bool uncaught_exception();
+_STD_END
+#endif /* _EXCEPTION_ */
+
+/*
+ * Copyright (c) 1992-2002 by P.J. Plauger.  ALL RIGHTS RESERVED.
+ * Consult your license regarding permissions and restrictions.
+V3.12:0576 */

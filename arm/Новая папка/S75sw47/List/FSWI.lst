@@ -1,0 +1,127 @@
+###############################################################################
+#                                                                             #
+#     IAR Systems ARM Assembler V4.42A/W32 17/Apr/2011  22:40:33              #
+#     Copyright 1999-2007 IAR Systems. All rights reserved.                   #
+#                                                                             #
+#           Source file   =  C:\arm\Новая папка\FSWI.asm                      #
+#           List file     =  C:\arm\Новая папка\S75sw47\List\FSWI.lst         #
+#           Object file   =  C:\arm\Новая папка\S75sw47\Obj\FSWI.r79          #
+#           Command line  =  C:\arm\Новая папка\FSWI.asm                      #
+#                            -OC:\arm\Новая папка\S75sw47\Obj\ -s+ -M<> -w+   #
+#                            -DNEWSGOLD -LC:\arm\Новая папка\S75sw47\List\    #
+#                            -cE -t8 --cpu ARM926EJ-S --fpu None              #
+#                            -IC:\arm2\Embedded Workbench 4.0 Evaluation\ARM\INC\ #
+#                                                                             #
+###############################################################################
+
+    1    00000000              ;SWI dispatcher v1.1 (C)2006 by Rst7/CBSIE
+    2    00000000              ;
+    3    00000000              
+    4    00000000                      EXTERN  SWILIB
+    5    00000000                      EXTERN  pLIB_TOP
+    6    00000000                      EXTERN  NO_FUNC
+    7    00000000                      RSEG    FSWI_PATCH1:CODE:ROOT
+    8    00000000                      CODE32
+    9    00000000              
+   10    00000000 ........             LDR     PC,main_jumper
+   11    00000004                      
+   12    00000004                      #ifndef NEWSGOLD
+   15    00000004                      #endif
+   16    00000004              
+   17    00000000                      RSEG    FSWI_PATCH2:DATA(2)
+   18    00000000              
+   19    00000000              main_jumper:
+   20    00000000 ........             DC32    main
+   21    00000004              
+   22    00000000                      RSEG    CODE:CODE
+   23    00000000                      CODE32
+   24    00000000              nullsub:
+   25    00000000 1EFF2FE1             BX      LR
+   26    00000004              main:
+   27    00000004 00109DE5             LDR     R1,[SP,#0]              ; Берем
+                                                   CPSR
+   28    00000008 200011E3             TST     R1, #0x20               ;
+                                                    Проверяем на тумбу
+   29    0000000C 192F8F02             ADREQ   R2,arm_jumper           ; Берем
+                                                   адрес джампера
+   30    00000010 0400000A             BEQ     arm_mode
+   31    00000014 C70050E3             CMP     R0,#199                 ;
+                                                   Служебный SWI для длинной
+                                                   библиотеки
+   32    00000018 B200DE00             LDREQH  R0,[LR],#2              ;
+                                                   Зацепляем второе слово
+                                                   (длинный номер) c пропуском
+                                                   DW
+   33    0000001C 14E08D05             STREQ   LR,[SP,#0x14]           ;
+                                                   Сохраняем временно адрес
+                                                   возврата (если захочем
+                                                   данные)
+   34    00000020 01E08EE2             ADD     LR,LR,#1                ;
+                                                   Устанавливаем бит 0, если
+                                                   тумба
+   35    00000024 51208FE2             ADR     R2,thumb_jumper         ; Берем
+                                                   адрес джампера
+   36    00000028              arm_mode
+   37    00000028 50109FE5             LDR     R1,=pLIB_TOP            ;
+                                                   Указатель на таблицу
+                                                   адресов
+   38    0000002C 001091E5             LDR     R1,[R1]
+   39    00000030 000051E3             CMP     R1,#0
+   40    00000034 48109F05             LDREQ   R1,=Library
+   41    00000038 803CC0E3             BIC     R3,R0,#0x8000
+   42    0000003C 400D53E3             CMP     R3,#4096
+   43    00000040 0900008A             BHI     exit
+   44    00000044 800C10E3             TST     R0,#0x8000              ; А не
+                                                   адрес нам надо получить?
+   45    00000048 00402D09             STMEQFD SP!,{LR}                ;
+                                                   Копируем адрес возврата из
+                                                   LR_svc только если вызов
+                                                   функции
+   46    0000004C 0040FD08             LDMEQFD SP!,{LR}^               ; в
+                                                   LR_usr, он будет использован
+                                                   вызываемой функцией
+   47    00000050 03C191E7             LDR     R12,[R1,R3,LSL#2]       ; Берем
+                                                    адрес функции
+   48    00000054 04C08D15             STRNE   R12,[SP,#4]             ; пишем
+                                                    адрес в R0(стек)
+   49    00000058 0300001A             BNE     exit
+   50    0000005C 01007CE3             CMP     R12,#0xFFFFFFFF
+   51    00000060 20209F05             LDREQ   R2,=NO_FUNC
+   52    00000064 04008D05             STREQ   R0,[SP,#4]
+   53    00000068 14208DE5             STR     R2,[SP,#0x14]           ; Пишем
+                                                   адрес джампера для возврата
+                                                   в стеке (PC)
+   54    0000006C              exit:
+   55    0000006C 0100BDE8             LDMFD   SP!,{R0}
+   56    00000070 00F069E1             MSR     SPSR_cf,R0
+   57    00000074 0F80FDE8             LDMFD   SP!,{R0-R3,PC}^
+   58    00000078              arm_jumper:
+   59    00000078 1CFF2FE1             BX      R12
+   60    0000007C                      CODE16
+   61    0000007C              thumb_jumper:
+   62    0000007C 6047                 BX      R12
+   63    0000007E 0000                 CODE32
+   64    00000080              ;
+   65    00000080              ; Собственно библиотека
+   66    00000080              ;
+   67    00000080                      RSEG    LIBR:DATA(2)
+   67.1  00000080                       TABLE
+   67.2  00000080 ........             Reference on line 37 
+   67.3  00000084 ........             Reference on line 40 
+   67.4  00000088 ........             Reference on line 51 
+   67.5  00000000                      RSEG (including table)
+   67    00000000                      RSEG    LIBR:DATA(2)
+   68    00000000                      PUBLIC  Library
+   69    00000000              Library:
+   70    00000000              
+   71    00000000                      END     ;main
+##############################
+#          CRC:6724          #
+#        Errors:   0         #
+#        Warnings: 0         #
+#         Bytes: 148         #
+##############################
+
+
+
+

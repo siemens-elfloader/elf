@@ -1,0 +1,113 @@
+// __nofilebuf - corresponds for filebuf, but for !_DLIB_FILE_DESCRIPTOR.
+// Copyright (C) 2003 IAR Systems.  All rights reserved.
+#ifndef _XXNOFILEBUF_
+#define _XXNOFILEBUF_
+
+#ifndef _SYSTEM_BUILD
+#pragma system_include
+#endif
+
+#include <istream>
+_STD_BEGIN
+
+#define _Myfile 1
+
+                // CLASS __nofilebuf
+class __nofilebuf
+        : public streambuf
+        {       // stream buffer associated with a C stream
+public:
+        typedef char _Elem;
+        typedef char_traits _Traits;
+        typedef __nofilebuf _Myt;
+        typedef streambuf _Mysb;
+
+        virtual ~__nofilebuf()
+                {       // destroy the object
+                }
+        __nofilebuf()
+                : _Mysb()
+                {
+                }
+
+        typedef _Traits::int_type int_type;
+        typedef _Traits::pos_type pos_type;
+        typedef _Traits::off_type off_type;
+
+        __nofilebuf(_Uninitialized)
+                : _Mysb(_Noinit)
+                {       // construct uninitialized
+                }
+
+protected:
+        virtual int_type overflow(int_type _Meta = _Traits::eof())
+                {       // put an element to stream
+                if (_Traits::eq_int_type(_Traits::eof(), _Meta))
+                        return (_Traits::not_eof(_Meta));       // EOF, return success code
+                else if (_Mysb::pptr() != 0
+                        && _Mysb::pptr() < _Mysb::epptr())
+                        {       // room in buffer, store it
+                        *_Mysb::_Pninc() = _Traits::to_char_type(_Meta);
+                        return (_Meta);
+                        }
+                else
+                        return (putchar(_Traits::to_char_type(_Meta)) != EOF
+                                ? _Meta : _Traits::eof());      // put the char
+                }
+
+        virtual int_type pbackfail(int_type _Meta = _Traits::eof())
+                {       // put an element back to stream
+                if (_Mysb::gptr() != 0
+                        && _Mysb::eback() < _Mysb::gptr()
+                        && (_Traits::eq_int_type(_Traits::eof(), _Meta)
+                        || _Traits::eq_int_type(_Traits::to_int_type(_Mysb::gptr()[-1]),
+                                _Meta)))
+                        {       // just back up position
+                        _Mysb::_Gndec();
+                        return (_Traits::not_eof(_Meta));
+                        }
+                else if (_Traits::eq_int_type(_Traits::eof(), _Meta))
+                        return (_Traits::eof());        // no open C stream or EOF, fail
+                else
+                        return (__ungetchar(_Traits::to_char_type(_Meta)) != EOF
+                                ? _Meta : _Traits::eof());      // put back the char
+                }
+
+        virtual int_type underflow()
+                {       // get an element from stream, but don't point past it
+                int_type _Meta;
+                if (_Mysb::gptr() != 0
+                        && _Mysb::gptr() < _Mysb::egptr())
+                        return (_Traits::to_int_type(*_Mysb::gptr()));  // return buffered
+                else if (_Traits::eq_int_type(_Traits::eof(), _Meta = uflow()))
+                        return (_Meta); // uflow failed, return EOF
+                else
+                        {       // get a char, don't point past it
+                        pbackfail(_Meta);
+                        return (_Meta);
+                        }
+                }
+
+        virtual int_type uflow()
+                {       // get an element from stream, point past it
+                if (_Mysb::gptr() != 0
+                        && _Mysb::gptr() < _Mysb::egptr())
+                        return (_Traits::to_int_type(
+                                *_Mysb::_Gninc()));     // return buffered
+                else
+                        {       // get the char
+                        int_type _Byte;
+                        return ((_Byte = getchar()) != EOF ? _Byte
+                                : _Traits::eof());
+                        }
+                }
+
+private:
+        _Traits::state_type _State;     // current conversion state
+        };
+_STD_END
+#endif /* _XXNOFILEBUF_ */
+/*
+ * Copyright (c) 1992-2002 by P.J. Plauger.  ALL RIGHTS RESERVED.
+ * Consult your license regarding permissions and restrictions.
+V3.12:0576 */

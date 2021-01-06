@@ -1,0 +1,1422 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    13/Jan/2011  22:52:12 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\mss3\NewDatReader.c                           #
+#    Command line    =  C:\arm\mss3\NewDatReader.c -D NEWSGOLD -D ELKA -D    #
+#                       LANG_EN -D NO_CS -lC C:\arm\mss3\Release_ELKA_EN\Lis #
+#                       t\ -o C:\arm\mss3\Release_ELKA_EN\Obj\ -s9           #
+#                       --no_unroll --cpu_mode arm --endian little --cpu     #
+#                       ARM926EJ-S --stack_align 4 --interwork -e --fpu      #
+#                       None --dlib_config "C:\arm2\Embedded Workbench 4.0   #
+#                       Evaluation\ARM\LIB\dl5tpainl8n.h" -I                 #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\mss3\Release_ELKA_EN\List\NewDatReader.lst    #
+#    Object file     =  C:\arm\mss3\Release_ELKA_EN\Obj\NewDatReader.r79     #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\mss3\NewDatReader.c
+      1          #include "..\inc\swilib.h"
+      2          #include "config_data.h"
+      3          #include "sms_dat.h"
+      4          #include "language.h"
+      5          #include "main.h"
+      6          #include "MySMSYS_ipc.h"
+      7          #define MAX_SMS 100
+      8          typedef struct
+      9          {
+     10            char unk0;
+     11            char unk1;
+     12            unsigned short index_id; //0xFFFF, no
+     13            char num[12]; //hex, num[0],len
+     14            short txt_len;
+     15            short w_char[7]; //
+     16            char unk2;
+     17            char unk3;
+     18            short unk_0x160F;
+     19            char unk4[8];
+     20            int opmsg_id;
+     21            unsigned short data_id;//SMS: (data_id-0x2A)*sizeof(PDU)= the position of this sms in sms.dat, EMS: 0xFFF4 ?
+     22            short unk5; //0xA800 ?
+     23          }EMS_ADM;
+     24          
+     25          void Add2WS_NEW(char *data, unsigned short *wsbody, int len)
+     26          {
+     27            int i;
+     28            char *p=(char *)wsbody;
+     29            for(i=0;i<len;i+=2)
+     30            {
+     31              p[i+2]=data[i+1];
+     32              p[i+3]=data[i];
+     33            }
+     34            wsbody[0]=len/2;
+     35          }
+     36          
+     37          void Hex2Num_NEW(char *hex, char *num, int len)
+     38          {
+     39            char *p=hex;
+     40            char *pp=num;
+     41            int m=0;
+     42            int c=0;
+     43            int c1;
+     44            if((c1=*p++)==0x91) {*pp='+'; pp++;}
+     45            else if(c1==0xD0) //7bit ?
+     46            {
+     47              len=((len&1)?1:0) + (len>>1);
+     48              while(len)
+     49              {
+     50                c=0x80;
+     51                do
+     52                {
+     53          	if(!m) {c1=*p++; m=8;}
+     54          	c>>=1;
+     55          	if(c1&1) c|=0x80;
+     56          	c1>>=1; m--;
+     57                }while(!(c&1));
+     58                c>>=1;
+     59                if(!c) c='@';
+     60                if(c==2) c='$';
+     61                *pp=c;
+     62                pp++;
+     63                len--;
+     64              }
+     65              *pp=0;
+     66              return;
+     67            }
+     68            while(m<len)
+     69            {
+     70              if(m&1) c1=c>>4;
+     71              else c1=(c=(*p++))&0x0F;
+     72              *pp=c1+0x30; pp++;
+     73              m++;
+     74            }
+     75            *pp=0;
+     76          }
+     77          
+     78          void Bit7Decode(WSHDR *ws, char *pdata, int skip, int len) //big respect to Rst7(LogSms),
+     79          {
+     80            char *p=pdata;
+     81            int c, c2, i=0;
+     82            while(len)
+     83            {
+     84              c=0x80;
+     85              do
+     86              {
+     87                if(!i) {c2=*p++; i=8;}
+     88                c>>=1;
+     89                if(c2&1) c|=0x80;
+     90                c2>>=1; i--;
+     91              }while(!(c&1));
+     92              c>>=1;
+     93              if(!c) c='@';
+     94              if(c==2) c='$';
+     95              if(skip) skip--;
+     96              else wsAppendChar(ws, c);
+     97              len--;
+     98            }
+     99          }
+    100          
+    101          int PduDecodeTxt(SMS_DATA *sd, char *data) //0: fail, 1: successful, //2: unktype
+    102          {
+    103            int c;
+    104            int ttype;
+    105            int isplus, wlen, isems, skip=0;
+    106            char *p;
+    107            WSHDR *ws, wsn, *wst;
+    108            unsigned short wsb[300];
+    109            ws=CreateLocalWS(&wsn, wsb, 300);
+    110            p=data;
+    111            if(*p++!=0x11)
+    112              return 0;
+    113            if(*p++!=0x11)
+    114              return 0;
+    115            c=*p++;
+    116            if(!c)
+    117              return 0;
+    118            c=*p++; //sms center
+    119            p+=c;
+    120            c=*p++;
+    121            if((c>>4)%2) isplus=1;
+    122            else isplus=0;
+    123            if((c>>6)%2) isems=1;
+    124            else isems=0;
+    125            if((sd->type==TYPE_OUT)||(sd->type==TYPE_DRAFT)) //out
+    126            {
+    127              p++;
+    128            }
+    129            c=*p++;
+    130            c=((c&1)?1:0) + (c>>1) +1;
+    131          /*  if(c)
+    132            {
+    133              if(c%2)
+    134                c=c/2+2;
+    135              else
+    136                c=c/2+1;
+    137            }
+    138            else
+    139            {
+    140              c=1;
+    141              //sd->Number[0]=0;
+    142            }*/
+    143            p+=c+1; //num
+    144            ttype=*p++;
+    145            if((sd->type==TYPE_IN_R)||(sd->type==TYPE_IN_N))
+    146            {
+    147              p+=7; //time
+    148            }
+    149            if(isplus&&((sd->type==TYPE_OUT)||(sd->type==TYPE_DRAFT))) p++; //
+    150            c=*p++;
+    151            //...text,
+    152            if(isems)
+    153            {
+    154              skip=(*p)+1;
+    155              if(ttype!=8) skip=((skip*8)+6)/7;
+    156              else
+    157              {
+    158                p+=skip;
+    159                c-=skip;
+    160              }
+    161            }
+    162            if(ttype==0x8)
+    163            {
+    164              Add2WS_NEW(p, ws->wsbody, c);
+    165            }
+    166            else if(ttype==0x0) //7bit
+    167            {
+    168              //GSMTXT_Decode(ws,(void*)p,c*7/8+1, ttype, (void*(*)(int))malloc_adr(),(void(*)(void))mfree_adr());
+    169              Bit7Decode(ws, p, skip, c);
+    170              if(wstrlen(ws)>c)
+    171              {
+    172                CutWSTR(ws, c);
+    173              }
+    174            }
+    175            else 
+    176            {
+    177              sd->msg_type=sd->msg_type|ISUNKE;
+    178              wsprintf(ws, STR_UNK_TXTT, ttype);
+    179            }
+    180            wst=sd->SMS_TEXT;
+    181            wlen=wstrlen(ws);
+    182            if(wlen)
+    183            {
+    184              if(wst)
+    185              {
+    186                wlen+=wstrlen(wst);
+    187                sd->SMS_TEXT=AllocWS(wlen);
+    188                wstrcpy(sd->SMS_TEXT, wst);
+    189                wstrcat(sd->SMS_TEXT, ws);
+    190                FreeWS(wst);
+    191              }
+    192              else
+    193              {
+    194                sd->SMS_TEXT=AllocWS(wlen);
+    195                wstrcpy(sd->SMS_TEXT, ws);
+    196              }
+    197            }
+    198            return 1;
+    199          }
+    200          
+    201          void DoMsgReport(SMS_DATA *sd, char *data, WSHDR *ws)
+    202          {
+    203            char time[32];
+    204            int status, i;
+    205            char *pp=time, *p=data;
+    206            for(i=0;i<6;i++) //time
+    207            {
+    208              *pp++=p[i]%0x10+'0';
+    209              *pp++=p[i]/0x10+'0';
+    210              if(i<2)
+    211                *pp++='-';
+    212              if(i==2)
+    213                *pp++=' ';
+    214              if(i>2&&i<5)
+    215                *pp++=':';
+    216            }
+    217            *pp=0;
+    218            p+=7; //time 
+    219            status=*p;
+    220            if(status==0)
+    221              wsprintf(ws, "%t\r%t: 20%s", lgp.LGP_MSG_REPORT, lgp.LGP_MSG_REVEICED, time);
+    222            else
+    223              wsprintf(ws, "%t\r%t: 20%s\r%s (%d)!", lgp.LGP_MSG_REPORT, lgp.LGP_TIME, time, lgp.LGP_UNK_RP_STATUS, status);
+    224          }
+    225          
+    226          
+    227          int PduDecodeAll(SMS_DATA *sd, char *data) //0: fail, 1: successful, //2: unktype
+    228          {
+    229            int c;
+    230            int ttype, wlen;
+    231            int isplus, isems, skip=0, isreport=0;
+    232            char *p;
+    233            WSHDR *ws, wsn;
+    234            unsigned short wsb[300];
+    235            ws=CreateLocalWS(&wsn, wsb, 300);
+    236            p=data;
+    237            if(*p++!=0x11)
+    238              return 0;
+    239            if(*p++!=0x11)
+    240              return 0;
+    241            c=*p++;
+    242            if(!c)
+    243              return 0;
+    244            switch(c)
+    245            {
+    246            case 0x01:
+    247              sd->type=TYPE_IN_R;
+    248              break;
+    249            case 0x03:
+    250              sd->type=TYPE_IN_N;
+    251              break;
+    252            case 0x05:
+    253              sd->type=TYPE_OUT;
+    254              break;
+    255            case 0x07:
+    256              sd->type=TYPE_DRAFT;
+    257              break;
+    258            default:
+    259              sd->type=TYPE_UNK;
+    260              sd->msg_type=sd->msg_type|ISUNKT;
+    261              wsprintf(ws, STR_UNK_TYPE, c);
+    262              goto TEND;
+    263              //return 2; //back 
+    264            }
+    265            c=*p++; //sms center
+    266            p+=c;
+    267            c=*p++;
+    268            if(c==0x6)
+    269            {
+    270              isreport=1;
+    271              p++;
+    272            }
+    273            if((c>>4)%2) isplus=1;
+    274            else isplus=0;
+    275            if((c>>6)%2) isems=1;
+    276            else isems=0;
+    277            if((sd->type==TYPE_OUT)||(sd->type==TYPE_DRAFT)) //out
+    278            {
+    279              p++;
+    280            }
+    281            c=*p++;
+    282            if(c)
+    283            {
+    284              Hex2Num_NEW(p, sd->Number, c);
+    285              c=((c&1)?1:0) + (c>>1) +1;
+    286            }
+    287            else
+    288            {
+    289              c=1;
+    290              sd->Number[0]=0;
+    291            }
+    292            if(isreport)
+    293              p+=c;
+    294            else
+    295            {
+    296              p+=c+1; //num
+    297              ttype=*p++;
+    298            }
+    299            if((sd->type==TYPE_IN_R)||(sd->type==TYPE_IN_N))
+    300            {
+    301              char *pp=sd->Time;
+    302              int i;
+    303              for(i=0;i<6;i++) //time
+    304              {
+    305                *pp++=p[i]%0x10+'0';
+    306                *pp++=p[i]/0x10+'0';
+    307                if(i<2)
+    308          	*pp++='-';
+    309                if(i==2)
+    310          	*pp++=' ';
+    311                if(i>2&&i<5)
+    312          	*pp++=':';
+    313              }
+    314              *pp=0;
+    315              p+=7; //time
+    316            }
+    317            if(isreport)
+    318            {
+    319              sd->msg_type=sd->msg_type|ISREPORT;
+    320              DoMsgReport(sd, p, ws);
+    321              goto TEND;
+    322            }
+    323            if(isplus&&((sd->type==TYPE_OUT)||(sd->type==TYPE_DRAFT))) p++; //
+    324            c=*p++;
+    325            //...text,
+    326            if(isems)
+    327            {
+    328              skip=(*p)+1;
+    329              if(ttype!=8) skip=((skip*8)+6)/7;
+    330              else
+    331              {
+    332                p+=skip;
+    333                c-=skip;
+    334              }
+    335            }
+    336            if(ttype==0x8)
+    337            {
+    338              Add2WS_NEW(p, ws->wsbody, c);
+    339            }
+    340            else if(ttype==0x0) //7bit
+    341            {
+    342              //GSMTXT_Decode(ws,(void*)p, c, ttype, (void*(*)(int))malloc_adr(),(void(*)(void))mfree_adr());
+    343              Bit7Decode(ws, p, skip, c);
+    344              sd->msg_type=sd->msg_type|IS7BIT;
+    345              if(wstrlen(ws)>c)
+    346              {
+    347                CutWSTR(ws, c);
+    348              }
+    349            }
+    350            else 
+    351            {
+    352              sd->msg_type=sd->msg_type|ISUNKE;
+    353              wsprintf(ws, STR_UNK_TXTT, ttype);
+    354            }
+    355          TEND:
+    356            wlen=wstrlen(ws);
+    357            if(!wlen)
+    358              wlen=1;
+    359            sd->SMS_TEXT=AllocWS(wlen);
+    360            wstrcpy(sd->SMS_TEXT, ws);
+    361            return 1;
+    362          }
+    363          
+    364          int DoMsgList(SMS_DATA_LIST *lst, char *sms_buf, char *ems_admin_buf, int sms_size, int ems_admin_size)
+                               ^
+Error[Pe020]: identifier "SMS_DATA_LIST" is undefined
+    365          {
+    366            extern void AddToSdlByTime(SMS_DATA *sd);
+    367            extern void FreeSdOne(SMS_DATA *sd);
+    368            SMS_POS_INDEX_DATA sid;
+                   ^
+Error[Pe020]: identifier "SMS_POS_INDEX_DATA" is undefined
+    369            SMS_DATA *sdx;
+    370            char *sms_buf_end=sms_buf+sms_size-sizeof(PDU);
+    371            char *ems_admin_buf_end=ems_admin_buf+ems_admin_size-sizeof(EMS_ADM);
+    372            EMS_ADM *pea;
+    373            INDEX_ID_DATA *idd;
+                   ^
+Error[Pe020]: identifier "INDEX_ID_DATA" is undefined
+
+    INDEX_ID_DATA *idd;
+                   ^
+"C:\arm\mss3\NewDatReader.c",373  Error[Pe020]: identifier "idd" is undefined
+    374            unsigned short *pid;
+    375            char *pd;
+    376            int cnt, index, i, msg_type=0;
+    377            if(!(idd=lst->index_id_data))
+                            ^
+Error[Pe132]: expression must have pointer-to-struct-or-union type
+    378              return 0;
+    379            if(!(pid=idd->data_id))
+    380              return 0;
+    381            if(!(cnt=idd->cnt_all))
+    382              return 0;
+    383            if(cnt!=idd->cnt_received)
+    384              msg_type=msg_type|ISDES;
+    385              //return 0;
+    386            index=idd->index;
+    387            if(!index || index>MAX_SMS)
+    388              return 0;
+    389            pea=(EMS_ADM *)(ems_admin_buf+(index-1)*sizeof(EMS_ADM));
+    390            if(pea>(EMS_ADM *)ems_admin_buf_end)
+    391              return 0;
+    392            sdx=AllocSD();
+    393            sdx->msg_type=msg_type;
+    394            for(i=0;i<cnt;i++)
+    395            {
+    396              if(pid[i]==0xFFF4) continue;
+    397              if(!GetSmsPosIndex(&sid, pid[i])) continue;
+                         ^
+Warning[Pe223]: function "GetSmsPosIndex" declared implicitly
+    398              if((pd=sms_buf+sid.pos_index*sizeof(PDU))>sms_buf_end) continue;
+    399              if(!sdx->SMS_TEXT) PduDecodeAll(sdx, pd);
+    400              else PduDecodeTxt(sdx, pd);
+    401            }
+    402            if(sdx->SMS_TEXT)
+    403            {
+    404              if(i>1) sdx->msg_type=sdx->msg_type|ISEMS;
+    405              sdx->opmsg_id=pea->opmsg_id;
+    406              sdx->id=index;
+    407              sdx->cnt_r=idd->cnt_received;
+    408              LockSched();
+    409              AddToSdlByTime(sdx);
+    410              UnlockSched();
+    411            }
+    412            else
+    413            {
+    414              FreeSdOne(sdx);
+    415              return 0;
+    416            }
+    417            return 1;
+    418          }
+    419          int DoAllDatMsg(char *sms_buf, char *ems_admin_buf, int sms_size, int ems_admin_size)
+    420          {
+    421            SMS_DATA_ROOT *sdroot=SmsDataRoot();
+                   ^
+Error[Pe020]: identifier "SMS_DATA_ROOT" is undefined
+
+    SMS_DATA_ROOT *sdroot=SmsDataRoot();
+                   ^
+"C:\arm\mss3\NewDatReader.c",421  Error[Pe020]: identifier "sdroot" is
+          undefined
+
+    SMS_DATA_ROOT *sdroot=SmsDataRoot();
+                          ^
+"C:\arm\mss3\NewDatReader.c",421  Warning[Pe223]: function "SmsDataRoot"
+          declared implicitly
+    422            SMS_DATA_LLIST inll=sdroot->in_msg;
+                   ^
+Error[Pe020]: identifier "SMS_DATA_LLIST" is undefined
+    423            SMS_DATA_LLIST outll=sdroot->out_msg;
+                   ^
+Error[Pe020]: identifier "SMS_DATA_LLIST" is undefined
+    424            SMS_DATA_LIST *lst;
+                   ^
+Error[Pe020]: identifier "SMS_DATA_LIST" is undefined
+
+    SMS_DATA_LIST *lst;
+                   ^
+"C:\arm\mss3\NewDatReader.c",424  Error[Pe020]: identifier "lst" is undefined
+    425            int res=0;
+    426            lst=inll.first;
+    427            while(lst)
+    428            {
+    429              if(DoMsgList(lst, sms_buf, ems_admin_buf, sms_size, ems_admin_size))
+    430              {
+    431                res++;
+    432                if(!(res%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+    433              }
+    434              lst=lst->next;
+    435            }
+    436            lst=outll.first;
+    437            while(lst)
+    438            {
+    439              if(DoMsgList(lst, sms_buf, ems_admin_buf, sms_size, ems_admin_size))
+    440              {
+    441                res++;
+    442                if(!(res%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+    443              }
+    444              lst=lst->next;
+    445            }
+    446            if((res%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+    447            return res;
+    448          }
+    449          
+    450          int NewMsgReader(void)
+    451          {
+    452          //  char sms_dat[128];
+    453          //  char ems_admin_dat[128];
+    454            int fin;
+    455            unsigned int err;
+    456            char *sms_buf;
+    457            char *ems_admin_buf;
+    458            int res=0, sms_size, ems_admin_size/*, x, xl*/;
+    459          /*  strcpy(sms_dat, CFG_SYSTEM_FOLDER);
+    460            if((xl=strlen(sms_dat))>0)
+    461              x=sms_dat[xl-1];
+    462            if((x!='\\')&&(x!='/'))
+    463            {
+    464              sms_dat[xl]='\\';
+    465              sms_dat[xl+1]=0;
+    466            }
+    467            strcat(sms_dat, "SMS\\SMS.dat");
+    468            strcpy(ems_admin_dat, CFG_SYSTEM_FOLDER);
+    469            if((xl=strlen(ems_admin_dat))>0)
+    470              x=ems_admin_dat[xl-1];
+    471            if((x!='\\')&&(x!='/'))
+    472            {
+    473              ems_admin_dat[xl]='\\';
+    474              ems_admin_dat[xl+1]=0;
+    475            }
+    476            strcat(ems_admin_dat, "SMS\\EMS_Admin.dat");*/
+    477            if((fin=fopen(sms_dat, A_BIN+A_ReadOnly, P_READ, &err))<0)
+    478              return 0;
+    479            sms_size=lseek(fin, 0, S_END, &err, &err)-2;
+    480            sms_buf=malloc(sms_size);
+    481            lseek(fin, 2, S_SET, &err, &err);
+    482            if(fread(fin, sms_buf, sms_size, &err)!=sms_size)
+    483            {
+    484              fclose(fin, &err);
+    485              res=0;
+    486              goto EXIT0;
+    487            }
+    488            fclose(fin, &err);
+    489            if((fin=fopen(ems_admin_dat, A_BIN+A_ReadOnly, P_READ, &err))<0)
+    490            {
+    491              res=0;
+    492              goto EXIT0;
+    493            }
+    494            ems_admin_size=lseek(fin, 0, S_END, &err, &err)-0x9A4;
+    495            ems_admin_buf=malloc(ems_admin_size);
+    496            lseek(fin, 0x9A4, S_SET, &err, &err);
+    497            if(fread(fin, ems_admin_buf, ems_admin_size, &err)!=ems_admin_size)
+    498            {
+    499              fclose(fin, &err);
+    500              res=0;
+    501              goto EXIT1;
+    502            }
+    503            fclose(fin, &err);
+    504            res=DoAllDatMsg(sms_buf, ems_admin_buf, sms_size, ems_admin_size);
+    505          EXIT1:
+    506            mfree(ems_admin_buf);
+    507          EXIT0:
+    508            mfree(sms_buf);
+    509            return res;
+    510          }
+    511          
+    512          int IsHaveNewSMS(void)
+    513          {
+    514            SMS_DATA_ROOT *sdroot=SmsDataRoot();
+                   ^
+Error[Pe020]: identifier "SMS_DATA_ROOT" is undefined
+
+    SMS_DATA_ROOT *sdroot=SmsDataRoot();
+                   ^
+"C:\arm\mss3\NewDatReader.c",514  Error[Pe020]: identifier "sdroot" is
+          undefined
+
+    SMS_DATA_ROOT *sdroot=SmsDataRoot();
+                          ^
+"C:\arm\mss3\NewDatReader.c",514  Warning[Pe223]: function "SmsDataRoot"
+          declared implicitly
+    515            SMS_DATA_LLIST inll;
+                   ^
+Error[Pe020]: identifier "SMS_DATA_LLIST" is undefined
+    516            SMS_DATA_LIST *lst;
+                   ^
+Error[Pe020]: identifier "SMS_DATA_LIST" is undefined
+
+    SMS_DATA_LIST *lst;
+                   ^
+"C:\arm\mss3\NewDatReader.c",516  Error[Pe020]: identifier "lst" is undefined
+    517            INDEX_ID_DATA *idd;
+                   ^
+Error[Pe020]: identifier "INDEX_ID_DATA" is undefined
+
+    INDEX_ID_DATA *idd;
+                   ^
+"C:\arm\mss3\NewDatReader.c",517  Error[Pe020]: identifier "idd" is undefined
+    518            if(!sdroot->cnt_in_new_sms_dat)
+    519              return 0;
+    520            inll=sdroot->in_msg;
+    521            if(!(lst=inll.last))
+    522              return 0;
+    523            if(!(idd=lst->index_id_data))
+    524              return 0;
+    525            if(idd->cnt_all != idd->cnt_received)
+    526              return 0;
+    527            if(idd->type==1)
+    528              return 1;
+    529            return 1;
+    530          }
+    531          
+    532          SMS_DATA *GetTheLastNew(int reload) //1, reload, 0, no
+    533          {
+    534            SMS_DATA *sdl;
+    535            if(reload)
+    536            {
+    537              freeSDList();
+    538              NewMsgReader();
+    539            }
+    540            sdl=sdltop;
+    541            while(sdl)
+    542            {
+    543              if(sdl->type==TYPE_IN_N)
+    544                return sdl;
+    545              sdl=sdl->next;
+    546            }
+    547            return 0;
+    548          }
+    549          
+    550          SMS_DATA *FindSmsByIndex(int index)
+    551          {
+    552            SMS_DATA *sdl=sdltop;
+    553            while(sdl)
+    554            {
+    555              if(sdl->id==index)
+    556                return sdl;
+    557              sdl=sdl->next;
+    558            }
+    559            return 0;
+    560          }
+    561          
+    562          int CheckThisSMS(int index) //return, 0:do nothing, 1:need to reload all, 2:need to refresh gui
+    563          {
+    564            SMS_DATA *sd;
+    565            SMS_DATA_ROOT *sdroot=SmsDataRoot();
+                   ^
+Error[Pe020]: identifier "SMS_DATA_ROOT" is undefined
+
+    SMS_DATA_ROOT *sdroot=SmsDataRoot();
+                   ^
+"C:\arm\mss3\NewDatReader.c",565  Error[Pe020]: identifier "sdroot" is
+          undefined
+
+    SMS_DATA_ROOT *sdroot=SmsDataRoot();
+                          ^
+"C:\arm\mss3\NewDatReader.c",565  Warning[Pe223]: function "SmsDataRoot"
+          declared implicitly
+    566            SMS_DATA_LLIST inll=sdroot->in_msg;
+                   ^
+Error[Pe020]: identifier "SMS_DATA_LLIST" is undefined
+    567            SMS_DATA_LLIST outll=sdroot->out_msg;
+                   ^
+Error[Pe020]: identifier "SMS_DATA_LLIST" is undefined
+    568            SMS_DATA_LIST *lst;
+                   ^
+Error[Pe020]: identifier "SMS_DATA_LIST" is undefined
+
+    SMS_DATA_LIST *lst;
+                   ^
+"C:\arm\mss3\NewDatReader.c",568  Error[Pe020]: identifier "lst" is undefined
+    569            INDEX_ID_DATA *idd;
+                   ^
+Error[Pe020]: identifier "INDEX_ID_DATA" is undefined
+
+    INDEX_ID_DATA *idd;
+                   ^
+"C:\arm\mss3\NewDatReader.c",569  Error[Pe020]: identifier "idd" is undefined
+    570            //int exist=0;
+    571            if(!index)
+    572              return 0;
+    573            lst=inll.first;
+    574            while(lst)
+    575            {
+    576              if((idd=lst->index_id_data))
+    577              {
+    578                if(idd->index==index)
+    579                {
+    580          	//exist=1;
+    581          	//if(idd->cnt_all != idd->cnt_received) //not full received or not full deleted
+    582          	//  return 0;
+    583          	  //goto FindAndDel;
+    584          	if((sd=FindSmsByIndex(index)))
+    585          	{
+    586          	  if(sd->cnt_r < idd->cnt_received) return 1;
+    587          	  if(idd->type==1)
+    588          	  {
+    589          	    if(sd->type!=TYPE_IN_N)
+    590          	    {
+    591          	      sd->type=TYPE_IN_N;
+    592          	      return 2;
+    593          	    }
+    594          	  }
+    595          	  else
+    596          	  {
+    597          	    if(sd->type==TYPE_IN_N)
+    598          	    {
+    599          	      sd->type=TYPE_IN_R;
+    600          	      return 2;
+    601          	    }
+    602          	  }
+    603          	}
+    604          	else return 1;
+    605          	return 0;
+    606                }
+    607              }
+    608              lst=lst->next;
+    609            }
+    610            lst=outll.first;
+    611            while(lst)
+    612            {
+    613              if((idd=lst->index_id_data))
+    614              {
+    615                if(idd->index==index)
+    616                {
+    617          	//exist=1;
+    618          	//if(idd->cnt_all != idd->cnt_received) //not full received or not full deleted
+    619          	//  return 0;
+    620          	  //goto FindAndDel;
+    621          	if(!(sd=FindSmsByIndex(index))) return 1;
+    622          	else if(sd->cnt_r < idd->cnt_received) return 1;
+    623          	return 0;
+    624                }
+    625              }
+    626              lst=lst->next;
+    627            }
+    628            //is not exist, del form list
+    629          //FindAndDel:
+    630            if((sd=FindSmsByIndex(index)))
+    631            {
+    632              delSDList(sd);
+    633              return 2;
+    634            }
+    635            return 0;
+    636          }
+    637          
+    638          int IsThisSmsNewIn(int index)
+    639          {
+    640            SMS_DATA_ROOT *sdroot=SmsDataRoot();
+                   ^
+Error[Pe020]: identifier "SMS_DATA_ROOT" is undefined
+
+    SMS_DATA_ROOT *sdroot=SmsDataRoot();
+                   ^
+"C:\arm\mss3\NewDatReader.c",640  Error[Pe020]: identifier "sdroot" is
+          undefined
+
+    SMS_DATA_ROOT *sdroot=SmsDataRoot();
+                          ^
+"C:\arm\mss3\NewDatReader.c",640  Warning[Pe223]: function "SmsDataRoot"
+          declared implicitly
+    641            SMS_DATA_LLIST inll=sdroot->in_msg;
+                   ^
+Error[Pe020]: identifier "SMS_DATA_LLIST" is undefined
+    642            SMS_DATA_LIST *lst;
+                   ^
+Error[Pe020]: identifier "SMS_DATA_LIST" is undefined
+
+    SMS_DATA_LIST *lst;
+                   ^
+"C:\arm\mss3\NewDatReader.c",642  Error[Pe020]: identifier "lst" is undefined
+    643            INDEX_ID_DATA *idd;
+                   ^
+Error[Pe020]: identifier "INDEX_ID_DATA" is undefined
+
+    INDEX_ID_DATA *idd;
+                   ^
+"C:\arm\mss3\NewDatReader.c",643  Error[Pe020]: identifier "idd" is undefined
+    644            //int exist=0;
+    645            if(!index)
+    646              return 0;
+    647            lst=inll.last;
+    648            while(lst)
+    649            {
+    650              if((idd=lst->index_id_data))
+    651              {
+    652                if(idd->index == index)
+    653                {
+    654          	if(idd->cnt_all != idd->cnt_received)
+    655          	  return 0;
+    656          	if(idd->type==1)
+    657          	  return 1;
+    658                }
+    659              }
+    660              lst=lst->prev;
+    661            }
+    662            return 0;
+    663          }
+    664          
+    665          /*
+    666          int GetSmsDat(char **sms_buf, char **ems_admin_buf, int *sms_size, int *ems_admin_size)
+    667          {
+    668            char sms_dat[128];
+    669            char ems_admin_dat[128];
+    670            int fin;
+    671            unsigned int err;
+    672            char *sms_buf_2;
+    673            char *ems_admin_buf_2;
+    674            int sms_size_2, ems_admin_size_2, x, xl;
+    675            strcpy(sms_dat, CFG_SYSTEM_FOLDER);
+    676            if((xl=strlen(sms_dat))>0)
+    677              x=sms_dat[xl-1];
+    678            if((x!='\\')&&(x!='/'))
+    679            {
+    680              sms_dat[xl]='\\';
+    681              sms_dat[xl+1]=0;
+    682            }
+    683            strcat(sms_dat, "SMS\\SMS.dat");
+    684            strcpy(ems_admin_dat, CFG_SYSTEM_FOLDER);
+    685            if((xl=strlen(ems_admin_dat))>0)
+    686              x=ems_admin_dat[xl-1];
+    687            if((x!='\\')&&(x!='/'))
+    688            {
+    689              ems_admin_dat[xl]='\\';
+    690              ems_admin_dat[xl+1]=0;
+    691            }
+    692            strcat(ems_admin_dat, "SMS\\EMS_Admin.dat");
+    693            if((fin=fopen(sms_dat, A_BIN+A_ReadOnly, P_READ, &err))<0)
+    694              return 0;
+    695            sms_size_2=lseek(fin, 0, S_END, &err, &err)-2;
+    696            sms_buf_2=malloc(sms_size_2);
+    697            lseek(fin, 2, S_SET, &err, &err);
+    698            if(fread(fin, sms_buf_2, sms_size_2, &err)!=sms_size_2)
+    699            {
+    700              fclose(fin, &err);
+    701              return 0;
+    702            }
+    703            fclose(fin, &err);
+    704            *sms_buf=sms_buf_2;
+    705            *sms_size=sms_size_2;
+    706            if((fin=fopen(ems_admin_dat, A_BIN+A_ReadOnly, P_READ, &err))<0)
+    707            {
+    708              return 0;
+    709            }
+    710            ems_admin_size_2=lseek(fin, 0, S_END, &err, &err)-0x9A4;
+    711            ems_admin_buf_2=malloc(ems_admin_size_2);
+    712            lseek(fin, 0x9A4, S_SET, &err, &err);
+    713            if(fread(fin, ems_admin_buf_2, ems_admin_size_2, &err)!=ems_admin_size_2)
+    714            {
+    715              fclose(fin, &err);
+    716              return 0;
+    717            }
+    718            fclose(fin, &err);
+    719            *ems_admin_buf=ems_admin_buf_2;
+    720            *ems_admin_size=ems_admin_size_2;
+    721            return 1;
+    722          }
+    723          */
+    724          //int DoMsgList(SMS_DATA_LIST *lst, char *sms_buf, char *ems_admin_buf, int sms_size, int ems_admin_size)
+    725          
+    726          int ReadThisSms(int index, int saf) //saf,0:do nothing,1:save as file
+    727          {
+    728            SMS_DATA_ROOT *sdroot=SmsDataRoot();
+                   ^
+Error[Pe020]: identifier "SMS_DATA_ROOT" is undefined
+
+    SMS_DATA_ROOT *sdroot=SmsDataRoot();
+                   ^
+"C:\arm\mss3\NewDatReader.c",728  Error[Pe020]: identifier "sdroot" is
+          undefined
+
+    SMS_DATA_ROOT *sdroot=SmsDataRoot();
+                          ^
+"C:\arm\mss3\NewDatReader.c",728  Warning[Pe223]: function "SmsDataRoot"
+          declared implicitly
+    729            SMS_DATA_LLIST inll=sdroot->in_msg;
+                   ^
+Error[Pe020]: identifier "SMS_DATA_LLIST" is undefined
+    730            SMS_DATA_LLIST outll=sdroot->out_msg;
+                   ^
+Error[Pe020]: identifier "SMS_DATA_LLIST" is undefined
+    731            SMS_DATA_LIST *lst;
+                   ^
+Error[Pe020]: identifier "SMS_DATA_LIST" is undefined
+
+    SMS_DATA_LIST *lst;
+                   ^
+"C:\arm\mss3\NewDatReader.c",731  Error[Pe020]: identifier "lst" is undefined
+    732            INDEX_ID_DATA *idd;
+                   ^
+Error[Pe020]: identifier "INDEX_ID_DATA" is undefined
+
+    INDEX_ID_DATA *idd;
+                   ^
+"C:\arm\mss3\NewDatReader.c",732  Error[Pe020]: identifier "idd" is undefined
+    733            SMS_DATA *sdx;
+    734            //char *sms_buf=0;
+    735            //char *ems_admin_buf=0;
+    736            int /*sms_size=0, ems_admin_size=0, res=0,*/ msg_type=0, cnt;
+    737            unsigned short *pid;
+    738            if(!index) return 0;
+    739            if((sdx=FindSmsByIndex(index))) delSDList(sdx);
+    740            lst=inll.first;
+    741            while(lst)
+    742            {
+    743              if((idd=lst->index_id_data))
+    744              {
+    745                if(idd->index==index)
+    746                {
+    747          	/*if(GetSmsDat(&sms_buf, &ems_admin_buf, &sms_size, &ems_admin_size))
+    748          	{
+    749          	  if(DoMsgList(lst, sms_buf, ems_admin_buf, sms_size, ems_admin_size))
+    750          	    res=1;
+    751          	}
+    752          	if(sms_buf) mfree(sms_buf);
+    753          	if(ems_admin_buf) mfree(ems_admin_buf);
+    754          	return res;*/
+    755          	break;
+    756                }
+    757              }
+    758              lst=lst->next;
+    759            }
+    760            if(!lst) lst=outll.first;
+    761            while(lst)
+    762            {
+    763              if((idd=lst->index_id_data))
+    764              {
+    765                if(idd->index==index)
+    766                {
+    767          	/*if(GetSmsDat(&sms_buf, &ems_admin_buf, &sms_size, &ems_admin_size))
+    768          	{
+    769          	  if(DoMsgList(lst, sms_buf, ems_admin_buf, sms_size, ems_admin_size))
+    770          	    res=1;
+    771          	}
+    772          	if(sms_buf) mfree(sms_buf);
+    773          	if(ems_admin_buf) mfree(ems_admin_buf);
+    774          	return res;*/
+    775          	break;
+    776                }
+    777              }
+    778              lst=lst->next;
+    779            }
+    780            if(!lst) return 0;
+    781            if(!(idd=lst->index_id_data)) return 0;
+    782            if(!(pid=idd->data_id)) return 0;
+    783            if(!(cnt=idd->cnt_all)) return 0;
+    784            if(cnt!=idd->cnt_received) msg_type=msg_type|ISDES;
+    785            
+    786            //-----------------------open read dat-------------------
+    787            
+    788          //  char sms_dat[128];
+    789          //  char ems_admin_dat[128];
+    790            int fsd, fea;
+    791            unsigned int err;
+    792            int sms_size, ems_admin_size,/* x,*/ xl, i;
+    793            char pdu[sizeof(PDU)];
+    794            EMS_ADM pea;
+    795            SMS_POS_INDEX_DATA sid;
+                   ^
+Error[Pe020]: identifier "SMS_POS_INDEX_DATA" is undefined
+    796          /*  strcpy(sms_dat, CFG_SYSTEM_FOLDER);
+    797            if((xl=strlen(sms_dat))>0)
+    798              x=sms_dat[xl-1];
+    799            if((x!='\\')&&(x!='/'))
+    800            {
+    801              sms_dat[xl]='\\';
+    802              sms_dat[xl+1]=0;
+    803            }
+    804            strcat(sms_dat, "SMS\\SMS.dat");
+    805            strcpy(ems_admin_dat, CFG_SYSTEM_FOLDER);
+    806            if((xl=strlen(ems_admin_dat))>0)
+    807              x=ems_admin_dat[xl-1];
+    808            if((x!='\\')&&(x!='/'))
+    809            {
+    810              ems_admin_dat[xl]='\\';
+    811              ems_admin_dat[xl+1]=0;
+    812            }
+    813            strcat(ems_admin_dat, "SMS\\EMS_Admin.dat");*/
+    814            if((fsd=fopen(sms_dat, A_BIN+A_ReadOnly, P_READ, &err))<0)
+    815              return 0;
+    816            sms_size=lseek(fsd, 0, S_END, &err, &err)/*-2*/;
+    817            if((fea=fopen(ems_admin_dat, A_BIN+A_ReadOnly, P_READ, &err))<0)
+    818            {
+    819              fclose(fsd, &err);
+    820              return 0;
+    821            }
+    822            ems_admin_size=lseek(fea, 0, S_END, &err, &err)/*-0x9A4*/;
+    823            if((xl=(index-1)*sizeof(EMS_ADM)+0x9A4)>(ems_admin_size-sizeof(EMS_ADM)))
+    824            {
+    825              fclose(fsd, &err);
+    826              fclose(fea, &err);
+    827              return 0;
+    828            }
+    829            lseek(fea, xl, S_SET, &err, &err);
+    830            if(fread(fea, &pea, sizeof(EMS_ADM), &err)!=sizeof(EMS_ADM))
+    831            {
+    832              fclose(fsd, &err);
+    833              fclose(fea, &err);
+    834              return 0;
+    835            }
+    836            fclose(fea, &err);
+    837            
+    838            sdx=AllocSD();
+    839            sdx->msg_type=msg_type;
+    840            for(i=0;i<cnt;i++)
+    841            {
+    842              if(pid[i]==0xFFF4) continue;
+    843              if(!GetSmsPosIndex(&sid, pid[i])) continue;
+                         ^
+Warning[Pe223]: function "GetSmsPosIndex" declared implicitly
+    844              if((xl=sid.pos_index*sizeof(PDU)+2)>(sms_size-sizeof(PDU))) continue;
+    845              lseek(fsd, xl, S_SET, &err, &err);
+    846              if(fread(fsd, &pdu, sizeof(pdu), &err)!=sizeof(PDU)) continue;
+    847              if(!sdx->SMS_TEXT) PduDecodeAll(sdx, (char *)(&pdu));
+    848              else PduDecodeTxt(sdx, (char *)(&pdu));
+    849            }
+    850            fclose(fsd, &err);
+    851            if(sdx->SMS_TEXT)
+    852            {
+    853              if(i>1) sdx->msg_type=sdx->msg_type|ISEMS;
+    854              sdx->opmsg_id=pea.opmsg_id;
+    855              sdx->id=index;
+    856              sdx->cnt_r=idd->cnt_received;
+    857              if(CFG_ENA_AUTO_SAF_RT && !(sdx->msg_type&ISDES) && saf==1 && saveFile(sdx->SMS_TEXT, sdx->Number, sdx, sdx->type, 2))
+    858              {
+    859                deleteDat(sdx, 0);
+    860                FreeSdOne(sdx);
+    861                return 1;
+    862              }
+    863              LockSched();
+    864              AddToSdlByTime(sdx);
+    865              UnlockSched();
+    866            }
+    867            else 
+    868            {
+    869              FreeSdOne(sdx);
+    870              return 0;
+    871            }
+    872            return 1;
+    873          }
+    874          
+    875          
+    876          SMS_DATA *FindSdByFileName(char *filename)
+    877          {
+    878            SMS_DATA *sdl=sdltop;
+    879            while(sdl)
+    880            {
+    881              if(sdl->isfile && sdl->fname && !strcmp(filename, sdl->fname))
+    882                return sdl;
+    883              sdl=sdl->next;
+    884            }
+    885            return 0;
+    886          }
+    887          
+    888          int CheckFile(int type)
+    889          {
+    890            char filepath[128];
+    891            const char *folder;
+    892            char dir[128];
+    893            int x, len, res=0;
+    894            unsigned int err;
+    895            DIR_ENTRY de;
+    896            SMS_DATA *sdx;
+    897            switch(type)
+    898            {
+    899            case TYPE_DRAFT:
+    900              folder=FLDR_DRAFT;
+    901              break;
+    902            case TYPE_OUT:
+    903              folder=FLDR_OUT;
+    904              break;
+    905            case TYPE_IN_N:
+    906            case TYPE_IN_R:
+    907            case TYPE_IN_ALL:
+    908              folder=FLDR_IN;
+    909              break;
+    910            default:
+    911              folder=FLDR_UNK;
+    912              break;
+    913            }
+    914            if(!isdir(CFG_MAIN_FOLDER, &err)) return 0;
+    915            strcpy(dir, CFG_MAIN_FOLDER);
+    916            if((len=strlen(dir))<=0) return 0;
+    917            x=dir[len-1];
+    918            if((x!='\\')&&(x!='/'))
+    919            {
+    920              dir[len]='\\';
+    921              dir[len+1]=0;
+    922            }
+    923            strcat(dir, folder);
+    924            if(!isdir(dir, &err)) return 0;
+    925            strcat(dir, "*.mss");
+    926            if(FindFirstFile(&de, dir, &err))
+    927            {
+    928              do
+    929              {
+    930                strcpy(filepath, de.folder_name);
+    931                if((len=strlen(filepath))<=0) continue;
+    932                x=filepath[len-1];
+    933                if((x!='\\')&&(x!='/'))
+    934                {
+    935          	filepath[len]='\\';
+    936          	filepath[len+1]=0;
+    937                }
+    938                strcat(filepath, de.file_name);
+    939                if(!(sdx=FindSdByFileName(filepath)))
+    940                {
+    941          	sdx=AllocSD();
+    942          	if(ReadMSS(filepath, sdx))
+    943          	{
+    944          	  res++;
+    945          	  LockSched();
+    946          	  AddToSdlByTime(sdx);
+    947          	  UnlockSched();
+    948          	  if(!(res%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+    949          	}
+    950          	else FreeSdOne(sdx);
+    951                }
+    952              }while(FindNextFile(&de, &err));
+    953            }
+    954            FindClose(&de, &err);
+    955            if((res%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+    956            return res;
+    957          }
+    958          
+    959          int CheckDat(void)
+    960          {
+    961            SMS_DATA *sd;
+    962            SMS_DATA_ROOT *sdroot=SmsDataRoot();
+                   ^
+Error[Pe020]: identifier "SMS_DATA_ROOT" is undefined
+
+    SMS_DATA_ROOT *sdroot=SmsDataRoot();
+                   ^
+"C:\arm\mss3\NewDatReader.c",962  Error[Pe020]: identifier "sdroot" is
+          undefined
+
+    SMS_DATA_ROOT *sdroot=SmsDataRoot();
+                          ^
+"C:\arm\mss3\NewDatReader.c",962  Warning[Pe223]: function "SmsDataRoot"
+          declared implicitly
+    963            SMS_DATA_LLIST inll=sdroot->in_msg;
+                   ^
+Error[Pe020]: identifier "SMS_DATA_LLIST" is undefined
+    964            SMS_DATA_LLIST outll=sdroot->out_msg;
+                   ^
+Error[Pe020]: identifier "SMS_DATA_LLIST" is undefined
+    965            SMS_DATA_LIST *lst;
+                   ^
+Error[Pe020]: identifier "SMS_DATA_LIST" is undefined
+
+    SMS_DATA_LIST *lst;
+                   ^
+"C:\arm\mss3\NewDatReader.c",965  Error[Pe020]: identifier "lst" is undefined
+    966            INDEX_ID_DATA *idd;
+                   ^
+Error[Pe020]: identifier "INDEX_ID_DATA" is undefined
+
+    INDEX_ID_DATA *idd;
+                   ^
+"C:\arm\mss3\NewDatReader.c",966  Error[Pe020]: identifier "idd" is undefined
+    967            int res=0;
+    968            lst=inll.first;
+    969            while(lst)
+    970            {
+    971              if((idd=lst->index_id_data))
+    972              {
+    973                if((sd=FindSmsByIndex(idd->index)))
+    974                {
+    975          	if(sd->cnt_r < idd->cnt_received)
+    976          	{
+    977          	  if(ReadThisSms(idd->index, 0))
+    978          	    res++;
+    979          	  if(res && !(res%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+    980          	  continue;
+    981          	}
+    982          	if(idd->type==1)
+    983          	{
+    984          	  if(sd->type!=TYPE_IN_N)
+    985          	  {
+    986          	    sd->type=TYPE_IN_N;
+    987          	    res++;
+    988          	    if(!(res%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+    989          	    continue;
+    990          	  }
+    991          	}
+    992          	else
+    993          	{
+    994          	  if(sd->type==TYPE_IN_N)
+    995          	  {
+    996          	    sd->type=TYPE_IN_R;
+    997          	    res++;
+    998          	    if(!(res%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+    999          	    continue;
+   1000          	  }
+   1001          	}
+   1002                }
+   1003                else
+   1004                {
+   1005          	if(ReadThisSms(idd->index, 0))
+   1006          	  res++;
+   1007                }
+   1008              }
+   1009              lst=lst->next;
+   1010            }
+   1011            lst=outll.first;
+   1012            while(lst)
+   1013            {
+   1014              if((idd=lst->index_id_data))
+   1015              {
+   1016                if(!(sd=FindSmsByIndex(idd->index)) || sd->cnt_r < idd->cnt_received)
+   1017                {
+   1018          	if(ReadThisSms(idd->index, 0))
+   1019          	  res++;
+   1020          	if(res && !(res%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+   1021                }
+   1022              }
+   1023              lst=lst->next;
+   1024            }
+   1025            if((res%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+   1026            return res;
+   1027          }
+   1028          
+   1029          int IsDatExsit(int index)
+   1030          {
+   1031            SMS_DATA_ROOT *sdroot=SmsDataRoot();
+                   ^
+Error[Pe020]: identifier "SMS_DATA_ROOT" is undefined
+
+    SMS_DATA_ROOT *sdroot=SmsDataRoot();
+                   ^
+"C:\arm\mss3\NewDatReader.c",1031  Error[Pe020]: identifier "sdroot" is
+          undefined
+
+    SMS_DATA_ROOT *sdroot=SmsDataRoot();
+                          ^
+"C:\arm\mss3\NewDatReader.c",1031  Warning[Pe223]: function "SmsDataRoot"
+          declared implicitly
+   1032            SMS_DATA_LLIST inll=sdroot->in_msg;
+                   ^
+Error[Pe020]: identifier "SMS_DATA_LLIST" is undefined
+   1033            SMS_DATA_LLIST outll=sdroot->out_msg;
+                   ^
+Error[Pe020]: identifier "SMS_DATA_LLIST" is undefined
+   1034            SMS_DATA_LIST *lst;
+                   ^
+Error[Pe020]: identifier "SMS_DATA_LIST" is undefined
+
+    SMS_DATA_LIST *lst;
+                   ^
+"C:\arm\mss3\NewDatReader.c",1034  Error[Pe020]: identifier "lst" is undefined
+   1035            INDEX_ID_DATA *idd;
+                   ^
+Error[Pe020]: identifier "INDEX_ID_DATA" is undefined
+
+    INDEX_ID_DATA *idd;
+                   ^
+"C:\arm\mss3\NewDatReader.c",1035  Error[Pe020]: identifier "idd" is undefined
+   1036            lst=inll.first;
+   1037            while(lst)
+   1038            {
+   1039              if((idd=lst->index_id_data))
+   1040              {
+   1041                if(idd->index==index)
+   1042          	return 1;
+   1043              }
+   1044              lst=lst->next;
+   1045            }
+   1046            lst=outll.first;
+   1047            while(lst)
+   1048            {
+   1049              if((idd=lst->index_id_data))
+   1050              {
+   1051                if(idd->index==index)
+   1052          	return 1;
+   1053              }
+   1054              lst=lst->next;
+   1055            }
+   1056            return 0;
+   1057          }
+   1058          
+   1059          int CheckBack(void)
+   1060          {
+   1061            SMS_DATA *sdl=sdltop;
+   1062            SMS_DATA *sdx;
+   1063            int n=0;
+   1064            while(sdl)
+   1065            {
+   1066              if(sdl->isfile)
+   1067              {
+   1068                if(sdl->fname)
+   1069                {
+   1070          	if(!IsFileExist(sdl->fname))
+   1071          	{
+   1072          	  sdx=sdl;
+   1073          	  sdl=sdl->next;
+   1074          	  delSDList(sdx);
+   1075          	  n++;
+   1076          	  if(!(n%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+   1077          	  continue;
+   1078          	}
+   1079                }
+   1080              }
+   1081              else if(sdl->id)
+   1082              {
+   1083                if(!IsDatExsit(sdl->id))
+   1084                {
+   1085          	sdx=sdl;
+   1086          	sdl=sdl->next;
+   1087          	delSDList(sdx);
+   1088          	n++;
+   1089          	if(!(n%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+   1090          	continue;
+   1091                }
+   1092              }
+   1093              sdl=sdl->next;
+   1094            }
+   1095            if((n%4)) SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+   1096            return n;
+   1097          }
+   1098          
+   1099          //extern const IPC_REQ my_ipc_upd; //sms_dat.c
+   1100          int CheckAll(void)
+   1101          {
+   1102            int res=0;
+   1103            if(is_readall) return 0;
+   1104            CheckBack();
+   1105            res=CheckDat();
+   1106            res+=CheckFile(TYPE_IN_ALL);
+   1107            res+=CheckFile(TYPE_OUT);
+   1108            res+=CheckFile(TYPE_DRAFT);
+   1109            new_sms_n=getCountByType(TYPE_IN_N);
+   1110            SendSimpleIpcMsg(SMSYS_IPC_SMS_DATA_UPDATE);//GBS_SendMessage(MMI_CEPID,MSG_IPC,SMSYS_IPC_SMS_DATA_UPDATE,&my_ipc_upd);
+   1111            return res;
+   1112          }
+   1113          
+   1114          
+   1115          int NewToRead_File(SMS_DATA *sd)
+   1116          {
+   1117            int fin, size, version, lsize;
+   1118            char *buf;
+   1119            unsigned int err;
+   1120            MSS_FILE_P1 mfp1;
+   1121            MSS_FILE_P2 mfp2;
+   1122            char filepath[128];
+   1123            if(!sd || !sd->isfile || !sd->fname)
+   1124              return 0;
+   1125          //  sd->type=TYPE_IN_R;
+   1126          //  if(new_sms_n>0) new_sms_n--;
+   1127            
+   1128            //先修改文件
+   1129            strcpy(filepath, sd->fname);
+   1130            if((fin=fopen(filepath, A_BIN+A_ReadOnly, P_READ, &err))<0)
+   1131              return 0;
+   1132            size=lseek(fin, 0, S_END, &err, &err);
+   1133            if(size<sizeof(MSS_FILE_P1))
+   1134            {
+   1135            FERR:
+   1136              fclose(fin, &err);
+   1137              return 0;
+   1138            }
+   1139            lseek(fin, 8, S_SET, &err, &err); //version;
+   1140            if(fread(fin, &version, sizeof(int), &err)!=sizeof(int))
+   1141            {
+   1142              goto FERR;
+   1143            }
+   1144            lseek(fin, 0, S_SET, &err, &err);
+   1145            if(version==1)
+   1146            {
+   1147              if(fread(fin, &mfp1, sizeof(MSS_FILE_P1), &err)!=sizeof(MSS_FILE_P1))
+   1148                goto FERR;
+   1149              lsize=size-sizeof(MSS_FILE_P1);
+   1150              mfp2.version=MSS_VERSION;
+   1151              mfp2.type=TYPE_IN_R;
+   1152              strcpy(mfp2.header, mfp1.header);
+   1153              strcpy(mfp2.time, mfp1.time);
+   1154              strcpy(mfp2.number, mfp1.number);
+   1155            }
+   1156            else if(version==2)
+   1157            {
+   1158              if(fread(fin, &mfp2, sizeof(MSS_FILE_P2), &err)!=sizeof(MSS_FILE_P2))
+   1159                goto FERR;
+   1160              lsize=size-sizeof(MSS_FILE_P2);
+   1161              mfp2.type=TYPE_IN_R;
+   1162            }
+   1163            else
+   1164            {
+   1165              goto FERR;
+   1166            }
+   1167            buf=malloc(lsize);
+   1168            if(fread(fin, buf, lsize, &err)!=lsize)
+   1169            {
+   1170            FERR1:
+   1171              mfree(buf);
+   1172              goto FERR;
+   1173            }
+   1174            fclose(fin, &err);
+   1175            if((fin=fopen(filepath, A_BIN+A_WriteOnly+A_Create+A_Truncate, P_WRITE, &err))<0)
+   1176            {
+   1177              mfree(buf);
+   1178              return 0;
+   1179            }
+   1180            if(fwrite(fin, &mfp2, sizeof(MSS_FILE_P2), &err)!=sizeof(MSS_FILE_P2))
+   1181              goto FERR1;
+   1182            if(fwrite(fin, buf, lsize, &err)!=lsize)
+   1183              goto FERR1;
+   1184            mfree(buf);
+   1185            fclose(fin, &err);
+   1186            sd->type=TYPE_IN_R;
+   1187            if(new_sms_n>0) new_sms_n--;
+   1188            return 1;
+   1189          }
+   1190          
+
+Errors: 58
+Warnings: 9

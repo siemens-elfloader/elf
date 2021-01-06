@@ -1,0 +1,1016 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    24/Jan/2011  21:39:36 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  C:\arm\flamee_m\main.c                               #
+#    Command line    =  C:\arm\flamee_m\main.c -D NEWSGOLD -D ELKA -lC       #
+#                       C:\arm\flamee_m\Release\List\ -lA                    #
+#                       C:\arm\flamee_m\Release\List\ -o                     #
+#                       C:\arm\flamee_m\Release\Obj\ -s9 --no_unroll         #
+#                       --cpu_mode arm --endian little --cpu ARM926EJ-S      #
+#                       --stack_align 4 --interwork -e --fpu None -I         #
+#                       "C:\arm2\Embedded Workbench 4.0                      #
+#                       Evaluation\ARM\INC\" --inline_threshold=2            #
+#    List file       =  C:\arm\flamee_m\Release\List\main.lst                #
+#    Object file     =  C:\arm\flamee_m\Release\Obj\main.r79                 #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+C:\arm\flamee_m\main.c
+      1          #include "..\inc\swilib.h"
+      2          #define DEBUG
+      3          // попытка сделать эффект горящего пламени
+      4          // автор начала Feanor
+      5          // далее уже пытаюсь развивать я (Z80)
+      6          // этот эльф не является заставкой или там для чего то подобного
+      7          // просто мне интересно вот и занимаюсь
+
+   \                                 In segment DATA_C, align 4, align-sorted
+      8          const int minus11=-11;
+   \                     minus11:
+   \   00000000   F5FFFFFF           DC32 -11
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+      9          unsigned short maincsm_name_body[140];
+   \                     maincsm_name_body:
+   \   00000000                      DS8 280
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     10          unsigned int MAINCSM_ID = 0;
+   \                     MAINCSM_ID:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     11          unsigned int MAINGUI_ID = 0;
+   \                     MAINGUI_ID:
+   \   00000000                      DS8 4
+
+   \                                 In segment DATA_Z, align 1, align-sorted
+     12          char t;
+   \                     t:
+   \   00000000                      DS8 1
+     13          typedef struct
+     14          {
+     15            CSM_RAM csm;
+     16            int gui_id;
+     17          }MAIN_CSM;
+     18          typedef struct
+     19          {
+     20            GUI gui;
+     21            WSHDR *ws1;
+     22            WSHDR *ws2;
+     23            int i1;
+     24          }MAIN_GUI;
+     25          
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     26            short screen[132*176];
+   \                     screen:
+   \   00000000                      DS8 46464
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     27            short screen2[132*176];
+   \                     screen2:
+   \   00000000                      DS8 46464
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+     28            int Rc=0;
+   \                     Rc:
+   \   00000000                      DS8 4
+     29            int Gc=0;
+   \                     Gc:
+   \   00000004                      DS8 4
+     30            int Bc=0;
+   \                     Bc:
+   \   00000008                      DS8 4
+     31            int countpallet=0;
+   \                     countpallet:
+   \   0000000C                      DS8 4
+     32            int palletka[256];
+   \                     palletka:
+   \   00000010                      DS8 1024
+     33            
+
+   \                                 In segment CODE, align 4, keep-with-next
+     34          int rgb2bitmap16 (R,G,B)  // (c) mirr
+     35          {
+     36            return ((B>>3)+((G>>2)<<5)+((R>>3)<<11));
+   \                     rgb2bitmap16:
+   \   00000000   4111A0E1           ASR      R1,R1,#+2
+   \   00000004   8112A0E1           LSL      R1,R1,#+5
+   \   00000008   C21181E0           ADD      R1,R1,R2, ASR #+3
+   \   0000000C   C001A0E1           ASR      R0,R0,#+3
+   \   00000010   800581E0           ADD      R0,R1,R0, LSL #+11
+   \   00000014   1EFF2FE1           BX       LR               ;; return
+     37          }
+     38          
+     39          /////////////////////////////// создадим палитру
+
+   \                                 In segment CODE, align 4, keep-with-next
+     40          void createpallet ()
+     41          
+     42          {int ix=0;
+     43          for (int i=1; i<255; i++)
+   \                     createpallet:
+   \   00000000   F8009FE5           LDR      R0,??createpallet_0  ;; Rc
+   \   00000004   70002DE9           PUSH     {R4-R6}
+   \   00000008   0110A0E3           MOV      R1,#+1
+   \   0000000C   FF30A0E3           MOV      R3,#+255
+   \   00000010   FF3C83E3           ORR      R3,R3,#0xFF00
+     44          {
+     45            palletka[i]=65535;
+   \                     ??createpallet_1:
+   \   00000014   012180E0           ADD      R2,R0,R1, LSL #+2
+   \   00000018   103082E5           STR      R3,[R2, #+16]
+     46          }
+   \   0000001C   011081E2           ADD      R1,R1,#+1
+   \   00000020   FF0051E3           CMP      R1,#+255
+   \   00000024   FAFFFFBA           BLT      ??createpallet_1
+     47          
+     48          ix=0;
+   \   00000028   0020A0E3           MOV      R2,#+0
+     49           for (int i=1; i<85; i++)  // с черного в красный
+   \   0000002C   0130A0E3           MOV      R3,#+1
+     50          {
+     51              Rc= ix;
+     52          
+     53          
+     54            countpallet++;
+     55          palletka [countpallet]= rgb2bitmap16 ( Rc, Gc,Bc);
+   \                     ??createpallet_2:
+   \   00000030   085090E5           LDR      R5,[R0, #+8]
+   \   00000034   0C1090E5           LDR      R1,[R0, #+12]
+   \   00000038   C5C1A0E1           ASR      R12,R5,#+3
+   \   0000003C   045090E5           LDR      R5,[R0, #+4]
+   \   00000040   002080E5           STR      R2,[R0, #+0]
+   \   00000044   014081E2           ADD      R4,R1,#+1
+   \   00000048   0C4080E5           STR      R4,[R0, #+12]
+   \   0000004C   0210A0E1           MOV      R1,R2
+   \   00000050   C111A0E1           ASR      R1,R1,#+3
+   \   00000054   8115A0E1           LSL      R1,R1,#+11
+   \   00000058   044180E0           ADD      R4,R0,R4, LSL #+2
+   \   0000005C   4551A0E1           ASR      R5,R5,#+2
+   \   00000060   85528CE0           ADD      R5,R12,R5, LSL #+5
+   \   00000064   055081E0           ADD      R5,R1,R5
+   \   00000068   105084E5           STR      R5,[R4, #+16]
+     56          ix++;
+     57          ix++;
+     58          ix++;
+   \   0000006C   032082E2           ADD      R2,R2,#+3
+     59          
+     60          }
+   \   00000070   013083E2           ADD      R3,R3,#+1
+   \   00000074   550053E3           CMP      R3,#+85
+   \   00000078   ECFFFFBA           BLT      ??createpallet_2
+     61          
+     62          ix=0;
+   \   0000007C   0030A0E3           MOV      R3,#+0
+     63           for (int i=1; i<85; i++)  // с красного в желтый
+   \   00000080   0140A0E3           MOV      R4,#+1
+     64          {
+     65              Gc= ix;
+     66          
+     67          
+     68            countpallet++;
+   \                     ??createpallet_3:
+   \   00000084   0C2090E5           LDR      R2,[R0, #+12]
+   \   00000088   043080E5           STR      R3,[R0, #+4]
+   \   0000008C   015082E2           ADD      R5,R2,#+1
+   \   00000090   0C5080E5           STR      R5,[R0, #+12]
+     69          palletka [countpallet]= rgb2bitmap16 (Rc,Gc,Bc);
+   \   00000094   0320A0E1           MOV      R2,R3
+   \   00000098   4221A0E1           ASR      R2,R2,#+2
+   \   0000009C   8222A0E1           LSL      R2,R2,#+5
+   \   000000A0   055180E0           ADD      R5,R0,R5, LSL #+2
+   \   000000A4   0C6081E0           ADD      R6,R1,R12
+   \   000000A8   066082E0           ADD      R6,R2,R6
+   \   000000AC   106085E5           STR      R6,[R5, #+16]
+     70          ix++;
+     71          ix++;
+     72          ix++;
+   \   000000B0   033083E2           ADD      R3,R3,#+3
+     73          
+     74          
+     75          }
+   \   000000B4   014084E2           ADD      R4,R4,#+1
+   \   000000B8   550054E3           CMP      R4,#+85
+   \   000000BC   F0FFFFBA           BLT      ??createpallet_3
+     76          ix=0;
+   \   000000C0   0030A0E3           MOV      R3,#+0
+     77          
+     78           for (int i=1; i<85; i++)  // с желтого в белый
+   \   000000C4   0140A0E3           MOV      R4,#+1
+     79          {
+     80              Bc= ix;
+     81          
+     82          
+     83            countpallet++;
+   \                     ??createpallet_4:
+   \   000000C8   0C5090E5           LDR      R5,[R0, #+12]
+   \   000000CC   083080E5           STR      R3,[R0, #+8]
+   \   000000D0   015085E2           ADD      R5,R5,#+1
+   \   000000D4   0C5080E5           STR      R5,[R0, #+12]
+     84          palletka [countpallet]= rgb2bitmap16 (Rc,Gc,Bc);
+   \   000000D8   055180E0           ADD      R5,R0,R5, LSL #+2
+   \   000000DC   016082E0           ADD      R6,R2,R1
+   \   000000E0   C36186E0           ADD      R6,R6,R3, ASR #+3
+   \   000000E4   106085E5           STR      R6,[R5, #+16]
+     85          ix++;
+     86          ix++;
+     87          ix++;
+   \   000000E8   033083E2           ADD      R3,R3,#+3
+     88          
+     89          }
+   \   000000EC   014084E2           ADD      R4,R4,#+1
+   \   000000F0   550054E3           CMP      R4,#+85
+   \   000000F4   F3FFFFBA           BLT      ??createpallet_4
+     90          
+     91          
+     92          }
+   \   000000F8   7000BDE8           POP      {R4-R6}
+   \   000000FC   1EFF2FE1           BX       LR               ;; return
+   \                     ??createpallet_0:
+   \   00000100   ........           DC32     Rc
+     93          
+     94          
+     95          
+
+   \                                 In segment CODE, align 4, keep-with-next
+     96          void filtr ()  // отфильтруем через палитру
+     97          {
+     98          int  indexcolor;
+     99          int indexx;
+    100          
+    101            for (int i=0; i<132*176; i++)
+   \                     filtr:
+   \   00000000   38C09FE5           LDR      R12,??filtr_0    ;; Rc
+   \   00000004   0000A0E3           MOV      R0,#+0
+   \   00000008   C010A0E3           MOV      R1,#+192
+   \   0000000C   5A1C81E3           ORR      R1,R1,#0x5A00
+    102            {
+    103              indexx= screen[i];
+    104              indexcolor= palletka [indexx];
+    105              screen2 [i]=indexcolor;
+   \                     ??filtr_1:
+   \   00000010   ........           LDR      R3,??DataTable5  ;; screen
+   \   00000014   ........           LDR      R2,??DataTable9  ;; screen2
+   \   00000018   803083E0           ADD      R3,R3,R0, LSL #+1
+   \   0000001C   F030D3E1           LDRSH    R3,[R3, #+0]
+   \   00000020   802082E0           ADD      R2,R2,R0, LSL #+1
+    106            }
+   \   00000024   010080E2           ADD      R0,R0,#+1
+   \   00000028   03318CE0           ADD      R3,R12,R3, LSL #+2
+   \   0000002C   103093E5           LDR      R3,[R3, #+16]
+   \   00000030   010050E1           CMP      R0,R1
+   \   00000034   B030C2E1           STRH     R3,[R2, #+0]
+   \   00000038   F4FFFFBA           BLT      ??filtr_1
+    107          }
+   \   0000003C   1EFF2FE1           BX       LR               ;; return
+   \                     ??filtr_0:
+   \   00000040   ........           DC32     Rc
+    108          
+    109          //================================================================
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+    110          unsigned int randseed;
+   \                     randseed:
+   \   00000000                      DS8 4
+    111          #define random randint
+    112          #define randomize Randomize
+
+   \                                 In segment CODE, align 4, keep-with-next
+    113          unsigned int randint( int max )
+    114          {
+    115            randseed = randseed * 0x08088405;
+    116            //randseed = randseed * 0xDEAD;
+    117            randseed++;
+   \                     randint:
+   \   00000000   ........           LDR      R2,??DataTable3  ;; randseed
+   \   00000004   14309FE5           LDR      R3,??randint_0   ;; 0x8088405
+   \   00000008   0010A0E1           MOV      R1,R0
+   \   0000000C   000092E5           LDR      R0,[R2, #+0]
+   \   00000010   930000E0           MUL      R0,R3,R0
+   \   00000014   010080E2           ADD      R0,R0,#+1
+   \   00000018   000082E5           STR      R0,[R2, #+0]
+    118            return (  (randseed % max)  );
+   \   0000001C   ........           _BF      ??divu32_a,??rA??divu32_a
+   \                     ??randint_0:
+   \   00000020   05840808           DC32     0x8088405
+    119          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+    120          void Randomize(){ // Вызываем при старте для случайной последовательности
+   \                     Randomize:
+   \   00000000   00402DE9           PUSH     {LR}
+   \   00000004   10D04DE2           SUB      SP,SP,#+16
+    121            TDate date;
+    122            TTime time;
+    123            GetDateTime(&date,&time);
+   \   00000008   0D10A0E1           MOV      R1,SP
+   \   0000000C   08008DE2           ADD      R0,SP,#+8
+   \   00000010   B40000EF           SWI      +180
+    124            //rndindex = (unsigned char)time.param;
+    125            randseed=(time.min | (time.sec<<5));
+   \   00000014   0110DDE5           LDRB     R1,[SP, #+1]
+   \   00000018   0220DDE5           LDRB     R2,[SP, #+2]
+   \   0000001C   ........           LDR      R0,??DataTable3  ;; randseed
+   \   00000020   821281E1           ORR      R1,R1,R2, LSL #+5
+   \   00000024   001080E5           STR      R1,[R0, #+0]
+    126          }
+   \   00000028   0F80BDE8           POP      {R0-R3,PC}       ;; return
+    127          //================================================================
+    128          
+    129            IMGHDR img; 
+    130            GBSTMR timer;
+    131            int p;
+
+   \                                 In segment CODE, align 4, keep-with-next
+    132          void timer_proc(void){REDRAW(); GBS_StartTimerProc(&timer,45,timer_proc); p++;}
+   \                     timer_proc:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   20409FE5           LDR      R4,??timer_proc_0  ;; img
+   \   00000008   720100EF           SWI      +370
+   \   0000000C   ........           LDR      R2,??DataTable7  ;; timer_proc
+   \   00000010   2D10A0E3           MOV      R1,#+45
+   \   00000014   140084E2           ADD      R0,R4,#+20
+   \   00000018   4D0000EF           SWI      +77
+   \   0000001C   0C0094E5           LDR      R0,[R4, #+12]
+   \   00000020   010080E2           ADD      R0,R0,#+1
+   \   00000024   0C0084E5           STR      R0,[R4, #+12]
+   \   00000028   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??timer_proc_0:
+   \   0000002C   ........           DC32     img
+    133          inline void SetPix(int x,int y,int cl)
+    134          {  
+    135            if(x<0 || x>131 || y<1 || y>176) return;
+    136            //cl--;
+    137            if (cl<0) cl=0;
+    138            else screen[x+y*132] =cl;
+    139          }
+    140          inline short GetPix(int x,int y)
+    141          {  
+    142            return screen[x+y*132];
+    143          }
+    144          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    145          inline void Init()
+    146          {
+    147            for (int i=1; i!=131; i++)
+   \                     Init:
+   \   00000000   0100A0E3           MOV      R0,#+1
+    148            {
+    149              //SetPix(i,175,(randint(65536))/*&0xF8E0*/);
+    150              SetPix(i,175,randint(255));
+   \                     ??Init_0:
+   \   00000004   64109FE5           LDR      R1,??Init_1      ;; randseed
+   \   00000008   64309FE5           LDR      R3,??Init_1+0x4  ;; 0x8088405
+   \   0000000C   002091E5           LDR      R2,[R1, #+0]
+   \   00000010   000050E3           CMP      R0,#+0
+   \   00000014   930202E0           MUL      R2,R3,R2
+   \   00000018   58309FE5           LDR      R3,??Init_1+0x8  ;; 0xffffffff80808081
+   \   0000001C   012082E2           ADD      R2,R2,#+1
+   \   00000020   002081E5           STR      R2,[R1, #+0]
+   \   00000024   93C281E0           UMULL    R12,R1,R3,R2
+   \   00000028   FFC0A0E3           MOV      R12,#+255
+   \   0000002C   A113A0E1           LSR      R1,R1,#+7
+   \   00000030   9C0101E0           MUL      R1,R12,R1
+   \   00000034   011042E0           SUB      R1,R2,R1
+   \   00000038   0800004A           BMI      ??Init_2
+   \   0000003C   840050E3           CMP      R0,#+132
+   \   00000040   060000AA           BGE      ??Init_2
+   \   00000044   000051E3           CMP      R1,#+0
+   \   00000048   0400004A           BMI      ??Init_2
+   \   0000004C   28309FE5           LDR      R3,??Init_1+0xC  ;; screen
+   \   00000050   7820A0E3           MOV      R2,#+120
+   \   00000054   B42C82E3           ORR      R2,R2,#0xB400
+   \   00000058   803083E0           ADD      R3,R3,R0, LSL #+1
+   \   0000005C   B31082E1           STRH     R1,[R2, +R3]
+    151            }
+   \                     ??Init_2:
+   \   00000060   010080E2           ADD      R0,R0,#+1
+   \   00000064   830050E3           CMP      R0,#+131
+   \   00000068   E5FFFF1A           BNE      ??Init_0
+    152          }
+   \   0000006C   1EFF2FE1           BX       LR               ;; return
+   \                     ??Init_1:
+   \   00000070   ........           DC32     randseed
+   \   00000074   05840808           DC32     0x8088405
+   \   00000078   81808080           DC32     0xffffffff80808081
+   \   0000007C   ........           DC32     screen
+
+   \                                 In segment DATA_Z, align 4, align-sorted
+   \                     img:
+   \   00000000                      DS8 12
+   \                     p:
+   \   0000000C                      DS8 4
+    153          int clor=0;
+   \                     clor:
+   \   00000010                      DS8 4
+   \                     timer:
+   \   00000014                      DS8 16
+
+   \                                 In segment CODE, align 4, keep-with-next
+    154          void OnRedraw(MAIN_GUI *data)
+    155          {  
+   \                     OnRedraw:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   2CD04DE2           SUB      SP,SP,#+44
+    156            Init();
+   \   00000008   ........           _BLF     Init,??Init??rA
+    157          int ypos=174;
+    158            for(int x=0; x!=132; x++)
+   \   0000000C   ........           LDR      R0,??DataTable5  ;; screen
+   \   00000010   0010A0E3           MOV      R1,#+0
+   \                     ??OnRedraw_0:
+   \   00000014   0620A0E3           MOV      R2,#+6
+   \   00000018   402F82E3           ORR      R2,R2,#0x100
+   \   0000001C   B830A0E3           MOV      R3,#+184
+   \   00000020   593C83E3           ORR      R3,R3,#0x5900
+   \   00000024   013083E0           ADD      R3,R3,R1
+   \   00000028   833080E0           ADD      R3,R0,R3, LSL #+1
+   \   0000002C   033082E0           ADD      R3,R2,R3
+   \   00000030   7020A0E3           MOV      R2,#+112
+   \   00000034   B32C82E3           ORR      R2,R2,#0xB300
+   \   00000038   814080E0           ADD      R4,R0,R1, LSL #+1
+   \   0000003C   042082E0           ADD      R2,R2,R4
+   \   00000040   F040D3E1           LDRSH    R4,[R3, #+0]
+   \   00000044   F0C0D2E1           LDRSH    R12,[R2, #+0]
+   \   00000048   04408CE0           ADD      R4,R12,R4
+   \   0000004C   F2C0D3E1           LDRSH    R12,[R3, #+2]
+   \   00000050   F430D3E1           LDRSH    R3,[R3, #+4]
+   \   00000054   04408CE0           ADD      R4,R12,R4
+   \   00000058   043083E0           ADD      R3,R3,R4
+   \   0000005C   C340A0E1           ASR      R4,R3,#+1
+   \   00000060   243F83E0           ADD      R3,R3,R4, LSR #+30
+    159            {
+    160                  clor=((GetPix(x-1,ypos+1)+GetPix(x,ypos)+GetPix(x,ypos+1)+GetPix(x+1,ypos+1))/4);
+    161                  if (clor==GetPix(x,ypos)) clor=0;
+   \   00000064   F040D2E1           LDRSH    R4,[R2, #+0]
+   \   00000068   4331A0E1           ASR      R3,R3,#+2
+   \   0000006C   040053E1           CMP      R3,R4
+   \   00000070   0030A003           MOVEQ    R3,#+0
+    162                  SetPix(x,ypos,clor);
+   \   00000074   000051E3           CMP      R1,#+0
+   \   00000078   0300004A           BMI      ??OnRedraw_1
+   \   0000007C   840051E3           CMP      R1,#+132
+   \   00000080   010000AA           BGE      ??OnRedraw_1
+   \   00000084   000053E3           CMP      R3,#+0
+   \   00000088   B030C251           STRHPL   R3,[R2, #+0]
+    163                }
+   \                     ??OnRedraw_1:
+   \   0000008C   011081E2           ADD      R1,R1,#+1
+   \   00000090   840051E3           CMP      R1,#+132
+   \   00000094   DEFFFF1A           BNE      ??OnRedraw_0
+    164            for(int y=173; y!=1; y--)
+   \   00000098   AD10A0E3           MOV      R1,#+173
+    165                {
+    166            for(int x=0; x!=132; x++)
+   \                     ??OnRedraw_2:
+   \   0000009C   0020A0E3           MOV      R2,#+0
+   \                     ??OnRedraw_3:
+   \   000000A0   8430A0E3           MOV      R3,#+132
+   \   000000A4   932124E0           MLA      R4,R3,R1,R2
+   \   000000A8   843080E0           ADD      R3,R0,R4, LSL #+1
+   \   000000AC   F0E0D3E1           LDRSH    LR,[R3, #+0]
+   \   000000B0   0E40A0E3           MOV      R4,#+14
+   \   000000B4   804F84E3           ORR      R4,R4,#0x200
+   \   000000B8   03C084E0           ADD      R12,R4,R3
+   \   000000BC   F040DCE1           LDRSH    R4,[R12, #+0]
+   \   000000C0   04408EE0           ADD      R4,LR,R4
+   \   000000C4   F2E0DCE1           LDRSH    LR,[R12, #+2]
+   \   000000C8   F4C0DCE1           LDRSH    R12,[R12, #+4]
+   \   000000CC   04408EE0           ADD      R4,LR,R4
+   \   000000D0   04C08CE0           ADD      R12,R12,R4
+   \   000000D4   CC40A0E1           ASR      R4,R12,#+1
+   \   000000D8   244F8CE0           ADD      R4,R12,R4, LSR #+30
+   \   000000DC   44C1A0E1           ASR      R12,R4,#+2
+    167            {
+    168               clor=((GetPix(x-1,y+2)+GetPix(x,y)+GetPix(x,y+2)+GetPix(x+1,y+2))/4);
+    169                  if (clor==GetPix(x,y)) clor=0;
+   \   000000E0   F040D3E1           LDRSH    R4,[R3, #+0]
+   \   000000E4   04005CE1           CMP      R12,R4
+   \   000000E8   0100000A           BEQ      ??OnRedraw_4
+    170                  if (clor<0) clor=0;
+   \   000000EC   00005CE3           CMP      R12,#+0
+   \   000000F0   0000005A           BPL      ??OnRedraw_5
+   \                     ??OnRedraw_4:
+   \   000000F4   00C0A0E3           MOV      R12,#+0
+   \                     ??OnRedraw_5:
+   \   000000F8   ........           LDR      R4,??DataTable8  ;; img
+    171                  SetPix(x,y,clor);
+   \   000000FC   000052E3           CMP      R2,#+0
+   \   00000100   10C084E5           STR      R12,[R4, #+16]
+   \   00000104   0700004A           BMI      ??OnRedraw_6
+   \   00000108   840052E3           CMP      R2,#+132
+   \   0000010C   050000AA           BGE      ??OnRedraw_6
+   \   00000110   010051E3           CMP      R1,#+1
+   \   00000114   030000BA           BLT      ??OnRedraw_6
+   \   00000118   B10051E3           CMP      R1,#+177
+   \   0000011C   010000AA           BGE      ??OnRedraw_6
+   \   00000120   00005CE3           CMP      R12,#+0
+   \   00000124   B0C0C351           STRHPL   R12,[R3, #+0]
+    172                }
+   \                     ??OnRedraw_6:
+   \   00000128   012082E2           ADD      R2,R2,#+1
+   \   0000012C   840052E3           CMP      R2,#+132
+   \   00000130   DAFFFF1A           BNE      ??OnRedraw_3
+    173            } 
+   \   00000134   011041E2           SUB      R1,R1,#+1
+   \   00000138   010051E3           CMP      R1,#+1
+   \   0000013C   D6FFFF1A           BNE      ??OnRedraw_2
+    174            
+    175            filtr ();
+   \   00000140   ........           BL       filtr
+    176            
+    177            
+    178            RECT rc;
+    179            DRWOBJ drwobj;
+    180            StoreXYWHtoRECT(&rc,0,0,img.w,img.h);
+   \   00000144   B200D4E1           LDRH     R0,[R4, #+2]
+   \   00000148   0020A0E3           MOV      R2,#+0
+   \   0000014C   0010A0E3           MOV      R1,#+0
+   \   00000150   01002DE9           PUSH     {R0}
+   \   00000154   B030D4E1           LDRH     R3,[R4, #+0]
+   \   00000158   04008DE2           ADD      R0,SP,#+4
+   \   0000015C   330100EF           SWI      +307
+    181            SetPropTo_Obj5(&drwobj,&rc,0,&img);
+   \   00000160   0430A0E1           MOV      R3,R4
+   \   00000164   0020A0E3           MOV      R2,#+0
+   \   00000168   04108DE2           ADD      R1,SP,#+4
+   \   0000016C   0C008DE2           ADD      R0,SP,#+12
+   \   00000170   510100EF           SWI      +337
+    182            DrawObject(&drwobj);
+   \   00000174   0C008DE2           ADD      R0,SP,#+12
+   \   00000178   2A0100EF           SWI      +298
+    183          }
+   \   0000017C   30D08DE2           ADD      SP,SP,#+48
+   \   00000180   1080BDE8           POP      {R4,PC}          ;; return
+
+   \                                 In segment CODE, align 4, keep-with-next
+    184          void onCreate(MAIN_GUI *data, void *(*malloc_adr)(int))
+    185          {
+   \                     onCreate:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    186            createpallet ();
+   \   00000008   ........           BL       createpallet
+    187            
+    188            Init();
+   \   0000000C   ........           _BLF     Init,??Init??rA
+    189            data->gui.state=1;
+    190            img.bpnum=8;
+    191            img.w=132;
+    192            img.h=176;
+    193            img.bitmap=(void*)screen2;
+    194            GBS_StartTimerProc(&timer,20,timer_proc);
+   \   00000010   ........           LDR      R2,??DataTable7  ;; timer_proc
+   \   00000014   0100A0E3           MOV      R0,#+1
+   \   00000018   0C00C4E5           STRB     R0,[R4, #+12]
+   \   0000001C   ........           LDR      R0,??DataTable8  ;; img
+   \   00000020   0810A0E3           MOV      R1,#+8
+   \   00000024   041080E5           STR      R1,[R0, #+4]
+   \   00000028   8410A0E3           MOV      R1,#+132
+   \   0000002C   B010C0E1           STRH     R1,[R0, #+0]
+   \   00000030   B010A0E3           MOV      R1,#+176
+   \   00000034   B210C0E1           STRH     R1,[R0, #+2]
+   \   00000038   ........           LDR      R1,??DataTable9  ;; screen2
+   \   0000003C   081080E5           STR      R1,[R0, #+8]
+   \   00000040   1410A0E3           MOV      R1,#+20
+   \   00000044   140080E2           ADD      R0,R0,#+20
+   \   00000048   4D0000EF           SWI      +77
+    195          }
+   \   0000004C   1080BDE8           POP      {R4,PC}          ;; return
+
+   \                                 In segment CODE, align 4, keep-with-next
+    196          void onClose(MAIN_GUI *data, void (*mfree_adr)(void *))
+    197          {
+   \                     onClose:
+   \   00000000   00402DE9           PUSH     {LR}
+    198            data->gui.state=0;
+   \   00000004   0010A0E3           MOV      R1,#+0
+   \   00000008   0C10C0E5           STRB     R1,[R0, #+12]
+    199            GBS_StopTimer(&timer);
+   \   0000000C   04009FE5           LDR      R0,??onClose_0   ;; img + 20
+   \   00000010   440100EF           SWI      +324
+    200          }
+   \   00000014   0080BDE8           POP      {PC}             ;; return
+   \                     ??onClose_0:
+   \   00000018   ........           DC32     img + 20
+
+   \                                 In segment CODE, align 4, keep-with-next
+    201          void onFocus(MAIN_GUI *data, void *(*malloc_adr)(int), void (*mfree_adr)(void *))
+    202          {
+   \                     onFocus:
+   \   00000000   00402DE9           PUSH     {LR}
+    203            data->gui.state=2;
+   \   00000004   0210A0E3           MOV      R1,#+2
+   \   00000008   0C10C0E5           STRB     R1,[R0, #+12]
+    204            DisableIDLETMR();
+   \   0000000C   7F0100EF           SWI      +383
+    205          }
+   \   00000010   0080BDE8           POP      {PC}             ;; return
+
+   \                                 In segment CODE, align 4, keep-with-next
+    206          void onUnfocus(MAIN_GUI *data, void (*mfree_adr)(void *))
+    207          {
+    208            if (data->gui.state!=2) return;
+   \                     onUnfocus:
+   \   00000000   0C10D0E5           LDRB     R1,[R0, #+12]
+   \   00000004   020051E3           CMP      R1,#+2
+    209            data->gui.state=1;
+   \   00000008   0110A003           MOVEQ    R1,#+1
+   \   0000000C   0C10C005           STRBEQ   R1,[R0, #+12]
+    210          }
+   \   00000010   1EFF2FE1           BX       LR               ;; return
+
+   \                                 In segment CODE, align 4, keep-with-next
+    211          int OnKey(MAIN_GUI *data, GUI_MSG *msg)
+    212          {
+    213            if (msg->gbsmsg->msg==KEY_DOWN)
+   \                     OnKey:
+   \   00000000   040091E5           LDR      R0,[R1, #+4]
+   \   00000004   9320A0E3           MOV      R2,#+147
+   \   00000008   041090E5           LDR      R1,[R0, #+4]
+   \   0000000C   402F82E3           ORR      R2,R2,#0x100
+   \   00000010   020051E1           CMP      R1,R2
+    214            {
+    215              switch(msg->gbsmsg->submess)
+   \   00000014   08009005           LDREQ    R0,[R0, #+8]
+   \   00000018   04005003           CMPEQ    R0,#+4
+    216              {
+    217              case  RIGHT_SOFT : return(1);
+   \   0000001C   0100A003           MOVEQ    R0,#+1
+   \   00000020   1EFF2F01           BXEQ     LR
+    218              }
+    219            }
+    220            return(0);
+   \   00000024   0000A0E3           MOV      R0,#+0
+   \   00000028   1EFF2FE1           BX       LR               ;; return
+    221          }
+    222          extern void kill_data(void *p, void (*func_p)(void *));
+
+   \                                 In segment CODE, align 4, keep-with-next
+    223          void onDestroy(MAIN_GUI *data, void (*mfree_adr)(void *))
+    224          {
+    225          kill_data(data,mfree_adr);
+   \                     onDestroy:
+   \   00000000   ........           _BF      kill_data,??kill_data??rA  ;; tailcall
+    226          }
+    227          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    228          int method8(void){return(0);}
+   \                     method8:
+   \   00000000   0000A0E3           MOV      R0,#+0
+   \   00000004   1EFF2FE1           BX       LR               ;; return
+
+   \                                 In segment CODE, align 4, keep-with-next
+    229          int method9(void){return(0);}
+   \                     method9:
+   \   00000000   0000A0E3           MOV      R0,#+0
+   \   00000004   1EFF2FE1           BX       LR               ;; return
+
+   \                                 In segment DATA_C, align 4, align-sorted
+    230          const void * const gui_methods[11]={
+   \                     gui_methods:
+   \   00000000   ............       DC32 OnRedraw, onCreate, onClose, onFocus, onUnfocus, OnKey, 0H
+   \              ............
+   \              ............
+   \              ............
+   \              00000000    
+   \   0000001C   ............       DC32 onDestroy, method8, method9, 0H
+   \              ............
+   \              00000000    
+    231            (void *)OnRedraw,	
+    232            (void *)onCreate,	
+    233            (void *)onClose,	
+    234            (void *)onFocus,	
+    235            (void *)onUnfocus,
+    236            (void *)OnKey,	
+    237            0,
+    238            #ifdef NEWSGOLD
+    239            (void *)onDestroy,
+    240            #else
+    241            (void *)kill_data,	
+    242            #endif
+    243            (void *)method8,
+    244            (void *)method9,
+    245            0
+    246          };
+    247          
+    248          const RECT Canvas={0,0,129,129};
+   \                     Canvas:
+   \   0000002C   000000008100       DC16 0, 0, 129, 129
+   \              8100        
+
+   \                                 In segment CODE, align 4, keep-with-next
+    249          void maincsm_oncreate(CSM_RAM *data)
+    250          {
+   \                     maincsm_oncreate:
+   \   00000000   30402DE9           PUSH     {R4,R5,LR}
+   \   00000004   0040A0E1           MOV      R4,R0
+    251            MAIN_GUI *main_gui=malloc(sizeof(MAIN_GUI));
+   \   00000008   4000A0E3           MOV      R0,#+64
+   \   0000000C   140000EF           SWI      +20
+   \   00000010   0050A0E1           MOV      R5,R0
+    252            MAIN_CSM*csm=(MAIN_CSM*)data;
+    253            zeromem(main_gui,sizeof(MAIN_GUI));
+   \   00000014   4010A0E3           MOV      R1,#+64
+   \   00000018   1D0100EF           SWI      +285
+    254            main_gui->gui.canvas=(void *)(&Canvas);
+   \   0000001C   40009FE5           LDR      R0,??maincsm_oncreate_0  ;; gui_methods
+   \   00000020   2C1080E2           ADD      R1,R0,#+44
+   \   00000024   001085E5           STR      R1,[R5, #+0]
+    255            main_gui->gui.flag30=2;
+   \   00000028   0210A0E3           MOV      R1,#+2
+   \   0000002C   301085E5           STR      R1,[R5, #+48]
+    256            main_gui->gui.methods=(void *)gui_methods;
+   \   00000030   040085E5           STR      R0,[R5, #+4]
+    257            main_gui->gui.item_ll.data_mfree=(void (*)(void *))mfree_adr();
+   \   00000034   158000EF           SWI      +32789
+   \   00000038   200085E5           STR      R0,[R5, #+32]
+    258            csm->csm.state=0;
+   \   0000003C   0000A0E3           MOV      R0,#+0
+   \   00000040   100084E5           STR      R0,[R4, #+16]
+    259            csm->csm.unk1=0;
+   \   00000044   140084E5           STR      R0,[R4, #+20]
+    260            csm->gui_id=CreateGUI(main_gui);
+   \   00000048   0500A0E1           MOV      R0,R5
+   \   0000004C   370100EF           SWI      +311
+   \   00000050   280084E5           STR      R0,[R4, #+40]
+    261            MAINGUI_ID=csm->gui_id;
+   \   00000054   0C009FE5           LDR      R0,??maincsm_oncreate_0+0x4  ;; MAINGUI_ID
+   \   00000058   281094E5           LDR      R1,[R4, #+40]
+   \   0000005C   001080E5           STR      R1,[R0, #+0]
+    262          }
+   \   00000060   3080BDE8           POP      {R4,R5,PC}       ;; return
+   \                     ??maincsm_oncreate_0:
+   \   00000064   ........           DC32     gui_methods
+   \   00000068   ........           DC32     MAINGUI_ID
+    263          
+
+   \                                 In segment CODE, align 4, keep-with-next
+    264          void ElfKiller(void)
+    265          {
+   \                     ElfKiller:
+   \   00000000   00402DE9           PUSH     {LR}
+    266            extern void kill_data(void *p, void (*func_p)(void *));
+    267            extern void *ELF_BEGIN;
+    268            kill_data(&ELF_BEGIN,(void (*)(void *))mfree_adr());
+   \   00000004   158000EF           SWI      +32789
+   \   00000008   0010A0E1           MOV      R1,R0
+   \   0000000C   04009FE5           LDR      R0,??ElfKiller_0  ;; ELF_BEGIN
+   \   00000010   0040BDE8           POP      {LR}             ;; Pop
+   \   00000014   ........           _BF      kill_data,??kill_data??rA  ;; tailcall
+   \                     ??ElfKiller_0:
+   \   00000018   ........           DC32     ELF_BEGIN
+    269          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+    270          void maincsm_onclose(CSM_RAM *csm)
+    271          {
+    272            SUBPROC((void *)ElfKiller);
+   \                     maincsm_onclose:
+   \   00000000   08009FE5           LDR      R0,??maincsm_onclose_0  ;; ElfKiller
+   \   00000004   00402DE9           PUSH     {LR}
+   \   00000008   710100EF           SWI      +369
+    273          }
+   \   0000000C   0080BDE8           POP      {PC}             ;; return
+   \                     ??maincsm_onclose_0:
+   \   00000010   ........           DC32     ElfKiller
+
+   \                                 In segment CODE, align 4, keep-with-next
+    274          int maincsm_onmessage(CSM_RAM *data, GBS_MSG *msg)
+    275          {
+    276            MAIN_CSM *csm=(MAIN_CSM*)data;
+    277            if ((msg->msg==MSG_GUI_DESTROYED)&&((int)msg->data0==csm->gui_id))
+   \                     maincsm_onmessage:
+   \   00000000   042091E5           LDR      R2,[R1, #+4]
+   \   00000004   0E30A0E3           MOV      R3,#+14
+   \   00000008   643C83E3           ORR      R3,R3,#0x6400
+   \   0000000C   030052E1           CMP      R2,R3
+   \   00000010   0400001A           BNE      ??maincsm_onmessage_0
+   \   00000014   0C1091E5           LDR      R1,[R1, #+12]
+   \   00000018   282090E5           LDR      R2,[R0, #+40]
+   \   0000001C   020051E1           CMP      R1,R2
+    278            {
+    279              csm->csm.state=-3;
+   \   00000020   0210E003           MVNEQ    R1,#+2
+   \   00000024   10108005           STREQ    R1,[R0, #+16]
+    280            }
+    281            return(1);
+   \                     ??maincsm_onmessage_0:
+   \   00000028   0100A0E3           MOV      R0,#+1
+   \   0000002C   1EFF2FE1           BX       LR               ;; return
+    282          }
+    283          const struct
+    284          {
+    285            CSM_DESC maincsm;
+    286            WSHDR maincsm_name;
+
+   \                                 In segment DATA_C, align 4, align-sorted
+   \                     `?<Constant "Flame">`:
+   \   00000000   466C616D6500       DC8 "Flame"
+   \   00000006   0000               DC8 0, 0
+    287          }MAINCSM =
+   \                     MAINCSM:
+   \   00000008   ............       DC32 maincsm_onmessage, maincsm_oncreate, 0, 0, 0, 0, maincsm_onclose
+   \              ....00000000
+   \              000000000000
+   \              000000000000
+   \              ........    
+   \   00000024   2C0000000100       DC32 44, 1, minus11, maincsm_name_body, 55AACCCCH, 3333AA55H, 0
+   \              0000........
+   \              ........CCCC
+   \              AA5555AA3333
+   \              00000000    
+   \   00000040   8B00               DC16 139
+   \   00000042   0000               DC8 0, 0
+    288          {
+    289            {
+    290            maincsm_onmessage,
+    291            maincsm_oncreate,
+    292          #ifdef NEWSGOLD
+    293            0,
+    294            0,
+    295            0,
+    296            0,
+    297          #endif
+    298            maincsm_onclose,
+    299            sizeof(MAIN_CSM),
+    300            1,
+    301            &minus11
+    302            },
+    303            {
+    304              maincsm_name_body,
+    305              NAMECSM_MAGIC1,
+    306              NAMECSM_MAGIC2,
+    307              0x0,
+    308              139
+    309            }
+    310          };
+
+   \                                 In segment CODE, align 4, keep-with-next
+    311          void UpdateCSMname(void)
+    312          {
+   \                     UpdateCSMname:
+   \   00000000   10402DE9           PUSH     {R4,LR}
+    313            WSHDR *ws=AllocWS(256);
+   \   00000004   400FA0E3           MOV      R0,#+256
+   \   00000008   250100EF           SWI      +293
+   \   0000000C   0040A0E1           MOV      R4,R0
+    314            wsprintf((WSHDR *)(&MAINCSM.maincsm_name),"Flame");
+   \   00000010   14009FE5           LDR      R0,??UpdateCSMname_0  ;; `?<Constant "Flame">`
+   \   00000014   0010A0E1           MOV      R1,R0
+   \   00000018   300080E2           ADD      R0,R0,#+48
+   \   0000001C   240100EF           SWI      +292
+    315            FreeWS(ws);
+   \   00000020   0400A0E1           MOV      R0,R4
+   \   00000024   290100EF           SWI      +297
+    316          }
+   \   00000028   1080BDE8           POP      {R4,PC}          ;; return
+   \                     ??UpdateCSMname_0:
+   \   0000002C   ........           DC32     `?<Constant "Flame">`
+
+   \                                 In segment CODE, align 4, keep-with-next
+    317          int main(char *exename, char *fname)
+    318          {
+    319            
+    320          
+    321            
+    322            
+    323            char dummy[sizeof(MAIN_CSM)];
+    324            MAINCSM_ID = CreateCSM(&MAINCSM.maincsm,dummy,0);
+   \                     main:
+   \   00000000   2C009FE5           LDR      R0,??main_0      ;; `?<Constant "Flame">` + 8
+   \   00000004   00402DE9           PUSH     {LR}
+   \   00000008   2CD04DE2           SUB      SP,SP,#+44
+   \   0000000C   0020A0E3           MOV      R2,#+0
+   \   00000010   0D10A0E1           MOV      R1,SP
+   \   00000014   070100EF           SWI      +263
+   \   00000018   18109FE5           LDR      R1,??main_0+0x4  ;; MAINCSM_ID
+   \   0000001C   000081E5           STR      R0,[R1, #+0]
+    325            UpdateCSMname();
+   \   00000020   ........           BL       UpdateCSMname
+    326            Randomize();
+   \   00000024   ........           BL       Randomize
+    327            return 0;
+   \   00000028   0000A0E3           MOV      R0,#+0
+   \   0000002C   2CD08DE2           ADD      SP,SP,#+44
+   \   00000030   0080BDE8           POP      {PC}             ;; return
+   \                     ??main_0:
+   \   00000034   ........           DC32     `?<Constant "Flame">` + 8
+   \   00000038   ........           DC32     MAINCSM_ID
+    328          }
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable3:
+   \   00000000   ........           DC32     randseed
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable5:
+   \   00000000   ........           DC32     screen
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable7:
+   \   00000000   ........           DC32     timer_proc
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable8:
+   \   00000000   ........           DC32     img
+
+   \                                 In segment CODE, align 4, keep-with-next
+   \                     ??DataTable9:
+   \   00000000   ........           DC32     screen2
+
+   Maximum stack usage in bytes:
+
+     Function          CSTACK
+     --------          ------
+     ElfKiller             4
+     Init                  0
+     OnKey                 0
+     OnRedraw             56
+     Randomize            20
+     UpdateCSMname         8
+     createpallet         12
+     filtr                 0
+     main                 48
+     maincsm_onclose       4
+     maincsm_oncreate     12
+     maincsm_onmessage     0
+     method8               0
+     method9               0
+     onClose               4
+     onCreate              8
+     onDestroy             4
+     onFocus               4
+     onUnfocus             0
+     randint               4
+     rgb2bitmap16          0
+     timer_proc            8
+
+
+   Segment part sizes:
+
+     Function/Label      Bytes
+     --------------      -----
+     minus11                 4
+     maincsm_name_body     280
+     MAINCSM_ID              4
+     MAINGUI_ID              4
+     t                       1
+     screen              46464
+     screen2             46464
+     Rc                   1040
+     rgb2bitmap16           24
+     createpallet          260
+     filtr                  68
+     randseed                4
+     randint                36
+     Randomize              44
+     timer_proc             48
+     Init                  128
+     img                    36
+     OnRedraw              388
+     onCreate               80
+     onClose                28
+     onFocus                20
+     onUnfocus              20
+     OnKey                  44
+     onDestroy               4
+     method8                 8
+     method9                 8
+     gui_methods            52
+     maincsm_oncreate      108
+     ElfKiller              28
+     maincsm_onclose        20
+     maincsm_onmessage      48
+     ?<Constant "Flame">    68
+     UpdateCSMname          48
+     main                   60
+     ??DataTable3            4
+     ??DataTable5            4
+     ??DataTable7            4
+     ??DataTable8            4
+     ??DataTable9            4
+      Others               132
+
+ 
+  1 660 bytes in segment CODE
+    124 bytes in segment DATA_C
+ 94 297 bytes in segment DATA_Z
+     12 bytes in segment INITTAB
+ 
+  1 412 bytes of CODE  memory (+ 260 bytes shared)
+    124 bytes of CONST memory
+ 94 297 bytes of DATA  memory
+
+Errors: none
+Warnings: none

@@ -1,0 +1,654 @@
+##############################################################################
+#                                                                            #
+# IAR ARM ANSI C/C++ Compiler V4.42A/W32 EVALUATION    05/Mar/2009  13:12:11 #
+# Copyright 1999-2005 IAR Systems. All rights reserved.                      #
+#                                                                            #
+#    Cpu mode        =  interwork                                            #
+#    Endian          =  little                                               #
+#    Stack alignment =  4                                                    #
+#    Source file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\string_works.cpp    #
+#    Command line    =  D:\pasha\elf\SieELF\MySMSYS\Mss3\string_works.cpp    #
+#                       -D NEWSGOLD -D ELKA -D LANG_EN -lcN                  #
+#                       D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_EN\Lis #
+#                       t\ -o D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_ #
+#                       EN\Obj\ -s9 --no_unroll --cpu_mode arm --endian      #
+#                       little --cpu ARM926EJ-S --stack_align 4 --interwork  #
+#                       -e --fpu None --eec++ --dlib_config                  #
+#                       "D:\pasha\Embedded Workbench 4.0                     #
+#                       Evaluation2\ARM\LIB\dl5tpainl8n.h" -I                #
+#                       "D:\pasha\Embedded Workbench 4.0                     #
+#                       Evaluation2\ARM\INC\" --inline_threshold=2           #
+#    List file       =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_EN\Lis #
+#                       t\string_works.lst                                   #
+#    Object file     =  D:\pasha\elf\SieELF\MySMSYS\Mss3\Release_ELKA_EN\Obj #
+#                       \string_works.r79                                    #
+#                                                                            #
+#                                                                            #
+##############################################################################
+
+D:\pasha\elf\SieELF\MySMSYS\Mss3\string_works.cpp
+      1          #include "..\..\inc\swilib.h"
+      2          #include "StrConst.h"
+      3          #include "string_works.h"
+      4          
+      5          
+      6          int char16to8(int c) //unicode2win1251
+      7          {
+      8            if (c<0x400) return (c);
+      9            c-=0x400;
+     10            if (c<16)
+     11            {
+     12              if (c==1) c=0;
+     13              else if (c==4) c=2;
+     14              else if (c==6) c=10;
+     15              else return (c);
+     16            }
+     17            else if (c>79)
+     18            {
+     19              if (c==0x51) c=16;
+     20              else if (c==0x54) c=18;
+     21              else if (c==0x56) c=11;
+     22              else if (c==0x57) c=23;
+     23              else return (c);
+     24            }
+     25            else c+=8;
+     26            c+=168;
+     27            return (c);
+     28          }
+     29          
+     30          #ifdef LANG_CN
+     31          
+     32          typedef struct _TUNICODE2ANSI
+     33          {
+     34            unsigned short u;
+     35            unsigned short a;
+     36          } TUNICODE2ANSI;
+     37          
+     38          const TUNICODE2ANSI u2a[]=
+     39          {
+     40            0x2014,'—',
+     41            0x2018,'‘',
+     42            0x201C,'“',
+     43            0x201D,'”',
+     44            0x2103,'℃',
+     45            0x3001,'、',
+     46            0x3002,'。',
+     47            0xFF01,'！',
+     48            0xFF08,'（',
+     49            0xFF09,'）',
+     50            0xFF0C,'，',
+     51            0xFF1A,'：',
+     52            0xFF1B,'；',
+     53            0xFF1F,'？',
+     54            0xFF5E,'～',
+     55            0xFFE5,'￥',
+     56            0,0
+     57          };
+     58          
+     59          int unicode2ansi(int c) //
+     60          {
+     61            int i;
+     62            const TUNICODE2ANSI *p=u2a;
+     63            if(c>=0x400 && c<0x1000)
+     64            {
+     65              int d;
+     66              c-=0x400;
+     67              c+=0xA791;
+     68              d=c>>8;
+     69              c=(c<<24)>>16;
+     70              return (c|d);
+     71            }
+     72            else
+     73            {
+     74              while((i=p->u))
+     75              {
+     76                if(c==i)
+     77          	return p->a;
+     78                p++;
+     79              }
+     80              return 0x2020;
+     81            }
+     82          }
+     83          #ifdef NEWSGOLD
+     84          #define CODEMAP_ADDR 0xA1568200  //-0xA157A24F
+     85          #else
+     86          #define CODEMAP_ADDR 0xA0FA0200
+     87          #endif
+     88          
+     89          inline void ws2ascii(WSHDR *ws, char *s, int maxlen)
+     90          {
+     91            unsigned short *codemap=(unsigned short *)(CODEMAP_ADDR+32004);
+     92            int i,j=0;
+     93            unsigned short temp;
+     94            for(i=1; i<=ws->wsbody[0]; i++)
+     95            {
+     96              temp=ws->wsbody[i];
+     97              if(temp < 256)
+     98                s[j++] = (unsigned char)temp;
+     99              else if(temp >= 0x4E00 && temp <= 0x9FA5)
+    100              {
+    101                s[j++] = (unsigned char)(codemap[temp-0x4E00]>>8);
+    102                s[j++] = (unsigned char)((codemap[temp-0x4E00]<<8)>>8);
+    103              }
+    104              else if(temp>=0x400)
+    105              {
+    106                temp=unicode2ansi(temp);
+    107                s[j++]=temp>>8;
+    108                s[j++]=(temp<<8)>>8;
+    109              }
+    110              else
+    111              {
+    112                s[j++]=' ';
+    113              }
+    114              if(maxlen != 0 && j >= maxlen)
+    115                break;
+    116            }
+    117            s[j] = 0;
+    118          }
+    119          
+    120          inline void ascii2ws(WSHDR *ws, const char *s, int maxlen)
+    121          {
+    122            unsigned short *codemap=(unsigned short *)(CODEMAP_ADDR);
+    123            char *p=(char *)s;
+    124            unsigned char uc,uc2;
+    125            //ws->wsbody[0] = 0;
+    126            CutWSTR(ws, 0);
+    127            while((uc=*p++) && (maxlen == 0 || p-s<=maxlen))
+    128            {
+    129              if(uc <= 128)
+    130              {
+    131                wsAppendChar(ws,uc);
+    132                if(uc=='\r' && *p=='\n')
+    133                {
+    134          	p++;
+    135                }
+    136              }
+    137              else
+    138              {
+    139                uc2=*p++;
+    140                if(uc2 < 128)
+    141                  wsAppendChar(ws, uc2);
+    142                else
+    143                  wsAppendChar(ws, codemap[(uc-129)*127+(uc2-128)]);
+    144              }
+    145            }
+    146          }
+    147          
+    148          #else
+    149          
+    150          const unsigned short win2unicode[128]=
+    151          {
+    152            0x0402,0x0403,0x201A,0x0453,0x201E,0x2026,0x2020,0x2021,
+    153            0x20AC,0x2030,0x0409,0x2039,0x040A,0x040C,0x040B,0x040F,
+    154            0x0452,0x2018,0x2019,0x201C,0x201D,0x2022,0x2013,0x2014,
+    155            0x0020,0x2122,0x0459,0x203A,0x045A,0x045C,0x045B,0x045F,
+    156            0x00A0,0x040E,0x045E,0x0408,0x00A4,0x0490,0x00A6,0x00A7,
+    157            0x0401,0x00A9,0x0404,0x00AB,0x00AC,0x00AD,0x00AE,0x0407,
+    158            0x00B0,0x00B1,0x0406,0x0456,0x0491,0x00B5,0x00B6,0x00B7,
+    159            0x0451,0x2116,0x0454,0x00BB,0x0458,0x0405,0x0455,0x0457,
+    160            0x0410,0x0411,0x0412,0x0413,0x0414,0x0415,0x0416,0x0417,
+    161            0x0418,0x0419,0x041A,0x041B,0x041C,0x041D,0x041E,0x041F,
+    162            0x0420,0x0421,0x0422,0x0423,0x0424,0x0425,0x0426,0x0427,
+    163            0x0428,0x0429,0x042A,0x042B,0x042C,0x042D,0x042E,0x042F,
+    164            0x0430,0x0431,0x0432,0x0433,0x0434,0x0435,0x0436,0x0437,
+    165            0x0438,0x0439,0x043A,0x043B,0x043C,0x043D,0x043E,0x043F,
+    166            0x0440,0x0441,0x0442,0x0443,0x0444,0x0445,0x0446,0x0447,
+    167            0x0448,0x0449,0x044A,0x044B,0x044C,0x044D,0x044E,0x044F
+    168          };
+    169          
+    170          unsigned int char8to16(int c)
+    171          {
+    172            if (c>=128)
+    173            {
+    174              return(win2unicode[c-128]);
+    175            }
+    176            return(c);
+    177          }
+    178          
+    179          #endif
+    180          void ws_2ascii(WSHDR *ws, char *str, int maxlen)
+    181          {
+    182          #ifdef LANG_CN
+    183            ws2ascii(ws, str, maxlen);
+    184          #else
+    185            unsigned short *p=ws->wsbody+1;
+    186            int i=0;
+    187            while((i<maxlen)&&(i<ws->wsbody[0]))
+    188            {
+    189              str[i]=char16to8(p[i]);
+    190              i++;
+    191            }
+    192            str[i]=0;
+    193          #endif
+    194          }
+    195          
+    196          void ascii_2ws(WSHDR *ws, const char *s, int maxlen)
+    197          {
+    198          #ifdef LANG_CN
+    199            ascii2ws(ws, s, maxlen);
+    200          #else
+    201            char c;
+    202            CutWSTR(ws,0);
+    203            while((c=*s++))
+    204            {
+    205              wsAppendChar(ws,char8to16(c));
+    206            }
+    207          #endif
+    208          }
+    209          
+    210          #define wslen(ARG) (ARG->wsbody[0])
+    211          
+    212          int wstrcmp_nocase(WSHDR *ws1, WSHDR *ws2)
+    213          {
+    214            int l1=wslen(ws1);
+    215            int l2=wslen(ws2);
+    216            int pos=1;
+    217            int cs, ds;
+    218            while((pos<=l1)&&(pos<=l2))
+    219            {
+    220              cs=ws1->wsbody[pos];
+    221              ds=ws2->wsbody[pos];
+    222              if(cs<0x1000 && ds<0x1000)
+    223              {
+    224          #ifndef LANG_CN
+    225              	cs=char16to8(cs);
+    226              	ds=char16to8(ds);
+    227          #endif
+    228              	if(cs&0x40) cs&=0xDF;
+    229              	if(ds&0x40) ds&=0xDF;
+    230              }
+    231              cs-=ds;
+    232              if (cs) return cs;
+    233              pos++;
+    234            }
+    235            return(l1-l2);
+    236          }
+    237          
+    238          int wstrncmp_nocase(WSHDR *ws1, WSHDR *ws2, int n)
+    239          {
+    240            int l1=wslen(ws1);
+    241            int l2=wslen(ws2);
+    242            int pos=1;
+    243            int cs, ds;
+    244            n++;
+    245            while((pos<=l1)&&(pos<=l2)&&(pos<=n))
+    246            {
+    247              cs=ws1->wsbody[pos];
+    248              ds=ws2->wsbody[pos];
+    249              if(cs<0x1000 && ds<0x1000)
+    250              {
+    251          #ifndef LANG_CN
+    252              	cs=char16to8(cs);
+    253              	ds=char16to8(ds);
+    254          #endif
+    255              	if(cs&0x40) cs&=0xDF;
+    256              	if(ds&0x40) ds&=0xDF;
+    257              }
+    258              cs-=ds;
+    259              if (cs) return cs;
+    260              pos++;
+    261            }
+    262            return 0;
+    263          }
+    264          
+    265          void wsInsert(WSHDR *ws, WSHDR *txt, int pos, int max) //start form 0;
+    266          {
+    267            unsigned short *st;
+    268            int cplen;
+    269            if((!ws)||(!txt)||(!wstrlen(txt)))
+    270              return;
+    271            if(pos>(ws->wsbody[0]))
+    272              return;
+    273            if((pos+(txt->wsbody[0]))>=max)
+    274            {
+    275              CutWSTR(ws, pos);
+    276              wstrncat(ws, txt, max-pos);
+    277              return;
+    278            }
+    279            if(ws->wsbody[0]+txt->wsbody[0] >= max)
+    280              cplen=max-(pos+txt->wsbody[0]);
+    281            else
+    282              cplen=ws->wsbody[0]-pos;
+    283            st=new unsigned short[cplen];//malloc(cplen*sizeof(unsigned short));
+    284            memcpy(st, ws->wsbody+pos+1, cplen*sizeof(unsigned short));
+    285            memcpy(ws->wsbody+pos+1, txt->wsbody+1, (txt->wsbody[0])*sizeof(unsigned short));
+    286            memcpy(ws->wsbody+1+pos+(txt->wsbody[0]), st, cplen*sizeof(unsigned short));
+    287            ws->wsbody[0]=pos+(txt->wsbody[0])+cplen;
+    288            mfree(st);
+    289          }
+    290          
+    291          int num_2ws(WSHDR *ws, const char *num, int maxlen)
+    292          {
+    293            int i=0, c;
+    294            const char *p=num;
+    295            unsigned short *ps;
+    296            int max2;
+    297            if(!ws) return 0;
+    298            ps=ws->wsbody+1;
+    299            CutWSTR(ws, 0);
+    300            if(!num || !maxlen)
+    301              return 0;
+    302            max2=(maxlen < ws->maxlen)?maxlen:ws->maxlen;
+    303            while(i<max2 && (c=*p++))
+    304            {
+    305              ps[i++]=c;
+    306            }
+    307            ps[i]=0;
+    308            return (ws->wsbody[0]=i);
+    309          }
+    310          
+    311          int ws_2num(WSHDR *ws, char *num, int maxlen)
+    312          {
+    313            int i=0, c;
+    314            int max2;
+    315            unsigned short *ps=ws->wsbody+1;
+    316            if( !ws || !num || !maxlen)
+    317              return 0;
+    318            max2=(ws->wsbody[0] < maxlen)?ws->wsbody[0]:maxlen;
+    319            while(i<max2 && (c=*ps++))
+    320            {
+    321              num[i++]=c;
+    322            }
+    323            num[i]=0;
+    324            return i;
+    325          }
+    326          /*
+    327          int str2int(const char *str)
+    328          {
+    329            int i, r=0, c, len, n;
+    330            if(!str || !(len=strlen(str)))
+    331              return 0;
+    332            if(len>10) len=10;
+    333            len--;
+    334            for(i=len;i>=0;i--)
+    335            {
+    336              c=str[i];
+    337              if(c<'0' || c>'9')
+    338                break;
+    339              n=len-i;
+    340              c-='0';
+    341              while(n)
+    342              {
+    343                c*=10;
+    344                n--;
+    345              }
+    346              r+=c;
+    347            }
+    348            return r;
+    349          }*/
+    350          
+    351          int str2int(const char *p)
+    352          {
+    353            int r=0;
+    354            int c;
+    355            if(!p)
+    356              return 0;
+    357            while((c=*p++))
+    358            {
+    359              if(c>'9' || c<'0')
+    360                break;
+    361              r=r*10+c-'0';
+    362            }
+    363            return r;
+    364          }
+    365          
+    366          #ifdef MM
+    367          char *GotoCurChar(unsigned char *p, int c)
+    368          {
+    369            int i;
+    370            while((i=*p++))
+    371            {
+    372              if(i==c) return p;
+    373            }
+    374            return 0;
+    375          }
+    376          
+    377          int IsHaveBigChar(unsigned char *p, int len)
+    378          {
+    379            int c;
+    380            unsigned char *pp=p;
+    381            while((pp-p<len) && (c=*p++))
+    382            {
+    383              if(c>0x80) return 1;
+    384            }
+    385            return 0;
+    386          }
+    387          
+    388          void NmlUtf8P_2SieUtf8P(char *utf8s)
+    389          {
+    390            char *p;
+    391            char *p1;
+    392            char *p2=utf8s;
+    393            while((p=GotoCurChar(p2, '\\')) || (p=GotoCurChar(p2, '/')))
+    394            {
+    395              if(*p==0x1F) continue;
+    396              if(!(p1=GotoCurChar(p, '\\')))
+    397              {
+    398                if(!(p1=GotoCurChar(p, '/')))
+    399          	 p1=p+strlen(p);
+    400              }
+    401              if(IsHaveBigChar(p, p1-p))
+    402              {
+    403                //后移
+    404                p1=p+strlen(p);
+    405                while(p1>p)
+    406                {
+    407          	*(p1+1)=*p1;
+    408          	p1--;
+    409                }
+    410                *p=0x1F;
+    411              }
+    412              p2=p;
+    413            }
+    414          }
+    415          
+    416          void SieUtf8P_2NmlUtf8P(char *s)
+    417          {
+    418            //直接清理掉0x1F就行
+    419            char *p=s;
+    420            int c;
+    421            char *p1;
+    422            while((c=*p))
+    423            {
+    424              if(c==0x1F)
+    425              {
+    426                p1=p;
+    427                while(*p1)
+    428                {
+    429          	*p1=*(p1+1);
+    430          	p1++;
+    431                }
+    432              }
+    433              p++;
+    434            }
+    435          }
+    436          #endif
+    437          int IsWsSmall(WSHDR *ws)
+    438          {
+    439            int i;
+    440            if(!ws) return 0;
+    441            for(i=0;i<ws->wsbody[0];i++)
+    442            {
+    443              if(ws->wsbody[i+1]>0x80) return 0;
+    444            }
+    445            return 1;
+    446          }
+    447          
+    448          int IsNum(WSHDR *num)
+    449          {
+    450            int i=0;
+    451            for(;i<num->wsbody[0];i++)
+    452            {
+    453              int c=num->wsbody[1+i];
+    454              if((c>'9'||c<'0')&&(c!='+'))
+    455                return 0;
+    456            }
+    457            return 1;
+    458          }
+    459          
+    460          int w_charcmp_nocase(unsigned short *t1, unsigned short *t2, int len)
+    461          {
+    462            int pos=0, cs, ds;
+    463            while(pos<len)
+    464            {
+    465              cs=t1[pos];
+    466              ds=t2[pos];
+    467              if(cs<0x1000 && ds<0x1000)
+    468              {
+    469          #ifndef LANG_CN
+    470              	cs=char16to8(cs);
+    471              	ds=char16to8(ds);
+    472          #endif
+    473                if(cs&0x40) cs&=0xDF;
+    474                if(ds&0x40) ds&=0xDF;
+    475              }
+    476              cs-=ds;
+    477              if(cs) return cs;
+    478              pos++;
+    479            }
+    480            return 0;
+    481          }
+    482          
+    483          unsigned short *wstrstr(WSHDR *wstr, WSHDR *ws)
+    484          {
+    485            int len, len2, i=0;
+    486            unsigned short *p, *p2;
+    487            if(!wstr || !ws || !(len=ws->wsbody[0])) return 0;
+    488            if((len2=wstr->wsbody[0])<len) return 0;
+    489            p=ws->wsbody+1;
+    490            p2=wstr->wsbody+1;
+    491            while(len2-i>=len)
+    492            {
+    493              if(!w_charcmp_nocase(p, p2+i, len))
+    494                return (p2+i);
+    495              i++;
+    496            }
+    497            return 0;
+    498          }
+    499          
+    500          int NumberMatch(const char *num1, const char *num2)
+    501          {
+    502            int len1, len2, lx;
+    503            const char *p1=num1;
+    504            const char *p2=num2;
+    505            if(!p1 || !p2)
+    506              return 0;
+    507            if(*p1=='+') p1++;
+    508            if(*p2=='+') p2++;
+    509            if(!(len1=strlen(p1)) || !(len2=strlen(p2)))
+    510              return 0;
+    511            if(len1>=len2)
+    512            {
+    513              lx=len1-len2;
+    514              p1+=lx;
+    515            }
+    516            else
+    517            {
+    518              lx=len2-len1;
+    519              p2+=lx;
+    520            }
+    521            if(lx>3)
+    522            {
+    523              if(!strncmp(num2, num_fetion, 5))
+    524              {
+    525                if(!strcmp(p1, p2)) return MATCH_FETION;
+    526              }
+    527              return MATCH_FAIL;
+    528            }
+    529            if(!strcmp(p1, p2)) return MATCH_NML;
+    530            return MATCH_FAIL;
+    531          }
+    532          
+    533          
+    534          void StrClearChr(char *str, int chr)
+    535          {
+    536            char *p=str;
+    537            char *t;
+    538            while(*p)
+    539            {
+    540              if(*p==chr)
+    541              {
+    542                t=p;
+    543                while(*t)
+    544                {
+    545          	*t=*(t+1);
+    546          	t++;
+    547                }
+    548              }
+    549              p++;
+    550            }
+    551          }
+    552          
+    553          
+    554          
+
+   Maximum stack usage in bytes:
+
+     Function                       CSTACK
+     --------                       ------
+     IsNum(WSHDR *)                     0
+     IsWsSmall(WSHDR *)                 0
+     NumberMatch(char const *, char const *)
+                                       20
+     StrClearChr(char *, int)           0
+     ascii_2ws(WSHDR *, char const *, int)
+                                       12
+     char16to8(int)                     0
+     char8to16(int)                     0
+     num_2ws(WSHDR *, char const *, int)
+                                       28
+     str2int(char const *)              0
+     w_charcmp_nocase(unsigned short *, unsigned short *, int)
+                                       28
+     wsInsert(WSHDR *, WSHDR *, int, int)
+                                       28
+     ws_2ascii(WSHDR *, char *, int)
+                                       24
+     ws_2num(WSHDR *, char *, int)      4
+     wstrcmp_nocase(WSHDR *, WSHDR *)
+                                       32
+     wstrncmp_nocase(WSHDR *, WSHDR *, int)
+                                       36
+     wstrstr(WSHDR *, WSHDR *)         28
+
+
+   Segment part sizes:
+
+     Function/Label                 Bytes
+     --------------                 -----
+     char16to8(int)                  140
+     win2unicode                     256
+     char8to16(int)                   32
+     ws_2ascii(WSHDR *, char *, int)
+                                      88
+     ascii_2ws(WSHDR *, char const *, int)
+                                      56
+     wstrcmp_nocase(WSHDR *, WSHDR *)
+                                     132
+     wstrncmp_nocase(WSHDR *, WSHDR *, int)
+                                     140
+     wsInsert(WSHDR *, WSHDR *, int, int)
+                                     292
+     num_2ws(WSHDR *, char const *, int)
+                                     148
+     ws_2num(WSHDR *, char *, int)   104
+     str2int(char const *)            64
+     IsWsSmall(WSHDR *)               68
+     IsNum(WSHDR *)                   76
+     w_charcmp_nocase(unsigned short *, unsigned short *, int)
+                                     124
+     wstrstr(WSHDR *, WSHDR *)       128
+     NumberMatch(char const *, char const *)
+                                     204
+     StrClearChr(char *, int)         76
+      Others                          76
+
+ 
+ 1 948 bytes in segment CODE
+   256 bytes in segment DATA_C
+ 
+ 1 872 bytes of CODE  memory (+ 76 bytes shared)
+   256 bytes of CONST memory
+
+Errors: none
+Warnings: none

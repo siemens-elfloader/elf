@@ -1,0 +1,523 @@
+
+//не используются пока (но нужны!)
+int state_load(int num,int onlytest)
+{
+	uint32	tmp32;
+	FILE*	file;
+	uint32	sig;
+	int i;
+	int		height, width;
+	char savename[255];
+	char str[80];
+	
+	GetStateFileName(num,savename);
+
+	file = fopen(savename, "rb");
+	if (file == NULL)
+	{
+		return -1;
+	}
+	
+	READ(&sig, 4);
+	if (sig != SIG)
+	{
+		fclose(file);
+		return -1;
+	}
+	
+	if (onlytest)
+	{
+		fclose(file);
+		return 0;
+	}
+
+	// gen.c stuff
+	READ(work_ram, 0x10000);
+	READ(zram, 0x2000);
+	READ(&zbusreq, 1);
+	READ(&zreset, 1);
+	READ(&zbusack, 1);
+	READ(&zirq, 1);
+	READ(&zbank, 4);
+
+	// io.c stuff
+	READ(io_reg, 0x10);
+	
+	// vdp.c stuff
+	READ(sat, 0x400);
+	READ(vram, 0x10000);
+	READ(cram, 0x80);
+	READ(vsram, 0x80);
+	READ(reg, 0x20);
+	READ(&addr, 2);
+	READ(&addr_latch, 2);
+	READ(&code, 1);
+	READ(&pending, 1);
+	READ(&buffer, 2);
+	READ(&status, 2);
+	READ(&ntab, 2);
+	READ(&ntbb, 2);
+	READ(&ntwb, 2);
+	READ(&satb, 2);
+	READ(&hscb, 2);
+	READ(&sat_base_mask, 2);
+	READ(&sat_addr_mask, 2);
+	READ(&border, 1);
+	READ(&playfield_shift, 1);
+	READ(&playfield_col_mask, 1);
+	READ(&playfield_row_mask, 2);
+	READ(&y_mask, 4);
+	READ(&hint_pending, 4);
+	READ(&vint_pending, 4);
+	//READ(&scanline,4);
+	READ(&counter, 4);
+	READ(&dma_fill, 4);
+	READ(&im2_flag, 4);
+	READ(&frame_end, 4);
+	READ(&v_counter, 4);
+	READ(&v_update, 4);
+	
+	// sound.c stuff
+	READ(fm_reg[0], 0x100);
+	READ(fm_reg[1], 0x100);
+	READ(fm_latch, 2);
+	READ(&fm_status, 2);
+	READ(&timer[0].running, sizeof(int));
+	READ(&timer[0].enable, sizeof(int));
+	READ(&timer[0].count, sizeof(int));
+	READ(&timer[0].base, sizeof(int));
+	READ(&timer[0].index, sizeof(int));
+	READ(&timer[1].running, sizeof(int));
+	READ(&timer[1].enable, sizeof(int));
+	READ(&timer[1].count, sizeof(int));
+	READ(&timer[1].base, sizeof(int));
+	READ(&timer[1].index, sizeof(int));
+	
+	// Window size
+	READ(&height, sizeof(int));
+	READ(&width, sizeof(int));
+	if (height != bitmap.viewport.h)
+	{
+		bitmap.viewport.oh = bitmap.viewport.h;
+		bitmap.viewport.h = height;
+		bitmap.viewport.changed = 1;
+	}
+	if (width != bitmap.viewport.w)
+	{
+		bitmap.viewport.ow = bitmap.viewport.w;
+		bitmap.viewport.w = width;
+		bitmap.viewport.changed = 1;
+	}
+
+	// 68000 CPU
+
+	if (use_cyclone)
+	{
+	READ(&tmp32, 4); CycloneCPU.d[0]=tmp32; //m68k_set_reg(M68K_REG_D0, tmp32);
+	READ(&tmp32, 4); CycloneCPU.d[1]=tmp32; //m68k_set_reg(M68K_REG_D1, tmp32);
+	READ(&tmp32, 4); CycloneCPU.d[2]=tmp32; //m68k_set_reg(M68K_REG_D2, tmp32);
+	READ(&tmp32, 4); CycloneCPU.d[3]=tmp32; //m68k_set_reg(M68K_REG_D3, tmp32);
+	READ(&tmp32, 4); CycloneCPU.d[4]=tmp32; //m68k_set_reg(M68K_REG_D4, tmp32);
+	READ(&tmp32, 4); CycloneCPU.d[5]=tmp32; //m68k_set_reg(M68K_REG_D5, tmp32);
+	READ(&tmp32, 4); CycloneCPU.d[6]=tmp32; //m68k_set_reg(M68K_REG_D6, tmp32);
+	READ(&tmp32, 4); CycloneCPU.d[7]=tmp32; //m68k_set_reg(M68K_REG_D7, tmp32);
+	READ(&tmp32, 4); CycloneCPU.a[0]=tmp32; //m68k_set_reg(M68K_REG_A0, tmp32);
+	READ(&tmp32, 4); CycloneCPU.a[1]=tmp32; //m68k_set_reg(M68K_REG_A1, tmp32);
+	READ(&tmp32, 4); CycloneCPU.a[2]=tmp32; //m68k_set_reg(M68K_REG_A2, tmp32);
+	READ(&tmp32, 4); CycloneCPU.a[3]=tmp32; //m68k_set_reg(M68K_REG_A3, tmp32);
+	READ(&tmp32, 4); CycloneCPU.a[4]=tmp32; //m68k_set_reg(M68K_REG_A4, tmp32);
+	READ(&tmp32, 4); CycloneCPU.a[5]=tmp32; //m68k_set_reg(M68K_REG_A5, tmp32);
+	READ(&tmp32, 4); CycloneCPU.a[6]=tmp32; //m68k_set_reg(M68K_REG_A6, tmp32);
+	READ(&tmp32, 4); CycloneCPU.a[7]=tmp32; //m68k_set_reg(M68K_REG_A7, tmp32);
+	READ(&tmp32, 4); CycloneCPU.pc=tmp32; //m68k_set_reg(M68K_REG_PC, tmp32);	
+	CycloneCPU.membase=0;
+        CycloneCPU.pc=CycloneCPU.checkpc(CycloneCPU.pc);
+
+//CPU_SR_MASK      = 0xa71f; /* T1 -- S  -- -- I2 I1 I0 -- -- -- X  N  Z  V  C  */
+//                                                               10 8  4  2  1
+
+//  unsigned char srh;   // [r7,#0x44] Status Register high (T_S__III)
+//  unsigned char xc;    // [r7,#0x45] Extend flag (____??X?)
+//  unsigned char flags; // [r7,#0x46] Flags (ARM order: ____NZCV) [68k order is XNZVC]
+
+   	READ(&tmp32, 1); //m68k_set_reg(M68K_REG_SR, tmp32);
+	//low sr : flags
+	CycloneCPU.xc = (tmp32&0x10)>>3;
+	CycloneCPU.flags = (tmp32&0xC)|((tmp32&0x1)<<1)|((tmp32&0x2)>>1);
+	//high sr : srh
+	READ(&tmp32, 1);
+	CycloneCPU.srh = tmp32;
+	}
+	else
+
+	{
+	READ(&tmp32, 4); m68k_set_reg(M68K_REG_D0, tmp32);
+	READ(&tmp32, 4); m68k_set_reg(M68K_REG_D1, tmp32);
+	READ(&tmp32, 4); m68k_set_reg(M68K_REG_D2, tmp32);
+	READ(&tmp32, 4); m68k_set_reg(M68K_REG_D3, tmp32);
+	READ(&tmp32, 4); m68k_set_reg(M68K_REG_D4, tmp32);
+	READ(&tmp32, 4); m68k_set_reg(M68K_REG_D5, tmp32);
+	READ(&tmp32, 4); m68k_set_reg(M68K_REG_D6, tmp32);
+	READ(&tmp32, 4); m68k_set_reg(M68K_REG_D7, tmp32);
+	READ(&tmp32, 4); m68k_set_reg(M68K_REG_A0, tmp32);
+	READ(&tmp32, 4); m68k_set_reg(M68K_REG_A1, tmp32);
+	READ(&tmp32, 4); m68k_set_reg(M68K_REG_A2, tmp32);
+	READ(&tmp32, 4); m68k_set_reg(M68K_REG_A3, tmp32);
+	READ(&tmp32, 4); m68k_set_reg(M68K_REG_A4, tmp32);
+	READ(&tmp32, 4); m68k_set_reg(M68K_REG_A5, tmp32);
+	READ(&tmp32, 4); m68k_set_reg(M68K_REG_A6, tmp32);
+	READ(&tmp32, 4); m68k_set_reg(M68K_REG_A7, tmp32);
+	READ(&tmp32, 4); m68k_set_reg(M68K_REG_PC, tmp32);	
+	READ(&tmp32, 2); m68k_set_reg(M68K_REG_SR, tmp32);
+	}
+
+
+	if (use_drz80) {
+/*
+  unsigned int Z80A;            // 0x00 - A Register:   0xAA------
+  unsigned int Z80F;            // 0x04 - F Register:   0x------FF
+  unsigned int Z80BC;           // 0x08 - BC Registers: 0xBBCC----
+  unsigned int Z80DE;           // 0x0C - DE Registers: 0xDDEE----
+  unsigned int Z80HL;           // 0x10 - HL Registers: 0xHHLL----
+  unsigned int Z80PC;           // 0x14 - PC Program Counter (Memory Base + PC)
+  unsigned int Z80PC_BASE;      // 0x18 - PC Program Counter (Memory Base)
+  unsigned int Z80SP;           // 0x1C - SP Stack Pointer (Memory Base + PC)
+  unsigned int Z80SP_BASE;      // 0x20 - SP Stack Pointer (Memory Base)
+  unsigned int Z80IX;           // 0x24 - IX Index Register
+  unsigned int Z80IY;           // 0x28 - IY Index Register
+  unsigned int Z80I;            // 0x2C - I Interrupt Register
+  unsigned int Z80A2;           // 0x30 - A' Register:    0xAA------
+  unsigned int Z80F2;           // 0x34 - F' Register:    0x------FF
+  unsigned int Z80BC2;          // 0x38 - B'C' Registers: 0xBBCC----
+  unsigned int Z80DE2;          // 0x3C - D'E' Registers: 0xDDEE----
+  unsigned int Z80HL2;          // 0x40 - H'L' Registers: 0xHHLL----
+  unsigned char Z80_IRQ;        // 0x44 - Set IRQ Number
+  unsigned char Z80IF;          // 0x45 - Interrupt Flags:  bit1=_IFF1, bit2=_IFF2, bit3=_HALT
+  unsigned char Z80IM;          // 0x46 - Set IRQ Mode
+*/
+	READ(&tmp32, 4); //z80_set_reg(Z80_PC, tmp32);
+	DrZ80CPU.Z80PC = DrZ80CPU.z80_rebasePC(tmp32);
+	READ(&tmp32, 4); //z80_set_reg(Z80_SP, tmp32);
+	DrZ80CPU.Z80SP = DrZ80CPU.z80_rebaseSP(tmp32);
+	READ(&tmp32, 4); //z80_set_reg(Z80_AF, tmp32);
+        DrZ80CPU.Z80A = (tmp32<<16)&0xFF000000;
+        DrZ80CPU.Z80F = tmp32&0x000000FF;
+	READ(&tmp32, 4); //z80_set_reg(Z80_BC, tmp32);
+	DrZ80CPU.Z80BC = (tmp32<<16);
+	READ(&tmp32, 4); //z80_set_reg(Z80_DE, tmp32);
+	DrZ80CPU.Z80DE = (tmp32<<16);
+	READ(&tmp32, 4); //z80_set_reg(Z80_HL, tmp32);
+	DrZ80CPU.Z80HL = (tmp32<<16);
+	READ(&tmp32, 4); //z80_set_reg(Z80_IX, tmp32);
+	DrZ80CPU.Z80IX = tmp32;
+	READ(&tmp32, 4); //z80_set_reg(Z80_IY, tmp32);
+	DrZ80CPU.Z80IY = tmp32;
+	READ(&tmp32, 4); //z80_set_reg(Z80_R, tmp32);
+	//Nothing?
+	READ(&tmp32, 4); //z80_set_reg(Z80_I, tmp32);
+	DrZ80CPU.Z80I = tmp32;
+	READ(&tmp32, 4); //z80_set_reg(Z80_AF2, tmp32);
+        DrZ80CPU.Z80A2 = (tmp32<<16)&0xFF000000;
+        DrZ80CPU.Z80F2 = tmp32&0x000000FF;
+	READ(&tmp32, 4); //z80_set_reg(Z80_BC2, tmp32);
+	DrZ80CPU.Z80BC2 = (tmp32<<16);
+	READ(&tmp32, 4); //z80_set_reg(Z80_DE2, tmp32);
+	DrZ80CPU.Z80DE2 = (tmp32<<16);
+	READ(&tmp32, 4); //z80_set_reg(Z80_HL2, tmp32);
+	DrZ80CPU.Z80HL2 = (tmp32<<16);
+	READ(&tmp32, 4); //z80_set_reg(Z80_IM, tmp32);
+        DrZ80CPU.Z80IM = tmp32;
+	READ(&tmp32, 4); //z80_set_reg(Z80_IFF1, tmp32);
+	if (tmp32) DrZ80CPU.Z80IF=1; else DrZ80CPU.Z80IF=0;
+	READ(&tmp32, 4); z80_set_reg(Z80_IFF2, tmp32);
+	if (tmp32) DrZ80CPU.Z80IF|=2; 
+	READ(&tmp32, 4); z80_set_reg(Z80_HALT, tmp32);
+	if (tmp32) DrZ80CPU.Z80IF|=4; 
+	READ(&tmp32, 4); //z80_set_reg(Z80_NMI_STATE, tmp32);
+	//Nothing?
+	READ(&tmp32, 4); //z80_set_reg(Z80_IRQ_STATE, tmp32);
+        DrZ80CPU.Z80_IRQ = tmp32;
+	READ(&tmp32, 4); 
+	READ(&tmp32, 4); 
+	READ(&tmp32, 4); 
+	READ(&tmp32, 4); 
+
+
+	} else {	
+	// MAME Z80 CPU
+	READ(&tmp32, 4); z80_set_reg(Z80_PC, tmp32);
+	READ(&tmp32, 4); z80_set_reg(Z80_SP, tmp32);
+	READ(&tmp32, 4); z80_set_reg(Z80_AF, tmp32);
+	READ(&tmp32, 4); z80_set_reg(Z80_BC, tmp32);
+	READ(&tmp32, 4); z80_set_reg(Z80_DE, tmp32);
+	READ(&tmp32, 4); z80_set_reg(Z80_HL, tmp32);
+	READ(&tmp32, 4); z80_set_reg(Z80_IX, tmp32);
+	READ(&tmp32, 4); z80_set_reg(Z80_IY, tmp32);
+	READ(&tmp32, 4); z80_set_reg(Z80_R, tmp32);
+	READ(&tmp32, 4); z80_set_reg(Z80_I, tmp32);
+	READ(&tmp32, 4); z80_set_reg(Z80_AF2, tmp32);
+	READ(&tmp32, 4); z80_set_reg(Z80_BC2, tmp32);
+	READ(&tmp32, 4); z80_set_reg(Z80_DE2, tmp32);
+	READ(&tmp32, 4); z80_set_reg(Z80_HL2, tmp32);
+	READ(&tmp32, 4); z80_set_reg(Z80_IM, tmp32);
+	READ(&tmp32, 4); z80_set_reg(Z80_IFF1, tmp32);
+	READ(&tmp32, 4); z80_set_reg(Z80_IFF2, tmp32);
+	READ(&tmp32, 4); z80_set_reg(Z80_HALT, tmp32);
+	READ(&tmp32, 4); z80_set_reg(Z80_NMI_STATE, tmp32);
+	READ(&tmp32, 4); z80_set_reg(Z80_IRQ_STATE, tmp32);
+	READ(&tmp32, 4); z80_set_reg(Z80_DC0, tmp32);
+	READ(&tmp32, 4); z80_set_reg(Z80_DC1, tmp32);
+	READ(&tmp32, 4); z80_set_reg(Z80_DC2, tmp32);
+	READ(&tmp32, 4); z80_set_reg(Z80_DC3, tmp32);
+	}
+	// Close it
+	CLOSE_STREAM(file);
+	
+	// Remake cache
+	/*make_bg_pattern_cache();
+	vdp_restore_colours();*/
+	for (i=0;i<0x800;i++) 
+    {
+	    bg_name_list[i]=i;
+	    bg_name_dirty[i]=0xFF;
+    }
+    bg_list_index=0x800;
+#define color_update color_update_16
+    {
+    	for(i = 0; i < 0x40; i += 1)
+        {
+        	color_update(i, *(uint16 *)&cram[i << 1]);                    
+        }
+        color_update(0x00, *(uint16 *)&cram[border << 1]);
+        color_update(0x40, *(uint16 *)&cram[border << 1]);
+        color_update(0x80, *(uint16 *)&cram[border << 1]);
+    }    					
+		
+	// Flush fm
+	//fm_flush();
+	
+	// Success
+        if (num!=0) {
+        sprintf(str,"Loaded from %s",savename);
+	AddMessage(str,40); }
+
+	return 0;
+}
+
+int state_save(int num)
+{
+	uint32	tmp32;
+	STREAM	file;
+	uint32	sig;	
+	char savename[255];
+	char str[80];
+	
+	GetStateFileName(num,savename);
+	
+	fprintf(stderr,"%s\n",savename);
+
+	file = OPEN_STREAM(savename, "w+b");
+	if (file == NULL)
+	{
+		return -1;
+	}
+	
+	fprintf(stderr,"Saving\n");
+
+	// Header
+	sig = SIG;
+	WRITE(&sig, 4);
+
+	// gen.c stuff
+	WRITE(work_ram, 0x10000);
+	WRITE(zram, 0x2000);
+	WRITE(&zbusreq, 1);
+	WRITE(&zreset, 1);
+	WRITE(&zbusack, 1);
+	WRITE(&zirq, 1);
+	WRITE(&zbank, 4);
+
+	// io.c stuff
+	WRITE(io_reg, 0x10);
+	
+	// vdp.c stuff
+	WRITE(sat, 0x400);
+	WRITE(vram, 0x10000);
+	WRITE(cram, 0x80);
+	WRITE(vsram, 0x80);
+	WRITE(reg, 0x20);
+	WRITE(&addr, 2);
+	WRITE(&addr_latch, 2);
+	WRITE(&code, 1);
+	WRITE(&pending, 1);
+	WRITE(&buffer, 2);
+	WRITE(&status, 2);
+	WRITE(&ntab, 2);
+	WRITE(&ntbb, 2);
+	WRITE(&ntwb, 2);
+	WRITE(&satb, 2);
+	WRITE(&hscb, 2);
+	WRITE(&sat_base_mask, 2);
+	WRITE(&sat_addr_mask, 2);
+	WRITE(&border, 1);
+	WRITE(&playfield_shift, 1);
+	WRITE(&playfield_col_mask, 1);
+	WRITE(&playfield_row_mask, 2);
+	WRITE(&y_mask, 4);
+	WRITE(&hint_pending, 4);
+	WRITE(&vint_pending, 4);
+	//WRITE(&scanline,4);
+	WRITE(&counter, 4);
+	WRITE(&dma_fill, 4);
+	WRITE(&im2_flag, 4);
+	WRITE(&frame_end, 4);
+	WRITE(&v_counter, 4);
+	WRITE(&v_update, 4);
+	
+	// sound.c stuff
+	WRITE(fm_reg[0], 0x100);
+	WRITE(fm_reg[1], 0x100);
+	WRITE(fm_latch, 2);
+	WRITE(&fm_status, 2);
+	WRITE(&timer[0].running, sizeof(int));
+	WRITE(&timer[0].enable, sizeof(int));
+	WRITE(&timer[0].count, sizeof(int));
+	WRITE(&timer[0].base, sizeof(int));
+	WRITE(&timer[0].index, sizeof(int));
+	WRITE(&timer[1].running, sizeof(int));
+	WRITE(&timer[1].enable, sizeof(int));
+	WRITE(&timer[1].count, sizeof(int));
+	WRITE(&timer[1].base, sizeof(int));
+	WRITE(&timer[1].index, sizeof(int));
+	
+	// Window size
+	WRITE(&bitmap.viewport.h, sizeof(int));
+	WRITE(&bitmap.viewport.w, sizeof(int));
+	
+	// 68000 CPU
+	if (use_cyclone)
+	{
+	tmp32 = CycloneCPU.d[0];/*m68k_get_reg(NULL, M68K_REG_D0);*/	WRITE(&tmp32, 4);
+	tmp32 = CycloneCPU.d[1];/*m68k_get_reg(NULL, M68K_REG_D1);*/	WRITE(&tmp32, 4);
+	tmp32 = CycloneCPU.d[2];/*m68k_get_reg(NULL, M68K_REG_D2);*/	WRITE(&tmp32, 4);
+	tmp32 = CycloneCPU.d[3];/*m68k_get_reg(NULL, M68K_REG_D3);*/	WRITE(&tmp32, 4);
+	tmp32 = CycloneCPU.d[4];/*m68k_get_reg(NULL, M68K_REG_D4);*/	WRITE(&tmp32, 4);
+	tmp32 = CycloneCPU.d[5];/*m68k_get_reg(NULL, M68K_REG_D5);*/	WRITE(&tmp32, 4);
+	tmp32 = CycloneCPU.d[6];/*m68k_get_reg(NULL, M68K_REG_D6);*/	WRITE(&tmp32, 4);
+	tmp32 = CycloneCPU.d[7];/*m68k_get_reg(NULL, M68K_REG_D7);*/	WRITE(&tmp32, 4);
+	tmp32 = CycloneCPU.a[0];/*m68k_get_reg(NULL, M68K_REG_A0);*/	WRITE(&tmp32, 4);
+	tmp32 = CycloneCPU.a[1];/*m68k_get_reg(NULL, M68K_REG_A1);*/	WRITE(&tmp32, 4);
+	tmp32 = CycloneCPU.a[2];/*m68k_get_reg(NULL, M68K_REG_A2);*/	WRITE(&tmp32, 4);
+	tmp32 = CycloneCPU.a[3];/*m68k_get_reg(NULL, M68K_REG_A3);*/	WRITE(&tmp32, 4);
+	tmp32 = CycloneCPU.a[4];/*m68k_get_reg(NULL, M68K_REG_A4);*/	WRITE(&tmp32, 4);
+	tmp32 = CycloneCPU.a[5];/*m68k_get_reg(NULL, M68K_REG_A5);*/	WRITE(&tmp32, 4);
+	tmp32 = CycloneCPU.a[6];/*m68k_get_reg(NULL, M68K_REG_A6);*/	WRITE(&tmp32, 4);
+	tmp32 = CycloneCPU.a[7];/*m68k_get_reg(NULL, M68K_REG_A7);*/	WRITE(&tmp32, 4);
+	/*tmp32 = m68k_get_reg(NULL, M68K_REG_PC);*/	
+
+	tmp32=CycloneCPU.pc-CycloneCPU.membase;
+	WRITE(&tmp32, 4);
+
+	//CPU_SR_MASK      = 0xa71f; /* T1 -- S  -- -- I2 I1 I0 -- -- -- X  N  Z  V  C  */
+	//                                                               10 8  4  2  1
+	
+	//  unsigned char srh;   // [r7,#0x44] Status Register high (T_S__III)
+	//  unsigned char xc;    // [r7,#0x45] Extend flag (____??X?)
+	//  unsigned char flags; // [r7,#0x46] Flags (ARM order: ____NZCV) [68k order is XNZVC]
+
+	//low sr : flags
+	tmp32=(CycloneCPU.flags&0xC)|((CycloneCPU.flags&0x1)<<1)|((CycloneCPU.flags&0x2)>>1);
+	tmp32|=(CycloneCPU.xc&0x2)<<3;	
+	WRITE(&tmp32, 1); //m68k_set_reg(M68K_REG_SR, tmp32);
+	//high sr : srh
+	tmp32=CycloneCPU.srh;
+	WRITE(&tmp32, 1);
+	
+	}
+	else
+
+	{
+	tmp32 =m68k_get_reg(NULL, M68K_REG_D0);	WRITE(&tmp32, 4);
+	tmp32 =	m68k_get_reg(NULL, M68K_REG_D1); 	WRITE(&tmp32, 4);
+	tmp32 =	m68k_get_reg(NULL, M68K_REG_D2);	WRITE(&tmp32, 4);
+	tmp32 =	m68k_get_reg(NULL, M68K_REG_D3);	WRITE(&tmp32, 4);
+	tmp32 =	m68k_get_reg(NULL, M68K_REG_D4);	WRITE(&tmp32, 4);
+	tmp32 =	m68k_get_reg(NULL, M68K_REG_D5);	WRITE(&tmp32, 4);
+	tmp32 =	m68k_get_reg(NULL, M68K_REG_D6);	WRITE(&tmp32, 4);
+	tmp32 =	m68k_get_reg(NULL, M68K_REG_D7);	WRITE(&tmp32, 4);
+	tmp32 =	m68k_get_reg(NULL, M68K_REG_A0);	WRITE(&tmp32, 4);
+	tmp32 =	m68k_get_reg(NULL, M68K_REG_A1);	WRITE(&tmp32, 4);
+	tmp32 =	m68k_get_reg(NULL, M68K_REG_A2);	WRITE(&tmp32, 4);
+	tmp32 =	m68k_get_reg(NULL, M68K_REG_A3);	WRITE(&tmp32, 4);
+	tmp32 =	m68k_get_reg(NULL, M68K_REG_A4);	WRITE(&tmp32, 4);
+	tmp32 =	m68k_get_reg(NULL, M68K_REG_A5);	WRITE(&tmp32, 4);
+	tmp32 =	m68k_get_reg(NULL, M68K_REG_A6);	WRITE(&tmp32, 4);
+	tmp32 =	m68k_get_reg(NULL, M68K_REG_A7);	WRITE(&tmp32, 4);		
+	tmp32 = m68k_get_reg(NULL, M68K_REG_PC);	WRITE(&tmp32, 4);
+	tmp32 = m68k_get_reg(NULL, M68K_REG_SR);	WRITE(&tmp32, 2); 
+	}
+  	
+	// Z80 CPU
+	if (use_drz80) {
+        tmp32 = DrZ80CPU.Z80PC - DrZ80CPU.Z80PC_BASE; /*z80_get_reg(Z80_PC);*/	WRITE(&tmp32, 4);
+	tmp32 = DrZ80CPU.Z80SP - DrZ80CPU.Z80SP_BASE; /*z80_get_reg(Z80_SP);*/	WRITE(&tmp32, 4);
+        tmp32 = ((DrZ80CPU.Z80A>>16)&0xFF00)|(DrZ80CPU.Z80F&0xFF); /*z80_get_reg(Z80_AF);*/	WRITE(&tmp32, 4);
+	tmp32 = (DrZ80CPU.Z80BC>>16); /*z80_get_reg(Z80_BC);*/			WRITE(&tmp32, 4);
+	tmp32 = (DrZ80CPU.Z80DE>>16); /*z80_get_reg(Z80_DE);*/			WRITE(&tmp32, 4);
+	tmp32 = (DrZ80CPU.Z80HL>>16); /*z80_get_reg(Z80_HL);*/			WRITE(&tmp32, 4);
+	tmp32 = DrZ80CPU.Z80IX; 	/*z80_get_reg(Z80_IX);*/			WRITE(&tmp32, 4);
+	tmp32 = DrZ80CPU.Z80IY; 	/*z80_get_reg(Z80_IY);*/			WRITE(&tmp32, 4);
+	tmp32 = 0;		/*z80_get_reg(Z80_R);*/				WRITE(&tmp32, 4);
+	tmp32 = DrZ80CPU.Z80I; 	/*z80_get_reg(Z80_I);*/			WRITE(&tmp32, 4);
+        tmp32 = ((DrZ80CPU.Z80A2>>16)&0xFF00)|(DrZ80CPU.Z80F2&0xFF); /*z80_get_reg(Z80_AF2);*/ WRITE(&tmp32, 4);
+	tmp32 = (DrZ80CPU.Z80BC2>>16); /*z80_get_reg(Z80_BC2);*/			WRITE(&tmp32, 4);
+	tmp32 = (DrZ80CPU.Z80DE2>>16); /*z80_get_reg(Z80_DE2);*/			WRITE(&tmp32, 4);
+	tmp32 = (DrZ80CPU.Z80HL2>>16); /*z80_get_reg(Z80_HL2);*/			WRITE(&tmp32, 4);
+	tmp32 = DrZ80CPU.Z80IM; 	/*z80_get_reg(Z80_IM);*/			WRITE(&tmp32, 4);
+	if (DrZ80CPU.Z80IF&1) tmp32 = 1; else tmp32 = 0;
+        									WRITE(&tmp32, 4);
+	if (DrZ80CPU.Z80IF&2) tmp32 = 1; else tmp32 = 0;
+        									WRITE(&tmp32, 4);
+	if (DrZ80CPU.Z80IF&4) tmp32 = 1; else tmp32 = 0;
+        									WRITE(&tmp32, 4);
+	tmp32 = 0; /*z80_get_reg(Z80_NMI_STATE);*/				WRITE(&tmp32, 4);
+	tmp32 = DrZ80CPU.Z80_IRQ; /*z80_get_reg(Z80_IRQ_STATE);*/		WRITE(&tmp32, 4);
+	tmp32 = 0;
+										WRITE(&tmp32, 4);
+										WRITE(&tmp32, 4);
+										WRITE(&tmp32, 4);
+										WRITE(&tmp32, 4);
+	} else {
+	tmp32 = z80_get_reg(Z80_PC);			WRITE(&tmp32, 4);
+	tmp32 = z80_get_reg(Z80_SP);			WRITE(&tmp32, 4);
+	tmp32 = z80_get_reg(Z80_AF);			WRITE(&tmp32, 4);
+	tmp32 = z80_get_reg(Z80_BC);			WRITE(&tmp32, 4);
+	tmp32 = z80_get_reg(Z80_DE);			WRITE(&tmp32, 4);
+	tmp32 = z80_get_reg(Z80_HL);			WRITE(&tmp32, 4);
+	tmp32 = z80_get_reg(Z80_IX);			WRITE(&tmp32, 4);
+	tmp32 = z80_get_reg(Z80_IY);			WRITE(&tmp32, 4);
+	tmp32 = z80_get_reg(Z80_R);			WRITE(&tmp32, 4);
+	tmp32 = z80_get_reg(Z80_I);			WRITE(&tmp32, 4);
+	tmp32 = z80_get_reg(Z80_AF2);			WRITE(&tmp32, 4);
+	tmp32 = z80_get_reg(Z80_BC2);			WRITE(&tmp32, 4);
+	tmp32 = z80_get_reg(Z80_DE2);			WRITE(&tmp32, 4);
+	tmp32 = z80_get_reg(Z80_HL2);			WRITE(&tmp32, 4);
+	tmp32 = z80_get_reg(Z80_IM);			WRITE(&tmp32, 4);
+	tmp32 = z80_get_reg(Z80_IFF1);			WRITE(&tmp32, 4);
+	tmp32 = z80_get_reg(Z80_IFF2);			WRITE(&tmp32, 4);
+	tmp32 = z80_get_reg(Z80_HALT);			WRITE(&tmp32, 4);
+	tmp32 = z80_get_reg(Z80_NMI_STATE);		WRITE(&tmp32, 4);
+	tmp32 = z80_get_reg(Z80_IRQ_STATE);		WRITE(&tmp32, 4);
+	tmp32 = z80_get_reg(Z80_DC0);			WRITE(&tmp32, 4);
+	tmp32 = z80_get_reg(Z80_DC1);			WRITE(&tmp32, 4);
+	tmp32 = z80_get_reg(Z80_DC2);			WRITE(&tmp32, 4);
+	tmp32 = z80_get_reg(Z80_DC3);			WRITE(&tmp32, 4);
+	}
+	// Close it
+	CLOSE_STREAM(file);
+        if (num!=0) {
+        sprintf(str,"Saved to %s",savename);
+	AddMessage(str,40); }
+
+	return 0;
+}

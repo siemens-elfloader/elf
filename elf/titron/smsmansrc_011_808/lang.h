@@ -1,0 +1,66 @@
+#ifndef _LANG
+  #define _LANG
+
+#ifdef ENG
+	const char LG_SEL_NUM[]="Select number",
+ LG_ANSWER[]="Answer",
+ LG_CREATE[]="Create new",
+ LG_NEW_SMS[]="New sms",
+ LG_NEW_IN[]="New SMS!",
+ LG_NONUM[]="No number",
+ LG_ADRBOOK[]="Adressbook",
+ LG_ADRBOOKD[]="Adressbook(%d)",
+ LG_EMPTY[]="Empty",
+ LG_CANSEL[]="Cancel",
+ LG_SEND[]="Send",
+ LG_SENDQ[]="Send?",
+ LG_LETTERS[]="letters",
+ LG_QUIT[]="Exit",
+ LG_ENT_NUM[] = "Input number!",
+ LG_ENT_TEXT[] = "Input message!",
+ LG_MESS[] = "Message",
+ LG_TO[] = "To:",
+ LG_FROM[] = "From:",
+ LG_INBOX[] = "Inbox",
+ LG_OUTBOX[] = "Outbox",
+ LG_INCOM[] = "Inbox",
+ LG_OUTCOM[] = "Outbox",
+ LG_DRAFT[] = "Draft",
+ LG_STATISTIC[] = "Statistics",
+ LG_SETTINGS[] = "Settings",
+ LG_OPEN_ERR[] = "error while open",
+ LG_TRANSLIT[] = "Translit";
+#endif
+
+#ifdef RUS
+	const char LG_SEL_NUM[]="Выбор номера",
+ LG_ANSWER[]="Ответ",
+ LG_CREATE[]="Создать",
+ LG_NEW_SMS[]="Новое смс",
+ LG_NEW_IN[]="Новое SMS!",
+ LG_NONUM[]="Нет номера",
+ LG_ADRBOOK[]="Адресная книга",
+ LG_ADRBOOKD[]="Адр. книга(%d)",
+ LG_EMPTY[]="Пусто",
+ LG_CANSEL[]="Отмена",
+ LG_SEND[]="Послать",
+ LG_SENDQ[]="Отправить?",
+ LG_LETTERS[]="знаков",
+ LG_QUIT[]="Выход",
+ LG_ENT_NUM[] = "Введите номер!",
+ LG_ENT_TEXT[] = "Введите сообщение!",
+ LG_MESS[] = "Сообщение",
+ LG_TO[] = "Кому:",
+ LG_FROM[] = "От:",
+ LG_INBOX[] = "Входящие",
+ LG_OUTBOX[] = "Исходящие",
+ LG_INCOM[] = "Входящее",
+ LG_OUTCOM[] = "Исходящее",
+ LG_DRAFT[] = "Черновик",
+ LG_STATISTIC[] = "Статистика",
+ LG_SETTINGS[] = "Настройки",
+ LG_OPEN_ERR[] = "ошибка открытия",
+ LG_TRANSLIT[] = "Транслит";
+#endif
+
+#endif //_LANG

@@ -1,0 +1,1 @@
+svn.exe info svn://svn.boba.su/ARM/BalletMini | ..\_SVN_Utility\getsvn.exe
